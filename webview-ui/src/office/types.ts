@@ -384,6 +384,8 @@ export interface Pet {
   rest?: PetRest | null;
   /** Social scene view, mirrored from the pet's stand-in actor (see petActors.ts). */
   social?: CharacterSocialView;
+  /** Id of that stand-in actor (cat pets only). */
+  actorId?: number;
 }
 
 export interface PetRest {

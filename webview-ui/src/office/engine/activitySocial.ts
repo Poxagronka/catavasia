@@ -130,11 +130,10 @@ export class ActivitySocial {
     const [sa, sb] = at === a ? pair : [pair[1], pair[0]];
     // Plain reservations (no contest roll): a third cat on a side means no play.
     const claims = host.claims;
-    if (!claims.spots.claim([sa.key], a.actor.id).ok) return null;
-    if (!claims.spots.claim([sb.key], b.actor.id).ok) {
-      claims.spots.releaseKey(sa.key, a.actor.id);
-      return null;
-    }
+    const free = (key: string, id: number) => claims.spots.isFree(key, id);
+    if (!free(sa.key, a.actor.id) || !free(sb.key, b.actor.id)) return null;
+    claims.spots.claim([sa.key], a.actor.id);
+    claims.spots.claim([sb.key], b.actor.id);
     host.stop(a);
     host.stop(b);
     claims.setJoint(a.actor.id, [sa.key]);

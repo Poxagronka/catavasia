@@ -370,6 +370,12 @@ export function renderScene(
   pets: Pet[] = [],
 ): void {
   const drawables: ZDrawable[] = [];
+  // Fur of a pet in a fight, by its stand-in actor id (the cloud's other cat).
+  const petFur = (id: number) => {
+    const pet = pets.find((p) => p.actorId === id);
+    const sprites = pet ? getPetSprites(pet.petType) : null;
+    return sprites ? dominantFur(sprites.idleDown[0]) : undefined;
+  };
 
   // Furniture
   for (const f of furniture) {
@@ -400,7 +406,7 @@ export function renderScene(
   // Characters
   for (const ch of characters) {
     if (isHiddenInRunThrough(ch)) continue; // inside the play tunnel
-    const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom);
+    const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom, undefined, petFur);
     if (cloud) drawables.push(cloud);
     // Asleep inside a cat house: only the ears or the tail show.
     const peek = ch.state === CharacterState.ACTIVITY ? ch.activity?.spot?.peek : undefined;
@@ -489,7 +495,8 @@ export function renderScene(
     if (!spriteData) continue;
     const fur = petSprites ? dominantFur(petSprites.idleDown[0]) : '';
     const cloud = pet.social?.cloud;
-    if (cloud) drawables.push(socialCloudDrawable(pet, characters, offsetX, offsetY, zoom, fur)!);
+    if (cloud)
+      drawables.push(socialCloudDrawable(pet, characters, offsetX, offsetY, zoom, fur, petFur)!);
     if (pet.social?.pose === 'hidden') continue; // inside the fight dust cloud
     if (pet.rest?.peek) {
       drawables.push(peekDrawable(pet.rest.peek, fur, offsetX, offsetY, zoom));

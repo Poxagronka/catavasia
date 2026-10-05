@@ -368,13 +368,15 @@ export class PetCareSystem {
       };
       return;
     }
-    r.keys = s.keys;
+    r.keys = [];
     if (s.goal === 'poop') {
+      r.keys = s.keys;
       this.startPoop(pet, s.uid);
       return;
     }
     const bowl = env.furniture.find((f) => f.uid === s.uid);
     if (!bowl) return;
+    r.keys = s.keys;
     pet.dir = faceTowards(pet, bowl.col, bowl.row);
     const kind = s.goal === 'eat' ? 'eat' : 'drink';
     this.pose(pet, kind, ANIM_SEC[kind], () => {

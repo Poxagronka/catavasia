@@ -79,6 +79,7 @@ export class SpotClaims {
     if (!self || !rival) return 'repick';
     const rivalResume = this.host.resumeOf(res.rival);
     const rivalKeys = this.spots.keysOf(res.rival, 'spot');
+    const contested = keys.filter((k) => this.spots.holderOf(k) === res.rival);
     // The dust cloud rides on the first cat: an agent when there is one.
     const [a, b] = isPetActorId(self.id) && !isPetActorId(rival.id) ? [rival, self] : [self, rival];
     const started = this.social.trySocialEncounter(a, b, {
@@ -87,7 +88,7 @@ export class SpotClaims {
     });
     if (!started) return 'repick';
     if (res.winner === selfId) {
-      this.spots.transfer(rivalKeys, res.rival, selfId);
+      this.spots.transfer(contested, res.rival, selfId);
       this.spots.claim(keys, selfId); // keys the rival did not hold
       this.prizes.set(selfId, { keys, resume });
     } else if (rivalResume) {

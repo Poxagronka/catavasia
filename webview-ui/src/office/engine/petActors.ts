@@ -33,6 +33,7 @@ export class PetActors {
       this.byPet.set(pet.id, a);
       this.petIdOf.set(a.id, pet.id);
       this.mirrorPet(pet, a, false);
+      pet.actorId = a.id;
     }
     return a;
   }

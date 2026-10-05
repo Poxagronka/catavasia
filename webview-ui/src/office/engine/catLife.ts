@@ -187,13 +187,18 @@ export class CatLife {
     return out;
   }
 
+  /** Pet actors in a scene at the start of this frame (to sync the one whose scene ends). */
+  private inSceneBefore = new Set<number>();
+
   /** Pets inside a scene: the scene moves the actor, the pet follows it. */
   beforeSocial(dt: number): void {
     const w = this.w;
     this.actors.prune(this.catPets());
+    this.inSceneBefore.clear();
     for (const pet of this.catPets()) {
       const a = this.actors.actorFor(pet);
       if (!w.social.isInScene(a.id)) continue;
+      this.inSceneBefore.add(a.id);
       a.isActive = w.petCare.menuPetId === pet.id; // the menu pulls it out
       updateCharacter(a, dt, w.walkableTiles, w.seats, w.tileMap, w.blockedTiles);
       this.actors.mirrorActor(a, pet);
@@ -206,6 +211,8 @@ export class CatLife {
     for (const pet of this.catPets()) {
       const a = this.actors.actorFor(pet);
       if (w.social.isInScene(a.id)) continue;
+      // The scene ended this frame: the pet takes the actor's final path first.
+      if (this.inSceneBefore.has(a.id)) this.actors.mirrorActor(a, pet);
       const claim = w.petCare.heldSpot(pet.id)?.arrived ? w.petCare.currentClaim(pet.id) : null;
       const busy = w.petCare.menuPetId === pet.id || (w.petCare.isBusy(pet.id) && !claim);
       this.actors.mirrorPet(pet, a, busy);
@@ -248,7 +255,7 @@ export class CatLife {
     const wants = new Map<number, SpotWant>();
     const seats: Array<[string, number]> = [];
     for (const ch of w.characters.values()) {
-      const spot = ch.activity?.spot;
+      const spot = ch.matrixEffect === 'despawn' ? undefined : ch.activity?.spot;
       if (spot) wants.set(ch.id, { keys: spotKeys(spot), arrived: ch.activity!.phase === 'doing' });
       const seat = ch.seatId ? w.seats.get(ch.seatId) : undefined;
       if (seat && ch.matrixEffect !== 'despawn') {

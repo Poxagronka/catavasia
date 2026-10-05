@@ -54,12 +54,15 @@ export function socialCloudDrawable(
   offsetY: number,
   zoom: number,
   fur?: string,
+  furOf?: (id: number) => string | undefined,
 ): { zY: number; draw: (c: CanvasRenderingContext2D) => void } | null {
   const cloud = ch.social?.cloud;
   if (!cloud) return null;
   const other = characters.find((c) => c.id === cloud.otherId);
   const furA = fur ?? getFurColor(ch.palette ?? 0, ch.hueShift ?? 0);
-  const furB = other ? getFurColor(other.palette, other.hueShift) : furA;
+  const furB = other
+    ? getFurColor(other.palette, other.hueShift)
+    : (furOf?.(cloud.otherId) ?? furA);
   const img = getCachedSprite(getCloudSprite(cloud.frame, furA, furB), zoom);
   const x = Math.round(offsetX + cloud.x * zoom - img.width / 2);
   const y = Math.round(offsetY + cloud.y * zoom - img.height);
