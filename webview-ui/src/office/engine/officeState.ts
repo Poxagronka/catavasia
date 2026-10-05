@@ -604,6 +604,7 @@ export class OfficeState {
   reassignSeat(agentId: number, seatId: string): void {
     const ch = this.characters.get(agentId);
     if (!ch) return;
+    ch.activity = null; // walking to the new seat ends any idle activity
     // Unassign old seat
     if (ch.seatId) {
       const old = this.seats.get(ch.seatId);
@@ -668,6 +669,7 @@ export class OfficeState {
   sendToSeat(agentId: number): void {
     const ch = this.characters.get(agentId);
     if (!ch || !ch.seatId) return;
+    ch.activity = null; // a command walk ends any idle activity
     const seat = this.seats.get(ch.seatId);
     if (!seat) return;
     const path = this.withOwnSeatUnblocked(ch, () =>
@@ -695,6 +697,7 @@ export class OfficeState {
   walkToTile(agentId: number, col: number, row: number): boolean {
     const ch = this.characters.get(agentId);
     if (!ch || ch.isSubagent) return false;
+    ch.activity = null; // a command walk ends any idle activity
     if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) {
       // Also allow walking to own seat tile (blocked for others but not self)
       const key = this.ownSeatKey(ch);

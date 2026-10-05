@@ -224,3 +224,19 @@ test('"waiting for input" stays through a nap and clears when the agent works ag
   os.setAgentActive(1, true);
   assert.equal(ch.bubbleType, null);
 });
+
+test('a right-click walk ends the activity, and the cat picks new ones later', () => {
+  const os = office();
+  const ch = idleCat(os, 1, 'chairA');
+  assert.ok(os.forceIdleActivity(1, 'sleep'));
+  runFor(os, 10);
+  assert.equal(ch.state, CharacterState.ACTIVITY);
+
+  assert.ok(os.walkToTile(1, 5, 3));
+  assert.equal(ch.activity, null, 'the sofa spot is free again');
+  runFor(os, 10);
+  assert.deepEqual([ch.tileCol, ch.tileRow], [5, 3]);
+  ch.lastActivityId = 'wander';
+  runFor(os, 30);
+  assert.ok(ch.activity || ch.lastActivityId !== 'wander', 'the FSM picks activities again');
+});
