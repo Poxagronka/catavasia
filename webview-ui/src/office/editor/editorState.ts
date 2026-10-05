@@ -105,6 +105,11 @@ export class EditorState {
     this.selectedFurnitureUid = null;
   }
 
+  /** Furniture tool with a catalog item picked. With none picked, the tool acts as select. */
+  isPlacingFurniture(): boolean {
+    return this.activeTool === EditTool.FURNITURE_PLACE && this.selectedFurnitureType !== '';
+  }
+
   clearGhost(): void {
     this.ghostCol = -1;
     this.ghostRow = -1;
