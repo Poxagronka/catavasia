@@ -23,7 +23,11 @@ import type {
 } from '../engine/renderer.js';
 import { renderFrame } from '../engine/renderer.js';
 import { getCatalogEntry, isRotatable } from '../layout/furnitureCatalog.js';
+import { hitTestCare } from '../petCare/petCareNav.js';
+import { decorateFurniture, renderPetCareOverlay } from '../petCare/petCareRender.js';
+import { isCatPet } from '../sprites/petSpriteData.js';
 import { EditTool, TILE_SIZE } from '../types.js';
+import { syncCanvasSize } from './canvasSize.js';
 import { computeNormalModeCursor } from './officeCanvasCursor.js';
 
 interface OfficeCanvasProps {
@@ -37,7 +41,6 @@ interface OfficeCanvasProps {
   onDeleteSelected: () => void;
   onRotateSelected: () => void;
   onDragMove: (uid: string, newCol: number, newRow: number) => void;
-  editorTick: number;
   zoom: number;
   onZoomChange: (zoom: number) => void;
   panRef: React.MutableRefObject<{ x: number; y: number }>;
@@ -58,7 +61,6 @@ export function OfficeCanvas({
   onDeleteSelected,
   onRotateSelected,
   onDragMove,
-  editorTick: _editorTick,
   zoom,
   onZoomChange,
   panRef,
@@ -105,12 +107,7 @@ export function OfficeCanvas({
     const container = containerRef.current;
     if (!canvas || !container) return;
     const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(rect.width * dpr);
-    canvas.height = Math.round(rect.height * dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    // No ctx.scale(dpr) — we render directly in device pixels
+    syncCanvasSize(canvas, rect.width, rect.height, window.devicePixelRatio || 1);
   }, []);
 
   useEffect(() => {
@@ -273,12 +270,19 @@ export function OfficeCanvas({
         };
 
         const layout = officeState.getLayout();
+        const careTime = performance.now() / 1000;
         const { offsetX, offsetY } = renderFrame(
           ctx,
           w,
           h,
           officeState.tileMap,
-          officeState.furniture,
+          decorateFurniture(
+            officeState.furniture,
+            layout.furniture,
+            officeState.petCare,
+            officeState.pets,
+            careTime,
+          ),
           officeState.getCharacters(),
           zoom,
           panRef.current.x,
@@ -294,6 +298,16 @@ export function OfficeCanvas({
           showAreas,
           activeAreaLabel,
           officeState.pets,
+        );
+        renderPetCareOverlay(
+          ctx,
+          officeState.petCare,
+          officeState.pets,
+          layout.furniture,
+          offsetX,
+          offsetY,
+          zoom,
+          careTime,
         );
         offsetRef.current = { x: offsetX, y: offsetY };
 
@@ -312,7 +326,6 @@ export function OfficeCanvas({
     resizeCanvas,
     isEditMode,
     editorState,
-    _editorTick,
     zoom,
     panRef,
     showAreas,
@@ -717,6 +730,11 @@ export function OfficeCanvas({
     [editorState, isEditMode, officeState, onDragMove, onEditorSelectionChange],
   );
 
+  // The care menu belongs to play mode: entering the editor closes it.
+  useEffect(() => {
+    if (isEditMode) officeState.petCare.closeMenu();
+  }, [isEditMode, officeState]);
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (isEditMode) return; // handled by mouseDown/mouseUp
@@ -739,17 +757,39 @@ export function OfficeCanvas({
         return;
       }
 
-      // Pet hit: toggle the heart bubble.
+      // Pet hit: a cat opens (or closes) its care menu; other pets toggle the heart bubble.
       const petId = officeState.getPetAt(pos.worldX, pos.worldY);
+      const care = officeState.petCare;
       if (petId !== null) {
         const pet = officeState.pets.find((p) => p.id === petId);
-        if (pet?.bubbleType) {
+        if (pet && isCatPet(pet.petType)) {
+          if (care.menuPetId === petId) care.closeMenu();
+          else care.openMenu(pet);
+        } else if (pet?.bubbleType) {
           officeState.dismissPetBubble(petId);
         } else {
           officeState.showPetBubble(petId);
         }
         return;
       }
+
+      if (care.menuPetId !== null) {
+        care.closeMenu();
+        return;
+      }
+      // Bowl click refills it; a litter box or floor poop click cleans it.
+      const careHit = hitTestCare(
+        pos.worldX,
+        pos.worldY,
+        officeState.getLayout().furniture,
+        care.world,
+      );
+      if (careHit?.kind === 'bowl') {
+        care.refillBowl(careHit.item);
+        return;
+      }
+      if (careHit?.kind === 'box' && care.cleanBox(careHit.item)) return;
+      if (careHit?.kind === 'poop' && care.cleanFloorPoop(careHit.id)) return;
 
       // No agent hit — check seat click while agent is selected
       if (officeState.selectedAgentId !== null) {

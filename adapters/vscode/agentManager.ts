@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import type { StateAdapter } from '../../core/src/adapter.js';
+import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import { resendAgentActivity } from '../../server/src/agentActivityResend.js';
 import { AgentStateStore } from '../../server/src/agentStateStore.js';
 import { DEFAULT_MAX_CONTEXT_TOKENS, JSONL_POLL_INTERVAL_MS } from '../../server/src/constants.js';
@@ -15,6 +16,7 @@ import {
 } from '../../server/src/fileWatcher.js';
 import { loadLayout } from '../../server/src/layoutPersistence.js';
 import { assignPaletteIfNeeded } from '../../server/src/paletteAssigner.js';
+import { readPetCareState } from '../../server/src/petCarePersistence.js';
 import { CLAUDE_TERMINAL_NAME_PREFIX } from '../../server/src/providers/hook/claude/constants.js';
 import { claudeProvider } from '../../server/src/providers/index.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from '../../server/src/timerManager.js';
@@ -340,6 +342,7 @@ export function restoreAgents(
     // state re-materialized by the 1s scan — never restored directly (also
     // skips stale entries written by older builds that persisted them).
     if (p.leadAgentId !== undefined && !p.teamName) continue;
+    if (p.leadAgentId !== undefined && !SUBAGENT_CHARACTERS_ENABLED) continue;
 
     let terminal: vscode.Terminal | undefined;
     const isExternal = p.isExternal ?? false;
@@ -582,4 +585,6 @@ export function sendLayout(
     layout: result?.layout ?? null,
     wasReset: result?.wasReset ?? false,
   });
+  // Pet care needs the pets, so it follows the layout that spawns them.
+  webview.postMessage({ type: 'petCareLoaded', state: readPetCareState() });
 }

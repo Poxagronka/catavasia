@@ -104,6 +104,8 @@ components:
         - $ref: '#/components/schemas/AgentContextUsage'
         # Layout
         - $ref: '#/components/schemas/LayoutLoaded'
+        # Pet care
+        - $ref: '#/components/schemas/PetCareLoaded'
         # Assets
         - $ref: '#/components/schemas/FurnitureAssetsLoaded'
         - $ref: '#/components/schemas/CharacterSpritesLoaded'
@@ -130,6 +132,7 @@ components:
         - $ref: '#/components/schemas/CloseAgent'
         - $ref: '#/components/schemas/SaveAgentSeats'
         - $ref: '#/components/schemas/SaveLayout'
+        - $ref: '#/components/schemas/SavePetCare'
         - $ref: '#/components/schemas/SetSoundEnabled'
         - $ref: '#/components/schemas/SetLastSeenVersion'
         - $ref: '#/components/schemas/SetAlwaysShowLabels'
@@ -481,6 +484,23 @@ components:
         wasReset:
           type: boolean
 
+    PetCareLoaded:
+      description: |
+        Persisted pet-care state (needs, bowls, litter, floor poops) from
+        ~/.pixel-agents/pets-state.json, sent once after webviewReady.
+        `null` when nothing is saved yet.
+      type: object
+      additionalProperties: false
+      required: [type, state]
+      properties:
+        type:
+          const: petCareLoaded
+        state:
+          oneOf:
+            - type: object
+              description: Opaque pet-care snapshot; format owned by the webview pet-care module.
+            - type: 'null'
+
     FurnitureAssetsLoaded:
       description: Furniture catalog and sprite data, sent once after webviewReady.
       type: object
@@ -532,6 +552,11 @@ components:
         petNames:
           type: array
           description: Display names parallel-indexed to `pets` (sourced from each pet's manifest.json).
+          items:
+            type: string
+        petSpecies:
+          type: array
+          description: Species parallel-indexed to `pets` (manifest `species`, e.g. "cat"; empty string when unset). Cats get the pet-care needs.
           items:
             type: string
 
@@ -875,6 +900,18 @@ components:
         layout:
           type: object
           description: Opaque layout object; format owned by the rendering layer.
+
+    SavePetCare:
+      description: Save the pet-care snapshot to ~/.pixel-agents/pets-state.json.
+      type: object
+      additionalProperties: false
+      required: [type, state]
+      properties:
+        type:
+          const: savePetCare
+        state:
+          type: object
+          description: Opaque pet-care snapshot; format owned by the webview pet-care module.
 
     SetSoundEnabled:
       type: object

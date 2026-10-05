@@ -56,4 +56,6 @@ export interface PetSpriteFrames {
 export interface PetManifest {
   id: string;
   name: string;
+  /** Optional species tag (e.g. "cat", "dog"). Cats get the pet-care needs. */
+  species?: string;
 }

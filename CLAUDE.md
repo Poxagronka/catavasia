@@ -335,6 +335,7 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
   layout.json              OfficeLayout (shared across surfaces)
   server.json              { port, pid, authToken }
   tasks.json               Task board tasks (all standalone servers)
+  pets-state.json          Pet care: cat needs, bowl levels, litter boxes, floor poops (both surfaces)
   worktrees/<taskId>/      Git worktree of a running task (removed on finish)
   hooks/claude-hook.js     Bundled hook script (CJS, shebang)
 ```
@@ -399,7 +400,11 @@ Custom ESLint rules (`eslint-rules/pixel-agents-rules.mjs`) enforce: `no-inline-
 
 **Speech bubbles**: Permission ("..." amber dots) stays until clicked/cleared. Waiting (green checkmark) auto-fades 2 s. Sprites in `spriteData.ts`.
 
+**Cat social scenes** (`engine/catSocial.ts`, API documented at the top): idle cats near each other talk in pictogram bubbles, play chase, or (about 1 in 15) fight in a dust cloud. `CatSocial.update` runs after the FSM in `OfficeState.update`. A cat whose agent gets work leaves the scene at once. Social bubbles yield to permission / waiting bubbles. Tunables are the `SOCIAL_*` constants. Art (angry / talk frames per breed + shared overlays) is generated into `sprites/cat-social.json` by `scripts/cats/social.mjs`: edit the generator, not the JSON.
+
 **Sound notifications**: Ascending two-note chime (E5 → E6) via Web Audio API plays when waiting bubble appears (`agentStatus: 'waiting'`). `notificationSound.ts` manages AudioContext lifecycle; `unlockAudio()` on canvas mousedown resumes the context (webviews start suspended). Toggled via Settings modal. Persisted per-namespace in `~/.pixel-agents/config.json`.
+
+**Pet care (tamagotchi)**: pets whose manifest says `"species": "cat"` (Gitcat today) get five needs (hunger, thirst, affection, fun, hygiene; 100 = content) that decay in office time. `office/petCare/` holds it: `petNeeds.ts` (decay, mood, requests, offline catch-up), `petCareWorld.ts` (pure data + snapshot), `petCareSystem.ts` (runtime: seek bowl/litter, care poses, meows, radial-menu actions; documents the activity-provider seam for idle/social systems at its top), `petCareRender.ts` (fill-state furniture swap + overlays). Furniture `PET_BOWL` and `LITTER_BOX` (walkable via `backgroundTiles`); clicking them refills / cleans. Clicking a cat opens `components/PetRadialMenu.tsx`. Care poses are derived from each cat's own sheet (`sprites/petCareFrames.ts`); the rest of the art comes from `node scripts/generate-pet-care-sprites.mjs` (edit `scripts/petCare/art.mjs`). Persisted via `savePetCare` / `petCareLoaded` to `~/.pixel-agents/pets-state.json`; closed-office time decays at 10 %, capped at 2 h. Debug: `?petSpeed=600` speeds needs up.
 
 **Seats**: Derived from chair furniture. `layoutToSeats()` creates a seat at every footprint tile of every chair. Multi-tile chairs produce multiple seats keyed `uid` / `uid:1` / `uid:2`. Facing direction priority: 1) chair `orientation` from catalog (front→DOWN, back→UP, left→LEFT, right→RIGHT), 2) adjacent desk direction, 3) forward (DOWN). Click character → select (white outline) → click available seat → reassign.
 
