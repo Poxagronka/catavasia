@@ -4,6 +4,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StateAdapter } from '../../core/src/adapter.js';
+import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import { AgentRuntime } from '../src/agentRuntime.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import {
@@ -24,6 +25,8 @@ import {
 import type { AgentState } from '../src/types.js';
 
 const LEAD_SESSION = 'lead-session-1';
+/** Named spawns become teammate characters only while those are enabled. */
+const itTm = it.skipIf(!SUBAGENT_CHARACTERS_ENABLED);
 const SPAWN_TOOL_ID = 'toolu_01LMvN98KN4sn1fmvftm7vhk';
 const SUB_TOOL_ID = 'toolu_sub_01';
 
@@ -493,7 +496,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
 
   // ── Named spawn = Teammate ──────────────────────────────────────────
 
-  it('creates a teammate named from the sidecar name and badges the lead', () => {
+  itTm('creates a teammate named from the sidecar name and badges the lead', () => {
     const jsonlPath = seedSidecar({ name: 'ghost-writer' });
     spawnAndLaunch();
 
@@ -517,7 +520,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     expect(watch.isWatching(jsonlPath)).toBe(false);
   });
 
-  it('does not create a second teammate when the sidecar path is spelled differently', () => {
+  itTm('does not create a second teammate when the sidecar path is spelled differently', () => {
     // Windows only: the same transcript reaches the runtime spelled two ways
     // (hooks carry Claude's `process.cwd()` casing, scanners build from
     // Uri.fsPath's lowercased drive letter). An exact-string already-tracked
@@ -549,36 +552,39 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     }
   });
 
-  it('does not re-send the spawn tool at turn end for a named teammate (no ghost Subtask)', () => {
-    seedSidecar({ name: 'ghost-writer' });
-    spawnAndLaunch();
-    // Add a foreground tool so the turn_duration cleanup branch runs.
-    processTranscriptLine(
-      1,
-      JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [{ type: 'tool_use', id: 'toolu_fg', name: 'Bash', input: { command: 'ls' } }],
-        },
-      }),
-      agents,
-      waitingTimers,
-      permissionTimers,
-    );
-    messages.length = 0;
-    processTranscriptLine(
-      1,
-      JSON.stringify({ type: 'system', subtype: 'turn_duration' }),
-      agents,
-      waitingTimers,
-      permissionTimers,
-    );
-    expect(messages.some((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID)).toBe(
-      false,
-    );
-  });
+  itTm(
+    'does not re-send the spawn tool at turn end for a named teammate (no ghost Subtask)',
+    () => {
+      seedSidecar({ name: 'ghost-writer' });
+      spawnAndLaunch();
+      // Add a foreground tool so the turn_duration cleanup branch runs.
+      processTranscriptLine(
+        1,
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            content: [{ type: 'tool_use', id: 'toolu_fg', name: 'Bash', input: { command: 'ls' } }],
+          },
+        }),
+        agents,
+        waitingTimers,
+        permissionTimers,
+      );
+      messages.length = 0;
+      processTranscriptLine(
+        1,
+        JSON.stringify({ type: 'system', subtype: 'turn_duration' }),
+        agents,
+        waitingTimers,
+        permissionTimers,
+      );
+      expect(messages.some((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID)).toBe(
+        false,
+      );
+    },
+  );
 
-  it('does not re-send the spawn tool on a new user prompt once a teammate exists', () => {
+  itTm('does not re-send the spawn tool on a new user prompt once a teammate exists', () => {
     seedSidecar({ name: 'ghost-writer' });
     spawnAndLaunch();
     messages.length = 0;
@@ -594,7 +600,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     );
   });
 
-  it('removes the teammate when the completion queue-operation lands', () => {
+  itTm('removes the teammate when the completion queue-operation lands', () => {
     seedSidecar({ name: 'ghost-writer' });
     spawnAndLaunch();
     expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(true);

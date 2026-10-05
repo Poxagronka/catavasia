@@ -27,6 +27,7 @@ import type * as vscode from 'vscode';
 
 const debug = process.env.PIXEL_AGENTS_DEBUG !== '0';
 
+import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import type { HookProvider } from '../../core/src/provider.js';
 import type { TeamProvider } from '../../core/src/teamProvider.js';
 import type { ITerminalAdapter } from '../../core/src/terminalAdapter.js';
@@ -643,7 +644,7 @@ export function scanForTeammateFiles(
   persistAgents: () => void,
   onAgentCreated?: (agent: AgentState) => void,
 ): void {
-  if (!teamProvider) return;
+  if (!teamProvider || !SUBAGENT_CHARACTERS_ENABLED) return;
   const parentAgent = agents.get(parentAgentId);
   // teamName lets the provider also find new-style teammates: independent
   // top-level sessions tagged with the team, not files under the lead's dir.
@@ -861,7 +862,7 @@ export function scanForBackgroundAgentFiles(
     // work whatever the sidecar says: watch them, never seat them.
     const isForeground = !lead.backgroundAgentToolIds.has(entry.toolUseId);
 
-    if (!entry.name || isForeground) {
+    if (!entry.name || isForeground || !SUBAGENT_CHARACTERS_ENABLED) {
       // Unnamed spawn = Sub-agent: keep the Subtask character, watch the
       // transcript in the shadow store for live activity. No agentCreated, no
       // subagentClear, no persistence.
