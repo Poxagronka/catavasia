@@ -24,7 +24,9 @@ import {
   layoutToTileMap,
 } from '../layout/layoutSerializer.js';
 import { findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
-import { getPetCount, getPetName } from '../sprites/petSpriteData.js';
+import type { PetCareEnv } from '../petCare/petCareNav.js';
+import { PetCareSystem } from '../petCare/petCareSystem.js';
+import { getPetCount, getPetName, isCatPet } from '../sprites/petSpriteData.js';
 import { getLoadedCharacterCount } from '../sprites/spriteData.js';
 import type {
   ActivitySpot,
@@ -38,6 +40,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, PetState, TILE_SIZE } from '../types.js';
+import { CatSocial } from './catSocial.js';
 import type { IdleWorld } from './characters.js';
 import {
   beginIdleActivity,
@@ -78,6 +81,10 @@ export class OfficeState {
   activitySpots: Map<string, ActivitySpotSet> = new Map();
   characters: Map<number, Character> = new Map();
   pets: Pet[] = [];
+  /** Talk / play / fight scenes between idle cats (see catSocial.ts for the API). */
+  social = new CatSocial();
+  /** Tamagotchi needs, bowls and litter for cat pets (see petCareSystem.ts). */
+  readonly petCare = new PetCareSystem();
   /** Accumulated time for furniture animation frame cycling */
   furnitureAnimTimer = 0;
   selectedAgentId: number | null = null;
@@ -626,6 +633,7 @@ export class OfficeState {
     if (!seat || seat.assigned) return;
     seat.assigned = true;
     ch.seatId = seatId;
+    this.social.leave(agentId);
     // Pathfind to new seat (unblock own seat tile for this query)
     const path = this.withOwnSeatUnblocked(ch, () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
@@ -683,6 +691,7 @@ export class OfficeState {
     ch.activity = null; // a command walk ends any idle activity
     const seat = this.seats.get(ch.seatId);
     if (!seat) return;
+    this.social.leave(agentId);
     const path = this.withOwnSeatUnblocked(ch, () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
     );
@@ -718,6 +727,7 @@ export class OfficeState {
       findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles),
     );
     if (path.length === 0) return false;
+    this.social.leave(agentId);
     ch.path = path;
     ch.moveProgress = 0;
     ch.state = CharacterState.WALK;
@@ -1010,6 +1020,17 @@ export class OfficeState {
     return this.pets.slice();
   }
 
+  /** The world view the pet-care system acts on. */
+  petCareEnv(): PetCareEnv {
+    return {
+      pets: this.pets,
+      furniture: this.layout.furniture,
+      tileMap: this.tileMap,
+      blockedTiles: this.blockedTiles,
+      isCat: (pet) => isCatPet(pet.petType),
+    };
+  }
+
   /** Unique petType values currently placed. Used by the Pets toolbar to mark active rows. */
   getActivePetTypes(): number[] {
     const seen = new Set<number>();
@@ -1136,6 +1157,7 @@ export class OfficeState {
       spot = free(set?.spots)[0] ?? free(set?.fallback)[0];
       if (!spot) return false;
     }
+    this.social.leave(id); // the cat walks off now; its scene partner resumes idling
     ch.activity = null;
     ch.path = [];
     ch.state = CharacterState.IDLE;
@@ -1218,7 +1240,8 @@ export class OfficeState {
           this.seats,
           this.tileMap,
           this.blockedTiles,
-          idleWorld,
+          // A cat in a social scene picks no idle activity until the scene ends.
+          this.social.isInScene(ch.id) ? undefined : idleWorld,
         ),
       );
 
@@ -1237,9 +1260,17 @@ export class OfficeState {
       this.characters.delete(id);
     }
 
+    // Cat social scenes run after the FSM: a cat that got work has already
+    // started for its desk, and the scene just lets it go.
+    this.social.update(dt, this.characters, this);
+
     // ── Pet FSM ────────────────────────────────────────────────
+    // Pet care runs first; a cat in a care pose (or with its menu open) skips the wander FSM.
+    this.petCare.update(dt, this.petCareEnv());
     for (const pet of this.pets) {
-      updatePet(pet, dt, this.walkableTiles, this.characters, this.tileMap, this.blockedTiles);
+      if (!this.petCare.isBusy(pet.id)) {
+        updatePet(pet, dt, this.walkableTiles, this.characters, this.tileMap, this.blockedTiles);
+      }
 
       // Tick heart bubble timer (mirrors character waiting-bubble pattern)
       if (pet.bubbleType) {

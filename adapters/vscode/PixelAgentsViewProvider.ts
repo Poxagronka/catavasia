@@ -43,6 +43,7 @@ import {
   writeLayoutToFile,
 } from '../../server/src/layoutPersistence.js';
 import { PathSet } from '../../server/src/pathKey.js';
+import { writePetCareState } from '../../server/src/petCarePersistence.js';
 import type { ConsentEffects } from '../../server/src/providers/hook/consentExecutor.js';
 import { applyConsentChoice } from '../../server/src/providers/hook/consentExecutor.js';
 import { hooksConsentRequest } from '../../server/src/providers/hook/consentGate.js';
@@ -482,6 +483,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           writeLayoutToFile(this.defaultLayout);
           this.webview?.postMessage({ type: 'layoutLoaded', layout: this.defaultLayout });
         }
+      } else if (message.type === 'savePetCare') {
+        writePetCareState(message.state);
       } else if (message.type === 'setSoundEnabled') {
         this.adapter.setSetting(GLOBAL_KEY_SOUND_ENABLED, message.enabled);
       } else if (message.type === 'setLastSeenVersion') {

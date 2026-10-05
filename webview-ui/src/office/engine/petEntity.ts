@@ -13,6 +13,7 @@ import {
   PET_WANDER_PAUSE_MIN_SEC,
 } from '../../constants.js';
 import { findPath, isWalkable } from '../layout/tileMap.js';
+import { careSpriteFor } from '../sprites/petCareFrames.js';
 import type { PetSpriteFrames } from '../sprites/petSpriteData.js';
 import type { Character, Pet, SpriteData, TileType as TileTypeVal } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
@@ -313,6 +314,9 @@ export function updatePet(
  */
 export function getPetSpriteData(pet: Pet, petSprites: PetSpriteFrames | null): SpriteData | null {
   if (!petSprites) return null;
+
+  const care = careSpriteFor(pet, petSprites);
+  if (care) return care;
 
   if (pet.state === PetState.IDLE) {
     const frameIdx = PET_IDLE_SEQUENCE[pet.frame % PET_IDLE_SEQUENCE.length];

@@ -79,6 +79,7 @@ import {
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
+import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
 import { renderZzz } from './zzzOverlay.js';
 
 // ── Settings ────────────────────────────────────────────────────
@@ -396,8 +397,11 @@ export function renderScene(
   // Characters
   for (const ch of characters) {
     if (isHiddenInRunThrough(ch)) continue; // inside the play tunnel
+    const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom);
+    if (cloud) drawables.push(cloud);
     const sprites = getCharacterSprites(ch.palette, ch.hueShift);
-    const spriteData = getCharacterSprite(ch, sprites);
+    const spriteData = socialSpriteFor(ch, getCharacterSprite(ch, sprites));
+    if (!spriteData) continue; // hidden inside the fight dust cloud
     const cached = getCachedSprite(spriteData, zoom);
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = characterDrawOffsetY(ch);
@@ -975,6 +979,8 @@ export function renderFrame(
   renderZzz(ctx, characters, offsetX, offsetY, zoom);
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom);
+  // Cat social pictograms and anger marks (yield to the bubbles above)
+  renderSocialBubbles(ctx, characters, offsetX, offsetY, zoom);
   // Pet heart bubbles (same overlay pass)
   if (pets && pets.length > 0) {
     renderPetBubbles(ctx, pets, offsetX, offsetY, zoom);

@@ -301,6 +301,30 @@ export interface Character {
   contextTokens: number;
   /** Window `contextTokens` is measured against. */
   maxContextTokens: number;
+
+  // -- Social scenes (engine/catSocial.ts) --
+  /** Walk-speed multiplier (chase play, fleeing a fight). Unset = 1. */
+  speedMul?: number;
+  /** What the renderer draws for the cat's current social scene. Written only
+   *  by CatSocial; unset when the cat is not in a scene. */
+  social?: CharacterSocialView;
+}
+
+/** Pictogram shown in a social speech bubble. */
+export type SocialIcon = 'fish' | 'heart' | 'question' | 'exclaim' | 'meow' | 'mouse';
+
+/** Per-frame render view of one cat in a social scene. */
+export interface CharacterSocialView {
+  /** Sprite override: talking mouth, puffed-up fur, or hidden inside the dust cloud. */
+  pose: 'talk' | 'angry' | 'hidden' | null;
+  /** Animation frame index for the pose. */
+  frame: number;
+  /** Pictogram bubble; drawn only while no permission / waiting bubble is up. */
+  bubble: SocialIcon | null;
+  /** Anger mark frame above the head, or null. Same priority rule as `bubble`. */
+  anger: number | null;
+  /** Fight dust cloud, carried by one cat of the pair. World px, bottom-centre. */
+  cloud: { x: number; y: number; frame: number; otherId: number } | null;
 }
 
 export const PetState = { IDLE: 'idle', WALK: 'walk', FOLLOW: 'follow' } as const;
@@ -343,7 +367,12 @@ export interface Pet {
   bubbleType: 'heart' | null;
   /** Countdown timer for the heart bubble (mirrors character waiting bubble). */
   bubbleTimer: number;
+  /** Pet-care pose the cat is playing (set by PetCareSystem), or null/absent. */
+  careAnim?: { kind: PetCareAnim; frame: number } | null;
 }
+
+/** Care poses a cat pet can play (see office/sprites/petCareFrames.ts). */
+export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play';
 
 /** Persisted record (lives on OfficeLayout). */
 export interface PlacedPet {

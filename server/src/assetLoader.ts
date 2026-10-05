@@ -193,9 +193,14 @@ export async function loadFurnitureAssets(workspaceRoot: string): Promise<Loaded
 
 // ── Default layout loading ───────────────────────────────────
 
+/** Pet-care items added to revision 1 without a revision bump. */
+const PET_CARE_TYPES = new Set(['PET_BOWL', 'LITTER_BOX']);
+
 /**
  * Every bundled default layout except the newest: the offices a user may
- * still have saved untouched (see migrateUnmodifiedLayout).
+ * still have saved untouched (see migrateUnmodifiedLayout). A layout with the
+ * pet-care bowl and litter box also counts without them: revision 1 shipped
+ * first without them.
  */
 export function loadPreviousDefaultLayouts(assetsRoot: string): Array<Record<string, unknown>> {
   const assetsDir = path.join(assetsRoot, 'assets');
@@ -206,13 +211,17 @@ export function loadPreviousDefaultLayouts(assetsRoot: string): Array<Record<str
       .filter((m): m is RegExpExecArray => m !== null)
       .map((m) => ({ file: m[0], rev: parseInt(m[1], 10) }))
       .sort((a, b) => a.rev - b.rev);
-    return revisions.slice(0, -1).map(({ file, rev }) => {
+    return revisions.slice(0, -1).flatMap(({ file, rev }) => {
       const layout = JSON.parse(fs.readFileSync(path.join(assetsDir, file), 'utf-8')) as Record<
         string,
         unknown
       >;
       layout[LAYOUT_REVISION_KEY] ??= rev;
-      return layout;
+      const furniture = (layout.furniture ?? []) as Array<{ type: string }>;
+      const withoutPetCare = furniture.filter((f) => !PET_CARE_TYPES.has(f.type));
+      return withoutPetCare.length === furniture.length
+        ? [layout]
+        : [layout, { ...layout, furniture: withoutPetCare }];
     });
   } catch {
     return [];
@@ -733,7 +742,11 @@ export async function loadPetSprites(assetsRoot: string): Promise<LoadedPetSprit
 
         const pngBuffer = fs.readFileSync(pngPath);
         pets.push(decodePetPng(pngBuffer));
-        manifests.push({ id: manifestData.id, name: manifestData.name });
+        manifests.push({
+          id: manifestData.id,
+          name: manifestData.name,
+          ...(typeof manifestData.species === 'string' ? { species: manifestData.species } : {}),
+        });
       } catch (err) {
         console.warn(
           `[AssetLoader] ⚠️  Error loading pet ${dirName}: ${err instanceof Error ? err.message : err}`,
@@ -830,7 +843,11 @@ export async function loadExternalPetSprites(
 
         const pngBuffer = fs.readFileSync(pngPath);
         pets.push(decodePetPng(pngBuffer));
-        manifests.push({ id: manifestData.id, name: manifestData.name });
+        manifests.push({
+          id: manifestData.id,
+          name: manifestData.name,
+          ...(typeof manifestData.species === 'string' ? { species: manifestData.species } : {}),
+        });
       } catch (err) {
         console.warn(
           `[AssetLoader] ⚠️  Error loading external pet ${dirName}: ${err instanceof Error ? err.message : err}`,
@@ -867,6 +884,7 @@ export function sendPetSpritesToWebview(
     type: 'petSpritesLoaded',
     pets: petSprites.pets,
     petNames: petSprites.manifests.map((m) => m.name),
+    petSpecies: petSprites.manifests.map((m) => m.species ?? ''),
   });
   console.log(`📤 Sent ${petSprites.pets.length} pet sprites to webview`);
 }

@@ -51,8 +51,29 @@ describe('default layout upgrade', () => {
     expect(latest.layoutRevision).toBe(2);
     const furniture = latest.furniture as Array<{ type: string }>;
     expect(furniture.filter((f) => f.type === 'SCRATCHING_POST')).toHaveLength(1);
+    expect(furniture.filter((f) => f.type === 'PET_BOWL')).toHaveLength(1);
+    expect(furniture.filter((f) => f.type === 'LITTER_BOX')).toHaveLength(1);
+    // Revision 1 with the pet-care items, and as it shipped before them.
     const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
-    expect(previous.map((l) => l.layoutRevision)).toEqual([1]);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1]);
+  });
+
+  it('upgrades an untouched revision 1 default saved before the pet-care items', () => {
+    const old = oldDefault();
+    const furniture = old.furniture as Array<{ type: string }>;
+    old.furniture = furniture.filter((f) => f.type !== 'PET_BOWL' && f.type !== 'LITTER_BOX');
+    expect((old.furniture as unknown[]).length).toBe(furniture.length - 2);
+    saveLayout(old);
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const migrated = migrateUnmodifiedLayout(
+      readLayoutFromFile(),
+      latest,
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(migrated).toBe(true);
+    expect(readLayoutFromFile()).toEqual(latest);
   });
 
   it('upgrades an untouched old default to the new default', () => {

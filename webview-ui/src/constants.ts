@@ -332,6 +332,71 @@ export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
 
+// ── Cat social scenes (talk / play / fight) ──────────────────
+/** Max Chebyshev distance (tiles) for two wandering cats to meet. */
+export const SOCIAL_RADIUS_TILES = 2;
+/** Max distance (tiles) for an activity-driven encounter (e.g. both at coffee). */
+export const SOCIAL_ACTIVITY_RADIUS_TILES = 4;
+/** How often idle cats are scanned for a chance meeting. */
+export const SOCIAL_CHECK_INTERVAL_SEC = 1.0;
+/** Chance that one scan starts an encounter for the closest eligible pair. */
+export const SOCIAL_ENCOUNTER_CHANCE = 0.2;
+/** Seconds a cat waits after any social scene before the next one. */
+export const SOCIAL_CAT_COOLDOWN_SEC = 25;
+/** Seconds the same two cats wait before meeting again. */
+export const SOCIAL_PAIR_COOLDOWN_SEC = 60;
+/** Chance an encounter turns into a fight (about 1 in 15). */
+export const SOCIAL_FIGHT_CHANCE = 1 / 15;
+/** Chance a non-fight encounter while wandering becomes chase play. */
+export const SOCIAL_PLAY_CHANCE = 0.3;
+/** Seconds to walk up to the partner before the scene gives up. */
+export const SOCIAL_APPROACH_TIMEOUT_SEC = 4;
+/** Number of pictogram bubbles in one conversation. */
+export const SOCIAL_TALK_EXCHANGES_MIN = 3;
+export const SOCIAL_TALK_EXCHANGES_MAX = 6;
+/** Seconds one pictogram bubble stays up, and the pause between bubbles. */
+export const SOCIAL_TALK_BUBBLE_SEC = 1.3;
+export const SOCIAL_TALK_GAP_SEC = 0.35;
+/** Mouth open / closed toggle while a cat talks. */
+export const SOCIAL_TALK_MOUTH_SEC = 0.18;
+/** Chase play: total length, walk-speed multiplier, re-path interval, chase radius. */
+export const SOCIAL_CHASE_DURATION_SEC = 8;
+export const SOCIAL_CHASE_SPEED_MUL = 1.7;
+export const SOCIAL_CHASE_REPATH_SEC = 0.5;
+export const SOCIAL_CHASE_RANGE_MIN_TILES = 3;
+export const SOCIAL_CHASE_RANGE_MAX_TILES = 5;
+/** Chase: max distance (tiles) from where the play started. */
+export const SOCIAL_CHASE_ROAM_TILES = 4;
+/** Seconds the tagged cat shows its "!" bubble after a tag, and before it can tag back. */
+export const SOCIAL_TAG_BUBBLE_SEC = 0.8;
+export const SOCIAL_TAG_COOLDOWN_SEC = 1.2;
+/** Toy joint play: total length and seconds per turn. */
+export const SOCIAL_TOY_DURATION_SEC = 10;
+export const SOCIAL_TOY_TURN_SEC = 2;
+/** Fight: puff-up stare, dust cloud, then fleeing with the anger mark. */
+export const SOCIAL_FIGHT_PUFF_SEC = 1.2;
+export const SOCIAL_FIGHT_CLOUD_SEC = 2.5;
+export const SOCIAL_FIGHT_FLEE_SEC = 4;
+export const SOCIAL_FIGHT_ANGER_SEC = 2;
+export const SOCIAL_FLEE_SPEED_MUL = 1.9;
+export const SOCIAL_FLEE_MIN_TILES = 4;
+/** Seconds a pair that fought avoids each other (no talk / play / fight). */
+export const SOCIAL_FIGHT_AVOID_SEC = 120;
+/** Frame durations for the angry bristle, the anger mark and the dust cloud. */
+export const SOCIAL_ANGRY_FRAME_SEC = 0.15;
+export const SOCIAL_ANGER_FRAME_SEC = 0.25;
+export const SOCIAL_CLOUD_FRAME_SEC = 0.1;
+/** Wander pause given back to a cat when its scene ends. */
+export const SOCIAL_RESUME_PAUSE_MIN_SEC = 1;
+export const SOCIAL_RESUME_PAUSE_MAX_SEC = 3;
+/** Cloud anchor: world px below the cats' tile centre. */
+export const SOCIAL_CLOUD_FOOT_OFFSET_PX = 4;
+/** Social bubble bottom above the cat's anchor (world px): clears the ears. */
+export const SOCIAL_BUBBLE_OFFSET_PX = 30;
+/** Anger mark position: bottom-centre, relative to the cat's anchor (world px). */
+export const SOCIAL_ANGER_HEAD_OFFSET_X_PX = 6;
+export const SOCIAL_ANGER_HEAD_OFFSET_Y_PX = 27;
+
 // ── Task Board ───────────────────────────────────────────────
 /** How often the open board re-reads GET /api/tasks. */
 export const TASK_POLL_INTERVAL_MS = 1500;
@@ -349,3 +414,89 @@ export const TUNNEL_PASSES = 6;
 export const TUNNEL_RUN_SPEED_PX_PER_SEC = 48;
 /** Px a "z" rises over one cycle. */
 export const ZZZ_RISE_PX = 12;
+
+// ── Pet Care (tamagotchi needs for cat pets) ─────────────────
+// Needs are satisfaction meters: 100 = content, 0 = desperate.
+// "Office hours" = real hours the office runs, times the debug speed factor.
+export const PET_NEED_MAX = 100;
+/** Starting value of every need for a cat seen for the first time. */
+export const PET_NEED_START = 80;
+/** Need loss per office hour. */
+export const PET_NEED_DECAY_PER_HOUR = {
+  hunger: 12,
+  thirst: 16,
+  affection: 10,
+  fun: 14,
+  hygiene: 3,
+} as const;
+/** Extra hygiene loss per office hour for each poop left on the floor. */
+export const PET_HYGIENE_DECAY_PER_FLOOR_POOP = 8;
+/** Extra hygiene loss per office hour for each full litter box. */
+export const PET_HYGIENE_DECAY_PER_FULL_BOX = 4;
+/** A need under this shows a request bubble (and a meow). */
+export const PET_REQUEST_THRESHOLD = 35;
+/** A cat walks to the bowl by itself when hunger/thirst drops under this. */
+export const PET_SEEK_THRESHOLD = 55;
+/** Bowel fill per meal and per office hour; at PET_BOWEL_MAX the cat poops. */
+export const PET_BOWEL_PER_MEAL = 40;
+export const PET_BOWEL_PER_HOUR = 6;
+export const PET_BOWEL_MAX = 100;
+/** Poops a litter box holds before it reads "full" (cats then go on the floor). */
+export const PET_LITTER_CAPACITY = 3;
+/** Hygiene hit for a poop in the box / on the floor. */
+export const PET_POOP_HYGIENE_COST_BOX = 5;
+export const PET_POOP_HYGIENE_COST_FLOOR = 15;
+/** Bowl contents: food and water each run 0..PET_BOWL_MAX. */
+export const PET_BOWL_MAX = 100;
+export const PET_BOWL_FOOD_PER_MEAL = 25;
+export const PET_BOWL_WATER_PER_DRINK = 20;
+/** Need gain per completed action. */
+export const PET_GAIN_MEAL = 45;
+export const PET_GAIN_DRINK = 50;
+export const PET_GAIN_TREAT = 30;
+export const PET_GAIN_SCRATCH = 35;
+export const PET_GAIN_PLAY = 40;
+export const PET_GAIN_CLEAN_BOX = 35;
+export const PET_GAIN_CLEAN_FLOOR_POOP = 20;
+/** Offline catch-up: decay runs at this fraction while the office is closed, capped. */
+export const PET_OFFLINE_DECAY_FACTOR = 0.1;
+export const PET_OFFLINE_MAX_CATCHUP_HOURS = 2;
+/** Mood bands (mood = mean of the average and the lowest need). */
+export const PET_MOOD_HAPPY = 70;
+export const PET_MOOD_CONTENT = 45;
+export const PET_MOOD_GRUMPY = 20;
+/** Seconds between autonomous need checks (pathfinding is not per-frame). */
+export const PET_CARE_DECIDE_INTERVAL_SEC = 2;
+/** Seconds between pets-state.json saves while something changed. */
+export const PET_CARE_SAVE_INTERVAL_SEC = 15;
+/** Seconds between meows of one cat with a standing request, and across all cats. */
+export const PET_MEOW_INTERVAL_SEC = 120;
+export const PET_MEOW_GLOBAL_COOLDOWN_SEC = 20;
+/** Care animation lengths (real seconds) and frame length. */
+export const PET_ANIM_EAT_SEC = 4;
+export const PET_ANIM_DRINK_SEC = 3.5;
+export const PET_ANIM_POOP_SEC = 3;
+export const PET_ANIM_PETTED_SEC = 2.5;
+export const PET_ANIM_PLAY_SEC = 3.5;
+export const PET_ANIM_FRAME_SEC = 0.25;
+/** Floating hearts: count per positive action, life (s), rise (world px), spawn stagger (s). */
+export const PET_HEART_COUNT = 3;
+export const PET_HEART_LIFE_SEC = 1.4;
+export const PET_HEART_RISE_PX = 14;
+export const PET_HEART_STAGGER_SEC = 0.25;
+/** Bowl refill / cleaning sparkle length (s). */
+export const PET_SPARKLE_SEC = 0.9;
+/** Request bubble bob amplitude (world px) and period (s). */
+export const PET_REQUEST_BOB_PX = 1;
+export const PET_REQUEST_BOB_PERIOD_SEC = 1.2;
+/** Radial menu: ring radius and button size (CSS px). */
+export const PET_MENU_RADIUS_PX = 58;
+export const PET_MENU_BUTTON_PX = 40;
+/** Radial menu icon scale (sprite px → CSS px). */
+export const PET_MENU_ICON_SCALE = 3;
+/** Meow synth: start / peak / end pitch (Hz), length (s), volume. */
+export const MEOW_START_HZ = 560;
+export const MEOW_PEAK_HZ = 900;
+export const MEOW_END_HZ = 520;
+export const MEOW_DURATION_SEC = 0.5;
+export const MEOW_VOLUME = 0.08;

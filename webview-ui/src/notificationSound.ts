@@ -1,4 +1,9 @@
 import {
+  MEOW_DURATION_SEC,
+  MEOW_END_HZ,
+  MEOW_PEAK_HZ,
+  MEOW_START_HZ,
+  MEOW_VOLUME,
   NOTIFICATION_NOTE_1_HZ,
   NOTIFICATION_NOTE_1_START_SEC,
   NOTIFICATION_NOTE_2_HZ,
@@ -22,7 +27,7 @@ let audioCtx: AudioContext | null = null;
  *  declared by testHooks.ts). Records BEFORE the soundEnabled gate so tests
  *  verify dispatch independent of user audio prefs. Gated on the e2e harness
  *  flag so this unbounded log never grows in a real session. */
-function recordSoundForTests(kind: 'done' | 'permission'): void {
+function recordSoundForTests(kind: 'done' | 'permission' | 'meow'): void {
   if (!isE2E || typeof window === 'undefined') return;
   if (!window.__pixelAgentsTestHooks) window.__pixelAgentsTestHooks = {};
   if (!window.__pixelAgentsTestHooks.playedSounds) {
@@ -107,6 +112,36 @@ export async function playPermissionSound(): Promise<void> {
       PERMISSION_NOTE_DURATION_SEC,
       PERMISSION_VOLUME,
     );
+  } catch {
+    // Audio may not be available
+  }
+}
+
+/** A short synthesized meow: a pitch glide up and back down (pet-care requests). */
+export async function playMeowSound(): Promise<void> {
+  recordSoundForTests('meow');
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) {
+      audioCtx = new AudioContext();
+    }
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(MEOW_START_HZ, t);
+    osc.frequency.exponentialRampToValueAtTime(MEOW_PEAK_HZ, t + MEOW_DURATION_SEC * 0.35);
+    osc.frequency.exponentialRampToValueAtTime(MEOW_END_HZ, t + MEOW_DURATION_SEC);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.exponentialRampToValueAtTime(MEOW_VOLUME, t + MEOW_DURATION_SEC * 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + MEOW_DURATION_SEC);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + MEOW_DURATION_SEC);
   } catch {
     // Audio may not be available
   }

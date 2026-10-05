@@ -87,6 +87,8 @@
     {"uid": "f-1773358001163-aqv4", "type": "SMALL_TABLE_SIDE", "col": 1, "row": 18},
     {"uid": "f-1773358458100-4wm2", "type": "COFFEE", "col": 1, "row": 19},
     {"uid": "f-1773358479734-biia", "type": "PLANT_2", "col": 1, "row": 17},
-    {"uid": "f-1773358485454-id8j", "type": "SMALL_PAINTING_2", "col": 17, "row": 9}
+    {"uid": "f-1773358485454-id8j", "type": "SMALL_PAINTING_2", "col": 17, "row": 9},
+    {"uid": "f-pet-bowl", "type": "PET_BOWL", "col": 15, "row": 11},
+    {"uid": "f-litter-box", "type": "LITTER_BOX", "col": 17, "row": 11}
   ]
 }

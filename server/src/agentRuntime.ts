@@ -12,6 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { DEFAULT_MAX_CONTEXT_TOKENS, JSONL_POLL_INTERVAL_MS } from './constants.js';
@@ -166,6 +167,8 @@ export class AgentRuntime {
           if (teamMeta?.teamName && teamMeta.agentName) {
             for (const [leadId, lead] of this.store) {
               if (lead.teamName !== teamMeta.teamName || lead.leadAgentId !== undefined) continue;
+              // The lead's character stands for its whole team.
+              if (!SUBAGENT_CHARACTERS_ENABLED) return;
               console.log(
                 `[Pixel Agents] Hook: session ${sessionId.slice(0, 8)}... is teammate "${teamMeta.agentName}" of Agent ${leadId}, attaching`,
               );
@@ -566,6 +569,7 @@ export class AgentRuntime {
       // is live. Restoring them directly would resurrect immortal characters
       // (also skips stale entries written by older builds that persisted them).
       if (p.leadAgentId !== undefined && !p.teamName) continue;
+      if (p.leadAgentId !== undefined && !SUBAGENT_CHARACTERS_ENABLED) continue;
       try {
         if (!fs.existsSync(p.jsonlFile)) continue;
       } catch {
