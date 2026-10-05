@@ -329,6 +329,71 @@ export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
 
+// ── Cat social scenes (talk / play / fight) ──────────────────
+/** Max Chebyshev distance (tiles) for two wandering cats to meet. */
+export const SOCIAL_RADIUS_TILES = 2;
+/** Max distance (tiles) for an activity-driven encounter (e.g. both at coffee). */
+export const SOCIAL_ACTIVITY_RADIUS_TILES = 4;
+/** How often idle cats are scanned for a chance meeting. */
+export const SOCIAL_CHECK_INTERVAL_SEC = 1.0;
+/** Chance that one scan starts an encounter for the closest eligible pair. */
+export const SOCIAL_ENCOUNTER_CHANCE = 0.2;
+/** Seconds a cat waits after any social scene before the next one. */
+export const SOCIAL_CAT_COOLDOWN_SEC = 25;
+/** Seconds the same two cats wait before meeting again. */
+export const SOCIAL_PAIR_COOLDOWN_SEC = 60;
+/** Chance an encounter turns into a fight (about 1 in 15). */
+export const SOCIAL_FIGHT_CHANCE = 1 / 15;
+/** Chance a non-fight encounter while wandering becomes chase play. */
+export const SOCIAL_PLAY_CHANCE = 0.3;
+/** Seconds to walk up to the partner before the scene gives up. */
+export const SOCIAL_APPROACH_TIMEOUT_SEC = 4;
+/** Number of pictogram bubbles in one conversation. */
+export const SOCIAL_TALK_EXCHANGES_MIN = 3;
+export const SOCIAL_TALK_EXCHANGES_MAX = 6;
+/** Seconds one pictogram bubble stays up, and the pause between bubbles. */
+export const SOCIAL_TALK_BUBBLE_SEC = 1.3;
+export const SOCIAL_TALK_GAP_SEC = 0.35;
+/** Mouth open / closed toggle while a cat talks. */
+export const SOCIAL_TALK_MOUTH_SEC = 0.18;
+/** Chase play: total length, walk-speed multiplier, re-path interval, chase radius. */
+export const SOCIAL_CHASE_DURATION_SEC = 8;
+export const SOCIAL_CHASE_SPEED_MUL = 1.7;
+export const SOCIAL_CHASE_REPATH_SEC = 0.5;
+export const SOCIAL_CHASE_RANGE_MIN_TILES = 3;
+export const SOCIAL_CHASE_RANGE_MAX_TILES = 5;
+/** Chase: max distance (tiles) from where the play started. */
+export const SOCIAL_CHASE_ROAM_TILES = 4;
+/** Seconds the tagged cat shows its "!" bubble after a tag, and before it can tag back. */
+export const SOCIAL_TAG_BUBBLE_SEC = 0.8;
+export const SOCIAL_TAG_COOLDOWN_SEC = 1.2;
+/** Toy joint play: total length and seconds per turn. */
+export const SOCIAL_TOY_DURATION_SEC = 10;
+export const SOCIAL_TOY_TURN_SEC = 2;
+/** Fight: puff-up stare, dust cloud, then fleeing with the anger mark. */
+export const SOCIAL_FIGHT_PUFF_SEC = 1.2;
+export const SOCIAL_FIGHT_CLOUD_SEC = 2.5;
+export const SOCIAL_FIGHT_FLEE_SEC = 4;
+export const SOCIAL_FIGHT_ANGER_SEC = 2;
+export const SOCIAL_FLEE_SPEED_MUL = 1.9;
+export const SOCIAL_FLEE_MIN_TILES = 4;
+/** Seconds a pair that fought avoids each other (no talk / play / fight). */
+export const SOCIAL_FIGHT_AVOID_SEC = 120;
+/** Frame durations for the angry bristle, the anger mark and the dust cloud. */
+export const SOCIAL_ANGRY_FRAME_SEC = 0.15;
+export const SOCIAL_ANGER_FRAME_SEC = 0.25;
+export const SOCIAL_CLOUD_FRAME_SEC = 0.1;
+/** Wander pause given back to a cat when its scene ends. */
+export const SOCIAL_RESUME_PAUSE_MIN_SEC = 1;
+export const SOCIAL_RESUME_PAUSE_MAX_SEC = 3;
+/** Cloud anchor: world px below the cats' tile centre. */
+export const SOCIAL_CLOUD_FOOT_OFFSET_PX = 4;
+/** Social bubble bottom above the cat's anchor (world px): clears the ears. */
+export const SOCIAL_BUBBLE_OFFSET_PX = 30;
+/** Anger mark position: bottom-centre, relative to the cat's anchor (world px). */
+export const SOCIAL_ANGER_HEAD_OFFSET_X_PX = 6;
+export const SOCIAL_ANGER_HEAD_OFFSET_Y_PX = 27;
+
 // ── Task Board ───────────────────────────────────────────────
 /** How often the open board re-reads GET /api/tasks. */
 export const TASK_POLL_INTERVAL_MS = 1500;
