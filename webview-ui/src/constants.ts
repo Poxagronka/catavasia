@@ -334,3 +334,89 @@ export const MAX_PET_ID_LENGTH = 128;
 export const TASK_POLL_INTERVAL_MS = 1500;
 /** Pixel scale of the cat avatar on a task card. */
 export const TASK_AVATAR_ZOOM = 2;
+
+// ── Pet Care (tamagotchi needs for cat pets) ─────────────────
+// Needs are satisfaction meters: 100 = content, 0 = desperate.
+// "Office hours" = real hours the office runs, times the debug speed factor.
+export const PET_NEED_MAX = 100;
+/** Starting value of every need for a cat seen for the first time. */
+export const PET_NEED_START = 80;
+/** Need loss per office hour. */
+export const PET_NEED_DECAY_PER_HOUR = {
+  hunger: 12,
+  thirst: 16,
+  affection: 10,
+  fun: 14,
+  hygiene: 3,
+} as const;
+/** Extra hygiene loss per office hour for each poop left on the floor. */
+export const PET_HYGIENE_DECAY_PER_FLOOR_POOP = 8;
+/** Extra hygiene loss per office hour for each full litter box. */
+export const PET_HYGIENE_DECAY_PER_FULL_BOX = 4;
+/** A need under this shows a request bubble (and a meow). */
+export const PET_REQUEST_THRESHOLD = 35;
+/** A cat walks to the bowl by itself when hunger/thirst drops under this. */
+export const PET_SEEK_THRESHOLD = 55;
+/** Bowel fill per meal and per office hour; at PET_BOWEL_MAX the cat poops. */
+export const PET_BOWEL_PER_MEAL = 40;
+export const PET_BOWEL_PER_HOUR = 6;
+export const PET_BOWEL_MAX = 100;
+/** Poops a litter box holds before it reads "full" (cats then go on the floor). */
+export const PET_LITTER_CAPACITY = 3;
+/** Hygiene hit for a poop in the box / on the floor. */
+export const PET_POOP_HYGIENE_COST_BOX = 5;
+export const PET_POOP_HYGIENE_COST_FLOOR = 15;
+/** Bowl contents: food and water each run 0..PET_BOWL_MAX. */
+export const PET_BOWL_MAX = 100;
+export const PET_BOWL_FOOD_PER_MEAL = 25;
+export const PET_BOWL_WATER_PER_DRINK = 20;
+/** Need gain per completed action. */
+export const PET_GAIN_MEAL = 45;
+export const PET_GAIN_DRINK = 50;
+export const PET_GAIN_TREAT = 30;
+export const PET_GAIN_SCRATCH = 35;
+export const PET_GAIN_PLAY = 40;
+export const PET_GAIN_CLEAN_BOX = 35;
+export const PET_GAIN_CLEAN_FLOOR_POOP = 20;
+/** Offline catch-up: decay runs at this fraction while the office is closed, capped. */
+export const PET_OFFLINE_DECAY_FACTOR = 0.1;
+export const PET_OFFLINE_MAX_CATCHUP_HOURS = 2;
+/** Mood bands (mood = mean of the average and the lowest need). */
+export const PET_MOOD_HAPPY = 70;
+export const PET_MOOD_CONTENT = 45;
+export const PET_MOOD_GRUMPY = 20;
+/** Seconds between autonomous need checks (pathfinding is not per-frame). */
+export const PET_CARE_DECIDE_INTERVAL_SEC = 2;
+/** Seconds between pets-state.json saves while something changed. */
+export const PET_CARE_SAVE_INTERVAL_SEC = 15;
+/** Seconds between meows of one cat with a standing request, and across all cats. */
+export const PET_MEOW_INTERVAL_SEC = 120;
+export const PET_MEOW_GLOBAL_COOLDOWN_SEC = 20;
+/** Care animation lengths (real seconds) and frame length. */
+export const PET_ANIM_EAT_SEC = 4;
+export const PET_ANIM_DRINK_SEC = 3.5;
+export const PET_ANIM_POOP_SEC = 3;
+export const PET_ANIM_PETTED_SEC = 2.5;
+export const PET_ANIM_PLAY_SEC = 3.5;
+export const PET_ANIM_FRAME_SEC = 0.25;
+/** Floating hearts: count per positive action, life (s), rise (world px), spawn stagger (s). */
+export const PET_HEART_COUNT = 3;
+export const PET_HEART_LIFE_SEC = 1.4;
+export const PET_HEART_RISE_PX = 14;
+export const PET_HEART_STAGGER_SEC = 0.25;
+/** Bowl refill / cleaning sparkle length (s). */
+export const PET_SPARKLE_SEC = 0.9;
+/** Request bubble bob amplitude (world px) and period (s). */
+export const PET_REQUEST_BOB_PX = 1;
+export const PET_REQUEST_BOB_PERIOD_SEC = 1.2;
+/** Radial menu: ring radius and button size (CSS px). */
+export const PET_MENU_RADIUS_PX = 58;
+export const PET_MENU_BUTTON_PX = 40;
+/** Radial menu icon scale (sprite px → CSS px). */
+export const PET_MENU_ICON_SCALE = 3;
+/** Meow synth: start / peak / end pitch (Hz), length (s), volume. */
+export const MEOW_START_HZ = 560;
+export const MEOW_PEAK_HZ = 900;
+export const MEOW_END_HZ = 520;
+export const MEOW_DURATION_SEC = 0.5;
+export const MEOW_VOLUME = 0.08;

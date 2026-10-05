@@ -26,6 +26,7 @@ export type ServerMessage =
   | AgentTeamInfo
   | AgentContextUsage
   | LayoutLoaded
+  | PetCareLoaded
   | FurnitureAssetsLoaded
   | CharacterSpritesLoaded
   | PetSpritesLoaded
@@ -47,6 +48,7 @@ export type ClientMessage =
   | CloseAgent
   | SaveAgentSeats
   | SaveLayout
+  | SavePetCare
   | SetSoundEnabled
   | SetLastSeenVersion
   | SetAlwaysShowLabels
@@ -194,6 +196,11 @@ export interface LayoutLoaded {
   wasReset?: boolean;
 }
 
+export interface PetCareLoaded {
+  type: 'petCareLoaded';
+  state: Record<string, any> | null;
+}
+
 export interface FurnitureAssetsLoaded {
   type: 'furnitureAssetsLoaded';
   catalog: FurnitureAssetMessage[];
@@ -238,6 +245,7 @@ export interface PetSpritesLoaded {
   type: 'petSpritesLoaded';
   pets: PetSpriteFrameSet[];
   petNames: string[];
+  petSpecies?: string[];
 }
 
 export interface PetSpriteFrameSet {
@@ -349,6 +357,11 @@ export interface SeatAssignment {
 export interface SaveLayout {
   type: 'saveLayout';
   layout: Record<string, any>;
+}
+
+export interface SavePetCare {
+  type: 'savePetCare';
+  state: Record<string, any>;
 }
 
 export interface SetSoundEnabled {

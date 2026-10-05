@@ -25,7 +25,9 @@ import {
   layoutToTileMap,
 } from '../layout/layoutSerializer.js';
 import { findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
-import { getPetCount, getPetName } from '../sprites/petSpriteData.js';
+import type { PetCareEnv } from '../petCare/petCareNav.js';
+import { PetCareSystem } from '../petCare/petCareSystem.js';
+import { getPetCount, getPetName, isCatPet } from '../sprites/petSpriteData.js';
 import { getLoadedCharacterCount } from '../sprites/spriteData.js';
 import type {
   Character,
@@ -60,6 +62,8 @@ export class OfficeState {
   walkableTiles: Array<{ col: number; row: number }>;
   characters: Map<number, Character> = new Map();
   pets: Pet[] = [];
+  /** Tamagotchi needs, bowls and litter for cat pets (see petCareSystem.ts). */
+  readonly petCare = new PetCareSystem();
   /** Accumulated time for furniture animation frame cycling */
   furnitureAnimTimer = 0;
   selectedAgentId: number | null = null;
@@ -963,6 +967,17 @@ export class OfficeState {
     return this.pets.slice();
   }
 
+  /** The world view the pet-care system acts on. */
+  petCareEnv(): PetCareEnv {
+    return {
+      pets: this.pets,
+      furniture: this.layout.furniture,
+      tileMap: this.tileMap,
+      blockedTiles: this.blockedTiles,
+      isCat: (pet) => isCatPet(pet.petType),
+    };
+  }
+
   /** Unique petType values currently placed. Used by the Pets toolbar to mark active rows. */
   getActivePetTypes(): number[] {
     const seen = new Set<number>();
@@ -1129,8 +1144,12 @@ export class OfficeState {
     }
 
     // ── Pet FSM ────────────────────────────────────────────────
+    // Pet care runs first; a cat in a care pose (or with its menu open) skips the wander FSM.
+    this.petCare.update(dt, this.petCareEnv());
     for (const pet of this.pets) {
-      updatePet(pet, dt, this.walkableTiles, this.characters, this.tileMap, this.blockedTiles);
+      if (!this.petCare.isBusy(pet.id)) {
+        updatePet(pet, dt, this.walkableTiles, this.characters, this.tileMap, this.blockedTiles);
+      }
 
       // Tick heart bubble timer (mirrors character waiting-bubble pattern)
       if (pet.bubbleType) {

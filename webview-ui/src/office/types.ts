@@ -294,7 +294,12 @@ export interface Pet {
   bubbleType: 'heart' | null;
   /** Countdown timer for the heart bubble (mirrors character waiting bubble). */
   bubbleTimer: number;
+  /** Pet-care pose the cat is playing (set by PetCareSystem), or null/absent. */
+  careAnim?: { kind: PetCareAnim; frame: number } | null;
 }
+
+/** Care poses a cat pet can play (see office/sprites/petCareFrames.ts). */
+export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play';
 
 /** Persisted record (lives on OfficeLayout). */
 export interface PlacedPet {

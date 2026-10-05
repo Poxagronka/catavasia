@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { HooksConsentRequest } from '../../../core/src/messages.js';
-import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
+import {
+  playDoneSound,
+  playMeowSound,
+  playPermissionSound,
+  setSoundEnabled,
+} from '../notificationSound.js';
 import type { ExistingAgentMeta, PendingAgent } from '../office/engine/existingAgents.js';
 import { reconcileExistingAgents } from '../office/engine/existingAgents.js';
 import type { OfficeState } from '../office/engine/officeState.js';
@@ -614,6 +619,7 @@ export function useExtensionMessages(
           return;
         }
         const petNames = Array.isArray(msg.petNames) ? (msg.petNames as string[]) : undefined;
+        const petSpecies = Array.isArray(msg.petSpecies) ? (msg.petSpecies as string[]) : undefined;
         console.log(`[Webview] Received ${pets.length} pet sprites`);
         setPetTemplates(
           pets as Array<{
@@ -624,7 +630,12 @@ export function useExtensionMessages(
             walkRight: string[][][];
           }>,
           petNames,
+          petSpecies,
         );
+      } else if (msg.type === 'petCareLoaded') {
+        os.petCare.onSave = (state) =>
+          transport.send({ type: 'savePetCare', state: state as Record<string, unknown> });
+        os.petCare.load(msg.state, Date.now());
       } else if (msg.type === 'floorTilesLoaded') {
         const sprites = msg.sprites as string[][][];
         console.log(`[Webview] Received ${sprites.length} floor tile patterns`);
@@ -738,6 +749,7 @@ export function useExtensionMessages(
       }
     };
     const unsubscribe = transport.onMessage(handler);
+    getOfficeState().petCare.onMeow = () => void playMeowSound();
     transport.send({ type: 'webviewReady' });
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps

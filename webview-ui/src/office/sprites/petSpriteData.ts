@@ -28,6 +28,7 @@ function toTriple(arr: string[][][]): [SpriteData, SpriteData, SpriteData] {
 
 let loadedPets: PetSpriteFrames[] | null = null;
 let loadedPetNames: string[] = [];
+let loadedPetSpecies: string[] = [];
 
 /**
  * Receive raw frame arrays + parallel display names from the server message.
@@ -42,9 +43,11 @@ export function setPetTemplates(
     walkRight: string[][][];
   }>,
   petNames?: string[],
+  petSpecies?: string[],
 ): void {
   const resolved: PetSpriteFrames[] = [];
   const resolvedNames: string[] = [];
+  const resolvedSpecies: string[] = [];
   for (let i = 0; i < data.length; i++) {
     const raw = data[i];
     if (
@@ -85,9 +88,11 @@ export function setPetTemplates(
       idleLeft: idleUp,
     });
     resolvedNames.push(petNames?.[i] ?? `Pet ${i + 1}`);
+    resolvedSpecies.push(petSpecies?.[i] ?? '');
   }
   loadedPets = resolved;
   loadedPetNames = resolvedNames;
+  loadedPetSpecies = resolvedSpecies;
 }
 
 /** Returns the resolved frames for a petType, or null if not loaded or out of range. */
@@ -105,4 +110,9 @@ export function getPetCount(): number {
 /** Display name for a petType. Falls back to "Pet N" when manifest missing. */
 export function getPetName(petIndex: number): string {
   return loadedPetNames[petIndex] ?? `Pet ${petIndex + 1}`;
+}
+
+/** True when the pet's manifest says `"species": "cat"` — cats get the pet-care needs. */
+export function isCatPet(petIndex: number): boolean {
+  return loadedPetSpecies[petIndex] === 'cat';
 }

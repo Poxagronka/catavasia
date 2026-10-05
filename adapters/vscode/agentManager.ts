@@ -15,6 +15,7 @@ import {
 } from '../../server/src/fileWatcher.js';
 import { loadLayout } from '../../server/src/layoutPersistence.js';
 import { assignPaletteIfNeeded } from '../../server/src/paletteAssigner.js';
+import { readPetCareState } from '../../server/src/petCarePersistence.js';
 import { CLAUDE_TERMINAL_NAME_PREFIX } from '../../server/src/providers/hook/claude/constants.js';
 import { claudeProvider } from '../../server/src/providers/index.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from '../../server/src/timerManager.js';
@@ -582,4 +583,6 @@ export function sendLayout(
     layout: result?.layout ?? null,
     wasReset: result?.wasReset ?? false,
   });
+  // Pet care needs the pets, so it follows the layout that spawns them.
+  webview.postMessage({ type: 'petCareLoaded', state: readPetCareState() });
 }

@@ -8,6 +8,7 @@ import { DebugView } from './components/DebugView.js';
 import { EditActionBar } from './components/EditActionBar.js';
 import { IntroBubble } from './components/IntroBubble.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
+import { PetRadialMenu } from './components/PetRadialMenu.js';
 import { SettingsModal } from './components/SettingsModal.js';
 import { TaskBoard } from './components/taskBoard/TaskBoard.js';
 import { Tooltip } from './components/Tooltip.js';
@@ -44,6 +45,9 @@ if (isE2E) installTestHooks(officeStateRef);
 function getOfficeState(): OfficeState {
   if (!officeStateRef.current) {
     officeStateRef.current = new OfficeState();
+    // Debug time acceleration for pet care: `?petSpeed=600` runs needs 600x faster.
+    const petSpeed = Number(new URLSearchParams(window.location.search).get('petSpeed'));
+    if (petSpeed > 0) officeStateRef.current.petCare.speed = petSpeed;
   }
   return officeStateRef.current;
 }
@@ -438,6 +442,13 @@ function App() {
             panRef={editor.panRef}
             onCloseAgent={handleCloseAgent}
             alwaysShowOverlay={alwaysShowOverlay}
+          />
+
+          <PetRadialMenu
+            officeState={officeState}
+            containerRef={containerRef}
+            zoom={editor.zoom}
+            panRef={editor.panRef}
           />
         </>
       ) : (

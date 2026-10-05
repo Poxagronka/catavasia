@@ -13,6 +13,7 @@ import {
 } from './configPersistence.js';
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT } from './constants.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
+import { readPetCareState, writePetCareState } from './petCarePersistence.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
 import { applyConsentChoice } from './providers/hook/consentExecutor.js';
 import { hooksConsentRequest } from './providers/hook/consentGate.js';
@@ -114,6 +115,10 @@ export function handleClientMessage(
       if (msg.layout) {
         writeLayoutToFile(msg.layout as Record<string, unknown>);
       }
+      break;
+
+    case 'savePetCare':
+      writePetCareState(msg.state);
       break;
 
     case 'saveAgentSeats':
@@ -376,6 +381,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
         type: 'petSpritesLoaded',
         pets: cache.pets.pets,
         petNames: cache.pets.manifests.map((m) => m.name),
+        petSpecies: cache.pets.manifests.map((m) => m.species ?? ''),
       });
     }
     if (cache.floorTiles) {
@@ -510,6 +516,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // into characters once seats are rebuilt.
   const savedLayout = readLayoutFromFile();
   send({ type: 'layoutLoaded', layout: savedLayout ?? cache?.defaultLayout ?? null });
+  // Pet care needs the pets, so it follows the layout that spawns them.
+  send({ type: 'petCareLoaded', state: readPetCareState() });
 
   // 8. Agent state, AFTER layoutLoaded -- the characters they target only
   // exist once the layout flush creates them. Without this a reconnecting
