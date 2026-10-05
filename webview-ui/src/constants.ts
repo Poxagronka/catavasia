@@ -200,6 +200,22 @@ export const INACTIVE_SEAT_TIMER_MIN_SEC = 3.0;
 export const INACTIVE_SEAT_TIMER_RANGE_SEC = 2.0;
 /** Default/fallback palette count (bundled characters). Actual count comes from getLoadedCharacterCount(). */
 export const PALETTE_COUNT = 13;
+/** Cat names by palette index, in scripts/cats/breeds.mjs order (char_N.png = CAT_NAMES[N]). */
+export const CAT_NAMES = [
+  'Marmalade',
+  'Smokey',
+  'Shadow',
+  'Snow',
+  'Tux',
+  'Patches',
+  'Tortie',
+  'Mochi',
+  'Nikolai',
+  'Butterscotch',
+  'Leo',
+  'Dobby',
+  'Bear',
+] as const;
 export const AUTO_ON_FACING_DEPTH = 3;
 export const AUTO_ON_SIDE_DEPTH = 2;
 export const CHARACTER_HIT_HALF_WIDTH = 8;
@@ -312,3 +328,9 @@ export const PET_THUMB_SCALE_MARGIN = 0.85;
 export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
+
+// ── Task Board ───────────────────────────────────────────────
+/** How often the open board re-reads GET /api/tasks. */
+export const TASK_POLL_INTERVAL_MS = 1500;
+/** Pixel scale of the cat avatar on a task card. */
+export const TASK_AVATAR_ZOOM = 2;

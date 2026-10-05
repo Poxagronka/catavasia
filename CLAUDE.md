@@ -319,6 +319,12 @@ Single dispatch point for `ClientMessage`. Each variant calls into `AgentRuntime
 
 Per-agent runtime data: provider reference, session key, transcript-fallback fields (`jsonlFile`, `fileOffset`, `lineBuffer`), tool state Maps and Sets, team fields (`teamName`, `agentName`, `isTeamLead`, `leadAgentId`, `teamUsesTmux`), context usage (`contextTokens`, `maxContextTokens`, `sawMainChainUsage`), and the **`hookDelivered`** flag that suppresses heuristic timers when hooks are flowing.
 
+### Task Board (standalone only)
+
+"Tasks" button → board of headless `claude -p --dangerously-skip-permissions --output-format stream-json --verbose` runs (`server/src/taskBoard/`, `webview-ui/src/components/taskBoard/`, contract `core/src/tasks.ts`). Plain HTTP, not AsyncAPI: `GET /api/tasks`, `GET /api/tasks/:id` (open), `POST /api/tasks` (needs the server token, `?token=` or Bearer — the run has no permission prompts). Each run gets a git worktree at `~/.pixel-agents/worktrees/<id>` on branch `task/<id>`; on exit everything is committed, the diff vs the base commit is recorded, the worktree is removed and the branch kept. Non-git folders run in place. The character comes from `AgentRuntime.launchHeadlessAgent` (registered directly with `--session-id`, so no Watch All gate) and leaves via `finishHeadlessAgent`. Tasks persist in `~/.pixel-agents/tasks.json` (shared by all servers, per-task read-merge-write); a `running` task whose owner PID is dead becomes "interrupted".
+
+**Tripwire**: `.gitignore` ignores every `tasks/` directory — a folder named `tasks` is silently untracked AND skipped by Tailwind's class scan. That is why the folders are named `taskBoard`.
+
 ## Persistence
 
 ```
@@ -328,6 +334,8 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
   standalone-state.json    { agents, seats }
   layout.json              OfficeLayout (shared across surfaces)
   server.json              { port, pid, authToken }
+  tasks.json               Task board tasks (all standalone servers)
+  worktrees/<taskId>/      Git worktree of a running task (removed on finish)
   hooks/claude-hook.js     Bundled hook script (CJS, shebang)
 ```
 

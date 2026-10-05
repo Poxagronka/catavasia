@@ -107,3 +107,15 @@ export const PALETTE_COUNT = 13;
  *  clientMessageHandler to guard saveAgentSeats payloads from a remote or
  *  hand-edited source corrupting the stored values with out-of-range values. */
 export const HUE_SHIFT_MAX_DEG = 360;
+
+// ── Task Board ──────────────────────────────────────────────
+/** ~/.pixel-agents/<name>: persisted board tasks, shared by all standalone servers. */
+export const TASKS_FILE_NAME = 'tasks.json';
+/** ~/.pixel-agents/<dir>/<taskId>: one git worktree per running task. */
+export const TASK_WORKTREES_DIR = 'worktrees';
+export const TASK_PROMPT_MAX_CHARS = 20_000;
+/** Cap on the stored diff of one task, so tasks.json stays small. */
+export const TASK_DIFF_MAX_BYTES = 200_000;
+export const TASK_LOG_MAX_ENTRIES = 500;
+export const TASK_LOG_TEXT_MAX_CHARS = 300;
+export const TASK_STDERR_TAIL_CHARS = 2000;
