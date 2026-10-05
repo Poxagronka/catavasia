@@ -16,7 +16,7 @@ Design research and evidence: [orchestration-spec.md](orchestration-spec.md).
 - Lifecycle: sessions run on demand, sleep after 1 hour of idle, and resume. Rationale (user): by then the prompt cache has expired anyway, so a live process gives no saving. Tie the threshold to the session's real cache TTL: read it from the stream-json usage fields (ephemeral 5m vs 1h cache creation) and verify. Default 1 h as a constant with --resume. The cat stays visible in the game.
 - Defaults I chose: ask goes up/down the tree plus siblings. The narrator batches every 10 s. Permissions are skipped, as for tasks. Reuse upstream PR #347 (PTY + xterm.js) in the fork.
 - Terminal: a chat console by default. "Take the wheel" opens a real `claude --resume` PTY when the cat is idle. A per-cat lock prevents two processes on one session.
-- Narrator: one always-on Haiku session while the office runs. Short Russian text. The server validates its output against a schema.
+- Narrator: superseded, see the RAM plan item 3 (templates + batched one-shot Haiku calls). Short Russian text. The server validates its output against a schema.
 - Office shows ONLY own cats from the Cats menu. External claude sessions appear as guests, behind a Settings toggle that is OFF by default.
 - One session = one cat. Subagents are not shown (fix/one-cat-per-session in progress).
 - The Cats menu: Agents tab (look, name, prompt, role, model, effort: passed as `--model` / `--effort`; list the values the installed `claude --help` accepts, do not hardcode from memory), Hierarchy tab (tree editor), Pets tab (create, name, colour/pattern from the shared editor with more colours).
@@ -24,10 +24,10 @@ Design research and evidence: [orchestration-spec.md](orchestration-spec.md).
 
 ## Resource budget (RAM) — plan to reach the goal cheaper
 Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB peak RSS, 15.6 s wall time incl. the model reply. The research measured 300–850 MB per long-lived session.
-1. PROPOSAL, needs user OK: process per turn, not per cat. The prompt cache lives on Anthropic's side, not in the local process. A cat process can exit right after its turn and `--resume` on the next message without losing the cache while the TTL holds. RAM is used only by cats that are working right now. The "sleep after 1 h" rule then only affects the game look, not RAM.
+1. DECIDED (user, 2026-10-05): process per turn, not per cat. Measure the cache-hit rate after `--resume` first. If the cache is lost, fall back to a long-lived process that sleeps after 1 h idle. The prompt cache lives on Anthropic's side, not in the local process. A cat process can exit right after its turn and `--resume` on the next message without losing the cache while the TTL holds. RAM is used only by cats that are working right now. The "sleep after 1 h" rule then only affects the game look, not RAM.
    Cost: a few seconds of startup per turn. Verify the cache-hit rate after a resume in the usage fields before relying on it.
 2. Concurrency cap (user, 2026-10-05): at most N cats run a turn at the same time. Default 6. Settings offer 1 to 6 or more. Other cats queue. The game shows them waiting in line, for example at the coffee machine.
-3. PROPOSAL, needs user OK (the user asked for an always-on narrator session): narrator without a resident process: templates in the server for routine events (read file, run tests, edit). Haiku only for conversation summaries and the task brief, in batched one-shot calls. A long-lived narrator process is not needed.
+3. DECIDED (user, 2026-10-05), replaces the always-on narrator: narrator without a resident process: templates in the server for routine events (read file, run tests, edit). Haiku only for conversation summaries and the task brief, in batched one-shot calls. A long-lived narrator process is not needed.
 4. Leaf workers as subagents (optional): a worker that never delegates can run as a subagent inside its parent's process. That uses less RAM, but the user cannot open its own terminal. Off by default.
 Expected peak: about N × 300–850 MB while N cats work, near 0 when the office is idle.
 
