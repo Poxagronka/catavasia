@@ -38,6 +38,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, PetState, TILE_SIZE } from '../types.js';
+import { CatSocial } from './catSocial.js';
 import { createCharacter, updateCharacter } from './characters.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
 import { createPet, updatePet } from './petEntity.js';
@@ -60,6 +61,8 @@ export class OfficeState {
   walkableTiles: Array<{ col: number; row: number }>;
   characters: Map<number, Character> = new Map();
   pets: Pet[] = [];
+  /** Talk / play / fight scenes between idle cats (see catSocial.ts for the API). */
+  social = new CatSocial();
   /** Accumulated time for furniture animation frame cycling */
   furnitureAnimTimer = 0;
   selectedAgentId: number | null = null;
@@ -1127,6 +1130,10 @@ export class OfficeState {
     for (const id of toDelete) {
       this.characters.delete(id);
     }
+
+    // Cat social scenes run after the FSM: a cat that got work has already
+    // started for its desk, and the scene just lets it go.
+    this.social.update(dt, this.characters, this);
 
     // ── Pet FSM ────────────────────────────────────────────────
     for (const pet of this.pets) {

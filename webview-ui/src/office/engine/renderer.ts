@@ -74,6 +74,7 @@ import { getWallInstances, hasWallSprites, wallColorToHex } from '../wallTiles.j
 import { getCharacterSprite } from './characters.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
+import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
 
 // ── Settings ────────────────────────────────────────────────────
 
@@ -389,8 +390,11 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
+    const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom);
+    if (cloud) drawables.push(cloud);
     const sprites = getCharacterSprites(ch.palette, ch.hueShift);
-    const spriteData = getCharacterSprite(ch, sprites);
+    const spriteData = socialSpriteFor(ch, getCharacterSprite(ch, sprites));
+    if (!spriteData) continue; // hidden inside the fight dust cloud
     const cached = getCachedSprite(spriteData, zoom);
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
@@ -963,6 +967,8 @@ export function renderFrame(
 
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom);
+  // Cat social pictograms and anger marks (yield to the bubbles above)
+  renderSocialBubbles(ctx, characters, offsetX, offsetY, zoom);
   // Pet heart bubbles (same overlay pass)
   if (pets && pets.length > 0) {
     renderPetBubbles(ctx, pets, offsetX, offsetY, zoom);

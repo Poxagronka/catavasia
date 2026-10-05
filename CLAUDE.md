@@ -399,6 +399,8 @@ Custom ESLint rules (`eslint-rules/pixel-agents-rules.mjs`) enforce: `no-inline-
 
 **Speech bubbles**: Permission ("..." amber dots) stays until clicked/cleared. Waiting (green checkmark) auto-fades 2 s. Sprites in `spriteData.ts`.
 
+**Cat social scenes** (`engine/catSocial.ts`, API documented at the top): idle cats near each other talk in pictogram bubbles, play chase, or (about 1 in 15) fight in a dust cloud. `CatSocial.update` runs after the FSM in `OfficeState.update`. A cat whose agent gets work leaves the scene at once. Social bubbles yield to permission / waiting bubbles. Tunables are the `SOCIAL_*` constants. Art (angry / talk frames per breed + shared overlays) is generated into `sprites/cat-social.json` by `scripts/cats/social.mjs`: edit the generator, not the JSON.
+
 **Sound notifications**: Ascending two-note chime (E5 → E6) via Web Audio API plays when waiting bubble appears (`agentStatus: 'waiting'`). `notificationSound.ts` manages AudioContext lifecycle; `unlockAudio()` on canvas mousedown resumes the context (webviews start suspended). Toggled via Settings modal. Persisted per-namespace in `~/.pixel-agents/config.json`.
 
 **Seats**: Derived from chair furniture. `layoutToSeats()` creates a seat at every footprint tile of every chair. Multi-tile chairs produce multiple seats keyed `uid` / `uid:1` / `uid:2`. Facing direction priority: 1) chair `orientation` from catalog (front→DOWN, back→UP, left→LEFT, right→RIGHT), 2) adjacent desk direction, 3) forward (DOWN). Click character → select (white outline) → click available seat → reassign.
