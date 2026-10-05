@@ -12,19 +12,25 @@ import {
   PET_REQUEST_THRESHOLD,
 } from '../../constants.js';
 
-/** Satisfaction meters, 0..PET_NEED_MAX. 100 = content, 0 = desperate. */
-export const NEED_KEYS = ['hunger', 'thirst', 'affection', 'fun', 'hygiene'] as const;
+/**
+ * Satisfaction meters, 0..PET_NEED_MAX. 100 = content, 0 = desperate.
+ * Energy decays while awake and refills while the cat sleeps (in a bed, a
+ * house or on a sofa); a tired cat goes to sleep by itself, so it raises no
+ * request bubble.
+ */
+export const NEED_KEYS = ['hunger', 'thirst', 'affection', 'fun', 'hygiene', 'energy'] as const;
 export type NeedKey = (typeof NEED_KEYS)[number];
 export type Needs = Record<NeedKey, number>;
 
 /** What a cat asks for when a need runs low (one bubble icon each). */
 export type RequestKind = 'food' | 'water' | 'scratch' | 'play' | 'litter';
-export const REQUEST_FOR_NEED: Record<NeedKey, RequestKind> = {
+export const REQUEST_FOR_NEED: Record<NeedKey, RequestKind | null> = {
   hunger: 'food',
   thirst: 'water',
   affection: 'scratch',
   fun: 'play',
   hygiene: 'litter',
+  energy: null,
 };
 
 export const NEED_LABELS: Record<NeedKey, string> = {
@@ -33,6 +39,7 @@ export const NEED_LABELS: Record<NeedKey, string> = {
   affection: 'Love',
   fun: 'Fun',
   hygiene: 'Clean',
+  energy: 'Energy',
 };
 
 export type MoodLabel = 'Happy' | 'Content' | 'Grumpy' | 'Miserable';
@@ -49,10 +56,14 @@ export function freshNeeds(): Needs {
     affection: PET_NEED_START,
     fun: PET_NEED_START,
     hygiene: PET_NEED_START,
+    energy: PET_NEED_START,
   };
 }
 
-/** Coerce persisted (untrusted) data to valid needs; missing keys start fresh. */
+/**
+ * Coerce persisted (untrusted) data to valid needs; missing keys start fresh
+ * (a pets-state.json from before the energy need loads with fresh energy).
+ */
 export function sanitizeNeeds(raw: unknown): Needs {
   const out = freshNeeds();
   if (!raw || typeof raw !== 'object') return out;
@@ -102,7 +113,7 @@ export function moodLabel(score: number): MoodLabel {
 export function pickRequest(needs: Needs): RequestKind | null {
   let worst: NeedKey | null = null;
   for (const k of NEED_KEYS) {
-    if (needs[k] >= PET_REQUEST_THRESHOLD) continue;
+    if (needs[k] >= PET_REQUEST_THRESHOLD || !REQUEST_FOR_NEED[k]) continue;
     if (worst === null || needs[k] < needs[worst]) worst = k;
   }
   return worst ? REQUEST_FOR_NEED[worst] : null;

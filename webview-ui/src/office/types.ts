@@ -67,6 +67,17 @@ export interface ActivitySpot {
   itemUid?: string;
   /** Run-through activities (tunnel): the far end the cat runs to and back from. */
   exit?: { col: number; row: number };
+  /** The cat is INSIDE the item (a cat house): only its ears or tail show, here. */
+  peek?: HousePeek;
+}
+
+/** Ears or tail of a cat inside a house: world px of the overlay's bottom-centre. */
+export interface HousePeek {
+  kind: 'ears' | 'tail';
+  x: number;
+  y: number;
+  /** Z-sort key just in front of the house. */
+  zY: number;
 }
 
 /** One idle activity in progress. */
@@ -369,10 +380,22 @@ export interface Pet {
   bubbleTimer: number;
   /** Pet-care pose the cat is playing (set by PetCareSystem), or null/absent. */
   careAnim?: { kind: PetCareAnim; frame: number } | null;
+  /** Resting on a spot (set by PetCareSystem): draw offset, Zzz, a house hiding it. */
+  rest?: PetRest | null;
+  /** Social scene view, mirrored from the pet's stand-in actor (see petActors.ts). */
+  social?: CharacterSocialView;
+}
+
+export interface PetRest {
+  offsetX: number;
+  offsetY: number;
+  zzz: boolean;
+  /** The house the pet sleeps inside (only ears or tail show), if any. */
+  peek?: HousePeek;
 }
 
 /** Care poses a cat pet can play (see office/sprites/petCareFrames.ts). */
-export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play';
+export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play' | 'sleep';
 
 /** Persisted record (lives on OfficeLayout). */
 export interface PlacedPet {

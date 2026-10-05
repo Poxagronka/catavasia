@@ -13,6 +13,7 @@ import type { PetSpriteFrames } from './petSpriteData.js';
  * - poop: the rear half settles onto the hind legs (squat).
  * - petted: the front view squashes down one pixel under the hand.
  * - play: the side walk cycle with a hop.
+ * - sleep: the front view settles low (a loaf), breathing one pixel.
  *
  * Side poses face right; callers flip them for left, like the walk cycle.
  */
@@ -24,6 +25,7 @@ export interface PetCarePoses {
   eatUp: SpriteData[];
   petted: SpriteData[];
   playRight: SpriteData[];
+  sleep: SpriteData[];
 }
 
 /** Lapping tongue color. */
@@ -175,6 +177,7 @@ export function buildCarePoses(p: PetSpriteFrames): PetCarePoses {
     eatUp: [frontDip(p.idleUp[0], 1), frontDip(p.idleUp[0], 2)],
     petted: [frontDip(p.idleDown[0], 1), p.idleDown[0]],
     playRight: PLAY_HOPS.map((hop, i) => pad(p.walkRight[i % 3], maxHop - hop, hop)),
+    sleep: [frontDip(p.idleDown[0], 3), frontDip(p.idleDown[0], 3), frontDip(p.idleDown[0], 4)],
   };
 }
 
@@ -220,5 +223,7 @@ export function careSpriteFor(pet: Pet, sprites: PetSpriteFrames): SpriteData | 
       return pick(poses.petted);
     case 'play':
       return side(poses.playRight);
+    case 'sleep':
+      return pick(poses.sleep);
   }
 }

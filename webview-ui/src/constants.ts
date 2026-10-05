@@ -428,6 +428,7 @@ export const PET_NEED_DECAY_PER_HOUR = {
   affection: 10,
   fun: 14,
   hygiene: 3,
+  energy: 8,
 } as const;
 /** Extra hygiene loss per office hour for each poop left on the floor. */
 export const PET_HYGIENE_DECAY_PER_FLOOR_POOP = 8;
@@ -500,3 +501,44 @@ export const MEOW_PEAK_HZ = 900;
 export const MEOW_END_HZ = 520;
 export const MEOW_DURATION_SEC = 0.5;
 export const MEOW_VOLUME = 0.08;
+
+// ── Integration: spot reservations, contention, energy, activity social ──
+/** A spot reserved less than this long ago (and not reached yet) can be contested. */
+export const SPOT_CONTEST_WINDOW_SEC = 1.5;
+/** Chance that two cats claiming one spot fight over it (else the second re-picks). */
+export const SPOT_CONTEST_FIGHT_CHANCE = 0.35;
+/** Cats farther apart than this (tiles) never fight over a spot: the second re-picks. */
+export const SPOT_CONTEST_FIGHT_RADIUS_TILES = 8;
+/** Re-picks an idle cat tries after losing a spot claim, before it pauses. */
+export const SPOT_CLAIM_RETRIES = 3;
+/** Pet energy: a pet under this walks to a bed, house or sofa to sleep. */
+export const PET_TIRED_THRESHOLD = 35;
+/** Energy a sleeping pet gains per real second (a nap of ~40 s fills it). */
+export const PET_SLEEP_ENERGY_PER_SEC = 2.5;
+/** Nap length for a tired pet (s): [min, max]; it wakes early when energy is full. */
+export const PET_SLEEP_MIN_SEC = 20;
+export const PET_SLEEP_MAX_SEC = 60;
+/** Chance per decision that a content pet starts an idle activity (else it wanders). */
+export const PET_ACTIVITY_CHANCE = 0.3;
+/** Seconds a content pet spends on a toy, and the fun it gains. */
+export const PET_TOY_MIN_SEC = 6;
+export const PET_TOY_MAX_SEC = 14;
+export const PET_TOY_FUN_GAIN = 25;
+/** Cats in activities near each other: check interval (s) and chance per check. */
+export const ACTIVITY_SOCIAL_CHECK_SEC = 2;
+export const ACTIVITY_SOCIAL_CHANCE = 0.35;
+/** Of those encounters in the playroom: the share that becomes joint play. */
+export const ACTIVITY_JOINT_PLAY_CHANCE = 0.6;
+/** Seconds added to an activity when its cat starts a talk there (it stays for the talk). */
+export const ACTIVITY_TALK_EXTEND_SEC = 10;
+/** Id base for the stand-in characters pet cats use in social scenes. */
+export const PET_ACTOR_ID_BASE = 1_000_000;
+/** Ears / tail of a cat asleep inside a cat house: outline and inner-ear colors. */
+export const HOUSE_PEEK_OUTLINE_COLOR = '#2E1C20';
+export const HOUSE_PEEK_INNER_EAR_COLOR = '#E89AA8';
+/** Social bubble height above a pet's feet (pets are shorter than agent cats). */
+export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;
+/** Head height of a pet above its feet, for its Zzz while it naps. */
+export const PET_HEAD_ABOVE_ANCHOR_PX = 12;
+/** Outline for the ears / tail of a near-black cat, so they read against a dark doorway. */
+export const HOUSE_PEEK_RIM_COLOR = '#9A8AA0';

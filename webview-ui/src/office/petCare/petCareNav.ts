@@ -14,6 +14,8 @@ export interface PetCareEnv {
   tileMap: TileTypeVal[][];
   blockedTiles: Set<string>;
   isCat: (pet: Pet) => boolean;
+  /** The pet's stand-in is in a social scene: no decisions, the scene moves it. */
+  inScene?: (pet: Pet) => boolean;
 }
 
 export interface CareTarget {
@@ -24,15 +26,25 @@ export interface CareTarget {
   path: Array<{ col: number; row: number }>;
 }
 
-/** Path to (col, row); null when unreachable. Empty path = already there. */
+/**
+ * Path to (col, row); null when unreachable. Empty path = already there.
+ * `onFurniture`: the target is a blocked furniture tile (a bed, a sofa seat)
+ * the cat may step onto as the last step.
+ */
 export function pathTo(
   pet: Pet,
   col: number,
   row: number,
   env: PetCareEnv,
+  onFurniture = false,
 ): Array<{ col: number; row: number }> | null {
   if (pet.tileCol === col && pet.tileRow === row) return [];
-  const path = findPath(pet.tileCol, pet.tileRow, col, row, env.tileMap, env.blockedTiles);
+  let blocked = env.blockedTiles;
+  if (onFurniture) {
+    blocked = new Set(blocked);
+    blocked.delete(`${col},${row}`);
+  }
+  const path = findPath(pet.tileCol, pet.tileRow, col, row, env.tileMap, blocked);
   return path.length > 0 ? path : null;
 }
 
@@ -45,6 +57,7 @@ export function findBowlSpot(
   goal: 'eat' | 'drink',
   env: PetCareEnv,
   world: PetCareWorld,
+  canUse: (key: string) => boolean = () => true,
 ): CareTarget | null {
   let best: CareTarget | null = null;
   for (const f of env.furniture) {
@@ -60,6 +73,7 @@ export function findBowlSpot(
       const col = f.col + dc;
       const row = f.row + dr;
       if (!isWalkable(col, row, env.tileMap, env.blockedTiles)) continue;
+      if (!canUse(`${col},${row}`)) continue;
       const path = pathTo(pet, col, row, env);
       if (path && (!best || path.length < best.path.length)) best = { uid: f.uid, col, row, path };
     }
@@ -68,9 +82,15 @@ export function findBowlSpot(
 }
 
 /** The first reachable litter box with room (its tile is walkable). */
-export function findLitterBox(pet: Pet, env: PetCareEnv, world: PetCareWorld): CareTarget | null {
+export function findLitterBox(
+  pet: Pet,
+  env: PetCareEnv,
+  world: PetCareWorld,
+  canUse: (key: string) => boolean = () => true,
+): CareTarget | null {
   for (const f of env.furniture) {
     if (f.type !== LITTER_BOX_TYPE || world.isBoxFull(f.uid)) continue;
+    if (!canUse(`${f.col},${f.row}`)) continue;
     const path = pathTo(pet, f.col, f.row, env);
     if (path) return { uid: f.uid, col: f.col, row: f.row, path };
   }

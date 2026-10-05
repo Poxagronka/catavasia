@@ -163,6 +163,7 @@ test('two napping cats take two different sofa seats, a third naps on the floor'
   third.state = CharacterState.IDLE;
   cats.push(third);
 
+  os.social.rng = () => 0.99; // no social scene stops a cat on its way
   for (const ch of cats) assert.ok(os.forceIdleActivity(ch.id, 'sleep'));
   runFor(os, 10);
 

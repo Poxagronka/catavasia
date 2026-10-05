@@ -25,7 +25,7 @@ export interface LoadedAssetData {
 }
 
 export type FurnitureCategory =
-  'desks' | 'chairs' | 'storage' | 'decor' | 'electronics' | 'wall' | 'misc' | 'toys';
+  'desks' | 'chairs' | 'storage' | 'decor' | 'electronics' | 'wall' | 'misc' | 'toys' | 'beds';
 
 /** @internal */
 export interface CatalogEntryWithCategory extends FurnitureCatalogEntry {
@@ -340,6 +340,7 @@ export const FURNITURE_CATEGORIES: Array<{ id: FurnitureCategory; label: string 
   { id: 'wall', label: 'Wall' },
   { id: 'misc', label: 'Misc' },
   { id: 'toys', label: 'Cat toys' },
+  { id: 'beds', label: 'Cat beds' },
 ];
 
 // ── Rotation helpers ─────────────────────────────────────────────

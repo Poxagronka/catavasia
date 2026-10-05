@@ -5,6 +5,7 @@ import {
   IDLE_ACTIVITY_PAUSE_MIN_SEC,
   SEAT_REST_MAX_SEC,
   SEAT_REST_MIN_SEC,
+  SPOT_CLAIM_RETRIES,
   TYPE_FRAME_DURATION_SEC,
   WALK_FRAME_DURATION_SEC,
   WALK_SPEED_PX_PER_SEC,
@@ -25,8 +26,14 @@ import { advanceRunThrough } from './runThrough.js';
 /** What the idle-activity FSM needs from the office. */
 export interface IdleWorld {
   spotSets: Map<string, ActivitySpotSet>;
-  /** Spot keys other characters hold (see takenSpotKeys). */
+  /** Spot keys this character must not pick (held by others, see spotReservations.ts). */
   takenBy: (ch: Character) => Set<string>;
+  /**
+   * Reserve the chosen spot as the walk starts. 'repick': another cat holds
+   * it, choose again. 'fight': a contest fight started, the scene owns the cat.
+   * Omitted: every spot is free (unit tests).
+   */
+  claim?: (ch: Character, choice: IdleChoice) => 'ok' | 'repick' | 'fight';
 }
 
 /** Whether a tool should show the reading animation (vs typing). Taxonomy comes
@@ -443,8 +450,17 @@ function startIdleActivity(
   tileMap: TileTypeVal[][],
   blockedTiles: Set<string>,
 ): boolean {
-  const choice = chooseIdleActivity(ch.lastActivityId, idle.spotSets, idle.takenBy(ch));
-  return choice ? beginIdleActivity(ch, choice, tileMap, blockedTiles) : false;
+  const taken = idle.takenBy(ch);
+  for (let i = 0; i < SPOT_CLAIM_RETRIES; i++) {
+    const choice = chooseIdleActivity(ch.lastActivityId, idle.spotSets, taken);
+    if (!choice) return false;
+    const outcome = choice.spot && idle.claim ? idle.claim(ch, choice) : 'ok';
+    if (outcome === 'ok') return beginIdleActivity(ch, choice, tileMap, blockedTiles);
+    if (outcome === 'fight') return true;
+    taken.add(choice.spot!.key); // lost the spot: pick another one
+  }
+  ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+  return true;
 }
 
 /** Start a chosen activity: walk to its spot, or set up the wander. */
