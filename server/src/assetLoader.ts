@@ -194,6 +194,32 @@ export async function loadFurnitureAssets(workspaceRoot: string): Promise<Loaded
 // ── Default layout loading ───────────────────────────────────
 
 /**
+ * Every bundled default layout except the newest: the offices a user may
+ * still have saved untouched (see migrateUnmodifiedLayout).
+ */
+export function loadPreviousDefaultLayouts(assetsRoot: string): Array<Record<string, unknown>> {
+  const assetsDir = path.join(assetsRoot, 'assets');
+  try {
+    const revisions = fs
+      .readdirSync(assetsDir)
+      .map((file) => /^default-layout-(\d+)\.json$/.exec(file))
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => ({ file: m[0], rev: parseInt(m[1], 10) }))
+      .sort((a, b) => a.rev - b.rev);
+    return revisions.slice(0, -1).map(({ file, rev }) => {
+      const layout = JSON.parse(fs.readFileSync(path.join(assetsDir, file), 'utf-8')) as Record<
+        string,
+        unknown
+      >;
+      layout[LAYOUT_REVISION_KEY] ??= rev;
+      return layout;
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Load the bundled default layout with the highest revision.
  * Scans for assets/default-layout-{N}.json files and picks the one
  * with the largest N. Falls back to assets/default-layout.json for

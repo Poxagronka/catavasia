@@ -116,6 +116,13 @@ export function handleClientMessage(
       }
       break;
 
+    case 'resetLayoutToDefault':
+      if (cache?.defaultLayout) {
+        writeLayoutToFile(cache.defaultLayout);
+        send({ type: 'layoutLoaded', layout: cache.defaultLayout });
+      }
+      break;
+
     case 'saveAgentSeats':
       if (msg.seats) {
         const seats = msg.seats as Record<

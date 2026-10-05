@@ -278,7 +278,7 @@ export function OfficeCanvas({
           w,
           h,
           officeState.tileMap,
-          officeState.furniture,
+          officeState.getFurnitureForRender(),
           officeState.getCharacters(),
           zoom,
           panRef.current.x,

@@ -145,6 +145,11 @@ export function arm(fr, part, pts, thick = 2, tip = 2) {
   fr.stroke(pts, thick, part, Z.arm, { rim: true, tip });
 }
 
+/** Arm drawn at an explicit depth (a raised arm sits over the chin). */
+export function armAt(fr, part, pts, z) {
+  fr.stroke(pts, 2, part, z, { rim: true, tip: 2 });
+}
+
 const TAIL_THICK = { thin: 1, normal: 2, bushy: 3 };
 
 export function tail(fr, cat, pts, front) {

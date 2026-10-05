@@ -57,6 +57,7 @@ export type ClientMessage =
   | SetHooksInfoShown
   | SetWatchAllSessions
   | ExportLayout
+  | ResetLayoutToDefault
   | ImportLayout
   | OpenSessionsFolder
   | AddExternalAssetDirectory
@@ -403,6 +404,10 @@ export interface SetWatchAllSessions {
 
 export interface ExportLayout {
   type: 'exportLayout';
+}
+
+export interface ResetLayoutToDefault {
+  type: 'resetLayoutToDefault';
 }
 
 export interface ImportLayout {

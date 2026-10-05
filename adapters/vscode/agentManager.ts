@@ -574,9 +574,10 @@ export function sendCurrentAgentStatuses(
 export function sendLayout(
   webview: vscode.Webview | undefined,
   defaultLayout?: Record<string, unknown> | null,
+  previousDefaults: Array<Record<string, unknown>> = [],
 ): void {
   if (!webview) return;
-  const result = loadLayout(defaultLayout);
+  const result = loadLayout(defaultLayout, previousDefaults);
   webview.postMessage({
     type: 'layoutLoaded',
     layout: result?.layout ?? null,

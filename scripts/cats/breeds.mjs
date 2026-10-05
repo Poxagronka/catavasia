@@ -3,6 +3,8 @@
 // direction, and returns a palette key to override the default, or null.
 // Patterns use part-local coordinates so markings stay put while animating.
 
+import { PALETTE as TOY_PALETTE } from '../toys/toyArt.mjs';
+
 const OUTLINE = [46, 28, 32];
 const DARK_OUTLINE = [16, 12, 20];
 
@@ -341,6 +343,8 @@ export const BREEDS = [
 /** Resolve one cell to RGBA for a breed. */
 export function colorize(breed, cell, dir) {
   if (!cell) return [0, 0, 0, 0];
+  // Toy props inside a cat frame (the box it peeks out of) keep the toy palette.
+  if (cell.label.startsWith('toy:')) return TOY_PALETTE[cell.label.slice(4)];
   const pick = (key) => [...(breed[key] ?? breed.fur), 255];
   switch (cell.label) {
     case 'outline':

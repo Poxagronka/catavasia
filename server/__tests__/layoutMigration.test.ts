@@ -1,0 +1,123 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { AgentStateStore } from '../src/agentStateStore.js';
+import { loadDefaultLayout, loadPreviousDefaultLayouts } from '../src/assetLoader.js';
+import { handleClientMessage } from '../src/clientMessageHandler.js';
+import {
+  isUnmodifiedDefault,
+  loadLayout,
+  migrateUnmodifiedLayout,
+  readLayoutFromFile,
+} from '../src/layoutPersistence.js';
+
+/** Bundled assets of this checkout: the real old and new default offices. */
+const ASSETS_ROOT = path.join(__dirname, '..', '..', 'webview-ui', 'public');
+
+let tempHome: string;
+let originalHome: string | undefined;
+
+function layoutFile(): string {
+  return path.join(tempHome, '.pixel-agents', 'layout.json');
+}
+
+function saveLayout(layout: unknown): void {
+  fs.mkdirSync(path.dirname(layoutFile()), { recursive: true });
+  fs.writeFileSync(layoutFile(), JSON.stringify(layout, null, 2));
+}
+
+const oldDefault = () =>
+  JSON.parse(
+    fs.readFileSync(path.join(ASSETS_ROOT, 'assets', 'default-layout-1.json'), 'utf-8'),
+  ) as Record<string, unknown>;
+
+beforeEach(() => {
+  tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pa-layout-'));
+  originalHome = process.env.HOME;
+  process.env.HOME = tempHome;
+});
+
+afterEach(() => {
+  if (originalHome === undefined) delete process.env.HOME;
+  else process.env.HOME = originalHome;
+  fs.rmSync(tempHome, { recursive: true, force: true });
+});
+
+describe('default layout upgrade', () => {
+  it('the newest bundled default has the playroom; revision 1 is the previous one', () => {
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+    expect(latest.layoutRevision).toBe(2);
+    const furniture = latest.furniture as Array<{ type: string }>;
+    expect(furniture.filter((f) => f.type === 'SCRATCHING_POST')).toHaveLength(1);
+    const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1]);
+  });
+
+  it('upgrades an untouched old default to the new default', () => {
+    saveLayout(oldDefault());
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const migrated = migrateUnmodifiedLayout(
+      readLayoutFromFile(),
+      latest,
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(migrated).toBe(true);
+    expect(readLayoutFromFile()).toEqual(latest);
+  });
+
+  it('treats a re-saved but unchanged old default as untouched', () => {
+    // A webview save adds empty optional fields and may reorder keys.
+    const { furniture, ...rest } = oldDefault();
+    const resaved = { pets: [], furniture: [...(furniture as unknown[])].reverse(), ...rest };
+    expect(isUnmodifiedDefault(resaved, loadPreviousDefaultLayouts(ASSETS_ROOT))).toBe(true);
+  });
+
+  it('keeps a customized office and leaves the file alone', () => {
+    const custom = oldDefault();
+    (custom.furniture as Array<{ col: number }>)[0].col += 1;
+    saveLayout(custom);
+    const before = fs.readFileSync(layoutFile(), 'utf-8');
+
+    const result = loadLayout(
+      loadDefaultLayout(ASSETS_ROOT),
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(result?.wasReset).toBe(false);
+    expect(result?.layout).toEqual(custom);
+    expect(fs.readFileSync(layoutFile(), 'utf-8')).toBe(before);
+  });
+
+  it('VS Code load: an untouched old default comes back as the new default, flagged as reset', () => {
+    saveLayout(oldDefault());
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+    expect(result).toEqual({ layout: latest, wasReset: true });
+  });
+
+  it('writes the new default when there is no saved layout', () => {
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+    expect(result).toEqual({ layout: latest, wasReset: false });
+    expect(readLayoutFromFile()).toEqual(latest);
+  });
+
+  it('the editor "Default" button writes the default office and sends it back', () => {
+    const custom = oldDefault();
+    saveLayout(custom);
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+    const sent: Array<Record<string, unknown>> = [];
+
+    handleClientMessage({ type: 'resetLayoutToDefault' }, (m) => sent.push(m), {
+      store: new AgentStateStore(),
+      cache: { defaultLayout: latest } as never,
+    });
+
+    expect(readLayoutFromFile()).toEqual(latest);
+    expect(sent).toEqual([{ type: 'layoutLoaded', layout: latest }]);
+  });
+});

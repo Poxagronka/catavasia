@@ -373,9 +373,7 @@ function App() {
             style={{ background: 'var(--vignette)' }}
           />
 
-          {editor.isEditMode && editor.isDirty && (
-            <EditActionBar editor={editor} editorState={editorState} />
-          )}
+          {editor.isEditMode && <EditActionBar editor={editor} editorState={editorState} />}
 
           {showRotateHint && (
             <div

@@ -5,6 +5,7 @@
 
 import { Frame } from './canvas.mjs';
 import { IDLE_FRAMES } from './idlePoses.mjs';
+import { TOY_FRAMES } from './toyPoses.mjs';
 import { arm, drawHead, drawTorso, leg, paper, tail, Z } from './parts.mjs';
 
 // ── Frames per direction ────────────────────────────────────────────────
@@ -225,7 +226,7 @@ function right(fr, i, cat) {
 }
 
 /** Render every frame for a cat: returns rows[dir][frame] = resolved cell grid.
- *  Frames 0-6 are the office poses, 7.. the idle-activity poses. */
+ *  Frames 0-6 are the office poses, 7-11 the idle poses, 12.. the toy poses. */
 export function renderCatFrames(cat) {
   const rows = [];
   for (const dir of ['down', 'up', 'right']) {
@@ -239,6 +240,11 @@ export function renderCatFrames(cat) {
     for (const draw of IDLE_FRAMES) {
       const fr = new Frame();
       draw(fr, dir, cat);
+      frames.push(fr.finish());
+    }
+    for (const draw of TOY_FRAMES) {
+      const fr = new Frame();
+      draw(fr, cat);
       frames.push(fr.finish());
     }
     rows.push(frames);

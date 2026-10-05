@@ -9,25 +9,10 @@
  * Pure module: no DOM, no OfficeState. The FSM lives in characters.ts.
  */
 
-import { CHARACTER_SITTING_OFFSET_PX } from '../../constants.js';
-import { getCatalogEntry } from '../layout/furnitureCatalog.js';
-import { isWalkable } from '../layout/tileMap.js';
-import type {
-  ActivitySpot,
-  Character,
-  PlacedFurniture,
-  Seat,
-  TileType as TileTypeVal,
-} from '../types.js';
-import { Direction } from '../types.js';
-
-/** What spot builders read from the office. */
-export interface SpotContext {
-  furniture: PlacedFurniture[];
-  seats: Map<string, Seat>;
-  tileMap: TileTypeVal[][];
-  blockedTiles: Set<string>;
-}
+import type { ActivitySpot, Character, Seat } from '../types.js';
+import type { SpotContext } from './activitySpots.js';
+import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
+import { TOY_ACTIVITIES } from './toyActivities.js';
 
 export interface IdleActivityDef {
   id: string;
@@ -46,126 +31,18 @@ export interface IdleActivityDef {
   zzz?: boolean;
   /** The pose is this many px lower than standing: bubbles follow it down. */
   lowPosePx?: number;
+  /** Play the walk cycle instead of idle frames (running through a tunnel). */
+  walkAnim?: boolean;
+  /** The toy moves while in use: yarn rolls, a feather sways, a mouse darts. */
+  prop?: PropMotion;
 }
+
+export type PropMotion = 'roll' | 'sway' | 'dart';
 
 /** Spots of every activity, rebuilt with the layout. */
 export interface ActivitySpotSet {
   spots: ActivitySpot[];
   fallback: ActivitySpot[];
-}
-
-const NEIGHBORS: ReadonlyArray<{ dc: number; dr: number; facing: Direction }> = [
-  { dc: 0, dr: 1, facing: Direction.UP }, // spot below the item faces up
-  { dc: 0, dr: -1, facing: Direction.DOWN },
-  { dc: -1, dr: 0, facing: Direction.RIGHT },
-  { dc: 1, dr: 0, facing: Direction.LEFT },
-];
-
-/** Type without the orientation suffix ("SOFA_SIDE:left" -> "SOFA_SIDE"). */
-function baseType(type: string): string {
-  return type.split(':')[0];
-}
-
-/** Furniture of the given types (orientation suffix ignored: "SOFA_SIDE:left" is SOFA_SIDE). */
-export function itemsOfType(ctx: SpotContext, types: readonly string[]): PlacedFurniture[] {
-  return ctx.furniture.filter((f) => types.includes(baseType(f.type)));
-}
-
-function footprint(item: PlacedFurniture): Array<{ col: number; row: number }> {
-  const entry = getCatalogEntry(item.type);
-  const w = entry?.footprintW ?? 1;
-  const h = entry?.footprintH ?? 1;
-  const tiles: Array<{ col: number; row: number }> = [];
-  for (let r = 0; r < h; r++)
-    for (let c = 0; c < w; c++) tiles.push({ col: item.col + c, row: item.row + r });
-  return tiles;
-}
-
-function seatAt(ctx: SpotContext, col: number, row: number): Seat | undefined {
-  for (const seat of ctx.seats.values()) {
-    if (seat.seatCol === col && seat.seatRow === row) return seat;
-  }
-  return undefined;
-}
-
-/**
- * Tiles next to an item, facing it: free floor, or a seat (a sofa seat at the
- * coffee table). Each tile appears once even when it touches several items.
- */
-export function adjacentSpots(ctx: SpotContext, items: PlacedFurniture[]): ActivitySpot[] {
-  const out = new Map<string, ActivitySpot>();
-  for (const item of items) {
-    const own = new Set(footprint(item).map((t) => `${t.col},${t.row}`));
-    for (const t of footprint(item)) {
-      for (const n of NEIGHBORS) {
-        const col = t.col + n.dc;
-        const row = t.row + n.dr;
-        const key = `${col},${row}`;
-        if (own.has(key) || out.has(key)) continue;
-        const seat = seatAt(ctx, col, row);
-        if (seat) {
-          out.set(key, {
-            key,
-            col,
-            row,
-            facing: n.facing,
-            onFurniture: true,
-            seatUid: seat.uid,
-            offsetY: CHARACTER_SITTING_OFFSET_PX,
-          });
-        } else if (isWalkable(col, row, ctx.tileMap, ctx.blockedTiles)) {
-          out.set(key, { key, col, row, facing: n.facing, onFurniture: false, offsetY: 0 });
-        }
-      }
-    }
-  }
-  return [...out.values()];
-}
-
-/**
- * Seats of the items (sofa cushions). A seat that faces up sits behind the
- * backrest, which hides a low pose (a curled-up cat): skip those for them.
- */
-export function seatSpots(
-  ctx: SpotContext,
-  items: PlacedFurniture[],
-  lowPose = false,
-): ActivitySpot[] {
-  const uids = new Set(items.map((i) => i.uid));
-  const out: ActivitySpot[] = [];
-  for (const seat of ctx.seats.values()) {
-    if (!uids.has(seat.uid.split(':')[0])) continue;
-    if (lowPose && seat.facingDir === Direction.UP) continue;
-    out.push({
-      key: `${seat.seatCol},${seat.seatRow}`,
-      col: seat.seatCol,
-      row: seat.seatRow,
-      facing: seat.facingDir,
-      onFurniture: true,
-      seatUid: seat.uid,
-      offsetY: CHARACTER_SITTING_OFFSET_PX,
-    });
-  }
-  return out;
-}
-
-/** Free floor within one tile of the items (diagonals too). */
-export function floorNear(ctx: SpotContext, items: PlacedFurniture[]): ActivitySpot[] {
-  const out = new Map<string, ActivitySpot>();
-  for (const item of items) {
-    for (const t of footprint(item)) {
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const col = t.col + dc;
-          const row = t.row + dr;
-          const key = `${col},${row}`;
-          if (out.has(key) || !isWalkable(col, row, ctx.tileMap, ctx.blockedTiles)) continue;
-          out.set(key, { key, col, row, facing: Direction.DOWN, onFurniture: false, offsetY: 0 });
-        }
-      }
-    }
-  }
-  return [...out.values()];
 }
 
 const COFFEE_TYPES = ['COFFEE'] as const;
@@ -200,6 +77,7 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
     zzz: true,
     lowPosePx: 12,
   },
+  ...TOY_ACTIVITIES,
 ];
 
 export function getIdleActivity(id: string | undefined | null): IdleActivityDef | undefined {
@@ -230,7 +108,9 @@ export function takenSpotKeys(
   const taken = new Set<string>();
   for (const other of characters) {
     if (other === self) continue;
-    if (other.activity?.spot) taken.add(other.activity.spot.key);
+    const spot = other.activity?.spot;
+    if (spot) taken.add(spot.key);
+    if (spot?.exit) taken.add(`${spot.exit.col},${spot.exit.row}`);
     if (other.seatId) {
       const seat = seats.get(other.seatId);
       if (seat) taken.add(`${seat.seatCol},${seat.seatRow}`);
@@ -269,8 +149,10 @@ export function chooseIdleActivity(
     }
     const set = spotSets.get(def.id);
     if (!set) continue;
-    let free = set.spots.filter((s) => !taken.has(s.key));
-    if (free.length === 0) free = set.fallback.filter((s) => !taken.has(s.key));
+    const isFree = (s: ActivitySpot) =>
+      !taken.has(s.key) && !(s.exit && taken.has(`${s.exit.col},${s.exit.row}`));
+    let free = set.spots.filter(isFree);
+    if (free.length === 0) free = set.fallback.filter(isFree);
     if (free.length === 0) continue;
     spotsFor.set(def.id, free);
     options.push({ def, spot: null });
@@ -290,4 +172,16 @@ export function chooseIdleActivity(
   }
   const free = spotsFor.get(chosen.def.id);
   return { def: chosen.def, spot: free ? pickRandom(free, rand) : null };
+}
+
+/** Px a toy prop is drawn off its place at time `t` (seconds) while in use. */
+export function propOffset(motion: PropMotion, t: number): { dx: number; dy: number } {
+  switch (motion) {
+    case 'roll':
+      return { dx: Math.round(2 * Math.sin(t * 2.2)), dy: 0 };
+    case 'sway':
+      return { dx: Math.round(1.5 * Math.sin(t * 5)), dy: Math.round(Math.sin(t * 2.5)) };
+    case 'dart':
+      return { dx: Math.round(3 * Math.sin(t * 2.3)), dy: Math.round(1.5 * Math.sin(t * 3.7)) };
+  }
 }

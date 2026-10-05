@@ -59,8 +59,14 @@ export interface ActivitySpot {
   onFurniture: boolean;
   /** Seat at this tile, if any. */
   seatUid?: string;
-  /** Extra px the pose is drawn lower (the sitting offset on a sofa). */
+  /** Px the pose is drawn right (+) or left (-): paws reach a toy next door. */
+  offsetX: number;
+  /** Extra px the pose is drawn lower (the sitting offset on a sofa), or higher (-). */
   offsetY: number;
+  /** Furniture the activity uses (toy props animate while it is in use). */
+  itemUid?: string;
+  /** Run-through activities (tunnel): the far end the cat runs to and back from. */
+  exit?: { col: number; row: number };
 }
 
 /** One idle activity in progress. */
@@ -72,6 +78,9 @@ export interface IdleActivityRun {
   phase: 'going' | 'doing';
   /** Seconds left in the 'doing' phase. */
   timer: number;
+  /** Run-through activities: 0..1 along the current pass, and passes done. */
+  progress?: number;
+  passes?: number;
 }
 
 export interface Seat {
@@ -96,6 +105,8 @@ export interface FurnitureInstance {
   zY: number;
   /** Render-time horizontal flip flag (for mirrored side variants) */
   mirrored?: boolean;
+  /** Placed furniture uid (toy props move while a cat plays with them) */
+  uid?: string;
 }
 
 export interface ToolActivity {

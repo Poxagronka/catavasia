@@ -53,42 +53,101 @@ interface LayoutLoadResult {
 }
 
 /**
+ * What makes two layouts the same office: grid, tiles, colors, furniture,
+ * carpets, pets and areas. Key order, layoutRevision and empty optional
+ * fields (a webview save adds `pets: []`) do not count.
+ */
+function layoutFingerprint(layout: Record<string, unknown>): string {
+  const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  const sparse = (v: unknown) =>
+    list(v)
+      .map((cell, i) => [i, cell] as const)
+      .filter(([, cell]) => cell !== null && cell !== undefined);
+  const furniture = list(layout.furniture)
+    .map((f) => f as Record<string, unknown>)
+    .map((f) => [f.uid, f.type, f.col, f.row, f.color ?? null])
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  return JSON.stringify([
+    layout.cols,
+    layout.rows,
+    list(layout.tiles),
+    sparse(layout.tileColors),
+    furniture,
+    sparse(layout.carpetTiles),
+    list(layout.pets),
+    list(layout.areas),
+    sparse(layout.areaTiles),
+  ]);
+}
+
+/** True when `saved` is one of the earlier bundled defaults, untouched by the user. */
+export function isUnmodifiedDefault(
+  saved: Record<string, unknown>,
+  previousDefaults: Array<Record<string, unknown>>,
+): boolean {
+  const print = layoutFingerprint(saved);
+  return previousDefaults.some((d) => layoutFingerprint(d) === print);
+}
+
+function revisionOf(layout: Record<string, unknown> | null | undefined): number {
+  return (layout?.[LAYOUT_REVISION_KEY] as number) ?? 0;
+}
+
+/**
  * Load layout from file. Falls back to bundled default if the file is empty.
- * Resets to the bundled default when a newer revision is bundled.
+ * A newer bundled default replaces the saved layout only when the user never
+ * changed it (it equals an earlier bundled default); an edited office is kept,
+ * and the editor's "Default" button resets it on request.
  *
  * Migration from VS Code workspaceState happens earlier, in
  * adapters/vscode/migrateVsCodeState.ts (run on extension activate). By the
  * time this is called, the file is the only source of truth.
  *
- * 1. If file exists → return it (reset if bundled default has a newer revision)
+ * 1. If file exists → return it (or the new default, see above)
  * 2. Else if defaultLayout provided → write to file, return it
  * 3. Else → return null
  */
 export function loadLayout(
   defaultLayout?: Record<string, unknown> | null,
+  previousDefaults: Array<Record<string, unknown>> = [],
 ): LayoutLoadResult | null {
   const fromFile = readLayoutFromFile();
   if (fromFile) {
-    const fileRevision = (fromFile[LAYOUT_REVISION_KEY] as number) ?? 0;
-    const defaultRevision = (defaultLayout?.[LAYOUT_REVISION_KEY] as number) ?? 0;
-    if (defaultRevision > fileRevision) {
-      console.log(
-        `[Pixel Agents] Layout revision outdated (${fileRevision} < ${defaultRevision}), resetting to bundled default`,
-      );
-      writeLayoutToFile(defaultLayout!);
+    if (migrateUnmodifiedLayout(fromFile, defaultLayout, previousDefaults)) {
       return { layout: defaultLayout!, wasReset: true };
     }
     console.log('[Pixel Agents] Layout loaded from file');
     return { layout: fromFile, wasReset: false };
   }
-
   if (defaultLayout) {
     console.log('[Pixel Agents] Writing bundled default layout to file');
     writeLayoutToFile(defaultLayout);
     return { layout: defaultLayout, wasReset: false };
   }
-
   return null;
+}
+
+/**
+ * Replace a saved layout that is an untouched older default with the newer
+ * bundled default. Returns true when it wrote the new default.
+ */
+export function migrateUnmodifiedLayout(
+  saved: Record<string, unknown> | null,
+  defaultLayout: Record<string, unknown> | null | undefined,
+  previousDefaults: Array<Record<string, unknown>>,
+): boolean {
+  if (!saved || !defaultLayout || revisionOf(defaultLayout) <= revisionOf(saved)) return false;
+  if (!isUnmodifiedDefault(saved, previousDefaults)) {
+    console.log(
+      `[Pixel Agents] Saved layout is customized: kept (a newer default, revision ${revisionOf(defaultLayout)}, is one click away in the editor)`,
+    );
+    return false;
+  }
+  console.log(
+    `[Pixel Agents] Saved layout is the untouched revision ${revisionOf(saved)} default: upgrading to revision ${revisionOf(defaultLayout)}`,
+  );
+  writeLayoutToFile(defaultLayout);
+  return true;
 }
 
 /**

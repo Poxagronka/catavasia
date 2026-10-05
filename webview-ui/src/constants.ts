@@ -344,5 +344,8 @@ export const ZZZ_FILL_COLOR = '#F4F1FF';
 export const ZZZ_EDGE_COLOR = '#3A3352';
 /** Seconds for one "z" to rise and fade. */
 export const ZZZ_CYCLE_SEC = 2.4;
+/** Play tunnel: runs through and back (an even count ends at the start). */
+export const TUNNEL_PASSES = 6;
+export const TUNNEL_RUN_SPEED_PX_PER_SEC = 48;
 /** Px a "z" rises over one cycle. */
 export const ZZZ_RISE_PX = 12;

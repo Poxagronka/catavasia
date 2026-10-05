@@ -3,7 +3,7 @@
 // frames follow the row direction; the curled nap looks the same from every
 // side, so each row repeats it.
 
-import { drawHead, drawTorso, leg, tail, Z } from './parts.mjs';
+import { armAt, drawHead, drawTorso, leg, tail, Z } from './parts.mjs';
 
 /** Above the head: a mug held to the mouth must cover the muzzle. */
 const Z_LIFT = Z.head + 1;
@@ -14,11 +14,6 @@ const MUG_BACK = ['UU', 'UU', 'KK'];
 
 function mug(fr, rows, x, y, z) {
   fr.stamp(rows, x, y, 'mug', z, { rim: true });
-}
-
-/** Arm drawn at an explicit depth (a raised arm sits over the chin). */
-function armAt(fr, part, pts, z) {
-  fr.stroke(pts, 2, part, z, { rim: true, tip: 2 });
 }
 
 function drinkDown(fr, sip, cat) {
