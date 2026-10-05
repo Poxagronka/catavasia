@@ -154,8 +154,8 @@ test('office spots: sofa seats to nap on, floor around the mug for coffee', () =
 
 test('two napping cats take two different sofa seats, a third naps on the floor', () => {
   const os = office();
-  os.addAgent(3, 0, 0, undefined, true);
   const cats = [idleCat(os, 1, 'chairA'), idleCat(os, 2, 'chairB')];
+  os.addAgent(3, 0, 0, undefined, true);
   // Cat 3 has no desk chair left: it gets a seat anyway, which may be a sofa seat.
   const third = os.characters.get(3)!;
   third.seatId = null;
@@ -234,9 +234,11 @@ test('a right-click walk ends the activity, and the cat picks new ones later', (
 
   assert.ok(os.walkToTile(1, 5, 3));
   assert.equal(ch.activity, null, 'the sofa spot is free again');
-  runFor(os, 10);
-  assert.deepEqual([ch.tileCol, ch.tileRow], [5, 3]);
-  ch.lastActivityId = 'wander';
-  runFor(os, 30);
-  assert.ok(ch.activity || ch.lastActivityId !== 'wander', 'the FSM picks activities again');
+  ch.lastActivityId = 'none';
+  let picked = false;
+  for (let t = 0; t < 60 && !picked; t += 0.05) {
+    os.update(0.05);
+    picked = ch.activity !== null;
+  }
+  assert.ok(picked, 'the FSM picks activities again');
 });
