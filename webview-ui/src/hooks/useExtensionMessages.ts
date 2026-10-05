@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { SUBAGENT_CHARACTERS_ENABLED } from '../../../core/src/constants.js';
 import type { HooksConsentRequest } from '../../../core/src/messages.js';
 import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
 import type { ExistingAgentMeta, PendingAgent } from '../office/engine/existingAgents.js';
@@ -396,6 +397,7 @@ export function useExtensionMessages(
         const parentChar = os.characters.get(id);
         const parentHasTeam = !!parentChar?.teamName;
         if (
+          SUBAGENT_CHARACTERS_ENABLED &&
           isSubagentToolName(toolName) &&
           !isTeammateSpawn &&
           (!runInBackground || !parentHasTeam)
@@ -548,6 +550,7 @@ export function useExtensionMessages(
         // panel that lost it — create it lazily; addSubagent is idempotent.
         let subId = os.getSubagentId(id, parentToolId);
         if (subId === null) {
+          if (!SUBAGENT_CHARACTERS_ENABLED) return;
           subId = os.addSubagent(id, parentToolId);
           const newSubId = subId;
           setSubagentCharacters((prev) => {
