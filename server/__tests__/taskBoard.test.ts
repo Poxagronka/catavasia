@@ -50,12 +50,14 @@ function makeRepo(): string {
 class FakeHost implements TaskAgentHost {
   launched: Array<{ sessionId: string; cwd: string }> = [];
   finished: number[] = [];
+  finishedTasks: string[] = [];
   launchHeadlessAgent(sessionId: string, cwd: string) {
     this.launched.push({ sessionId, cwd });
     return { id: this.launched.length, palette: 4, hueShift: 0 };
   }
-  finishHeadlessAgent(id: number) {
+  finishHeadlessAgent(id: number, taskId: string) {
     this.finished.push(id);
+    this.finishedTasks.push(taskId);
   }
 }
 
@@ -148,6 +150,7 @@ describe('TaskManager', () => {
     expect(fs.existsSync(path.join(repo, 'meow.txt'))).toBe(false);
     expect(git(repo, 'show', `task/${created.id}:meow.txt`)).toContain('with the word meow');
     expect(host.finished).toEqual([1]);
+    expect(host.finishedTasks).toEqual([created.id]);
     // Persisted for the next server start.
     const stored = JSON.parse(fs.readFileSync(path.join(stateDir, 'tasks.json'), 'utf-8'));
     expect(stored.tasks[created.id].status).toBe('done');

@@ -98,6 +98,8 @@ components:
         - $ref: '#/components/schemas/SubagentToolPermission'
         # Agent Teams
         - $ref: '#/components/schemas/AgentTeamInfo'
+        # Task board
+        - $ref: '#/components/schemas/AgentTaskFinished'
         # Context window
         - $ref: '#/components/schemas/AgentContextUsage'
         # Layout
@@ -419,6 +421,21 @@ components:
           type: integer
         teamUsesTmux:
           type: boolean
+
+    AgentTaskFinished:
+      description: |
+        A task-board run ended (done or error). Its character stays in the office
+        as an idle cat until the server restarts; clicking it opens the task.
+      type: object
+      additionalProperties: false
+      required: [type, id, taskId]
+      properties:
+        type:
+          const: agentTaskFinished
+        id:
+          type: integer
+        taskId:
+          type: string
 
     AgentContextUsage:
       description: |

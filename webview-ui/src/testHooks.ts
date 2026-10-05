@@ -15,7 +15,14 @@ declare global {
         waitingAwaitingInput?: boolean;
         isHeadless?: boolean;
         isGreeter?: boolean;
+        state: string;
+        activityId: string | null;
+        taskId?: string;
+        col: number;
+        row: number;
       }>;
+      /** Send an idle cat to an idle activity now (see OfficeState.forceIdleActivity). */
+      forceIdleActivity?: (id: number, activityId: string) => boolean;
       /** Effective "Display headless as ghosts" setting the renderer is using. */
       getGhostHeadlessAgents?: () => boolean;
       // ── Carpet + Areas observability (added for carpet/areas e2e) ──
@@ -129,8 +136,16 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
       waitingAwaitingInput: ch.waitingAwaitingInput,
       isHeadless: ch.isHeadless,
       isGreeter: ch.isGreeter,
+      state: ch.state,
+      activityId: ch.activity?.id ?? null,
+      taskId: ch.taskId,
+      col: ch.tileCol,
+      row: ch.tileRow,
     }));
   };
+
+  hooks.forceIdleActivity = (id, activityId) =>
+    officeStateRef.current?.forceIdleActivity(id, activityId) ?? false;
 
   // The ghost setting lives in the renderer module (read every rAF frame), not
   // in OfficeState, so e2e reads it from there to assert what is actually drawn.

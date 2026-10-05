@@ -4,7 +4,6 @@ import {
   AUTO_ON_SIDE_DEPTH,
   CHARACTER_HIT_HALF_WIDTH,
   CHARACTER_HIT_HEIGHT,
-  CHARACTER_SITTING_OFFSET_PX,
   DISMISS_BUBBLE_FAST_FADE_SEC,
   FURNITURE_ANIM_INTERVAL_SEC,
   GREETER_ID,
@@ -28,6 +27,7 @@ import { findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
 import { getPetCount, getPetName } from '../sprites/petSpriteData.js';
 import { getLoadedCharacterCount } from '../sprites/spriteData.js';
 import type {
+  ActivitySpot,
   Character,
   FurnitureInstance,
   OfficeLayout,
@@ -38,7 +38,15 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, PetState, TILE_SIZE } from '../types.js';
-import { createCharacter, updateCharacter } from './characters.js';
+import type { IdleWorld } from './characters.js';
+import {
+  beginIdleActivity,
+  characterDrawOffsetY,
+  createCharacter,
+  updateCharacter,
+} from './characters.js';
+import type { ActivitySpotSet } from './idleActivities.js';
+import { buildActivitySpots, getIdleActivity, takenSpotKeys } from './idleActivities.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
 import { createPet, updatePet } from './petEntity.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
@@ -58,6 +66,8 @@ export class OfficeState {
   blockedTiles: Set<string>;
   furniture: FurnitureInstance[];
   walkableTiles: Array<{ col: number; row: number }>;
+  /** Idle-activity spots per activity id, rebuilt with the layout. */
+  activitySpots: Map<string, ActivitySpotSet> = new Map();
   characters: Map<number, Character> = new Map();
   pets: Pet[] = [];
   /** Accumulated time for furniture animation frame cycling */
@@ -112,6 +122,7 @@ export class OfficeState {
     this.blockedTiles = getBlockedTiles(this.layout.furniture);
     this.furniture = layoutToFurnitureInstances(this.layout.furniture);
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles);
+    this.rebuildActivitySpots();
     // Pets are built last because they need walkableTiles populated for spawn.
     this.rebuildPetsFromLayout(this.layout);
   }
@@ -125,6 +136,12 @@ export class OfficeState {
     this.blockedTiles = getBlockedTiles(layout.furniture);
     this.rebuildFurnitureInstances();
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles);
+    this.rebuildActivitySpots();
+    // Spots moved or vanished: every cat drops its activity and picks again.
+    for (const ch of this.characters.values()) {
+      ch.activity = null;
+      if (ch.state === CharacterState.ACTIVITY) ch.state = CharacterState.IDLE;
+    }
 
     // Shift character positions when grid expands left/up
     if (shift && (shift.col !== 0 || shift.row !== 0)) {
@@ -232,6 +249,15 @@ export class OfficeState {
 
     // Reconcile pets against the layout roster (handles editor add/remove)
     this.rebuildPetsFromLayout(layout);
+  }
+
+  private rebuildActivitySpots(): void {
+    this.activitySpots = buildActivitySpots({
+      furniture: this.layout.furniture,
+      seats: this.seats,
+      tileMap: this.tileMap,
+      blockedTiles: this.blockedTiles,
+    });
   }
 
   /** Move a character to a random walkable tile */
@@ -792,6 +818,13 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (ch) {
       ch.isActive = active;
+      // Work interrupts any idle activity: the FSM walks the cat to its desk.
+      if (active) ch.activity = null;
+      // The user answered: the agent no longer waits for input.
+      if (active && ch.bubbleType === 'waiting' && ch.waitingAwaitingInput) {
+        ch.bubbleType = null;
+        ch.bubbleTimer = 0;
+      }
       if (!active) {
         // Sentinel -1: signals turn just ended, skip next seat rest timer.
         // Prevents the WALK handler from setting a 2-4 min rest on arrival.
@@ -1072,6 +1105,38 @@ export class OfficeState {
     }
   }
 
+  /**
+   * Send an idle cat to one activity right now, on a free spot (or a free
+   * fallback spot). Used by tests and the e2e/screenshot hooks; the FSM picks
+   * activities on its own otherwise. Returns false when it cannot start.
+   */
+  forceIdleActivity(id: number, activityId: string): boolean {
+    const ch = this.characters.get(id);
+    const def = getIdleActivity(activityId);
+    if (!ch || !def || ch.isActive) return false;
+    let spot = null;
+    if (def.spots) {
+      const set = this.activitySpots.get(activityId);
+      const taken = takenSpotKeys(ch, this.characters.values(), this.seats);
+      const free = (list: ActivitySpot[] = []) => list.filter((sp) => !taken.has(sp.key));
+      spot = free(set?.spots)[0] ?? free(set?.fallback)[0];
+      if (!spot) return false;
+    }
+    ch.activity = null;
+    ch.path = [];
+    ch.state = CharacterState.IDLE;
+    const started = this.withOwnSeatUnblocked(ch, () =>
+      beginIdleActivity(ch, { def, spot: spot ?? null }, this.tileMap, this.blockedTiles),
+    );
+    return started || !def.spots;
+  }
+
+  /** A task-board run ended: the cat stays idle and links to its task. */
+  setTaskFinished(id: number, taskId: string): void {
+    const ch = this.characters.get(id);
+    if (ch) ch.taskId = taskId;
+  }
+
   /** Mark an agent as headless (adopted, no terminal to focus). */
   setHeadless(id: number, headless: boolean): void {
     const ch = this.characters.get(id);
@@ -1101,6 +1166,10 @@ export class OfficeState {
       this.greeter = null;
     }
 
+    const idleWorld: IdleWorld = {
+      spotSets: this.activitySpots,
+      takenBy: (ch) => takenSpotKeys(ch, this.characters.values(), this.seats),
+    };
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {
       const effect = advanceMatrixEffect(ch, dt);
@@ -1111,11 +1180,20 @@ export class OfficeState {
 
       // Temporarily unblock own seat so character can pathfind to it
       this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
+        updateCharacter(
+          ch,
+          dt,
+          this.walkableTiles,
+          this.seats,
+          this.tileMap,
+          this.blockedTiles,
+          idleWorld,
+        ),
       );
 
-      // Tick bubble timer for waiting bubbles
-      if (ch.bubbleType === 'waiting') {
+      // Tick bubble timer for waiting bubbles. "Waiting for input" has no
+      // timer: it lasts until the agent works again, through any idle activity.
+      if (ch.bubbleType === 'waiting' && !ch.waitingAwaitingInput) {
         ch.bubbleTimer -= dt;
         if (ch.bubbleTimer <= 0) {
           ch.bubbleType = null;
@@ -1178,8 +1256,7 @@ export class OfficeState {
       if (ch.matrixEffect === 'despawn') continue;
       // Character sprite is 16x24, anchored bottom-center
       // Apply sitting offset to match visual position
-      const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
-      const anchorY = ch.y + sittingOffset;
+      const anchorY = ch.y + characterDrawOffsetY(ch);
       const left = ch.x - CHARACTER_HIT_HALF_WIDTH;
       const right = ch.x + CHARACTER_HIT_HALF_WIDTH;
       const top = anchorY - CHARACTER_HIT_HEIGHT;

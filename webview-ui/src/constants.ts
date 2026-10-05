@@ -17,6 +17,9 @@ export const WANDER_MOVES_BEFORE_REST_MIN = 3;
 export const WANDER_MOVES_BEFORE_REST_MAX = 6;
 export const SEAT_REST_MIN_SEC = 120.0;
 export const SEAT_REST_MAX_SEC = 240.0;
+/** Pause between two idle activities (coffee, nap, ...). */
+export const IDLE_ACTIVITY_PAUSE_MIN_SEC = 1.5;
+export const IDLE_ACTIVITY_PAUSE_MAX_SEC = 5.0;
 
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3;
@@ -334,3 +337,12 @@ export const MAX_PET_ID_LENGTH = 128;
 export const TASK_POLL_INTERVAL_MS = 1500;
 /** Pixel scale of the cat avatar on a task card. */
 export const TASK_AVATAR_ZOOM = 2;
+
+// ── Idle activities ──────────────────────────────────────────
+/** Floating "Zzz" over a napping cat. */
+export const ZZZ_FILL_COLOR = '#F4F1FF';
+export const ZZZ_EDGE_COLOR = '#3A3352';
+/** Seconds for one "z" to rise and fade. */
+export const ZZZ_CYCLE_SEC = 2.4;
+/** Px a "z" rises over one cycle. */
+export const ZZZ_RISE_PX = 12;

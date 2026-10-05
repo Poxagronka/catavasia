@@ -3,8 +3,10 @@
 //
 //   node scripts/generate-cat-sprites.mjs
 //
-// Output contract per char_N.png (112x96): 3 direction rows (down, up,
-// right) x 7 frames of 16x32 (walk1 walk2 walk3 type1 type2 read1 read2).
+// Output contract per char_N.png: 3 direction rows (down, up, right) of
+// 16x32 frames. Frames 0-6 are walk1 walk2 walk3 type1 type2 read1 read2
+// (the original 112x96 sheet); frames 7.. are idle-activity poses (see
+// scripts/cats/idlePoses.mjs). Loaders read any width >= 7 frames.
 // The art is hand-authored pixel templates in scripts/cats/ and is MIT like
 // the rest of the repo.
 
@@ -42,7 +44,7 @@ for (const old of fs.readdirSync(charDir)) {
 }
 
 sheets.forEach(({ breed, frames }, n) => {
-  writePng(path.join(charDir, `char_${n}.png`), FRAME_W * 7, FRAME_H * 3, (put) => {
+  writePng(path.join(charDir, `char_${n}.png`), FRAME_W * frames[0].length, FRAME_H * 3, (put) => {
     frames.forEach((row, d) =>
       row.forEach((grid, f) =>
         grid.forEach((line, y) =>

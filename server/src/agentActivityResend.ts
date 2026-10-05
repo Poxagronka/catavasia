@@ -66,7 +66,12 @@ export function resendAgentActivity(
       });
     }
 
-    // 4. Waiting status
+    // 4. Finished task-board run: the idle cat links to its task.
+    if (agent.finishedTaskId) {
+      send({ type: 'agentTaskFinished', id, taskId: agent.finishedTaskId });
+    }
+
+    // 5. Waiting status
     if (agent.isWaiting) {
       send({
         type: 'agentStatus',
@@ -75,7 +80,7 @@ export function resendAgentActivity(
       });
     }
 
-    // 5. Context usage
+    // 6. Context usage
     if (agent.contextTokens > 0) {
       send({
         type: 'agentContextUsage',

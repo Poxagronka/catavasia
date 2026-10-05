@@ -161,8 +161,10 @@ export function parseCarpetPng(pngBuffer: Buffer): string[][][] {
 }
 
 /**
- * Decode a single character PNG (112×96) into direction-keyed frame arrays.
- * Each PNG has 3 direction rows (down, up, right) × 7 frames (16×32 each).
+ * Decode a single character PNG into direction-keyed frame arrays.
+ * Each PNG has 3 direction rows (down, up, right) of 16×32 frames: the first
+ * 7 are the office poses (112×96 sheet); any frames after them are
+ * idle-activity poses. A 7-frame sheet still decodes to 7 frames.
  */
 export function decodeCharacterPng(pngBuffer: Buffer): CharacterDirectionSprites {
   const png = PNG.sync.read(sanitizePngBuffer(pngBuffer));
@@ -173,7 +175,8 @@ export function decodeCharacterPng(pngBuffer: Buffer): CharacterDirectionSprites
     const rowOffsetY = dirIdx * CHAR_FRAME_H;
     const frames: string[][][] = [];
 
-    for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
+    const frameCount = Math.max(CHAR_FRAMES_PER_ROW, Math.floor(png.width / CHAR_FRAME_W));
+    for (let f = 0; f < frameCount; f++) {
       const sprite: string[][] = [];
       const frameOffsetX = f * CHAR_FRAME_W;
       for (let y = 0; y < CHAR_FRAME_H; y++) {

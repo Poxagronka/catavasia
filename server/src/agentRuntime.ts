@@ -367,22 +367,32 @@ export class AgentRuntime {
     return agent;
   }
 
-  /** The headless run ended: despawn its character and never re-adopt its transcript. */
-  finishHeadlessAgent(id: number): void {
+  /**
+   * The headless run ended. The character stays in the office as an idle cat
+   * (until the server restarts) and links to its task; the transcript is never
+   * re-adopted and nothing watches it any more.
+   */
+  finishHeadlessAgent(id: number, taskId: string): void {
     const agent = this.store.get(id);
     if (!agent) return;
     this.dismissalTracker.dismiss(agent.jsonlFile);
     this.unregisterAgent(agent.sessionId);
-    this.removeAgent(id);
+    this.stopWatching(id);
+    agent.activeToolIds.clear();
+    agent.activeToolStatuses.clear();
+    agent.activeToolNames.clear();
+    agent.activeSubagentToolIds.clear();
+    agent.activeSubagentToolNames.clear();
+    agent.permissionSent = false;
+    agent.isWaiting = true;
+    agent.finishedTaskId = taskId;
+    this.store.broadcast({ type: 'agentToolsClear', id });
+    this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
+    this.store.broadcast({ type: 'agentTaskFinished', id, taskId });
   }
 
-  // ── Agent removal (shared cleanup) ──
-
-  /** Remove an agent: stop watchers, cancel timers, delete from store. */
-  removeAgent(id: number): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-
+  /** Stop the transcript watchers and status timers of one agent. */
+  private stopWatching(id: number): void {
     // Stop JSONL poll timer
     const jpTimer = this.jsonlPollTimers.get(id);
     if (jpTimer) {
@@ -402,6 +412,16 @@ export class AgentRuntime {
     // Cancel timers
     cancelWaitingTimer(id, this.waitingTimers);
     cancelPermissionTimer(id, this.permissionTimers);
+  }
+
+  // ── Agent removal (shared cleanup) ──
+
+  /** Remove an agent: stop watchers, cancel timers, delete from store. */
+  removeAgent(id: number): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+
+    this.stopWatching(id);
 
     // Notify adapter before deleting from store
     this.lifecycleCallbacks.onAgentRemoved?.(id, agent);

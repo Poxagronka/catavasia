@@ -56,6 +56,9 @@ function flipSpriteHorizontal(sprite: SpriteData): SpriteData {
   return sprite.map((row) => [...row].reverse());
 }
 
+/** Sheet frames before the idle-activity frames (walk x3, type x2, read x2). */
+const IDLE_FRAME_OFFSET = 7;
+
 // ════════════════════════════════════════════════════════════════
 // Sprite resolution + caching
 // ════════════════════════════════════════════════════════════════
@@ -64,6 +67,8 @@ export interface CharacterSprites {
   walk: Record<Direction, [SpriteData, SpriteData, SpriteData, SpriteData]>;
   typing: Record<Direction, [SpriteData, SpriteData]>;
   reading: Record<Direction, [SpriteData, SpriteData]>;
+  /** Idle-activity frames (sheet frames 7..), empty for a 7-frame sheet. */
+  idle: Record<Direction, SpriteData[]>;
 }
 
 const spriteCache = new Map<string, CharacterSprites>();
@@ -71,38 +76,18 @@ const spriteCache = new Map<string, CharacterSprites>();
 /** Apply hue shift to every sprite in a CharacterSprites set */
 function hueShiftSprites(sprites: CharacterSprites, hueShift: number): CharacterSprites {
   const color: ColorValue = { h: hueShift, s: 0, b: 0, c: 0 };
-  const shift = (s: SpriteData) => adjustSprite(s, color);
-  const shiftWalk = (
-    arr: [SpriteData, SpriteData, SpriteData, SpriteData],
-  ): [SpriteData, SpriteData, SpriteData, SpriteData] => [
-    shift(arr[0]),
-    shift(arr[1]),
-    shift(arr[2]),
-    shift(arr[3]),
-  ];
-  const shiftPair = (arr: [SpriteData, SpriteData]): [SpriteData, SpriteData] => [
-    shift(arr[0]),
-    shift(arr[1]),
-  ];
+  const shiftSet = <T extends SpriteData[]>(set: Record<Direction, T>): Record<Direction, T> => {
+    const out = {} as Record<Direction, T>;
+    for (const dir of [Dir.DOWN, Dir.UP, Dir.RIGHT, Dir.LEFT]) {
+      out[dir] = set[dir].map((s) => adjustSprite(s, color)) as T;
+    }
+    return out;
+  };
   return {
-    walk: {
-      [Dir.DOWN]: shiftWalk(sprites.walk[Dir.DOWN]),
-      [Dir.UP]: shiftWalk(sprites.walk[Dir.UP]),
-      [Dir.RIGHT]: shiftWalk(sprites.walk[Dir.RIGHT]),
-      [Dir.LEFT]: shiftWalk(sprites.walk[Dir.LEFT]),
-    } as Record<Direction, [SpriteData, SpriteData, SpriteData, SpriteData]>,
-    typing: {
-      [Dir.DOWN]: shiftPair(sprites.typing[Dir.DOWN]),
-      [Dir.UP]: shiftPair(sprites.typing[Dir.UP]),
-      [Dir.RIGHT]: shiftPair(sprites.typing[Dir.RIGHT]),
-      [Dir.LEFT]: shiftPair(sprites.typing[Dir.LEFT]),
-    } as Record<Direction, [SpriteData, SpriteData]>,
-    reading: {
-      [Dir.DOWN]: shiftPair(sprites.reading[Dir.DOWN]),
-      [Dir.UP]: shiftPair(sprites.reading[Dir.UP]),
-      [Dir.RIGHT]: shiftPair(sprites.reading[Dir.RIGHT]),
-      [Dir.LEFT]: shiftPair(sprites.reading[Dir.LEFT]),
-    } as Record<Direction, [SpriteData, SpriteData]>,
+    walk: shiftSet(sprites.walk),
+    typing: shiftSet(sprites.typing),
+    reading: shiftSet(sprites.reading),
+    idle: shiftSet(sprites.idle),
   };
 }
 
@@ -149,6 +134,12 @@ export function getCharacterSprites(paletteIndex: number, hueShift = 0): Charact
         [Dir.RIGHT]: [rt[5], rt[6]],
         [Dir.LEFT]: [flip(rt[5]), flip(rt[6])],
       },
+      idle: {
+        [Dir.DOWN]: d.slice(IDLE_FRAME_OFFSET),
+        [Dir.UP]: u.slice(IDLE_FRAME_OFFSET),
+        [Dir.RIGHT]: rt.slice(IDLE_FRAME_OFFSET),
+        [Dir.LEFT]: rt.slice(IDLE_FRAME_OFFSET).map(flip),
+      },
     };
   } else {
     // Fallback: return transparent placeholder sprites (16×32)
@@ -174,6 +165,7 @@ export function getCharacterSprites(paletteIndex: number, hueShift = 0): Charact
         [Dir.RIGHT]: pairSet,
         [Dir.LEFT]: pairSet,
       },
+      idle: { [Dir.DOWN]: [], [Dir.UP]: [], [Dir.RIGHT]: [], [Dir.LEFT]: [] },
     };
   }
 

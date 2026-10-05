@@ -32,7 +32,8 @@ export interface TaskAgentHost {
     sessionId: string,
     cwd: string,
   ): { id: number; palette?: number; hueShift?: number };
-  finishHeadlessAgent(id: number): void;
+  /** The run ended: the character stays as an idle cat linked to the task. */
+  finishHeadlessAgent(id: number, taskId: string): void;
 }
 
 export interface TaskManagerOptions {
@@ -199,7 +200,7 @@ export class TaskManager {
 
   private async finishRun(run: RunningTask, code: number | null): Promise<void> {
     const { task, result } = run;
-    if (task.agentId !== undefined) this.opts.host.finishHeadlessAgent(task.agentId);
+    if (task.agentId !== undefined) this.opts.host.finishHeadlessAgent(task.agentId, task.id);
     task.result = result?.text;
     task.costUsd = result?.costUsd;
     task.durationMs = result?.durationMs;
