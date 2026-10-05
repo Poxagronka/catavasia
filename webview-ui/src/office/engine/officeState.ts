@@ -40,6 +40,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, PetState, TILE_SIZE } from '../types.js';
+import { CatSocial } from './catSocial.js';
 import { createCharacter, updateCharacter } from './characters.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
 import { createPet, updatePet } from './petEntity.js';
@@ -62,6 +63,8 @@ export class OfficeState {
   walkableTiles: Array<{ col: number; row: number }>;
   characters: Map<number, Character> = new Map();
   pets: Pet[] = [];
+  /** Talk / play / fight scenes between idle cats (see catSocial.ts for the API). */
+  social = new CatSocial();
   /** Tamagotchi needs, bowls and litter for cat pets (see petCareSystem.ts). */
   readonly petCare = new PetCareSystem();
   /** Accumulated time for furniture animation frame cycling */
@@ -592,6 +595,7 @@ export class OfficeState {
     if (!seat || seat.assigned) return;
     seat.assigned = true;
     ch.seatId = seatId;
+    this.social.leave(agentId);
     // Pathfind to new seat (unblock own seat tile for this query)
     const path = this.withOwnSeatUnblocked(ch, () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
@@ -648,6 +652,7 @@ export class OfficeState {
     if (!ch || !ch.seatId) return;
     const seat = this.seats.get(ch.seatId);
     if (!seat) return;
+    this.social.leave(agentId);
     const path = this.withOwnSeatUnblocked(ch, () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
     );
@@ -682,6 +687,7 @@ export class OfficeState {
       findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles),
     );
     if (path.length === 0) return false;
+    this.social.leave(agentId);
     ch.path = path;
     ch.moveProgress = 0;
     ch.state = CharacterState.WALK;
@@ -1142,6 +1148,10 @@ export class OfficeState {
     for (const id of toDelete) {
       this.characters.delete(id);
     }
+
+    // Cat social scenes run after the FSM: a cat that got work has already
+    // started for its desk, and the scene just lets it go.
+    this.social.update(dt, this.characters, this);
 
     // ── Pet FSM ────────────────────────────────────────────────
     // Pet care runs first; a cat in a care pose (or with its menu open) skips the wander FSM.

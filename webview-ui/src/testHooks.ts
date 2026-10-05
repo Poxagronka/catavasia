@@ -1,10 +1,12 @@
 import type { ColorValue } from './components/ui/types.js';
 import { OfficeState } from './office/engine/officeState.js';
 import { isGhostHeadlessAgentsEnabled } from './office/engine/renderer.js';
+import { mulberry32 } from './office/engine/socialMoves.js';
 import type { PetCareEnv } from './office/petCare/petCareNav.js';
 import type { PetCareSystem } from './office/petCare/petCareSystem.js';
 import { carpetJunctionCase } from './office/sprites/carpetTiles.js';
 import type { Pet } from './office/types.js';
+import { TILE_SIZE } from './office/types.js';
 
 declare global {
   interface Window {
@@ -92,6 +94,18 @@ declare global {
         parentToolId?: string;
       }>;
       selectAgent?: (id: number) => void;
+      /** Cat social scenes: seed the RNG and start an encounter between two
+       *  agents (kind forced when given). Returns the started kind or null. */
+      socialEncounter?: (
+        aId: number,
+        bId: number,
+        kind?: 'talk' | 'play' | 'fight',
+        seed?: number,
+      ) => string | null;
+      /** Kind / phase / partner of an agent's social scene, or null. */
+      getSocialScene?: (id: number) => { kind: string; phase: string; partnerId: number } | null;
+      /** Put an idle agent on a tile (scene setup without pixel-hunting). */
+      placeCharacter?: (id: number, col: number, row: number) => void;
     };
   }
 }
@@ -144,6 +158,28 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
   hooks.selectAgent = (id) => {
     const os = officeStateRef.current;
     if (os) os.selectedAgentId = id;
+  };
+
+  hooks.socialEncounter = (aId, bId, kind, seed) => {
+    const os = officeStateRef.current;
+    const a = os?.characters.get(aId);
+    const b = os?.characters.get(bId);
+    if (!os || !a || !b) return null;
+    if (seed !== undefined) os.social.rng = mulberry32(seed);
+    return os.social.trySocialEncounter(a, b, { kind });
+  };
+
+  hooks.getSocialScene = (id) => officeStateRef.current?.social.sceneInfo(id) ?? null;
+
+  hooks.placeCharacter = (id, col, row) => {
+    const ch = officeStateRef.current?.characters.get(id);
+    if (!ch) return;
+    ch.tileCol = col;
+    ch.tileRow = row;
+    ch.x = col * TILE_SIZE + TILE_SIZE / 2;
+    ch.y = row * TILE_SIZE + TILE_SIZE / 2;
+    ch.path = [];
+    ch.moveProgress = 0;
   };
 
   // Point-in-time snapshot of every live pet. Pets render only on the canvas
