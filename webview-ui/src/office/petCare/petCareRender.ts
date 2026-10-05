@@ -7,6 +7,7 @@ import {
   PET_REQUEST_BOB_PX,
   PET_SPARKLE_SEC,
 } from '../../constants.js';
+import { getCatalogEntry } from '../layout/furnitureCatalog.js';
 import {
   bowlSprite,
   DISH_SPRITE,
@@ -48,19 +49,27 @@ export function decorateFurniture(
   pets: Pet[],
   time: number,
 ): FurnitureInstance[] {
-  const swap = new Map<string, SpriteData>();
+  // Match by tile AND by the catalog sprite: another item may share a litter
+  // box tile (its tile is a background row), and it must keep its own sprite.
+  const swap = new Map<string, { from: SpriteData; to: SpriteData }>();
   for (const f of placed) {
+    const from = getCatalogEntry(f.type)?.sprite;
+    if (!from) continue;
     if (f.type === PET_BOWL_TYPE) {
       const b = care.world.bowl(f.uid);
-      swap.set(`${f.col},${f.row}`, bowlSprite(b.food, b.water, PET_BOWL_MAX));
+      swap.set(`${f.col},${f.row}`, { from, to: bowlSprite(b.food, b.water, PET_BOWL_MAX) });
     } else if (f.type === LITTER_BOX_TYPE) {
-      swap.set(`${f.col},${f.row}`, litterSprite(care.world.boxCount(f.uid), PET_LITTER_CAPACITY));
+      const to = litterSprite(care.world.boxCount(f.uid), PET_LITTER_CAPACITY);
+      swap.set(`${f.col},${f.row}:box`, { from, to });
     }
   }
   const out = instances.map((inst) => {
-    if (inst.sprite.length !== TILE_SIZE) return inst;
-    const sprite = swap.get(`${inst.x / TILE_SIZE},${inst.y / TILE_SIZE}`);
-    return sprite ? { ...inst, sprite } : inst;
+    const key = `${inst.x / TILE_SIZE},${inst.y / TILE_SIZE}`;
+    for (const k of [key, `${key}:box`]) {
+      const hit = swap.get(k);
+      if (hit && hit.from === inst.sprite) return { ...inst, sprite: hit.to };
+    }
+    return inst;
   });
   for (const p of care.world.floorPoops) {
     const x = p.col * TILE_SIZE + POOP_OFFSET.x;

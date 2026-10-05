@@ -91,10 +91,10 @@ export function hitTestCare(
   const row = Math.floor(worldY / TILE_SIZE);
   const poop = world.floorPoops.find((p) => p.col === col && p.row === row);
   if (poop) return { kind: 'poop', id: poop.id };
-  const item = furniture.find(
-    (f) =>
-      f.col === col && f.row === row && (f.type === PET_BOWL_TYPE || f.type === LITTER_BOX_TYPE),
-  );
+  // A bowl may stand on a (walkable) litter box tile: the bowl wins the click.
+  const at = (type: string) =>
+    furniture.find((f) => f.col === col && f.row === row && f.type === type);
+  const item = at(PET_BOWL_TYPE) ?? at(LITTER_BOX_TYPE);
   if (!item) return null;
   return { kind: item.type === PET_BOWL_TYPE ? 'bowl' : 'box', item };
 }

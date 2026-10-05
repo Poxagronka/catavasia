@@ -737,6 +737,11 @@ export function OfficeCanvas({
     [editorState, isEditMode, officeState, onDragMove, onEditorSelectionChange],
   );
 
+  // The care menu belongs to play mode: entering the editor closes it.
+  useEffect(() => {
+    if (isEditMode) officeState.petCare.closeMenu();
+  }, [isEditMode, officeState]);
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (isEditMode) return; // handled by mouseDown/mouseUp

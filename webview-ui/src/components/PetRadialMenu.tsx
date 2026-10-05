@@ -75,13 +75,17 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
   const [, setTick] = useState(0);
   useEffect(() => {
     let rafId = 0;
+    let wasOpen = false;
     const tick = () => {
-      setTick((n) => n + 1);
+      // Re-render only while a menu is open (plus one frame to remove it).
+      const open = care.menuPetId !== null;
+      if (open || wasOpen) setTick((n) => n + 1);
+      wasOpen = open;
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [care]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
