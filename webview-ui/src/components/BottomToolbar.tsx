@@ -12,6 +12,8 @@ interface BottomToolbarProps {
   onToggleEditMode: () => void;
   isSettingsOpen: boolean;
   onToggleSettings: () => void;
+  isTasksOpen: boolean;
+  onToggleTasks: () => void;
   workspaceFolders: WorkspaceFolder[];
 }
 
@@ -21,6 +23,8 @@ export function BottomToolbar({
   onToggleEditMode,
   isSettingsOpen,
   onToggleSettings,
+  isTasksOpen,
+  onToggleTasks,
   workspaceFolders,
 }: BottomToolbarProps) {
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -119,6 +123,16 @@ export function BottomToolbar({
             ))}
           </Dropdown>
         </div>
+      )}
+      {/* The task board runs agents through the standalone server's /api/tasks. */}
+      {isBrowserRuntime && (
+        <Button
+          variant={isTasksOpen ? 'active' : 'default'}
+          onClick={onToggleTasks}
+          title="Task board"
+        >
+          Tasks
+        </Button>
       )}
       <Button
         variant={isEditMode ? 'active' : 'default'}

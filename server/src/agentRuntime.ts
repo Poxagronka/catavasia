@@ -14,12 +14,13 @@ import * as path from 'path';
 
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
-import { DEFAULT_MAX_CONTEXT_TOKENS } from './constants.js';
+import { DEFAULT_MAX_CONTEXT_TOKENS, JSONL_POLL_INTERVAL_MS } from './constants.js';
 import { DismissalTracker } from './dismissalTracker.js';
 import {
   adoptExternalSessionFromHook,
   ensureProjectScan,
   isTrackedProjectDir,
+  readNewLines,
   reassignAgentToFile,
   scanForBackgroundAgentFiles,
   scanForTeammateFiles,
@@ -87,7 +88,7 @@ export class AgentRuntime {
 
   constructor(
     private readonly store: AgentStateStore,
-    provider: HookProvider,
+    private readonly provider: HookProvider,
   ) {
     // Wire module-level dependencies
     setDismissalTracker(this.dismissalTracker);
@@ -300,6 +301,79 @@ export class AgentRuntime {
   /** Unregister an agent from the hook event handler. */
   unregisterAgent(sessionId: string): void {
     this.hookEventHandler.unregisterAgent(sessionId);
+  }
+
+  // ── Headless agents launched by this server (task board) ──
+
+  /**
+   * Create the character for a headless session this server is about to start
+   * itself (`--session-id` known up front). Works for any cwd: the agent is
+   * registered directly, so no project scan or Watch All Sessions gate is
+   * involved. Its transcript is watched once the CLI creates it.
+   */
+  launchHeadlessAgent(sessionId: string, cwd: string): AgentState {
+    const projectDir = this.provider.getSessionDirs?.(cwd)[0] ?? cwd;
+    const jsonlFile = path.join(projectDir, `${sessionId}.jsonl`);
+    const id = this.store.nextAgentId.current++;
+    const agent: AgentState = {
+      id,
+      sessionId,
+      terminalRef: undefined,
+      // Not external: nothing to restore after a restart (the run dies with
+      // the server) and sessionEnd must not remove it -- finishHeadlessAgent does.
+      isExternal: false,
+      projectDir,
+      jsonlFile,
+      fileOffset: 0,
+      lineBuffer: '',
+      activeToolIds: new Set(),
+      activeToolStatuses: new Map(),
+      activeToolNames: new Map(),
+      activeSubagentToolIds: new Map(),
+      activeSubagentToolNames: new Map(),
+      backgroundAgentToolIds: new Set(),
+      isWaiting: false,
+      permissionSent: false,
+      hadToolsInTurn: false,
+      hookDelivered: false,
+      lastDataAt: 0,
+      linesProcessed: 0,
+      seenUnknownRecordTypes: new Set(),
+      contextTokens: 0,
+      maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
+    };
+    assignPaletteIfNeeded(agent, this.store);
+    this.knownJsonlFiles.add(jsonlFile);
+    this.store.set(id, agent);
+    this.store.persist();
+    this.registerAgent(sessionId, id);
+
+    const pollTimer = setInterval(() => {
+      if (!fs.existsSync(jsonlFile)) return;
+      clearInterval(pollTimer);
+      this.jsonlPollTimers.delete(id);
+      startFileWatching(
+        id,
+        jsonlFile,
+        this.store,
+        this.fileWatchers,
+        this.pollingTimers,
+        this.waitingTimers,
+        this.permissionTimers,
+      );
+      readNewLines(id, this.store, this.waitingTimers, this.permissionTimers);
+    }, JSONL_POLL_INTERVAL_MS);
+    this.jsonlPollTimers.set(id, pollTimer);
+    return agent;
+  }
+
+  /** The headless run ended: despawn its character and never re-adopt its transcript. */
+  finishHeadlessAgent(id: number): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    this.dismissalTracker.dismiss(agent.jsonlFile);
+    this.unregisterAgent(agent.sessionId);
+    this.removeAgent(id);
   }
 
   // ── Agent removal (shared cleanup) ──

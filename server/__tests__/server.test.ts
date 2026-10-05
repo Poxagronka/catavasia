@@ -193,6 +193,16 @@ describe('PixelAgentsServer', () => {
     server2.stop();
   });
 
+  // 12b. An explicit port that differs from the running standalone starts its own server
+  it('standalone with an explicit different port starts its own server', async () => {
+    const config1 = await server.start({ embedded: false });
+    const server2 = new PixelAgentsServer();
+    const config2 = await server2.start({ embedded: false, port: 0 });
+    expect(config2.port).not.toBe(config1.port);
+    expect(registryFiles()).toHaveLength(2);
+    server2.stop();
+  });
+
   // 13. Capability mismatch: a standalone caller never reuses an embedded server
   it('standalone does not reuse an existing embedded server; starts its own', async () => {
     const config1 = await server.start({ embedded: true });

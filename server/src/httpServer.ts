@@ -4,6 +4,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import * as crypto from 'crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
+import * as fs from 'fs';
 
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
@@ -16,9 +17,11 @@ import { handleClientMessage } from './clientMessageHandler.js';
 import {
   HOOK_API_PREFIX,
   MAX_HOOK_BODY_SIZE,
+  TASK_PROMPT_MAX_CHARS,
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import { TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
 
 /** Options for creating the HTTP + WebSocket server. */
@@ -45,6 +48,8 @@ export interface HttpServerOptions {
   onSetHooksEnabled?: SetHooksEnabledSideEffect;
   /** Invoked when an external asset directory is added/removed. Standalone reloads + re-broadcasts assets here. */
   onReloadAssets?: ReloadAssetsSideEffect;
+  /** Task board runtime (standalone only). Enables the /api/tasks routes. */
+  tasks?: TaskManager;
 }
 
 /** Result of createHttpServer(). */
@@ -87,6 +92,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   registerHealthRoute(app);
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
+  if (options.tasks) registerTaskRoutes(app, options.tasks, options.token);
 
   // ── Listen ──────────────────────────────────────────────────
 
@@ -138,6 +144,71 @@ function registerHookRoute(app: FastifyInstance, options: HttpServerOptions): vo
       reply.send('ok');
     },
   );
+}
+
+// ── Task Board ─────────────────────────────────────────────────
+
+function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: string): void {
+  // Reads are open like the office itself: anyone who can load the SPA sees
+  // the board.
+  app.get('/api/tasks', async () => ({ tasks: tasks.list(), defaultCwd: tasks.defaultCwd }));
+
+  app.get<{ Params: { id: string } }>('/api/tasks/:id', async (request, reply) => {
+    const task = tasks.get(request.params.id);
+    if (!task) return reply.code(404).send({ error: 'not found' });
+    return task;
+  });
+
+  // Creating a task spawns an agent with NO permission prompts, so it needs the
+  // same out-of-band secret as the hook install (standaloneTokenValid): the
+  // `?token=` from the printed URL, or the Bearer token.
+  app.post<{ Body: { prompt: string; cwd?: string } }>(
+    '/api/tasks',
+    {
+      // onRequest runs before body validation, so an untokened caller learns
+      // nothing about the payload rules.
+      onRequest: async (request, reply) => {
+        const bearer = timingSafeStringEqual(
+          request.headers.authorization ?? '',
+          `Bearer ${token}`,
+        );
+        if (!bearer && !standaloneTokenValid(request.url, token)) {
+          return reply.code(401).send({ error: 'A valid session token is required' });
+        }
+      },
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: TASK_PROMPT_MAX_CHARS },
+            cwd: { type: 'string', minLength: 1 },
+          },
+          required: ['prompt'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { prompt, cwd } = request.body;
+      if (!prompt.trim()) return reply.code(400).send({ error: 'Prompt is empty' });
+      if (cwd !== undefined && !isDirectory(cwd)) {
+        return reply.code(400).send({ error: `Not a folder: ${cwd}` });
+      }
+      try {
+        return reply.code(201).send(await tasks.create(prompt, cwd));
+      } catch (err) {
+        if (err instanceof TaskInputError) return reply.code(400).send({ error: err.message });
+        throw err;
+      }
+    },
+  );
+}
+
+function isDirectory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 // ── WebSocket ──────────────────────────────────────────────────
@@ -261,7 +332,8 @@ export function isAllowedWebSocketOrigin(
  * Whether this socket may send PRIVILEGED messages — the ones that reach
  * outside `~/.pixel-agents/`. Today that is `setHooksEnabled`, which grants
  * durable, machine-wide consent to modify `~/.claude/settings.json` and
- * installs (or removes) a 12-event hook set.
+ * installs (or removes) a 12-event hook set, and `POST /api/tasks`, which
+ * spawns an agent with no permission prompts.
  *
  * The handshake must carry the server token in its `?token=` query. That token
  * is minted at startup (server.ts), printed by the CLI inside the LOCAL url it

@@ -8,6 +8,7 @@
  * Each connecting WebSocket client receives the full state on webviewReady.
  */
 
+import * as os from 'os';
 import * as path from 'path';
 
 import { AgentRuntime } from './agentRuntime.js';
@@ -25,10 +26,11 @@ import {
   grantHooksConsent,
   readConfig,
 } from './configPersistence.js';
-import { MAX_PORT, MIN_PORT } from './constants.js';
+import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
+import { TaskManager } from './taskBoard/taskManager.js';
 
 // ── Argument parsing ──────────────────────────────────────────
 
@@ -145,6 +147,13 @@ async function main(): Promise<void> {
     // Create runtime first (before server.start, so we can pass it in)
     const runtime = new AgentRuntime(store, claudeProvider);
 
+    // Task board: each task runs as a headless agent of this runtime.
+    const tasks = new TaskManager({
+      host: runtime,
+      stateDir: path.join(os.homedir(), LAYOUT_FILE_DIR),
+      defaultCwd: process.cwd(),
+    });
+
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
     server.onHookEvent((providerId, event) => {
       runtime.handleHookEvent(providerId, event);
@@ -237,6 +246,7 @@ async function main(): Promise<void> {
       assetCache,
       onSetHooksEnabled,
       onReloadAssets,
+      tasks,
     });
     currentConfig = { port: config.port, token: config.token };
 
@@ -309,6 +319,7 @@ async function main(): Promise<void> {
     // ── Graceful shutdown ──
     function shutdown(): void {
       console.log('\nShutting down...');
+      tasks.dispose();
       runtime.dispose();
       server.stop();
       process.exit(0);

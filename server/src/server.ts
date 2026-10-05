@@ -20,6 +20,7 @@ import {
 import { createHttpServer } from './httpServer.js';
 import type { ServerConfig } from './serverConfig.js';
 import { isServerConfig, isServerTarget } from './serverConfig.js';
+import type { TaskManager } from './taskBoard/taskManager.js';
 
 export type { ServerConfig } from './serverConfig.js';
 
@@ -69,6 +70,7 @@ export class PixelAgentsServer {
     assetCache?: AssetCache;
     onSetHooksEnabled?: SetHooksEnabledSideEffect;
     onReloadAssets?: ReloadAssetsSideEffect;
+    tasks?: TaskManager;
   }): Promise<ServerConfig> {
     const embedded = options?.embedded ?? true;
     const wantsSpa = !embedded;
@@ -80,7 +82,11 @@ export class PixelAgentsServer {
     // server (blank page). Prune dead entries first so a crashed server's
     // stale file never blocks discovery of a live one.
     const registry = this.readAndPruneRegistry();
-    const candidate = registry.find((e) => e.servesSpa === wantsSpa);
+    // An explicit port is a request to serve THAT port: reuse only a server
+    // already on it, so `--port 3200` next to a running 3100 starts its own.
+    const candidate = registry.find(
+      (e) => e.servesSpa === wantsSpa && (options?.port === undefined || e.port === options.port),
+    );
     if (candidate) {
       this.config = candidate;
       this.ownsServer = false;
@@ -106,6 +112,7 @@ export class PixelAgentsServer {
       onHookEvent: (providerId, event) => this.callback?.(providerId, event),
       onSetHooksEnabled: options?.onSetHooksEnabled,
       onReloadAssets: options?.onReloadAssets,
+      tasks: options?.tasks,
     });
 
     this.app = app;
@@ -280,7 +287,7 @@ export class PixelAgentsServer {
 }
 
 /** Check if a process is alive by sending signal 0 (no-op, just checks existence). */
-function isProcessRunning(pid: number): boolean {
+export function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;

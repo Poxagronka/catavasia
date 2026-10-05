@@ -9,6 +9,7 @@ import { EditActionBar } from './components/EditActionBar.js';
 import { IntroBubble } from './components/IntroBubble.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { SettingsModal } from './components/SettingsModal.js';
+import { TaskBoard } from './components/taskBoard/TaskBoard.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
@@ -104,6 +105,7 @@ function App() {
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTasksOpen, setIsTasksOpen] = useState(false);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -517,8 +519,12 @@ function App() {
         onToggleEditMode={editor.handleToggleEditMode}
         isSettingsOpen={isSettingsOpen}
         onToggleSettings={() => setIsSettingsOpen((v) => !v)}
+        isTasksOpen={isTasksOpen}
+        onToggleTasks={() => setIsTasksOpen((v) => !v)}
         workspaceFolders={workspaceFolders}
       />
+
+      <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
 
       <VersionIndicator
         currentVersion={extensionVersion}
@@ -593,6 +599,7 @@ function App() {
           onClose={handleIntroClose}
           escapeSuppressed={
             isSettingsOpen ||
+            isTasksOpen ||
             isChangelogOpen ||
             isHooksInfoOpen ||
             showMigrationNotice ||

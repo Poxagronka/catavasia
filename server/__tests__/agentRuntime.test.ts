@@ -76,3 +76,28 @@ describe('AgentRuntime -- D5 foreign-session gate', () => {
     expect(store.size).toBe(1);
   });
 });
+
+describe('AgentRuntime -- headless agents launched by the server', () => {
+  it('creates a character for any cwd and removes it when the run finishes', () => {
+    const store = new AgentStateStore();
+    const runtime = new AgentRuntime(store, claudeProvider);
+    const cwd = path.join(os.tmpdir(), `pxl-task-${crypto.randomUUID()}`);
+    try {
+      const agent = runtime.launchHeadlessAgent('task-session-1', cwd);
+
+      expect(store.get(agent.id)).toBe(agent);
+      expect(agent.isExternal).toBe(false);
+      expect(agent.palette).toBeTypeOf('number');
+      expect(path.basename(agent.jsonlFile)).toBe('task-session-1.jsonl');
+      expect(runtime.jsonlPollTimers.has(agent.id)).toBe(true);
+
+      runtime.finishHeadlessAgent(agent.id);
+
+      expect(store.size).toBe(0);
+      expect(runtime.jsonlPollTimers.has(agent.id)).toBe(false);
+      expect(runtime.dismissalTracker.isDismissed(agent.jsonlFile)).toBe(true);
+    } finally {
+      runtime.dispose();
+    }
+  });
+});
