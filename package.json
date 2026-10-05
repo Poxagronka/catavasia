@@ -1,8 +1,8 @@
 {
-  "name": "pixel-agents",
+  "name": "catavasia",
   "displayName": "Pixel Agents",
   "description": "Pixel art office where your Claude Code agents come to life as animated characters",
-  "version": "1.4.1-cats.2",
+  "version": "1.4.1-cats.3",
   "publisher": "pablodelucca",
   "repository": {
     "type": "git",
@@ -29,7 +29,7 @@
   ],
   "main": "./dist/extension.js",
   "bin": {
-    "pixel-agents": "./dist/cli.js"
+    "catavasia": "./dist/cli.js"
   },
   "files": [
     "CHANGELOG.md",

@@ -125,12 +125,12 @@ async function verifyInstalledTarball(tarballPath) {
       cwd: smokeProject,
     });
 
-    const installedRoot = path.join(smokeProject, 'node_modules', 'pixel-agents');
+    const installedRoot = path.join(smokeProject, 'node_modules', 'catavasia');
     const installedManifest = JSON.parse(
       fs.readFileSync(path.join(installedRoot, 'package.json'), 'utf-8'),
     );
-    if (installedManifest.bin?.['pixel-agents'] !== './dist/cli.js') {
-      throw new Error('Installed package has an unexpected pixel-agents bin entry');
+    if (installedManifest.bin?.['catavasia'] !== './dist/cli.js') {
+      throw new Error('Installed package has an unexpected catavasia bin entry');
     }
 
     const installedCli = path.join(installedRoot, 'dist', 'cli.js');
@@ -143,15 +143,15 @@ async function verifyInstalledTarball(tarballPath) {
       smokeProject,
       'node_modules',
       '.bin',
-      process.platform === 'win32' ? 'pixel-agents.cmd' : 'pixel-agents',
+      process.platform === 'win32' ? 'catavasia.cmd' : 'catavasia',
     );
     const help = await execFileAsync(installedBin, ['--help'], {
       cwd: smokeProject,
       env: { ...process.env, HOME: smokeHome, USERPROFILE: smokeHome },
       shell: process.platform === 'win32',
     });
-    if (!help.stdout.includes('Usage: pixel-agents')) {
-      throw new Error('Installed pixel-agents bin did not print CLI help');
+    if (!help.stdout.includes('Usage: catavasia')) {
+      throw new Error('Installed catavasia bin did not print CLI help');
     }
 
     const port = await getFreePort();
