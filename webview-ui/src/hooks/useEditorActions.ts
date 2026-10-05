@@ -475,7 +475,7 @@ export function useEditorActions(
 
   const handleToggleState = useCallback(() => {
     // If in furniture placement mode, toggle the selected type's state
-    if (editorState.activeTool === EditTool.FURNITURE_PLACE) {
+    if (editorState.isPlacingFurniture()) {
       const toggled = getToggledType(editorState.selectedFurnitureType);
       if (toggled) {
         editorState.selectedFurnitureType = toggled;
