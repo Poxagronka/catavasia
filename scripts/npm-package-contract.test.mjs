@@ -23,13 +23,13 @@ function validFiles() {
 }
 
 test('normalizes npm pack array and keyed-object output', () => {
-  const metadata = { filename: 'pixel-agents-1.4.0.tgz', files: validFiles() };
+  const metadata = { filename: 'catavasia-1.4.0.tgz', files: validFiles() };
   assert.equal(normalizePackMetadata([metadata]), metadata);
-  assert.equal(normalizePackMetadata({ 'pixel-agents@1.4.0': metadata }), metadata);
+  assert.equal(normalizePackMetadata({ 'catavasia@1.4.0': metadata }), metadata);
 });
 
 test('extracts pack JSON after lifecycle build output', () => {
-  const metadata = [{ filename: 'pixel-agents-1.4.0.tgz', files: validFiles() }];
+  const metadata = [{ filename: 'catavasia-1.4.0.tgz', files: validFiles() }];
   const output = `[generate-messages] built protocol\nHUSKY=0 skip install${JSON.stringify(metadata)}`;
   assert.deepEqual(parsePackJsonOutput(output), metadata);
 });
@@ -55,7 +55,7 @@ test('rejects source and preview files even when required files exist', () => {
 
 test('validates release tag, ref, repository, and monotonic version', () => {
   const manifest = {
-    name: 'pixel-agents',
+    name: 'catavasia',
     version: '1.4.0',
     repository: { url: 'https://github.com/pixel-agents-hq/pixel-agents' },
   };
