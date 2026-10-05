@@ -31,7 +31,7 @@ Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB pe
 4. Leaf workers as subagents (optional): a worker that never delegates can run as a subagent inside its parent's process. That uses less RAM, but the user cannot open its own terminal. Off by default.
 Expected peak: about N × 300–850 MB while N cats work, near 0 when the office is idle.
 
-## Team modes — OPEN QUESTION (user asked, not decided)
-Option under evaluation: a Settings switch that selects how worker cats run.
+## Team modes — light team is a BACKLOG option (user, 2026-10-05)
+Full team is the default. Light team stays in the backlog as a fallback switch, to build if the computer starts to hang (RAM).
 - **Full team:** each cat is its own `claude` session (per-turn process, see the RAM plan). Hierarchy of any depth. Each cat has its own terminal in the game.
 - **Light team:** only the boss is a `claude` session. Every other cat is a subagent of the boss, with its own prompt, model and skills from its cat profile (generated as subagent definitions). Low RAM: one process. Limits to verify before building: subagent nesting depth, whether a subagent definition can carry its own skills/model/effort, and how subagent events reach the game. A worker has no own terminal in this mode. Its activity shows through the parent session's subagent events (reuse the hidden subagent path from fix/one-cat-per-session: map each subagent to its cat instead of spawning a new character).
