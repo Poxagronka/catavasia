@@ -2,7 +2,10 @@ import type { ColorValue } from './components/ui/types.js';
 import { OfficeState } from './office/engine/officeState.js';
 import { isGhostHeadlessAgentsEnabled } from './office/engine/renderer.js';
 import { mulberry32 } from './office/engine/socialMoves.js';
+import type { PetCareEnv } from './office/petCare/petCareNav.js';
+import type { PetCareSystem } from './office/petCare/petCareSystem.js';
 import { carpetJunctionCase } from './office/sprites/carpetTiles.js';
+import type { Pet } from './office/types.js';
 import { TILE_SIZE } from './office/types.js';
 
 declare global {
@@ -74,6 +77,8 @@ declare global {
         bubbleType: 'heart' | null;
       }>;
       petClick?: (petId: string) => void;
+      /** Live pet-care runtime, pets and env (needs, bowls, litter, menu) for e2e and debugging. */
+      getPetCare?: () => { care: PetCareSystem; pets: Pet[]; env: PetCareEnv } | null;
       addAgentLog?: Array<{
         id: number;
         skipSpawnEffect: boolean | undefined;
@@ -208,6 +213,11 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
     } else {
       os.showPetBubble(petId);
     }
+  };
+
+  hooks.getPetCare = () => {
+    const os = officeStateRef.current;
+    return os ? { care: os.petCare, pets: os.pets, env: os.petCareEnv() } : null;
   };
 
   // ── Carpet + Areas read hooks (canvas-only state, read like getPets) ──

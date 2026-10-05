@@ -12,17 +12,17 @@ Build the office on **our own orchestrator** (option A3). Each cat is one long-l
 
 ### A0. Facts verified from the CLI and docs
 
-| Fact | Evidence |
-|---|---|
-| `-p` takes `--input-format stream-json` ("realtime streaming input") and `--output-format stream-json` | `claude --help` |
-| One process serves several turns over stdin | Test in `scratchpad/narr/out.jsonl`: two user lines produced two `result` events with one `session_id` (`5a9882d7-…`). Context grew from 616 to 993 input tokens |
-| A user message sent mid-turn can carry `priority: now / next / later` and `origin: {kind:"human"}` | [agent-sdk/typescript § SDKUserMessage](https://code.claude.com/docs/en/agent-sdk/typescript) |
-| `shouldQuery:false` appends context without a model call | same page |
-| `--append-system-prompt`, `--system-prompt`, `--model`, `--agents <json>`, `--agent`, `--mcp-config`, `--session-id`, `--name`, `--no-session-persistence`, `--max-budget-usd` exist | `claude --help` |
-| The system prompt is recorded on the first request and reused on `--resume` until compaction | [cli-reference § System prompt flags in resumed conversations](https://code.claude.com/docs/en/cli-reference) |
-| Two processes on one session ID interleave into one transcript | [sessions](https://code.claude.com/docs/en/sessions): "If you resume the same session in two terminals without forking, messages from both interleave into one transcript." |
-| HTTP MCP requests time out after 60 s by default (`MCP_TOOL_TIMEOUT` or per-server `timeout` raises it). The network idle timeout is 5 min | [env-vars](https://code.claude.com/docs/en/env-vars) `MCP_TOOL_TIMEOUT`, `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` |
-| A Claude process uses about 300–850 MB RSS | `ps -axo rss,command` on this machine (2 live sessions: 311 MB, 851 MB) |
+| Fact                                                                                                                                                                                 | Evidence                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-p` takes `--input-format stream-json` ("realtime streaming input") and `--output-format stream-json`                                                                               | `claude --help`                                                                                                                                                             |
+| One process serves several turns over stdin                                                                                                                                          | Test in `scratchpad/narr/out.jsonl`: two user lines produced two `result` events with one `session_id` (`5a9882d7-…`). Context grew from 616 to 993 input tokens            |
+| A user message sent mid-turn can carry `priority: now / next / later` and `origin: {kind:"human"}`                                                                                   | [agent-sdk/typescript § SDKUserMessage](https://code.claude.com/docs/en/agent-sdk/typescript)                                                                               |
+| `shouldQuery:false` appends context without a model call                                                                                                                             | same page                                                                                                                                                                   |
+| `--append-system-prompt`, `--system-prompt`, `--model`, `--agents <json>`, `--agent`, `--mcp-config`, `--session-id`, `--name`, `--no-session-persistence`, `--max-budget-usd` exist | `claude --help`                                                                                                                                                             |
+| The system prompt is recorded on the first request and reused on `--resume` until compaction                                                                                         | [cli-reference § System prompt flags in resumed conversations](https://code.claude.com/docs/en/cli-reference)                                                               |
+| Two processes on one session ID interleave into one transcript                                                                                                                       | [sessions](https://code.claude.com/docs/en/sessions): "If you resume the same session in two terminals without forking, messages from both interleave into one transcript." |
+| HTTP MCP requests time out after 60 s by default (`MCP_TOOL_TIMEOUT` or per-server `timeout` raises it). The network idle timeout is 5 min                                           | [env-vars](https://code.claude.com/docs/en/env-vars) `MCP_TOOL_TIMEOUT`, `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`                                                                |
+| A Claude process uses about 300–850 MB RSS                                                                                                                                           | `ps -axo rss,command` on this machine (2 live sessions: 311 MB, 851 MB)                                                                                                     |
 
 ### A1. Claude Code Agent Teams
 
@@ -37,14 +37,14 @@ Source: [agent-teams](https://code.claude.com/docs/en/agent-teams), catavasia `C
 - **Resume:** "/resume and /rewind do not restore in-process teammates."
 - **Visualization today:** catavasia already renders leads and teammates. It reads team config and sidecar `.meta.json`, and it maps `agent_id: <name>@<team>` from the Agent tool result (`claudeTeamProvider.ts`, CHANGELOG #218/#351).
 
-| Need | Result |
-|---|---|
-| (1) Hierarchy of any depth | **No**: 2 levels |
-| (2) Per-cat prompt | Partial: the lead must name a subagent definition. Prompt is appended in-process |
-| (3) Observable messages | Partial: mailbox JSON files and transcripts. We must scrape them |
-| (4) Real terminal | Yes, but only one TUI for the whole team (the lead's) |
-| (5) Cost/complexity | Low code, high tokens ("significantly more tokens") |
-| (6) Stability | Experimental flag. Documented limitations on resume, task status lag, shutdown |
+| Need                       | Result                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| (1) Hierarchy of any depth | **No**: 2 levels                                                                 |
+| (2) Per-cat prompt         | Partial: the lead must name a subagent definition. Prompt is appended in-process |
+| (3) Observable messages    | Partial: mailbox JSON files and transcripts. We must scrape them                 |
+| (4) Real terminal          | Yes, but only one TUI for the whole team (the lead's)                            |
+| (5) Cost/complexity        | Low code, high tokens ("significantly more tokens")                              |
+| (6) Stability              | Experimental flag. Documented limitations on resume, task status lag, shutdown   |
 
 **Verdict:** reject as the backbone. Keep the existing team rendering for users who run teams by hand.
 
@@ -57,14 +57,14 @@ Source: [sub-agents](https://code.claude.com/docs/en/sub-agents), [agent-view](h
 - All subagents live inside **one** parent process. The user cannot open a subagent as its own terminal. The model decides when to delegate, and the server cannot enforce who talks to whom.
 - **Background sessions** (`claude --bg`, `claude attach <id>`, `claude logs`, `claude stop`, `claude agents --json`) are full interactive sessions under a supervisor. They outlive the terminal. Test result: `claude --bg --session-id <uuid> ...` printed `warning: --bg manages the session id; ignoring --session-id`. The real ID is in `claude agents --json` → `sessionId`. `--bg` cannot be combined with `-p`. The docs give no supported API to push a prompt into a bg session from a program. `claude --resume <id> "prompt"` forwards a prompt only from a TTY, and the docs refuse it with piped I/O.
 
-| Need | Subagents | Background sessions |
-|---|---|---|
-| (1) Any depth | No (3 by default, model-driven) | Flat. No hierarchy |
-| (2) Persona | Yes | Yes (`--agent`, `--append-system-prompt`) |
-| (3) Observable messages | Transcripts only | Transcripts only |
-| (4) Real terminal | No | **Yes** (`claude attach` in a PTY) |
-| (5) Cost | Lowest tokens | Medium |
-| (6) Stability | Stable | Stable, but the server cannot drive input |
+| Need                    | Subagents                       | Background sessions                       |
+| ----------------------- | ------------------------------- | ----------------------------------------- |
+| (1) Any depth           | No (3 by default, model-driven) | Flat. No hierarchy                        |
+| (2) Persona             | Yes                             | Yes (`--agent`, `--append-system-prompt`) |
+| (3) Observable messages | Transcripts only                | Transcripts only                          |
+| (4) Real terminal       | No                              | **Yes** (`claude attach` in a PTY)        |
+| (5) Cost                | Lowest tokens                   | Medium                                    |
+| (6) Stability           | Stable                          | Stable, but the server cannot drive input |
 
 **Verdict:** subagents are fine inside one cat for its own helpers. Do not use them as cats.
 
@@ -82,24 +82,24 @@ claude -p --input-format stream-json --output-format stream-json --verbose \
 
 The MCP server lives in the Fastify server. Use HTTP type: a `url` with no `type` is a config error ([mcp](https://code.claude.com/docs/en/mcp)). Its tools stay **non-blocking**. Each tool records the event and returns at once, because HTTP requests time out after 60 s.
 
-| Tool | Who may call | Server action |
-|---|---|---|
-| `brief(plan, assignments[{cat, goal}])` | root cat during BRIEFING | Saves the plan. The webview plays the meeting |
-| `delegate(cat, task, context?)` | parent → direct child only | Creates a `TaskNode`. Injects `[Задача от <boss>] …` into the child's stdin |
-| `report(taskId, status, result)` | child → its parent | Closes the node. Injects the result into the parent's stdin (`priority:"next"`) |
-| `ask(cat, question)` / `reply(msgId, text)` | any cat → any cat (policy) | Peer help. Injected into the target and returned the same way |
-| `list_team()` | any | Returns the subtree, roles and the status of each cat |
+| Tool                                        | Who may call               | Server action                                                                   |
+| ------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------- |
+| `brief(plan, assignments[{cat, goal}])`     | root cat during BRIEFING   | Saves the plan. The webview plays the meeting                                   |
+| `delegate(cat, task, context?)`             | parent → direct child only | Creates a `TaskNode`. Injects `[Задача от <boss>] …` into the child's stdin     |
+| `report(taskId, status, result)`            | child → its parent         | Closes the node. Injects the result into the parent's stdin (`priority:"next"`) |
+| `ask(cat, question)` / `reply(msgId, text)` | any cat → any cat (policy) | Peer help. Injected into the target and returned the same way                   |
+| `list_team()`                               | any                        | Returns the subtree, roles and the status of each cat                           |
 
 Hierarchy, policy, budget and loop limits all run in server code. There is no depth limit. Every message is a server event, so (3) needs no transcript scraping. Tool activity still comes from the JSONL watcher that `launchHeadlessAgent` already wires (`agentRuntime.ts:314`).
 
-| Need | Result |
-|---|---|
-| (1) Any depth | **Yes** (server tree) |
-| (2) Persona | **Yes**: `--append-system-prompt[-file]`, `--model`, `--effort`, tool allow/deny per cat |
-| (3) Observable messages | **Yes**: structured, from/to/kind/text, before delivery |
-| (4) Terminal | Chat console with input (exact). Real TUI only through a "take the wheel" handoff (see B) |
-| (5) Cost/complexity | Medium code (MCP server, router, state machine). Tokens = sum of the cats' turns |
-| (6) Stability | Only GA flags: `-p`, stream-json, `--mcp-config`, `--append-system-prompt` |
+| Need                    | Result                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| (1) Any depth           | **Yes** (server tree)                                                                     |
+| (2) Persona             | **Yes**: `--append-system-prompt[-file]`, `--model`, `--effort`, tool allow/deny per cat  |
+| (3) Observable messages | **Yes**: structured, from/to/kind/text, before delivery                                   |
+| (4) Terminal            | Chat console with input (exact). Real TUI only through a "take the wheel" handoff (see B) |
+| (5) Cost/complexity     | Medium code (MCP server, router, state machine). Tokens = sum of the cats' turns          |
+| (6) Stability           | Only GA flags: `-p`, stream-json, `--mcp-config`, `--append-system-prompt`                |
 
 ### A3-alt. Native cross-session messaging as the transport
 
@@ -126,10 +126,10 @@ Source: [agent-sdk/overview](https://code.claude.com/docs/en/agent-sdk/overview)
 
 **Measured** (2 turns, tiny prompt):
 
-| Setting | Turn input / output | Cost per turn |
-|---|---|---|
-| Thinking on | 616 in / 314 out (226 thinking) | $0.0022 |
-| Thinking off | 588 in / 138 out | $0.0013 |
+| Setting      | Turn input / output             | Cost per turn |
+| ------------ | ------------------------------- | ------------- |
+| Thinking on  | 616 in / 314 out (226 thinking) | $0.0022       |
+| Thinking off | 588 in / 138 out                | $0.0013       |
 
 Haiku also invented a "file saved ✓" line that no event supported. The prompt must forbid claims that no event supports.
 
@@ -139,10 +139,10 @@ Haiku also invented a "file saved ✓" line that no event supported. The prompt 
 
 **Cost estimate per hour of active office** (5 working cats, ~1 raw event/s, 1.5k event tokens per batch, 150 output tokens):
 
-| Design | Per call | Calls/h | $/h |
-|---|---|---|---|
+| Design                                                                                         | Per call | Calls/h                | $/h               |
+| ---------------------------------------------------------------------------------------------- | -------- | ---------------------- | ----------------- |
 | Stateless batch: cached 4.5k system prompt (hit $0.00045) + 2k fresh ($0.002) + out ($0.00075) | ≈$0.0032 | 720 (5 s) / 360 (10 s) | **≈$2.3 / ≈$1.2** |
-| Rolling session, rotate at 30k: avg 13k cache hit ($0.0013) + 1.5k cache write ($0.0019) + out | ≈$0.004 | 720 / 360 | ≈$2.9 / ≈$1.4 |
+| Rolling session, rotate at 30k: avg 13k cache hit ($0.0013) + 1.5k cache write ($0.0019) + out | ≈$0.004  | 720 / 360              | ≈$2.9 / ≈$1.4     |
 
 For scale: the one finished catavasia task in `~/.pixel-agents/tasks.json` cost **$0.53** for a 3-turn, 18-s run on the default model. The narrator is a few percent of what the cats spend. On a Pro/Max login, these numbers count against plan limits, not dollars ([costs](https://code.claude.com/docs/en/costs)).
 
@@ -151,10 +151,20 @@ For scale: the one finished catavasia task in `~/.pixel-agents/tasks.json` cost 
 **Output schema** (one JSON object per batch, validated server-side, and dropped when invalid):
 
 ```json
-{ "cats": [{ "id": "c1", "state": "working|thinking|talking|waiting|idle|blocked|done",
-             "bubble": "≤60 chars RU", "activity": "≤40 chars RU, present tense" }],
-  "conversations": [{ "msgId": "m42", "summary": "≤140 chars RU: who asked what / what was answered" }],
-  "task": { "phase": "briefing|delegating|working|reporting|final", "headline": "≤80 chars RU" } }
+{
+  "cats": [
+    {
+      "id": "c1",
+      "state": "working|thinking|talking|waiting|idle|blocked|done",
+      "bubble": "≤60 chars RU",
+      "activity": "≤40 chars RU, present tense"
+    }
+  ],
+  "conversations": [
+    { "msgId": "m42", "summary": "≤140 chars RU: who asked what / what was answered" }
+  ],
+  "task": { "phase": "briefing|delegating|working|reporting|final", "headline": "≤80 chars RU" }
+}
 ```
 
 Rules in the prompt: Russian only. No commands, paths, flags or code. Mention only facts that are present in events. Bubbles ≤60 chars, and the server cuts at 60 with `…`.
@@ -162,34 +172,85 @@ Rules in the prompt: Russian only. No commands, paths, flags or code. Mention on
 ## D. Data model and UI spec sketch
 
 ```ts
-interface CatProfile { id: string; name: string; role: string;          // "тимлид", "тестировщик"
-  persona: string;                     // appended system prompt (markdown)
-  model: 'opus'|'sonnet'|'haiku'|string; effort?: 'low'|'medium'|'high';
-  appearance: { base: BreedId; fur: RGB; shade: RGB; light: RGB; belly: RGB; stripe?: RGB;
-                eye: RGB; collar?: RGB; pattern: 'solid'|'tabby'|'tuxedo'|'calico'|'tortie' };
-  tools?: { allow?: string[]; deny?: string[] }; permissionMode: 'bypassPermissions'|'acceptEdits'|'plan';
-  cwdPolicy: 'shared-task-worktree'|'own-worktree' }
-interface OrgTree { rootId: string; parentOf: Record<catId, catId|null>; order: Record<catId, number> }
-interface CatRuntime { catId; sessionId; pid?; owner: 'driver'|'pty'|'none'; agentId /* office char */;
-  status: 'offline'|'idle'|'working'|'waiting'; costUsd; contextTokens }
-interface OfficeTask { id; prompt; rootCat; phase: Phase; nodes: TaskNode[]; result?; costUsd }
-interface TaskNode { id; parentNodeId?; from: catId; to: catId; goal; status: 'open'|'working'|'reported'|'failed'; result? }
-interface OfficeMessage { id; taskId; from: catId|'user'; to: catId|'user'; kind: 'brief'|'delegate'|'report'|'ask'|'reply'|'final'|'human';
-  text: string; summary?: string /* narrator */; ts }
+interface CatProfile {
+  id: string;
+  name: string;
+  role: string; // "тимлид", "тестировщик"
+  persona: string; // appended system prompt (markdown)
+  model: 'opus' | 'sonnet' | 'haiku' | string;
+  effort?: 'low' | 'medium' | 'high';
+  appearance: {
+    base: BreedId;
+    fur: RGB;
+    shade: RGB;
+    light: RGB;
+    belly: RGB;
+    stripe?: RGB;
+    eye: RGB;
+    collar?: RGB;
+    pattern: 'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie';
+  };
+  tools?: { allow?: string[]; deny?: string[] };
+  permissionMode: 'bypassPermissions' | 'acceptEdits' | 'plan';
+  cwdPolicy: 'shared-task-worktree' | 'own-worktree';
+}
+interface OrgTree {
+  rootId: string;
+  parentOf: Record<catId, catId | null>;
+  order: Record<catId, number>;
+}
+interface CatRuntime {
+  catId;
+  sessionId;
+  pid?;
+  owner: 'driver' | 'pty' | 'none';
+  agentId /* office char */;
+  status: 'offline' | 'idle' | 'working' | 'waiting';
+  costUsd;
+  contextTokens;
+}
+interface OfficeTask {
+  id;
+  prompt;
+  rootCat;
+  phase: Phase;
+  nodes: TaskNode[];
+  result?;
+  costUsd;
+}
+interface TaskNode {
+  id;
+  parentNodeId?;
+  from: catId;
+  to: catId;
+  goal;
+  status: 'open' | 'working' | 'reported' | 'failed';
+  result?;
+}
+interface OfficeMessage {
+  id;
+  taskId;
+  from: catId | 'user';
+  to: catId | 'user';
+  kind: 'brief' | 'delegate' | 'report' | 'ask' | 'reply' | 'final' | 'human';
+  text: string;
+  summary?: string /* narrator */;
+  ts;
+}
 ```
 
 Store `cats.json` and `org.json` in `~/.pixel-agents/` next to `tasks.json`. Reuse `fileStateAdapter.ts` and the atomic-write pattern in `layoutPersistence.ts`.
 
 **Task flow state machine** (server-owned, one per OfficeTask):
 
-| # | Phase | Enter | Exit criterion (observable) | On fail |
-|---|---|---|---|---|
-| 1 | GATHER | user submits task | every online cat seated in the meeting Area (webview ack) or 20 s | start anyway |
-| 2 | BRIEFING | root cat gets task + team list | root calls `brief(...)` | 2 nudges, then the root delegates without a brief |
-| 3 | DELEGATING | brief saved | each assignment becomes a `delegate` node | — |
-| 4 | WORKING | nodes open | all child nodes `reported`/`failed` (recursive, any depth) | per-node timeout → parent is told |
-| 5 | REPORTING | leaves reported | each parent reports up when its children close | — |
-| 6 | FINAL | root `report(taskId=root)` | result shown to the user, cats return to desks | error state shown |
+| #   | Phase      | Enter                          | Exit criterion (observable)                                       | On fail                                           |
+| --- | ---------- | ------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------- |
+| 1   | GATHER     | user submits task              | every online cat seated in the meeting Area (webview ack) or 20 s | start anyway                                      |
+| 2   | BRIEFING   | root cat gets task + team list | root calls `brief(...)`                                           | 2 nudges, then the root delegates without a brief |
+| 3   | DELEGATING | brief saved                    | each assignment becomes a `delegate` node                         | —                                                 |
+| 4   | WORKING    | nodes open                     | all child nodes `reported`/`failed` (recursive, any depth)        | per-node timeout → parent is told                 |
+| 5   | REPORTING  | leaves reported                | each parent reports up when its children close                    | —                                                 |
+| 6   | FINAL      | root `report(taskId=root)`     | result shown to the user, cats return to desks                    | error state shown                                 |
 
 Guards: budget per task (cumulated `total_cost_usd` from each cat's `result`) and per-cat `--max-budget-usd`. Max messages per node. Loop detection on `ask` (A↔B ping-pong more than N times).
 
@@ -197,24 +258,25 @@ Guards: budget per task (cumulated `total_cost_usd` from each cat's `result`) an
 
 **What already exists to reuse:**
 
-| Need | Existing code |
-|---|---|
-| Spawn headless cat + character + transcript watch | `AgentRuntime.launchHeadlessAgent/finishHeadlessAgent` (`server/src/agentRuntime.ts:314`), `TaskManager.spawnRun` |
-| stream-json parsing, cost/turns | `server/src/taskBoard/streamJson.ts` (`parseStreamLine`, `StreamResult`) |
-| Worktree per task | `server/src/taskBoard/gitWorktree.ts` |
-| Tool activity text | `formatToolStatus` in `providers/hook/claude/claude.ts`, `ToolOverlay.tsx` (hover label) |
-| Walking/pathfinding/seats | `findPath` (`office/layout/tileMap.ts`), `Seat`, `Character.path` (`office/types.ts`), seat logic in `characters.ts`/`officeState.ts` |
-| Meeting room | Areas (`OfficeLayout.areas/areaTiles`, CHANGELOG #316). Add a label such as `meeting`, and seat cats on chairs inside it |
-| Cat looks | `scripts/cats/breeds.mjs` (`BREEDS` = palette fields + `pattern` fn), `poses.mjs` `renderCatFrames`, pure JS label grids. Can run at runtime on the server (pngjs) for custom cats. Palette + `hueShift` already flow server→webview |
-| Team visuals (lead badge, links) | v1.4.0 team rendering (`teamUtils.ts`, `leadAgentId`) can show boss→subordinate links |
-| Bubbles | Only icon bubbles today (`bubbleType: 'permission'|'waiting'`). **New:** text bubble renderer |
-| Embedded terminal | Upstream PR #347 (not merged) |
+| Need                                              | Existing code                                                                                                                                                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Spawn headless cat + character + transcript watch | `AgentRuntime.launchHeadlessAgent/finishHeadlessAgent` (`server/src/agentRuntime.ts:314`), `TaskManager.spawnRun`                                                                                                                    |
+| stream-json parsing, cost/turns                   | `server/src/taskBoard/streamJson.ts` (`parseStreamLine`, `StreamResult`)                                                                                                                                                             |
+| Worktree per task                                 | `server/src/taskBoard/gitWorktree.ts`                                                                                                                                                                                                |
+| Tool activity text                                | `formatToolStatus` in `providers/hook/claude/claude.ts`, `ToolOverlay.tsx` (hover label)                                                                                                                                             |
+| Walking/pathfinding/seats                         | `findPath` (`office/layout/tileMap.ts`), `Seat`, `Character.path` (`office/types.ts`), seat logic in `characters.ts`/`officeState.ts`                                                                                                |
+| Meeting room                                      | Areas (`OfficeLayout.areas/areaTiles`, CHANGELOG #316). Add a label such as `meeting`, and seat cats on chairs inside it                                                                                                             |
+| Cat looks                                         | `scripts/cats/breeds.mjs` (`BREEDS` = palette fields + `pattern` fn), `poses.mjs` `renderCatFrames`, pure JS label grids. Can run at runtime on the server (pngjs) for custom cats. Palette + `hueShift` already flow server→webview |
+| Team visuals (lead badge, links)                  | v1.4.0 team rendering (`teamUtils.ts`, `leadAgentId`) can show boss→subordinate links                                                                                                                                                |
+| Bubbles                                           | Only icon bubbles today (`bubbleType: 'permission'                                                                                                                                                                                   | 'waiting'`). **New:** text bubble renderer |
+| Embedded terminal                                 | Upstream PR #347 (not merged)                                                                                                                                                                                                        |
 
 **UI.** "Коты" menu with two tabs. (1) Cats: list + editor (name, role, persona textarea, model, live sprite preview with colour pickers; `VisualColorPicker.tsx` exists). (2) Hierarchy: a tree with drag-to-reparent and one root. Click a cat → side panel with header (name, role, status, cost), chat console, input, "Взять управление" button. Hover a conversation bubble → narrator summary.
 
 ## E. Risks and open decisions
 
 **Risks**
+
 1. **Cost and rate limits:** N parallel Opus cats multiply spend. One sample task cost $0.53. Agent-teams docs advise Sonnet for teammates ([costs § agent team token costs](https://code.claude.com/docs/en/costs)).
 2. **Memory:** 300–850 MB per Claude process (measured). With 8 cats + narrator, plan for 3–7 GB, or stop idle cats and `--resume` them on the next message (cold start + 5-min cache TTL loss).
 3. **Session ownership:** concurrent driver + PTY on one ID corrupts the transcript. A per-cat mutex is required.
@@ -226,6 +288,7 @@ Guards: budget per task (cumulated `total_cost_usd` from each cat's `result`) an
 9. **Agent SDK auth note** if you later move to the SDK (A4).
 
 **Open decisions for the user**
+
 1. Transport: A3 custom MCP orchestrator (recommended), or Agent Teams for speed with a 2-level limit?
 2. Cat terminal: chat console + "take the wheel" PTY (recommended), or PTY-first for every cat (needs channels preview)?
 3. Workspace: all cats share one worktree per task, or one worktree per cat (no conflicts, harder merge)?
