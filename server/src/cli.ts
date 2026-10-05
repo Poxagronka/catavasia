@@ -13,6 +13,7 @@ import * as path from 'path';
 
 import { AgentRuntime } from './agentRuntime.js';
 import { AgentStateStore } from './agentStateStore.js';
+import { loadPreviousDefaultLayouts } from './assetLoader.js';
 import {
   buildAssetCache,
   loadAllCharacters,
@@ -28,6 +29,7 @@ import {
 } from './configPersistence.js';
 import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
+import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
 import { TaskManager } from './taskBoard/taskManager.js';
@@ -133,6 +135,12 @@ async function main(): Promise<void> {
   const furnitureCount = assetCache.furniture?.catalog.length ?? 0;
   console.log(
     `[Pixel Agents] Assets loaded: ${charCount} characters, ${petCount} pets, ${furnitureCount} furniture items`,
+  );
+  // An untouched older default office upgrades to the new default; an edited one stays.
+  migrateUnmodifiedLayout(
+    readLayoutFromFile(),
+    assetCache.defaultLayout,
+    loadPreviousDefaultLayouts(distRoot),
   );
 
   // ── Store + adapter (shared settings + standalone-scoped agents/seats) ──

@@ -73,6 +73,8 @@ interface EditorActions {
   handleUndo: () => void;
   handleRedo: () => void;
   handleReset: () => void;
+  /** Replace the layout with the bundled default office (the host answers with layoutLoaded). */
+  handleResetToDefault: () => void;
   handleSave: () => void;
   handleZoomChange: (zoom: number) => void;
   handleEditorTileAction: (col: number, row: number) => void;
@@ -527,6 +529,18 @@ export function useEditorActions(
     setIsDirty(false);
   }, [editorState, applyEdit]);
 
+  const handleResetToDefault = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    // Clean first: layoutLoaded is ignored while the editor has unsaved changes.
+    editorState.reset();
+    editorState.isDirty = false;
+    setIsDirty(false);
+    transport.send({ type: 'resetLayoutToDefault' });
+  }, [editorState]);
+
   const handleSave = useCallback(() => {
     // Flush any pending debounced save immediately
     if (saveTimerRef.current) {
@@ -943,6 +957,7 @@ export function useEditorActions(
     handleUndo,
     handleRedo,
     handleReset,
+    handleResetToDefault,
     handleSave,
     handleZoomChange,
     handleEditorTileAction,

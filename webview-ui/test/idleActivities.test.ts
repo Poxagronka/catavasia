@@ -84,7 +84,7 @@ function runFor(os: OfficeState, seconds: number) {
 
 function spot(key: string): ActivitySpot {
   const [col, row] = key.split(',').map(Number);
-  return { key, col, row, facing: Direction.DOWN, onFurniture: false, offsetY: 0 };
+  return { key, col, row, facing: Direction.DOWN, onFurniture: false, offsetX: 0, offsetY: 0 };
 }
 
 test('never picks the same activity twice in a row while another is available', () => {

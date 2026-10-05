@@ -117,6 +117,13 @@ export function handleClientMessage(
       }
       break;
 
+    case 'resetLayoutToDefault':
+      if (cache?.defaultLayout) {
+        writeLayoutToFile(cache.defaultLayout);
+        send({ type: 'layoutLoaded', layout: cache.defaultLayout });
+      }
+      break;
+
     case 'savePetCare':
       writePetCareState(msg.state);
       break;

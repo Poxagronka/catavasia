@@ -142,6 +142,7 @@ components:
         - $ref: '#/components/schemas/SetHooksInfoShown'
         - $ref: '#/components/schemas/SetWatchAllSessions'
         - $ref: '#/components/schemas/ExportLayout'
+        - $ref: '#/components/schemas/ResetLayoutToDefault'
         - $ref: '#/components/schemas/ImportLayout'
         - $ref: '#/components/schemas/OpenSessionsFolder'
         - $ref: '#/components/schemas/AddExternalAssetDirectory'
@@ -1038,6 +1039,17 @@ components:
       properties:
         type:
           const: exportLayout
+
+    ResetLayoutToDefault:
+      description: |
+        Replace the saved layout with the bundled default office. The host
+        writes it to layout.json and answers with layoutLoaded.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: resetLayoutToDefault
 
     ImportLayout:
       description: Trigger layout import via host-native open dialog.

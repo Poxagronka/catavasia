@@ -277,7 +277,7 @@ export function OfficeCanvas({
           h,
           officeState.tileMap,
           decorateFurniture(
-            officeState.furniture,
+            officeState.getFurnitureForRender(),
             layout.furniture,
             officeState.petCare,
             officeState.pets,

@@ -44,14 +44,22 @@ import { CatSocial } from './catSocial.js';
 import type { IdleWorld } from './characters.js';
 import {
   beginIdleActivity,
+  characterDrawOffsetX,
   characterDrawOffsetY,
   createCharacter,
+  snapToTile,
   updateCharacter,
 } from './characters.js';
-import type { ActivitySpotSet } from './idleActivities.js';
-import { buildActivitySpots, getIdleActivity, takenSpotKeys } from './idleActivities.js';
+import type { ActivitySpotSet, PropMotion } from './idleActivities.js';
+import {
+  buildActivitySpots,
+  getIdleActivity,
+  propOffset,
+  takenSpotKeys,
+} from './idleActivities.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
 import { createPet, updatePet } from './petEntity.js';
+import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
@@ -147,7 +155,10 @@ export class OfficeState {
     // Spots moved or vanished: every cat drops its activity and picks again.
     for (const ch of this.characters.values()) {
       ch.activity = null;
-      if (ch.state === CharacterState.ACTIVITY) ch.state = CharacterState.IDLE;
+      if (ch.state === CharacterState.ACTIVITY) {
+        ch.state = CharacterState.IDLE;
+        snapToTile(ch);
+      }
     }
 
     // Shift character positions when grid expands left/up
@@ -1156,6 +1167,23 @@ export class OfficeState {
     return started || !def.spots;
   }
 
+  /** Furniture to draw this frame: toys in use (yarn, feather, mouse) moved by their motion. */
+  getFurnitureForRender(nowSec: number = performance.now() / 1000): FurnitureInstance[] {
+    const moving = new Map<string, PropMotion>();
+    for (const ch of this.characters.values()) {
+      const uid = ch.activity?.spot?.itemUid;
+      const prop = getIdleActivity(ch.activity?.id)?.prop;
+      if (ch.state === CharacterState.ACTIVITY && uid && prop) moving.set(uid, prop);
+    }
+    if (moving.size === 0) return this.furniture;
+    return this.furniture.map((f) => {
+      const motion = f.uid ? moving.get(f.uid) : undefined;
+      if (!motion) return f;
+      const { dx, dy } = propOffset(motion, nowSec);
+      return { ...f, x: f.x + dx, y: f.y + dy };
+    });
+  }
+
   /** A task-board run ended: the cat stays idle and links to its task. */
   setTaskFinished(id: number, taskId: string): void {
     const ch = this.characters.get(id);
@@ -1286,13 +1314,14 @@ export class OfficeState {
   getCharacterAt(worldX: number, worldY: number): number | null {
     const chars = Array.from(this.characters.values()).sort((a, b) => b.y - a.y);
     for (const ch of chars) {
-      // Skip characters that are despawning
-      if (ch.matrixEffect === 'despawn') continue;
+      // Skip characters that are despawning or hidden inside a play tunnel
+      if (ch.matrixEffect === 'despawn' || isHiddenInRunThrough(ch)) continue;
       // Character sprite is 16x24, anchored bottom-center
       // Apply sitting offset to match visual position
       const anchorY = ch.y + characterDrawOffsetY(ch);
-      const left = ch.x - CHARACTER_HIT_HALF_WIDTH;
-      const right = ch.x + CHARACTER_HIT_HALF_WIDTH;
+      const cx = ch.x + characterDrawOffsetX(ch);
+      const left = cx - CHARACTER_HIT_HALF_WIDTH;
+      const right = cx + CHARACTER_HIT_HALF_WIDTH;
       const top = anchorY - CHARACTER_HIT_HEIGHT;
       const bottom = anchorY;
       if (worldX >= left && worldX <= right && worldY >= top && worldY <= bottom) {

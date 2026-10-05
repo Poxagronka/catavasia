@@ -97,6 +97,20 @@ export class Frame {
     });
   }
 
+  /**
+   * Stamp a toy template (toyArt.mjs characters, own outline): cells keep the
+   * toy palette and add no outline halo. rowFilter picks which rows to draw.
+   */
+  stampProp(rows, ox, oy, z, rowFilter = () => true) {
+    rows.forEach((row, ly) => {
+      if (!rowFilter(ly)) return;
+      [...row].forEach((ch, lx) => {
+        if (ch === '.') return;
+        this.set(ox + lx, oy + ly, { label: `toy:${ch}`, part: 'prop', lx, ly, z, noHalo: true });
+      });
+    });
+  }
+
   /** Pixels drawn after the outline pass (whiskers). Only lands on empty or outline cells. */
   addOverlay(x, y, label) {
     this.overlay.push([x, y, label]);
@@ -115,7 +129,8 @@ export class Frame {
       for (let x = 0; x < FRAME_W; x++) {
         const c = this.cells[y][x];
         if (!c) {
-          if (nbrs(x, y).some(Boolean))
+          // Props with their own outline (noHalo) get no extra line around them.
+          if (nbrs(x, y).some((n) => n && !n.noHalo))
             out[y][x] = { label: 'outline', part: 'edge', lx: 0, ly: 0 };
           continue;
         }

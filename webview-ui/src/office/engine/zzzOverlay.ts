@@ -2,7 +2,7 @@ import { ZZZ_CYCLE_SEC, ZZZ_EDGE_COLOR, ZZZ_FILL_COLOR, ZZZ_RISE_PX } from '../.
 import { getCachedSprite } from '../sprites/spriteCache.js';
 import type { Character, SpriteData } from '../types.js';
 import { CharacterState } from '../types.js';
-import { activityHeadDropY } from './characters.js';
+import { activityHeadDropY, characterDrawOffsetX } from './characters.js';
 import { getIdleActivity } from './idleActivities.js';
 
 /** Pixel glyph from '#' fill rows, with a 1 px edge around the strokes. */
@@ -49,7 +49,7 @@ export function renderZzz(
     for (let i = 0; i < 2; i++) {
       const t = (nowSec / ZZZ_CYCLE_SEC + i * 0.5 + ch.id * 0.37) % 1;
       const sprite = getCachedSprite(i === 0 ? SMALL_Z : BIG_Z, zoom);
-      const x = Math.round(offsetX + (ch.x + 2 + t * 5) * zoom);
+      const x = Math.round(offsetX + (ch.x + characterDrawOffsetX(ch) + 2 + t * 5) * zoom);
       const y = Math.round(offsetY + (headY - t * ZZZ_RISE_PX) * zoom - sprite.height);
       ctx.save();
       ctx.globalAlpha = t < 0.8 ? 1 : (1 - t) / 0.2;

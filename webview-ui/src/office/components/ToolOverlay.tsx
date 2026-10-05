@@ -18,7 +18,7 @@ import {
   TOOL_OVERLAY_VERTICAL_OFFSET,
 } from '../../constants.js';
 import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
-import { activityHeadDropY } from '../engine/characters.js';
+import { activityHeadDropY, characterDrawOffsetX } from '../engine/characters.js';
 import type { OfficeState } from '../engine/officeState.js';
 import { overlayProjection } from '../projection.js';
 import type { ToolActivity } from '../types.js';
@@ -137,7 +137,7 @@ export function ToolOverlay({
         // Position above character
         const sittingOffset =
           ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : activityHeadDropY(ch);
-        const screenX = project.toScreenX(ch.x);
+        const screenX = project.toScreenX(ch.x + characterDrawOffsetX(ch));
         const screenY = project.toScreenY(ch.y + sittingOffset - TOOL_OVERLAY_VERTICAL_OFFSET);
 
         // A "Done" agent (finished turn: waiting bubble without awaitingInput)

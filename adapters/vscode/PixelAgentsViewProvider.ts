@@ -17,6 +17,7 @@ import {
   loadCarpetTiles,
   loadDefaultLayout,
   loadFloorTiles,
+  loadPreviousDefaultLayouts,
   loadWallTiles,
   sendAssetsToWebview,
   sendCarpetTilesToWebview,
@@ -100,6 +101,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
   // Bundled default layout (loaded from assets/default-layout.json)
   defaultLayout: Record<string, unknown> | null = null;
+  /** Earlier bundled defaults: an untouched one upgrades to defaultLayout. */
+  previousDefaultLayouts: Array<Record<string, unknown>> = [];
 
   // Root path of bundled assets (set once on first load)
   private assetsRoot: string | null = null;
@@ -474,6 +477,12 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
       } else if (message.type === 'saveLayout') {
         this.layoutWatcher?.markOwnWrite();
         writeLayoutToFile(message.layout as Record<string, unknown>);
+      } else if (message.type === 'resetLayoutToDefault') {
+        if (this.defaultLayout) {
+          this.layoutWatcher?.markOwnWrite();
+          writeLayoutToFile(this.defaultLayout);
+          this.webview?.postMessage({ type: 'layoutLoaded', layout: this.defaultLayout });
+        }
       } else if (message.type === 'savePetCare') {
         writePetCareState(message.state);
       } else if (message.type === 'setSoundEnabled') {
@@ -762,7 +771,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
             if (!assetsRoot) {
               console.log('[Extension] ⚠️  No assets directory found');
               if (this.webview) {
-                sendLayout(this.webview, this.defaultLayout);
+                sendLayout(this.webview, this.defaultLayout, this.previousDefaultLayouts);
                 // Send agent statuses AFTER layoutLoaded so characters exist when messages arrive
                 sendCurrentAgentStatuses(this.store, this.webview);
                 this.startLayoutWatcher();
@@ -775,6 +784,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
             // Load bundled default layout
             this.defaultLayout = loadDefaultLayout(assetsRoot);
+            this.previousDefaultLayouts = loadPreviousDefaultLayouts(assetsRoot);
 
             // Load character sprites (bundled + external)
             const charSprites = await this.loadAllCharacterSprites();
@@ -826,7 +836,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           // Always send saved layout (or null for default)
           if (this.webview) {
             console.log('[Extension] Sending saved layout');
-            sendLayout(this.webview, this.defaultLayout);
+            sendLayout(this.webview, this.defaultLayout, this.previousDefaultLayouts);
             // Send agent statuses AFTER layoutLoaded so characters exist when messages arrive
             sendCurrentAgentStatuses(this.store, this.webview);
             this.startLayoutWatcher();

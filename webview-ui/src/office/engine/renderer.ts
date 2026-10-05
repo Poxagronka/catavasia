@@ -70,9 +70,15 @@ import type {
 } from '../types.js';
 import { CharacterState, TILE_SIZE, TileType } from '../types.js';
 import { getWallInstances, hasWallSprites, wallColorToHex } from '../wallTiles.js';
-import { activityHeadDropY, characterDrawOffsetY, getCharacterSprite } from './characters.js';
+import {
+  activityHeadDropY,
+  characterDrawOffsetX,
+  characterDrawOffsetY,
+  getCharacterSprite,
+} from './characters.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
+import { isHiddenInRunThrough } from './runThrough.js';
 import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
 import { renderZzz } from './zzzOverlay.js';
 
@@ -390,6 +396,7 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
+    if (isHiddenInRunThrough(ch)) continue; // inside the play tunnel
     const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom);
     if (cloud) drawables.push(cloud);
     const sprites = getCharacterSprites(ch.palette, ch.hueShift);
@@ -399,7 +406,7 @@ export function renderScene(
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = characterDrawOffsetY(ch);
     // Anchor at bottom-center of character — round to integer device pixels
-    const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2);
+    const drawX = Math.round(offsetX + (ch.x + characterDrawOffsetX(ch)) * zoom - cached.width / 2);
     const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height);
 
     // Sort characters by bottom of their tile (not center) so they render
@@ -798,7 +805,9 @@ function renderBubbles(
     // Place bubble above head with a small gap; follow sitting offset
     const sittingOff =
       ch.state === CharacterState.TYPE ? BUBBLE_SITTING_OFFSET_PX : activityHeadDropY(ch);
-    const bubbleX = Math.round(offsetX + ch.x * zoom - cached.width / 2);
+    const bubbleX = Math.round(
+      offsetX + (ch.x + characterDrawOffsetX(ch)) * zoom - cached.width / 2,
+    );
     const bubbleY = Math.round(
       offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom,
     );

@@ -193,6 +193,41 @@ export async function loadFurnitureAssets(workspaceRoot: string): Promise<Loaded
 
 // ── Default layout loading ───────────────────────────────────
 
+/** Pet-care items added to revision 1 without a revision bump. */
+const PET_CARE_TYPES = new Set(['PET_BOWL', 'LITTER_BOX']);
+
+/**
+ * Every bundled default layout except the newest: the offices a user may
+ * still have saved untouched (see migrateUnmodifiedLayout). A layout with the
+ * pet-care bowl and litter box also counts without them: revision 1 shipped
+ * first without them.
+ */
+export function loadPreviousDefaultLayouts(assetsRoot: string): Array<Record<string, unknown>> {
+  const assetsDir = path.join(assetsRoot, 'assets');
+  try {
+    const revisions = fs
+      .readdirSync(assetsDir)
+      .map((file) => /^default-layout-(\d+)\.json$/.exec(file))
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => ({ file: m[0], rev: parseInt(m[1], 10) }))
+      .sort((a, b) => a.rev - b.rev);
+    return revisions.slice(0, -1).flatMap(({ file, rev }) => {
+      const layout = JSON.parse(fs.readFileSync(path.join(assetsDir, file), 'utf-8')) as Record<
+        string,
+        unknown
+      >;
+      layout[LAYOUT_REVISION_KEY] ??= rev;
+      const furniture = (layout.furniture ?? []) as Array<{ type: string }>;
+      const withoutPetCare = furniture.filter((f) => !PET_CARE_TYPES.has(f.type));
+      return withoutPetCare.length === furniture.length
+        ? [layout]
+        : [layout, { ...layout, furniture: withoutPetCare }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Load the bundled default layout with the highest revision.
  * Scans for assets/default-layout-{N}.json files and picks the one

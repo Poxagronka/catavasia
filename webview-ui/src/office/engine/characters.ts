@@ -20,6 +20,7 @@ import type { Character, Seat, SpriteData, TileType as TileTypeVal } from '../ty
 import { CharacterState, Direction, TILE_SIZE } from '../types.js';
 import type { ActivitySpotSet, IdleChoice } from './idleActivities.js';
 import { chooseIdleActivity, getIdleActivity } from './idleActivities.js';
+import { advanceRunThrough } from './runThrough.js';
 
 /** What the idle-activity FSM needs from the office. */
 export interface IdleWorld {
@@ -240,18 +241,25 @@ export function updateCharacter(
       const def = getIdleActivity(ch.activity?.id);
       // Work comes first: leave at once, the IDLE branch walks to the desk.
       if (ch.isActive || !ch.activity || !def) {
+        snapToTile(ch); // out of a tunnel run, back on a real tile
         ch.activity = null;
         ch.state = CharacterState.IDLE;
         ch.frame = 0;
         ch.frameTimer = 0;
         break;
       }
-      if (ch.frameTimer >= def.frameSec) {
+      let done = false;
+      if (def.walkAnim) {
+        done = advanceRunThrough(ch, ch.activity, dt);
+      } else if (ch.frameTimer >= def.frameSec) {
         ch.frameTimer -= def.frameSec;
         ch.frame = (ch.frame + 1) % Math.max(1, def.frames.length);
       }
       ch.activity.timer -= dt;
-      if (ch.activity.timer <= 0) {
+      if (done || ch.activity.timer <= 0) {
+        // A run-through cut short by the timer snaps back to a real tile.
+        const center = tileCenter(ch.tileCol, ch.tileRow);
+        ch.x = center.x;
         finishActivity(ch);
         ch.state = CharacterState.IDLE;
         ch.frame = 0;
@@ -377,6 +385,11 @@ export function characterDrawOffsetY(ch: Character): number {
   return 0;
 }
 
+/** Px the sprite is drawn right of ch.x: an activity pose reaching toward its toy. */
+export function characterDrawOffsetX(ch: Character): number {
+  return ch.state === CharacterState.ACTIVITY ? (ch.activity?.spot?.offsetX ?? 0) : 0;
+}
+
 /** Px an activity pose's head sits below a standing head (0 outside activities). */
 export function activityHeadDropY(ch: Character): number {
   if (ch.state !== CharacterState.ACTIVITY) return 0;
@@ -394,7 +407,9 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
     case CharacterState.WALK:
       return sprites.walk[ch.dir][ch.frame % 4];
     case CharacterState.ACTIVITY: {
-      const frames = getIdleActivity(ch.activity?.id)?.frames ?? [];
+      const def = getIdleActivity(ch.activity?.id);
+      if (def?.walkAnim) return sprites.walk[ch.dir][ch.frame % 4];
+      const frames = def?.frames ?? [];
       const idx = frames[ch.frame % Math.max(1, frames.length)];
       return (idx !== undefined ? sprites.idle[ch.dir][idx] : undefined) ?? sprites.walk[ch.dir][1];
     }
@@ -403,6 +418,13 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
     default:
       return sprites.walk[ch.dir][1];
   }
+}
+
+/** Put the character back on its tile center (a tunnel run moves x between tiles). */
+export function snapToTile(ch: Character): void {
+  const center = tileCenter(ch.tileCol, ch.tileRow);
+  ch.x = center.x;
+  ch.y = center.y;
 }
 
 /** End the current activity and remember it so the next pick differs. */
