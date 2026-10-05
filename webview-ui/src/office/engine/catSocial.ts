@@ -12,6 +12,11 @@
  *   social.isInScene(id): boolean
  *     Skip activity picks for a cat while this is true.
  *
+ *   social.leave(id)
+ *     Call before sending a cat somewhere on purpose (user walk / seat
+ *     commands, an activity that must start now). The cat leaves its scene
+ *     with its new path; the partner resumes idling.
+ *
  *   social.trySocialEncounter(a, b, { activity?, location?, kind? }): SocialKind | null
  *     Call when two cats share an activity spot (both at coffee, both in the
  *     lounge / playroom). With `activity` set the cats keep their spots (no
@@ -121,6 +126,7 @@ export class CatSocial {
   private readonly sceneOf = new Map<number, Scene>();
   private readonly catCooldownUntil = new Map<number, number>();
   private readonly pairCooldownUntil = new Map<string, number>();
+  private readonly leaving = new Set<number>();
   private now = 0;
   private checkTimer = SOCIAL_CHECK_INTERVAL_SEC;
 
@@ -196,15 +202,32 @@ export class CatSocial {
     return true;
   }
 
+  /**
+   * The user sent this cat somewhere (walk / seat commands): it leaves its
+   * scene on the next tick, keeping the path it was given.
+   */
+  leave(id: number): void {
+    if (this.sceneOf.has(id)) this.leaving.add(id);
+  }
+
   /** Per-frame tick, after the character FSM. */
   update(dt: number, characters: Map<number, Character>, world: SocialWorld): void {
     this.now += dt;
     for (const scene of [...this.scenes]) {
       const a = characters.get(scene.a);
       const b = characters.get(scene.b);
-      const gone = (c?: Character) => !c || c.isActive || c.matrixEffect !== null;
-      if (!a || !b || gone(a) || gone(b)) {
-        this.finish(scene, characters, 'interrupted');
+      // A cat leaves when it gets work, despawns, sat down at its seat, or the
+      // user sent it somewhere (leave()). It keeps its own path.
+      const leavers = new Set<number>();
+      for (const [id, c] of [
+        [scene.a, a],
+        [scene.b, b],
+      ] as const) {
+        const gone = !c || c.isActive || c.matrixEffect !== null || c.state === CharacterState.TYPE;
+        if (gone || this.leaving.has(id)) leavers.add(id);
+      }
+      if (leavers.size > 0 || !a || !b) {
+        this.finish(scene, characters, 'interrupted', leavers);
         continue;
       }
       const cast: SceneCast = { a, b, world, rng: this.rng, occupied: occupiedTiles(characters) };
@@ -260,19 +283,25 @@ export class CatSocial {
     this.scenes.add(scene);
   }
 
-  private finish(scene: Scene, characters: Map<number, Character>, reason: SceneEndReason): void {
+  private finish(
+    scene: Scene,
+    characters: Map<number, Character>,
+    reason: SceneEndReason,
+    leavers: ReadonlySet<number> = new Set(),
+  ): void {
     this.scenes.delete(scene);
     const until = this.now + SOCIAL_CAT_COOLDOWN_SEC;
     const pairWait = scene.kind === 'fight' ? SOCIAL_FIGHT_AVOID_SEC : SOCIAL_PAIR_COOLDOWN_SEC;
     this.pairCooldownUntil.set(pairKey(scene.a, scene.b), this.now + pairWait);
     for (const id of [scene.a, scene.b]) {
       this.sceneOf.delete(id);
+      this.leaving.delete(id);
       this.catCooldownUntil.set(id, until);
       const ch = characters.get(id);
       if (ch) {
         ch.social = undefined;
         ch.speedMul = undefined;
-        if (!ch.isActive) {
+        if (!ch.isActive && !leavers.has(id)) {
           // The partner of a cat that left stops chasing / approaching; a
           // finished flee keeps running to its tile.
           if (reason === 'interrupted') stopAfterStep(ch);

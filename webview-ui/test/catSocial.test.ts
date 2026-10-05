@@ -274,6 +274,52 @@ test('toy joint play: cats walk to their spots and take turns', () => {
   assert.deepEqual(turns.slice(0, 3), [1, 2, 1]);
 });
 
+test('a cat that sits down at its seat mid-scene leaves it, facing its desk', () => {
+  const world = openWorld();
+  const social = new CatSocial({ rng: quietRng });
+  const a = idleCat(1, 4, 4);
+  const b = idleCat(2, 5, 4);
+  const chars = office(a, b);
+  social.trySocialEncounter(a, b, { kind: 'talk' });
+  run(social, chars, world, 1);
+  // The FSM sat a down (arrived at its seat): state TYPE, facing the desk.
+  a.state = CharacterState.TYPE;
+  a.dir = Direction.UP;
+  social.update(DT, chars, world);
+  assert.equal(social.isInScene(1), false);
+  assert.equal(social.isInScene(2), false);
+  assert.equal(a.dir, Direction.UP, 'the scene no longer turns it');
+});
+
+test('leave(): a user walk command wins over the scene, the partner stops', () => {
+  const world = openWorld();
+  const ended: Array<[number, string]> = [];
+  const social = new CatSocial({
+    rng: mulberry32(11),
+    onSceneEnd: (id, _k, r) => ended.push([id, r]),
+  });
+  const a = idleCat(1, 6, 5);
+  const b = idleCat(2, 7, 5);
+  const chars = office(a, b);
+  social.startJointPlay(a, b, { kind: 'chase' });
+  run(social, chars, world, 1);
+  const userPath = [
+    { col: 6, row: 6 },
+    { col: 6, row: 7 },
+  ];
+  a.path = userPath;
+  social.leave(1);
+  social.update(DT, chars, world);
+  assert.equal(social.isInScene(1), false);
+  assert.deepEqual(a.path, userPath, 'the user path is kept');
+  assert.equal(a.speedMul, undefined);
+  assert.ok(b.path.length <= 1, 'the partner stops chasing');
+  assert.deepEqual(ended, [
+    [1, 'interrupted'],
+    [2, 'interrupted'],
+  ]);
+});
+
 test('meetTile: a cat directly above its partner moves beside it (sprites would overlap)', () => {
   const world = openWorld();
   const host = idleCat(1, 6, 5);

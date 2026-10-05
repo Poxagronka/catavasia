@@ -591,6 +591,7 @@ export class OfficeState {
     if (!seat || seat.assigned) return;
     seat.assigned = true;
     ch.seatId = seatId;
+    this.social.leave(agentId);
     // Pathfind to new seat (unblock own seat tile for this query)
     const path = this.withOwnSeatUnblocked(ch, () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
@@ -647,6 +648,7 @@ export class OfficeState {
     if (!ch || !ch.seatId) return;
     const seat = this.seats.get(ch.seatId);
     if (!seat) return;
+    this.social.leave(agentId);
     const path = this.withOwnSeatUnblocked(ch, () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
     );
@@ -681,6 +683,7 @@ export class OfficeState {
       findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles),
     );
     if (path.length === 0) return false;
+    this.social.leave(agentId);
     ch.path = path;
     ch.moveProgress = 0;
     ch.state = CharacterState.WALK;
