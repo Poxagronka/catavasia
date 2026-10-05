@@ -23,6 +23,9 @@ const LABELS = {
   Q: 'paper',
   q: 'ink',
   w: 'whisker',
+  U: 'mug',
+  K: 'mugShade',
+  D: 'coffee',
 };
 
 export class Frame {
@@ -40,14 +43,14 @@ export class Frame {
 
   /** Stamp an ASCII template. Local coords (lx, ly) start at the template origin + shift. */
   stamp(rows, ox, oy, part, z, opts = {}) {
-    const { rim = false, lyShift = 0, flip = false } = opts;
+    const { rim = false, lyShift = 0, flip = false, dir } = opts;
     rows.forEach((row, ly) => {
       [...row].forEach((ch, lx) => {
         if (ch === '.' || ch === ' ') return;
         const label = LABELS[ch];
         if (!label) throw new Error(`Unknown template char '${ch}'`);
         const x = flip ? ox + row.length - 1 - lx : ox + lx;
-        this.set(x, oy + ly, { label, part, lx, ly: ly + lyShift, z, rim });
+        this.set(x, oy + ly, { label, part, lx, ly: ly + lyShift, z, rim, dir });
       });
     });
   }
@@ -64,7 +67,7 @@ export class Frame {
    * (rings, dark tips) follow the limb. The last `tip` steps use `tipLabel`.
    */
   stroke(points, thick, part, z, opts = {}) {
-    const { rim = false, tip = 0, tipLabel = 'paw' } = opts;
+    const { rim = false, tip = 0, tipLabel = 'paw', dir } = opts;
     const steps = [];
     for (let i = 0; i < points.length - 1; i++) {
       const [x0, y0] = points[i];
@@ -81,7 +84,16 @@ export class Frame {
       const label = idx >= steps.length - tip ? tipLabel : 'fur';
       for (let dy = 0; dy < thick; dy++)
         for (let dx = 0; dx < thick; dx++)
-          this.set(x + dx, y + dy, { label, part, lx: dx, ly: idx, len: steps.length, z, rim });
+          this.set(x + dx, y + dy, {
+            label,
+            part,
+            lx: dx,
+            ly: idx,
+            len: steps.length,
+            z,
+            rim,
+            dir,
+          });
     });
   }
 

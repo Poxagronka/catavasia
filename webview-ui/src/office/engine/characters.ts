@@ -1,5 +1,8 @@
 import {
+  CHARACTER_SITTING_OFFSET_PX,
   DEFAULT_MAX_CONTEXT_TOKENS,
+  IDLE_ACTIVITY_PAUSE_MAX_SEC,
+  IDLE_ACTIVITY_PAUSE_MIN_SEC,
   SEAT_REST_MAX_SEC,
   SEAT_REST_MIN_SEC,
   TYPE_FRAME_DURATION_SEC,
@@ -15,6 +18,15 @@ import type { CharacterSprites } from '../sprites/spriteData.js';
 import { isReadingToolName } from '../toolUtils.js';
 import type { Character, Seat, SpriteData, TileType as TileTypeVal } from '../types.js';
 import { CharacterState, Direction, TILE_SIZE } from '../types.js';
+import type { ActivitySpotSet, IdleChoice } from './idleActivities.js';
+import { chooseIdleActivity, getIdleActivity } from './idleActivities.js';
+
+/** What the idle-activity FSM needs from the office. */
+export interface IdleWorld {
+  spotSets: Map<string, ActivitySpotSet>;
+  /** Spot keys other characters hold (see takenSpotKeys). */
+  takenBy: (ch: Character) => Set<string>;
+}
 
 /** Whether a tool should show the reading animation (vs typing). Taxonomy comes
  *  from the active HookProvider via the `providerCapabilities` message. */
@@ -84,6 +96,8 @@ export function createCharacter(
     matrixEffect: null,
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],
+    activity: null,
+    lastActivityId: null,
     contextTokens: 0,
     maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
   };
@@ -96,6 +110,7 @@ export function updateCharacter(
   seats: Map<string, Seat>,
   tileMap: TileTypeVal[][],
   blockedTiles: Set<string>,
+  idle?: IdleWorld,
 ): void {
   ch.frameTimer += dt;
 
@@ -112,6 +127,8 @@ export function updateCharacter(
           break;
         }
         ch.seatTimer = 0; // clear sentinel
+        // The rest at the desk ends the "wander" activity: pick a new one next.
+        if (ch.activity?.id === 'wander') finishActivity(ch);
         ch.state = CharacterState.IDLE;
         ch.frame = 0;
         ch.frameTimer = 0;
@@ -163,8 +180,17 @@ export function updateCharacter(
       }
       // Countdown wander timer
       ch.wanderTimer -= dt;
+      if (ch.wanderTimer <= 0 && idle && !ch.activity) {
+        if (startIdleActivity(ch, idle, tileMap, blockedTiles)) break;
+      }
       if (ch.wanderTimer <= 0) {
         // Check if we've wandered enough — return to seat for a rest
+        if (ch.wanderCount >= ch.wanderLimit && idle && !ch.seatId) {
+          // Nowhere to rest: the wander is over, pick something else.
+          finishActivity(ch);
+          ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+          break;
+        }
         if (ch.wanderCount >= ch.wanderLimit && ch.seatId) {
           const seat = seats.get(ch.seatId);
           if (seat) {
@@ -210,6 +236,31 @@ export function updateCharacter(
       break;
     }
 
+    case CharacterState.ACTIVITY: {
+      const def = getIdleActivity(ch.activity?.id);
+      // Work comes first: leave at once, the IDLE branch walks to the desk.
+      if (ch.isActive || !ch.activity || !def) {
+        ch.activity = null;
+        ch.state = CharacterState.IDLE;
+        ch.frame = 0;
+        ch.frameTimer = 0;
+        break;
+      }
+      if (ch.frameTimer >= def.frameSec) {
+        ch.frameTimer -= def.frameSec;
+        ch.frame = (ch.frame + 1) % Math.max(1, def.frames.length);
+      }
+      ch.activity.timer -= dt;
+      if (ch.activity.timer <= 0) {
+        finishActivity(ch);
+        ch.state = CharacterState.IDLE;
+        ch.frame = 0;
+        ch.frameTimer = 0;
+        ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+      }
+      break;
+    }
+
     case CharacterState.WALK: {
       // Walk animation
       if (ch.frameTimer >= WALK_FRAME_DURATION_SEC) {
@@ -236,6 +287,9 @@ export function updateCharacter(
               ch.state = CharacterState.IDLE;
             }
           }
+        } else if (ch.activity?.phase === 'going') {
+          arriveAtActivity(ch);
+          break;
         } else {
           // Check if arrived at assigned seat — sit down for a rest before wandering again
           if (ch.seatId) {
@@ -316,6 +370,19 @@ export function updateCharacter(
   }
 }
 
+/** Px the sprite is drawn below ch.y: seated at a desk, or an activity spot on a sofa. */
+export function characterDrawOffsetY(ch: Character): number {
+  if (ch.state === CharacterState.TYPE) return CHARACTER_SITTING_OFFSET_PX;
+  if (ch.state === CharacterState.ACTIVITY) return ch.activity?.spot?.offsetY ?? 0;
+  return 0;
+}
+
+/** Px an activity pose's head sits below a standing head (0 outside activities). */
+export function activityHeadDropY(ch: Character): number {
+  if (ch.state !== CharacterState.ACTIVITY) return 0;
+  return characterDrawOffsetY(ch) + (getIdleActivity(ch.activity?.id)?.lowPosePx ?? 0);
+}
+
 /** Get the correct sprite frame for a character's current state and direction */
 export function getCharacterSprite(ch: Character, sprites: CharacterSprites): SpriteData {
   switch (ch.state) {
@@ -326,11 +393,93 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
       return sprites.typing[ch.dir][ch.frame % 2];
     case CharacterState.WALK:
       return sprites.walk[ch.dir][ch.frame % 4];
+    case CharacterState.ACTIVITY: {
+      const frames = getIdleActivity(ch.activity?.id)?.frames ?? [];
+      const idx = frames[ch.frame % Math.max(1, frames.length)];
+      return (idx !== undefined ? sprites.idle[ch.dir][idx] : undefined) ?? sprites.walk[ch.dir][1];
+    }
     case CharacterState.IDLE:
       return sprites.walk[ch.dir][1];
     default:
       return sprites.walk[ch.dir][1];
   }
+}
+
+/** End the current activity and remember it so the next pick differs. */
+function finishActivity(ch: Character): void {
+  if (ch.activity) ch.lastActivityId = ch.activity.id;
+  ch.activity = null;
+}
+
+/**
+ * Pick the next idle activity. Returns true when the character is now walking
+ * to a spot; false for "wander" (the IDLE branch runs it) or no option.
+ */
+function startIdleActivity(
+  ch: Character,
+  idle: IdleWorld,
+  tileMap: TileTypeVal[][],
+  blockedTiles: Set<string>,
+): boolean {
+  const choice = chooseIdleActivity(ch.lastActivityId, idle.spotSets, idle.takenBy(ch));
+  return choice ? beginIdleActivity(ch, choice, tileMap, blockedTiles) : false;
+}
+
+/** Start a chosen activity: walk to its spot, or set up the wander. */
+export function beginIdleActivity(
+  ch: Character,
+  choice: IdleChoice,
+  tileMap: TileTypeVal[][],
+  blockedTiles: Set<string>,
+): boolean {
+  if (!choice.spot) {
+    ch.activity = { id: choice.def.id, spot: null, phase: 'doing', timer: 0 };
+    ch.wanderCount = 0;
+    ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX);
+    return false;
+  }
+  const spot = choice.spot;
+  ch.activity = { id: choice.def.id, spot, phase: 'going', timer: 0 };
+  if (ch.tileCol === spot.col && ch.tileRow === spot.row) {
+    arriveAtActivity(ch);
+    return true;
+  }
+  let blocked = blockedTiles;
+  if (spot.onFurniture) {
+    blocked = new Set(blockedTiles);
+    blocked.delete(spot.key);
+  }
+  const path = findPath(ch.tileCol, ch.tileRow, spot.col, spot.row, tileMap, blocked);
+  if (path.length === 0) {
+    // Unreachable: count it as done so the next pick tries something else.
+    finishActivity(ch);
+    ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+    return false;
+  }
+  ch.path = path;
+  ch.moveProgress = 0;
+  ch.state = CharacterState.WALK;
+  ch.frame = 0;
+  ch.frameTimer = 0;
+  return true;
+}
+
+/** Walk ended: start the activity if the character stands on its spot. */
+function arriveAtActivity(ch: Character): void {
+  const run = ch.activity;
+  const def = getIdleActivity(run?.id);
+  ch.frame = 0;
+  ch.frameTimer = 0;
+  if (!run?.spot || !def || ch.tileCol !== run.spot.col || ch.tileRow !== run.spot.row) {
+    finishActivity(ch);
+    ch.state = CharacterState.IDLE;
+    ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+    return;
+  }
+  run.phase = 'doing';
+  run.timer = randomRange(def.durationSec[0], def.durationSec[1]);
+  ch.dir = run.spot.facing;
+  ch.state = CharacterState.ACTIVITY;
 }
 
 function randomRange(min: number, max: number): number {

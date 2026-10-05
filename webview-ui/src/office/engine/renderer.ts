@@ -19,7 +19,6 @@ import {
   BUTTON_RADIUS_ZOOM_FACTOR,
   CARPET_DEFAULT_ACCENT_COLOR,
   CARPET_DEFAULT_COLOR,
-  CHARACTER_SITTING_OFFSET_PX,
   CHARACTER_Z_SORT_OFFSET,
   DELETE_BUTTON_BG,
   FALLBACK_FLOOR_COLOR,
@@ -71,10 +70,11 @@ import type {
 } from '../types.js';
 import { CharacterState, TILE_SIZE, TileType } from '../types.js';
 import { getWallInstances, hasWallSprites, wallColorToHex } from '../wallTiles.js';
-import { getCharacterSprite } from './characters.js';
+import { activityHeadDropY, characterDrawOffsetY, getCharacterSprite } from './characters.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
 import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
+import { renderZzz } from './zzzOverlay.js';
 
 // ── Settings ────────────────────────────────────────────────────
 
@@ -397,7 +397,7 @@ export function renderScene(
     if (!spriteData) continue; // hidden inside the fight dust cloud
     const cached = getCachedSprite(spriteData, zoom);
     // Sitting offset: shift character down when seated so they visually sit in the chair
-    const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
+    const sittingOffset = characterDrawOffsetY(ch);
     // Anchor at bottom-center of character — round to integer device pixels
     const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2);
     const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height);
@@ -796,7 +796,8 @@ function renderBubbles(
     // Position: centered above the character's head
     // Character is anchored bottom-center at (ch.x, ch.y), sprite is 16x24
     // Place bubble above head with a small gap; follow sitting offset
-    const sittingOff = ch.state === CharacterState.TYPE ? BUBBLE_SITTING_OFFSET_PX : 0;
+    const sittingOff =
+      ch.state === CharacterState.TYPE ? BUBBLE_SITTING_OFFSET_PX : activityHeadDropY(ch);
     const bubbleX = Math.round(offsetX + ch.x * zoom - cached.width / 2);
     const bubbleY = Math.round(
       offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom,
@@ -965,6 +966,8 @@ export function renderFrame(
     pets ?? [],
   );
 
+  // Floating "Zzz" over napping cats, under the bubbles
+  renderZzz(ctx, characters, offsetX, offsetY, zoom);
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom);
   // Cat social pictograms and anger marks (yield to the bubbles above)

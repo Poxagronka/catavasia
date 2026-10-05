@@ -30,6 +30,8 @@ export const CharacterState = {
   IDLE: 'idle',
   WALK: 'walk',
   TYPE: 'type',
+  /** Doing an idle activity at its spot (sipping coffee, napping, ...). */
+  ACTIVITY: 'activity',
 } as const;
 export type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
@@ -43,6 +45,34 @@ export type Direction = (typeof Direction)[keyof typeof Direction];
 
 /** 2D array of hex color strings: '' = transparent, '#RRGGBB' = opaque, '#RRGGBBAA' = semi-transparent. [row][col] */
 export type SpriteData = string[][];
+
+/** A tile where one character does one idle activity. */
+export interface ActivitySpot {
+  /** "col,row": two characters never share a spot. */
+  key: string;
+  col: number;
+  row: number;
+  /** Direction the character faces while doing the activity. */
+  facing: Direction;
+  /** Spot is on a furniture tile (a sofa seat): blocked for walking, so the
+   *  path to it unblocks just this tile. */
+  onFurniture: boolean;
+  /** Seat at this tile, if any. */
+  seatUid?: string;
+  /** Extra px the pose is drawn lower (the sitting offset on a sofa). */
+  offsetY: number;
+}
+
+/** One idle activity in progress. */
+export interface IdleActivityRun {
+  id: string;
+  /** Null for spotless activities (wander). */
+  spot: ActivitySpot | null;
+  /** 'going' while walking to the spot, 'doing' at it. */
+  phase: 'going' | 'doing';
+  /** Seconds left in the 'doing' phase. */
+  timer: number;
+}
 
 export interface Seat {
   /** Chair furniture uid */
@@ -233,6 +263,14 @@ export interface Character {
    *  per-consumer guard reads this flag. It exists for the render/e2e snapshot
    *  (testHooks.getCharacters) to tell the greeter from agents. */
   isGreeter?: boolean;
+  /** Task-board run that ended: clicking the cat opens this task. */
+  taskId?: string;
+
+  // -- Idle activities (see engine/idleActivities.ts) --
+  /** Current idle activity, or null between activities and while working. */
+  activity: IdleActivityRun | null;
+  /** Last finished activity id: the next pick avoids repeating it. */
+  lastActivityId: string | null;
 
   // -- Agent Teams --
   /** Team name this agent belongs to */

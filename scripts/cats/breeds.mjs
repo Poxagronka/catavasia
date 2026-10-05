@@ -46,6 +46,8 @@ function tabby(c, dir) {
   }
   if (part === 'tail') return c.label === 'tailTip' || c.ly % 3 === 1 ? 'stripe' : null;
   if (isLimb(part) && c.label === 'fur') return c.ly % 3 === 1 ? 'stripe' : null;
+  // Curled-up body seen from above: bands across the back.
+  if (part === 'curl') return ly >= 1 && ly % 2 === 1 && lx >= 2 && lx <= 10 ? 'stripe' : null;
   return null;
 }
 
@@ -124,7 +126,7 @@ function bengal(c) {
 function sphynx(c, dir) {
   const { part, lx, ly, label } = c;
   // Hairless cats get cold: a knitted sweater over the torso.
-  if (part === 'torso') {
+  if (part === 'torso' || part === 'curl') {
     if (label === 'collar') return 'rib';
     if (['fur', 'shade', 'light', 'belly'].includes(label))
       return ly % 3 === 0 ? 'knit' : 'sweater';
@@ -143,6 +145,9 @@ const base = {
   paper: [238, 234, 222],
   ink: [96, 104, 130],
   tag: [246, 200, 60],
+  mug: [236, 92, 72],
+  mugShade: [186, 58, 52],
+  coffee: [92, 56, 36],
   collar: null,
 };
 
@@ -342,6 +347,9 @@ export function colorize(breed, cell, dir) {
     case 'line':
       return pick('outline');
     case 'whisker':
+    case 'mug':
+    case 'mugShade':
+    case 'coffee':
     case 'paper':
     case 'ink':
     case 'pupil':
@@ -350,7 +358,7 @@ export function colorize(breed, cell, dir) {
     default:
       break;
   }
-  const over = breed.pattern?.(cell, dir);
+  const over = breed.pattern?.(cell, cell.dir ?? dir);
   if (over) return pick(over);
   switch (cell.label) {
     case 'eye':

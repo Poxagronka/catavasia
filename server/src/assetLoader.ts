@@ -11,7 +11,6 @@ import type * as vscode from 'vscode';
 
 import {
   CHAR_COUNT,
-  CHAR_FRAMES_PER_ROW,
   MAX_PET_PNG_SIZE,
   WALL_BITMASK_COUNT,
 } from '../../core/src/assets/constants.js';
@@ -503,7 +502,7 @@ export async function loadCharacterSprites(
     }
 
     console.log(
-      `[AssetLoader] ✅ Loaded ${characters.length} character sprites (${CHAR_FRAMES_PER_ROW} frames × 3 directions each)`,
+      `[AssetLoader] ✅ Loaded ${characters.length} character sprites (${characters[0]?.down.length ?? 0} frames × 3 directions each)`,
     );
     return { characters };
   } catch (err) {

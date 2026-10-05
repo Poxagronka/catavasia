@@ -11,6 +11,7 @@ import { MigrationNotice } from './components/MigrationNotice.js';
 import { PetRadialMenu } from './components/PetRadialMenu.js';
 import { SettingsModal } from './components/SettingsModal.js';
 import { TaskBoard } from './components/taskBoard/TaskBoard.js';
+import { TaskDetailModal } from './components/taskBoard/TaskDetailModal.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
@@ -238,9 +239,17 @@ function App() {
     transport.send({ type: 'closeAgent', id });
   }, []);
 
+  // A cat whose task-board run finished opens that task instead of a terminal.
+  const [clickedTaskId, setClickedTaskId] = useState<string | null>(null);
+
   const handleClick = useCallback((agentId: number) => {
-    // If clicked agent is a sub-agent, focus the parent's terminal instead
     const os = getOfficeState();
+    const taskId = os.characters.get(agentId)?.taskId;
+    if (taskId) {
+      setClickedTaskId(taskId);
+      return;
+    }
+    // If clicked agent is a sub-agent, focus the parent's terminal instead
     const meta = os.subagentMeta.get(agentId);
     const focusId = meta ? meta.parentAgentId : agentId;
     transport.send({ type: 'focusAgent', id: focusId });
@@ -535,6 +544,9 @@ function App() {
       />
 
       <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
+      {clickedTaskId && (
+        <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />
+      )}
 
       <VersionIndicator
         currentVersion={extensionVersion}

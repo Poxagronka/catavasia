@@ -425,6 +425,8 @@ export function useExtensionMessages(
             [id]: list.map((t) => (t.toolId === toolId ? { ...t, done: true } : t)),
           };
         });
+      } else if (msg.type === 'agentTaskFinished') {
+        os.setTaskFinished(msg.id as number, msg.taskId as string);
       } else if (msg.type === 'agentToolsClear') {
         const id = msg.id as number;
         const bgSet = backgroundParentToolIdsRef.current[id];
