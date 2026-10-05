@@ -170,3 +170,15 @@ test('toys join the same pool: with every toy free, idle cats end up playing', (
   const toys = ['scratch', 'box', 'tunnel', 'yarn', 'teaser'].filter((t) => seen.has(t));
   assert.ok(toys.length >= 2, `cats played with ${[...seen].join(', ')}`);
 });
+
+test('work interrupts a tunnel run: the cat is back on a real tile, not inside the tunnel', () => {
+  const os = playroom();
+  const ch = idleCat(os, 1);
+  assert.ok(os.forceIdleActivity(1, 'tunnel'));
+  runUntil(os, () => isHiddenInRunThrough(ch), 40);
+  os.setAgentActive(1, true);
+  os.update(0.05);
+  assert.equal(ch.activity, null);
+  assert.equal(ch.x, ch.tileCol * 16 + 8, 'snapped to a tile center');
+  assert.ok([3, 6].includes(ch.tileCol), 'a tunnel end, never a tunnel tile');
+});

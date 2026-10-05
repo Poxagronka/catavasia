@@ -241,6 +241,7 @@ export function updateCharacter(
       const def = getIdleActivity(ch.activity?.id);
       // Work comes first: leave at once, the IDLE branch walks to the desk.
       if (ch.isActive || !ch.activity || !def) {
+        snapToTile(ch); // out of a tunnel run, back on a real tile
         ch.activity = null;
         ch.state = CharacterState.IDLE;
         ch.frame = 0;
@@ -417,6 +418,13 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
     default:
       return sprites.walk[ch.dir][1];
   }
+}
+
+/** Put the character back on its tile center (a tunnel run moves x between tiles). */
+export function snapToTile(ch: Character): void {
+  const center = tileCenter(ch.tileCol, ch.tileRow);
+  ch.x = center.x;
+  ch.y = center.y;
 }
 
 /** End the current activity and remember it so the next pick differs. */

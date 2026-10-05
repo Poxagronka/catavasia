@@ -44,6 +44,7 @@ import {
   characterDrawOffsetX,
   characterDrawOffsetY,
   createCharacter,
+  snapToTile,
   updateCharacter,
 } from './characters.js';
 import type { ActivitySpotSet, PropMotion } from './idleActivities.js';
@@ -147,7 +148,10 @@ export class OfficeState {
     // Spots moved or vanished: every cat drops its activity and picks again.
     for (const ch of this.characters.values()) {
       ch.activity = null;
-      if (ch.state === CharacterState.ACTIVITY) ch.state = CharacterState.IDLE;
+      if (ch.state === CharacterState.ACTIVITY) {
+        ch.state = CharacterState.IDLE;
+        snapToTile(ch);
+      }
     }
 
     // Shift character positions when grid expands left/up
