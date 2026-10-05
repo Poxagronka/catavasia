@@ -27,7 +27,9 @@ declare global {
         row: number;
       }>;
       /** Send an idle cat to an idle activity now (see OfficeState.forceIdleActivity). */
-      forceIdleActivity?: (id: number, activityId: string) => boolean;
+      forceIdleActivity?: (id: number, activityId: string, spotKey?: string) => boolean;
+      /** The live office (scene setup for screenshots: cat life, pets, needs). */
+      getOffice?: () => OfficeState | null;
       /** Effective "Display headless as ghosts" setting the renderer is using. */
       getGhostHeadlessAgents?: () => boolean;
       // ── Carpet + Areas observability (added for carpet/areas e2e) ──
@@ -163,8 +165,10 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
     }));
   };
 
-  hooks.forceIdleActivity = (id, activityId) =>
-    officeStateRef.current?.forceIdleActivity(id, activityId) ?? false;
+  hooks.forceIdleActivity = (id, activityId, spotKey) =>
+    officeStateRef.current?.forceIdleActivity(id, activityId, spotKey) ?? false;
+
+  hooks.getOffice = () => officeStateRef.current;
 
   // The ghost setting lives in the renderer module (read every rAF frame), not
   // in OfficeState, so e2e reads it from there to assert what is actually drawn.

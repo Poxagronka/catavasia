@@ -10,12 +10,22 @@
  *
  * Integration seam (for the idle-activity and cat-social systems):
  * `registerActivityProvider(provider)` lets another system offer a content,
- * idle cat something to do — a playroom toy, a nap on a sofa, a cat fight.
- * The cat walks to the claim's tile, waits `durationSec` there, then gets
- * `gains`. Needs always win: a cat with a low need ignores providers, and a
- * claim never reaches a pet while it eats, drinks, poops or has the menu
- * open. Pets never drink coffee: a claim naming a COFFEE item is refused.
- * Nothing registers a provider yet.
+ * idle cat something to do — a playroom toy, a nap on a sofa or in a bed.
+ * The cat walks to the claim's tile, plays the claim's pose (`anim`) for
+ * `durationSec` there, then gets `gains`. Needs always win: a cat with a low
+ * need ignores providers, and a claim never reaches a pet while it eats,
+ * drinks, poops or has the menu open. Pets never drink coffee: a claim
+ * naming a COFFEE item is refused. engine/petActivities.ts registers the
+ * office's provider (toys, beds, houses, sofa naps).
+ *
+ * Energy: it decays while the cat is awake. A cat under PET_TIRED_THRESHOLD
+ * asks the provider for a nap spot (`claimSleep`) and sleeps there; energy
+ * refills during the nap and the cat wakes once it is full.
+ *
+ * Spot reservations: with a `broker` set (OfficeState sets it), every walk
+ * to a bowl side, a litter box or a claim reserves its tile at walk start
+ * through the shared service (engine/spotReservations.ts). `heldSpot(petId)`
+ * reports what the pet should keep holding; the office releases the rest.
  */
 import {
   PET_ANIM_FRAME_SEC,
@@ -26,7 +36,11 @@ import {
   PET_HEART_STAGGER_SEC,
   PET_MEOW_GLOBAL_COOLDOWN_SEC,
   PET_MEOW_INTERVAL_SEC,
+  PET_NEED_MAX,
   PET_SEEK_THRESHOLD,
+  PET_SLEEP_ENERGY_PER_SEC,
+  PET_TIRED_THRESHOLD,
+  PET_TOY_FUN_GAIN,
 } from '../../constants.js';
 import type { Pet, PlacedFurniture } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
@@ -47,6 +61,7 @@ import type {
   PetActivityProvider,
   PetMenuAction,
   PetRuntime,
+  PetSpotBroker,
   Seek,
 } from './petCareTypes.js';
 import { ANIM_SEC, EFFECT_MAX_AGE_SEC, FORBIDDEN_CLAIM_TYPES } from './petCareTypes.js';
@@ -63,6 +78,8 @@ export class PetCareSystem {
   effects: Effect[] = [];
   onSave: ((snapshot: unknown) => void) | null = null;
   onMeow: (() => void) | null = null;
+  /** Shared spot reservations (null in unit tests: every spot is free). */
+  broker: PetSpotBroker | null = null;
   private runtime = new Map<string, PetRuntime>();
   private providers: PetActivityProvider[] = [];
   private loaded = false;
@@ -84,7 +101,16 @@ export class PetCareSystem {
   private rt(petId: string): PetRuntime {
     let r = this.runtime.get(petId);
     if (!r) {
-      r = { seek: null, anim: null, decideTimer: 0, request: null, nextMeowAt: 0, dish: false };
+      r = {
+        seek: null,
+        anim: null,
+        decideTimer: 0,
+        request: null,
+        nextMeowAt: 0,
+        dish: false,
+        keys: [],
+        claim: null,
+      };
       this.runtime.set(petId, r);
     }
     return r;
@@ -101,6 +127,41 @@ export class PetCareSystem {
 
   hasDish(petId: string): boolean {
     return this.runtime.get(petId)?.dish ?? false;
+  }
+
+  /** Spot keys the pet should keep reserved, and whether it reached them. */
+  heldSpot(petId: string): { keys: string[]; arrived: boolean } | null {
+    const r = this.runtime.get(petId);
+    if (!r) return null;
+    if (r.seek) return { keys: r.seek.keys, arrived: false };
+    if (r.anim && r.keys.length > 0) return { keys: r.keys, arrived: true };
+    return null;
+  }
+
+  /** The claim the pet walks to or plays (a won fight resumes it). */
+  currentClaim(petId: string): PetActivityClaim | null {
+    const r = this.runtime.get(petId);
+    return r?.seek?.claim ?? (r?.anim ? r.claim : null);
+  }
+
+  /**
+   * Stop whatever the pet walks to or does, with no gains: its spot was lost
+   * (a contest, a seat taken) or a joint play / scene takes it over.
+   */
+  interrupt(pet: Pet): void {
+    const r = this.runtime.get(pet.id);
+    if (!r) return;
+    const walking = r.seek !== null;
+    r.seek = null;
+    r.anim = null;
+    r.keys = [];
+    r.claim = null;
+    r.dish = false;
+    pet.careAnim = null;
+    pet.rest = null;
+    if (walking) {
+      pet.path = pet.path.slice(0, pet.moveProgress > 0 ? 1 : 0);
+    }
   }
 
   update(dt: number, env: PetCareEnv): void {
@@ -140,6 +201,8 @@ export class PetCareSystem {
       this.advanceAnim(pet, r, dt);
       return;
     }
+    // A social scene moves the cat: no arrivals, no decisions until it ends.
+    if (env.inScene?.(pet)) return;
     if (r.seek && pet.state !== PetState.WALK) {
       const s = r.seek;
       r.seek = null;
@@ -171,45 +234,112 @@ export class PetCareSystem {
     anim.t += dt;
     const frame = Math.floor(anim.t / PET_ANIM_FRAME_SEC);
     pet.careAnim = anim.kind === 'wait' ? null : { kind: anim.kind, frame };
+    if (anim.kind === 'sleep') {
+      const needs = this.world.entry(pet.id).needs;
+      raiseNeed(needs, 'energy', PET_SLEEP_ENERGY_PER_SEC * dt);
+      // Wake early once rested (but nap at least a few seconds).
+      if (needs.energy >= PET_NEED_MAX && anim.t >= ANIM_SEC.sleep / 4) anim.t = anim.dur;
+    }
     if (anim.t < anim.dur) return;
     r.anim = null;
     r.dish = false;
+    r.keys = [];
+    r.claim = null;
     pet.careAnim = null;
+    pet.rest = null;
     pet.frame = 0;
     pet.frameTimer = 0;
     anim.done();
   }
 
-  /** Autonomous choice: poop > drink > eat > a provider's idle activity. */
+  /** Autonomous choice: poop > drink > eat > sleep when tired > a provider's idle activity. */
   private decide(pet: Pet, needs: Needs, env: PetCareEnv): void {
     if (this.world.entry(pet.id).bowel >= PET_BOWEL_MAX) {
-      const box = findLitterBox(pet, env, this.world);
-      if (box) this.walk(pet, box, 'poop');
-      else this.startPoop(pet, null);
+      const box = findLitterBox(pet, env, this.world, this.canTarget(pet));
+      if (box && this.reserve(pet, box, env, 'poop')) return;
+      if (!box) this.startPoop(pet, null);
       return;
     }
     if (needs.thirst < PET_SEEK_THRESHOLD && this.seekBowl(pet, 'drink', env)) return;
+    if (env.inScene?.(pet)) return; // lost a contest roll: the fight runs now
     if (needs.hunger < PET_SEEK_THRESHOLD && this.seekBowl(pet, 'eat', env)) return;
+    if (env.inScene?.(pet)) return;
+    if (needs.energy < PET_TIRED_THRESHOLD) {
+      for (const p of this.providers) {
+        const claim = p.claimSleep?.(pet);
+        if (claim && this.startClaim(pet, claim, env)) return;
+        if (env.inScene?.(pet)) return; // a contest fight started instead
+      }
+    }
     if (pickRequest(needs)) return;
     for (const p of this.providers) {
       const claim = p.claimIdle(pet, needs);
-      if (!claim) continue;
-      if (FORBIDDEN_CLAIM_TYPES.some((t) => claim.furnitureType?.includes(t))) continue;
-      const path = pathTo(pet, claim.col, claim.row, env);
-      if (!path) continue;
-      this.walk(pet, { uid: '', col: claim.col, row: claim.row, path }, 'claim', claim);
-      return;
+      if (claim && this.startClaim(pet, claim, env)) return;
+      if (env.inScene?.(pet)) return;
     }
   }
 
-  private seekBowl(pet: Pet, goal: 'eat' | 'drink', env: PetCareEnv): boolean {
-    const spot = findBowlSpot(pet, goal, env, this.world);
-    if (spot) this.walk(pet, spot, goal);
-    return spot !== null;
+  /**
+   * Walk the pet to a provider's claim (the provider reserved its keys).
+   * False when it is forbidden (coffee) or unreachable.
+   */
+  startClaim(pet: Pet, claim: PetActivityClaim, env: PetCareEnv): boolean {
+    if (FORBIDDEN_CLAIM_TYPES.some((t) => claim.furnitureType?.includes(t))) return false;
+    const path = pathTo(pet, claim.col, claim.row, env, claim.spot?.onFurniture ?? false);
+    if (!path) return false;
+    this.walk(pet, { uid: '', col: claim.col, row: claim.row, path }, 'claim', claim);
+    return true;
   }
 
-  private walk(pet: Pet, t: CareTarget, goal: Goal, claim?: PetActivityClaim): void {
-    this.rt(pet.id).seek = { goal, uid: t.uid || null, col: t.col, row: t.row, claim };
+  /** Keep the pet `sec` longer in its current pose (it stays for a talk). */
+  extend(petId: string, sec: number): void {
+    const anim = this.runtime.get(petId)?.anim;
+    if (anim) anim.dur += sec;
+  }
+
+  /** Joint toy play: the pet's turn — the hop pose for `sec` where it stands. */
+  playTurn(pet: Pet, sec: number): void {
+    if (this.rt(pet.id).anim) return;
+    this.pose(pet, 'play', sec, () => {
+      raiseNeed(this.world.entry(pet.id).needs, 'fun', PET_TOY_FUN_GAIN / 2);
+      this.touch();
+    });
+  }
+
+  /** Tiles this pet may target (free or contestable); everything without a broker. */
+  private canTarget(pet: Pet): (key: string) => boolean {
+    const b = this.broker;
+    return b ? (key) => b.canTarget(pet, key) : () => true;
+  }
+
+  /** Reserve a care target at walk start, then walk. False when another cat won it. */
+  private reserve(pet: Pet, t: CareTarget, env: PetCareEnv, goal: Goal): boolean {
+    const keys = [`${t.col},${t.row}`];
+    const resume = () => {
+      // Won a fight over it: walk there again from wherever the scene left the cat.
+      const path = pathTo(pet, t.col, t.row, env);
+      if (path) this.walk(pet, { ...t, path }, goal, undefined, keys);
+    };
+    if (this.broker && this.broker.claim(pet, keys, resume) !== 'ok') return false;
+    this.walk(pet, t, goal, undefined, keys);
+    return true;
+  }
+
+  private seekBowl(pet: Pet, goal: 'eat' | 'drink', env: PetCareEnv): boolean {
+    const spot = findBowlSpot(pet, goal, env, this.world, this.canTarget(pet));
+    return spot !== null && this.reserve(pet, spot, env, goal);
+  }
+
+  private walk(
+    pet: Pet,
+    t: CareTarget,
+    goal: Goal,
+    claim?: PetActivityClaim,
+    keys: string[] = claim?.keys ?? [],
+  ): void {
+    const r = this.rt(pet.id);
+    r.seek = { goal, uid: t.uid || null, col: t.col, row: t.row, claim, keys };
+    r.claim = claim ?? null;
     pet.path = t.path;
     pet.moveProgress = 0;
     pet.followTargetId = null;
@@ -217,21 +347,36 @@ export class PetCareSystem {
   }
 
   private arrive(pet: Pet, s: Seek, env: PetCareEnv): void {
+    const r = this.rt(pet.id);
     if (s.goal === 'claim' && s.claim) {
-      const gains = s.claim.gains ?? {};
-      this.pose(pet, 'wait', s.claim.durationSec, () => {
+      const claim = s.claim;
+      const gains = claim.gains ?? {};
+      if (claim.spot) pet.dir = claim.spot.facing;
+      this.pose(pet, claim.anim ?? 'wait', claim.durationSec, () => {
         const needs = this.world.entry(pet.id).needs;
         for (const k of NEED_KEYS) raiseNeed(needs, k, gains[k] ?? 0);
         this.touch();
       });
+      r.keys = s.keys;
+      r.claim = claim;
+      const spot = claim.spot;
+      pet.rest = {
+        offsetX: spot?.offsetX ?? 0,
+        offsetY: spot?.offsetY ?? 0,
+        zzz: claim.sleep === true,
+        peek: spot?.peek,
+      };
       return;
     }
+    r.keys = [];
     if (s.goal === 'poop') {
+      r.keys = s.keys;
       this.startPoop(pet, s.uid);
       return;
     }
     const bowl = env.furniture.find((f) => f.uid === s.uid);
     if (!bowl) return;
+    r.keys = s.keys;
     pet.dir = faceTowards(pet, bowl.col, bowl.row);
     const kind = s.goal === 'eat' ? 'eat' : 'drink';
     this.pose(pet, kind, ANIM_SEC[kind], () => {

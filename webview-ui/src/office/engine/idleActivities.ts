@@ -9,9 +9,10 @@
  * Pure module: no DOM, no OfficeState. The FSM lives in characters.ts.
  */
 
-import type { ActivitySpot, Character, Seat } from '../types.js';
+import type { ActivitySpot } from '../types.js';
 import type { SpotContext } from './activitySpots.js';
 import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
+import { BED_ACTIVITIES } from './bedActivities.js';
 import { TOY_ACTIVITIES } from './toyActivities.js';
 
 export interface IdleActivityDef {
@@ -78,6 +79,7 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
     lowPosePx: 12,
   },
   ...TOY_ACTIVITIES,
+  ...BED_ACTIVITIES,
 ];
 
 export function getIdleActivity(id: string | undefined | null): IdleActivityDef | undefined {
@@ -94,29 +96,6 @@ export function buildActivitySpots(
     map.set(def.id, { spots: def.spots(ctx), fallback: def.fallbackSpots?.(ctx) ?? [] });
   }
   return map;
-}
-
-/**
- * Spot keys other characters hold: their activity spots, and seat tiles of
- * seats assigned to someone else (an agent may come back to work there).
- */
-export function takenSpotKeys(
-  self: Character,
-  characters: Iterable<Character>,
-  seats: Map<string, Seat>,
-): Set<string> {
-  const taken = new Set<string>();
-  for (const other of characters) {
-    if (other === self) continue;
-    const spot = other.activity?.spot;
-    if (spot) taken.add(spot.key);
-    if (spot?.exit) taken.add(`${spot.exit.col},${spot.exit.row}`);
-    if (other.seatId) {
-      const seat = seats.get(other.seatId);
-      if (seat) taken.add(`${seat.seatCol},${seat.seatRow}`);
-    }
-  }
-  return taken;
 }
 
 export interface IdleChoice {

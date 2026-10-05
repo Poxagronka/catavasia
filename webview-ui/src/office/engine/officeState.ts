@@ -40,6 +40,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, PetState, TILE_SIZE } from '../types.js';
+import { CatLife } from './catLife.js';
 import { CatSocial } from './catSocial.js';
 import type { IdleWorld } from './characters.js';
 import {
@@ -50,13 +51,8 @@ import {
   snapToTile,
   updateCharacter,
 } from './characters.js';
-import type { ActivitySpotSet, PropMotion } from './idleActivities.js';
-import {
-  buildActivitySpots,
-  getIdleActivity,
-  propOffset,
-  takenSpotKeys,
-} from './idleActivities.js';
+import type { ActivitySpotSet, IdleChoice, PropMotion } from './idleActivities.js';
+import { buildActivitySpots, getIdleActivity, propOffset } from './idleActivities.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
 import { createPet, updatePet } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
@@ -82,9 +78,13 @@ export class OfficeState {
   characters: Map<number, Character> = new Map();
   pets: Pet[] = [];
   /** Talk / play / fight scenes between idle cats (see catSocial.ts for the API). */
-  social = new CatSocial();
+  social = new CatSocial({
+    onSceneEnd: (id, kind, reason) => this.life.claims.onSceneEnd(id, kind, reason),
+  });
   /** Tamagotchi needs, bowls and litter for cat pets (see petCareSystem.ts). */
   readonly petCare = new PetCareSystem();
+  /** Spot reservations, contests, pet actors, activity social (see catLife.ts). */
+  readonly life: CatLife = new CatLife(this);
   /** Accumulated time for furniture animation frame cycling */
   furnitureAnimTimer = 0;
   selectedAgentId: number | null = null;
@@ -140,6 +140,20 @@ export class OfficeState {
     this.rebuildActivitySpots();
     // Pets are built last because they need walkableTiles populated for spawn.
     this.rebuildPetsFromLayout(this.layout);
+    this.petCare.broker = this.life.broker;
+    this.petCare.registerActivityProvider(this.life.petActivities);
+  }
+
+  /** Placed furniture of the layout (CatLifeWorld). */
+  placedFurniture(): PlacedFurniture[] {
+    return this.layout.furniture;
+  }
+
+  /** Start an idle activity for an agent, its own seat unblocked for the path (CatLifeWorld). */
+  beginActivity(ch: Character, choice: IdleChoice): void {
+    this.withOwnSeatUnblocked(ch, () =>
+      beginIdleActivity(ch, choice, this.tileMap, this.blockedTiles),
+    );
   }
 
   /** Rebuild all derived state from a new layout. Reassigns existing characters.
@@ -405,7 +419,7 @@ export class OfficeState {
     const electronicsTiles = this.buildElectronicsTileSet();
     const freeSeats: string[] = [];
     for (const [uid, seat] of this.seats) {
-      if (!seat.assigned) freeSeats.push(uid);
+      if (!seat.assigned && !this.life.seatHeldByCat(seat)) freeSeats.push(uid);
     }
     if (freeSeats.length === 0) return null;
 
@@ -429,6 +443,11 @@ export class OfficeState {
 
     // Stage 3 — any free seat.
     return this.pickFromSeats(freeSeats, electronicsTiles);
+  }
+
+  /** Seats minus those a cat holds for an activity (a sofa nap): new agents skip them. */
+  private seatsFreeOfCats(): Map<string, Seat> {
+    return new Map([...this.seats].filter(([, seat]) => !this.life.seatHeldByCat(seat)));
   }
 
   /** Closest walkable tile to (col,row) not occupied by another character, or null. */
@@ -497,12 +516,12 @@ export class OfficeState {
     let seatId: string | null = null;
     if (preferredSeatId && this.seats.has(preferredSeatId)) {
       const seat = this.seats.get(preferredSeatId)!;
-      if (!seat.assigned) {
+      if (!seat.assigned && !this.life.seatHeldByCat(seat)) {
         seatId = preferredSeatId;
       }
     }
     if (!seatId && anchorAt) {
-      seatId = closestFreeSeat(this.seats, anchorAt.col, anchorAt.row);
+      seatId = closestFreeSeat(this.seatsFreeOfCats(), anchorAt.col, anchorAt.row);
     }
     if (!seatId) {
       seatId = this.findFreeSeat(folderName);
@@ -670,7 +689,7 @@ export class OfficeState {
     if (!teammate || !lead) return;
     const anchorAt = anchorTile(lead, this.seats);
     if (!anchorAt) return;
-    const target = closestFreeSeat(this.seats, anchorAt.col, anchorAt.row);
+    const target = closestFreeSeat(this.seatsFreeOfCats(), anchorAt.col, anchorAt.row);
     if (!target || target === teammate.seatId) return;
     const targetSeat = this.seats.get(target)!;
     const targetDist =
@@ -1028,6 +1047,7 @@ export class OfficeState {
       tileMap: this.tileMap,
       blockedTiles: this.blockedTiles,
       isCat: (pet) => isCatPet(pet.petType),
+      inScene: (pet) => this.life.inScene(pet),
     };
   }
 
@@ -1145,15 +1165,19 @@ export class OfficeState {
    * fallback spot). Used by tests and the e2e/screenshot hooks; the FSM picks
    * activities on its own otherwise. Returns false when it cannot start.
    */
-  forceIdleActivity(id: number, activityId: string): boolean {
+  forceIdleActivity(id: number, activityId: string, spotKey?: string): boolean {
+    // `spotKey`: that spot only — two cats sent to one spot at once contest it.
     const ch = this.characters.get(id);
     const def = getIdleActivity(activityId);
     if (!ch || !def || ch.isActive) return false;
     let spot = null;
     if (def.spots) {
       const set = this.activitySpots.get(activityId);
-      const taken = takenSpotKeys(ch, this.characters.values(), this.seats);
-      const free = (list: ActivitySpot[] = []) => list.filter((sp) => !taken.has(sp.key));
+      // A named spot may be contested (a fresh claim by another cat); otherwise
+      // pick a spot nobody holds at all.
+      const taken = spotKey ? this.life.takenBy(ch) : this.life.claims.spots.heldByOthers(ch.id);
+      const free = (list: ActivitySpot[] = []) =>
+        list.filter((sp) => !taken.has(sp.key) && (!spotKey || sp.key === spotKey));
       spot = free(set?.spots)[0] ?? free(set?.fallback)[0];
       if (!spot) return false;
     }
@@ -1161,8 +1185,13 @@ export class OfficeState {
     ch.activity = null;
     ch.path = [];
     ch.state = CharacterState.IDLE;
+    const choice = { def, spot: spot ?? null };
+    if (spot) {
+      const outcome = this.life.claimIdle(ch, choice);
+      if (outcome !== 'ok') return outcome === 'fight';
+    }
     const started = this.withOwnSeatUnblocked(ch, () =>
-      beginIdleActivity(ch, { def, spot: spot ?? null }, this.tileMap, this.blockedTiles),
+      beginIdleActivity(ch, choice, this.tileMap, this.blockedTiles),
     );
     return started || !def.spots;
   }
@@ -1174,6 +1203,13 @@ export class OfficeState {
       const uid = ch.activity?.spot?.itemUid;
       const prop = getIdleActivity(ch.activity?.id)?.prop;
       if (ch.state === CharacterState.ACTIVITY && uid && prop) moving.set(uid, prop);
+    }
+    // A pet batting a toy moves it too.
+    for (const pet of this.pets) {
+      if (pet.careAnim?.kind !== 'play') continue;
+      const claim = this.petCare.currentClaim(pet.id);
+      const prop = getIdleActivity(claim?.kind)?.prop;
+      if (claim?.spot?.itemUid && prop) moving.set(claim.spot.itemUid, prop);
     }
     if (moving.size === 0) return this.furniture;
     return this.furniture.map((f) => {
@@ -1219,9 +1255,11 @@ export class OfficeState {
       this.greeter = null;
     }
 
+    this.life.claims.spots.tick(dt);
     const idleWorld: IdleWorld = {
       spotSets: this.activitySpots,
-      takenBy: (ch) => takenSpotKeys(ch, this.characters.values(), this.seats),
+      takenBy: (ch) => this.life.takenBy(ch),
+      claim: (ch, choice) => this.life.claimIdle(ch, choice),
     };
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {
@@ -1261,14 +1299,17 @@ export class OfficeState {
     }
 
     // Cat social scenes run after the FSM: a cat that got work has already
-    // started for its desk, and the scene just lets it go.
-    this.social.update(dt, this.characters, this);
+    // started for its desk, and the scene just lets it go. Pets take part
+    // through stand-in actors (petActors.ts).
+    this.life.beforeSocial(dt);
+    this.social.update(dt, this.life.cast(), this);
 
     // ── Pet FSM ────────────────────────────────────────────────
-    // Pet care runs first; a cat in a care pose (or with its menu open) skips the wander FSM.
+    // Pet care runs first; a cat in a care pose, a social scene (or with its
+    // menu open) skips the wander FSM.
     this.petCare.update(dt, this.petCareEnv());
     for (const pet of this.pets) {
-      if (!this.petCare.isBusy(pet.id)) {
+      if (!this.petCare.isBusy(pet.id) && !this.life.inScene(pet)) {
         updatePet(pet, dt, this.walkableTiles, this.characters, this.tileMap, this.blockedTiles);
       }
 
@@ -1281,6 +1322,8 @@ export class OfficeState {
         }
       }
     }
+    this.life.afterPets(dt);
+    this.life.reconcile();
   }
 
   /** The `saveAgentSeats` payload: palette, hue and seat for every agent worth

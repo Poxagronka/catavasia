@@ -17,15 +17,16 @@
  *     commands, an activity that must start now). The cat leaves its scene
  *     with its new path; the partner resumes idling.
  *
- *   social.trySocialEncounter(a, b, { activity?, location?, kind? }): SocialKind | null
+ *   social.trySocialEncounter(a, b, { activity?, location?, kind?, radius? }): SocialKind | null
  *     Call when two cats share an activity spot (both at coffee, both in the
  *     lounge / playroom). With `activity` set the cats keep their spots (no
- *     walking up, no chase). `location` anchors the dust cloud. `kind`
- *     forces talk / play / fight; otherwise fight is ~1/15 and play is
- *     SOCIAL_PLAY_CHANCE. Returns null when cooldowns, distance or
- *     eligibility say no.
+ *     walking up, no chase) and may be mid-activity (ACTIVITY state).
+ *     `location` anchors the dust cloud. `kind` forces talk / play / fight;
+ *     otherwise fight is ~1/15 and play is SOCIAL_PLAY_CHANCE. `radius`
+ *     overrides the distance limit (a spot contest). Returns null when
+ *     cooldowns, distance or eligibility say no.
  *
- *   social.startJointPlay(a, b, play): boolean
+ *   social.startJointPlay(a, b, play, radius?): boolean
  *     Joint play. { kind: 'chase' } works today. { kind: 'toy', toyId,
  *     spots, turnSec?, onTurn? } walks both cats to `spots`, then alternates
  *     turns and calls onTurn(catId, toyId) at each turn start; the registry
@@ -75,6 +76,8 @@ export interface SocialContext {
   location?: Tile;
   /** Force the scene kind instead of rolling it. */
   kind?: SocialKind;
+  /** Max distance in tiles, instead of the default for the scene type. */
+  radius?: number;
 }
 
 export type JointPlay =
@@ -95,18 +98,23 @@ export interface CatSocialOptions {
   onSceneEnd?: (catId: number, kind: SocialKind, reason: SceneEndReason) => void;
 }
 
-/** A cat that may join a social scene right now. */
-export function canSocialize(ch: Character): boolean {
+/**
+ * A cat that may join a social scene right now. `inActivity`: a cat doing
+ * an idle activity counts too (a talk at the coffee spot keeps its pose).
+ */
+export function canSocialize(ch: Character, inActivity = false): boolean {
   return (
     !ch.isActive &&
     !ch.isSubagent &&
     !ch.matrixEffect &&
-    (ch.state === CharacterState.IDLE || ch.state === CharacterState.WALK)
+    (ch.state === CharacterState.IDLE ||
+      ch.state === CharacterState.WALK ||
+      (inActivity && ch.state === CharacterState.ACTIVITY))
   );
 }
 
 /** Permission / waiting bubbles outrank social pictograms and the anger mark. */
-export function socialBubbleVisible(ch: Character): boolean {
+export function socialBubbleVisible(ch: { bubbleType: unknown }): boolean {
   return ch.bubbleType === null;
 }
 
@@ -116,6 +124,9 @@ export function rollKind(rng: () => number, stationary: boolean): SocialKind {
   if (!stationary && rng() < SOCIAL_PLAY_CHANCE) return 'play';
   return 'talk';
 }
+
+/** Wander pause a cat gets when its scene starts (stepScene keeps it up). */
+const SCENE_HOLD_SEC = 1;
 
 const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
@@ -135,8 +146,8 @@ export class CatSocial {
     this.onSceneEnd = opts.onSceneEnd;
   }
 
-  canSocialize(ch: Character): boolean {
-    return canSocialize(ch) && !this.sceneOf.has(ch.id);
+  canSocialize(ch: Character, inActivity = false): boolean {
+    return canSocialize(ch, inActivity) && !this.sceneOf.has(ch.id);
   }
 
   isInScene(id: number): boolean {
@@ -180,8 +191,8 @@ export class CatSocial {
 
   trySocialEncounter(a: Character, b: Character, ctx: SocialContext = {}): SocialKind | null {
     const stationary = ctx.activity !== undefined;
-    const radius = stationary ? SOCIAL_ACTIVITY_RADIUS_TILES : SOCIAL_RADIUS_TILES;
-    if (!this.admits(a, b, radius)) return null;
+    const radius = ctx.radius ?? (stationary ? SOCIAL_ACTIVITY_RADIUS_TILES : SOCIAL_RADIUS_TILES);
+    if (!this.admits(a, b, radius, stationary)) return null;
     let kind = ctx.kind ?? rollKind(this.rng, stationary);
     if (kind === 'play' && stationary) kind = 'talk';
     this.begin(
@@ -195,9 +206,9 @@ export class CatSocial {
     return kind;
   }
 
-  startJointPlay(a: Character, b: Character, play: JointPlay): boolean {
-    const radius = play.kind === 'toy' ? SOCIAL_ACTIVITY_RADIUS_TILES : SOCIAL_RADIUS_TILES;
-    if (!this.admits(a, b, radius)) return false;
+  startJointPlay(a: Character, b: Character, play: JointPlay, radius?: number): boolean {
+    const r = radius ?? (play.kind === 'toy' ? SOCIAL_ACTIVITY_RADIUS_TILES : SOCIAL_RADIUS_TILES);
+    if (!this.admits(a, b, r)) return false;
     this.begin(a, b, 'play', false, undefined, play);
     return true;
   }
@@ -236,15 +247,31 @@ export class CatSocial {
     this.checkTimer -= dt;
     if (this.checkTimer > 0) return;
     this.checkTimer = SOCIAL_CHECK_INTERVAL_SEC;
+    this.pruneCooldowns();
     const pair = this.findEncounterPair(characters.values());
     if (pair && this.rng() < SOCIAL_ENCOUNTER_CHANCE) this.trySocialEncounter(pair[0], pair[1]);
   }
 
-  private admits(a: Character, b: Character, radius: number): boolean {
+  /**
+   * Drop expired cooldowns. An expired entry means the same as no entry, so
+   * this also frees the entries of cats that left the office (no leak).
+   */
+  private pruneCooldowns(): void {
+    for (const map of [this.catCooldownUntil, this.pairCooldownUntil] as Map<unknown, number>[]) {
+      for (const [k, until] of [...map]) if (until <= this.now) map.delete(k);
+    }
+  }
+
+  /** Cooldown entries held (tests: the maps do not grow without bound). */
+  get cooldownCount(): number {
+    return this.catCooldownUntil.size + this.pairCooldownUntil.size;
+  }
+
+  private admits(a: Character, b: Character, radius: number, inActivity = false): boolean {
     return (
       a.id !== b.id &&
-      this.canSocialize(a) &&
-      this.canSocialize(b) &&
+      this.canSocialize(a, inActivity) &&
+      this.canSocialize(b, inActivity) &&
       this.isPairReady(a.id, b.id) &&
       tileDistance(tileOf(a), tileOf(b)) <= radius
     );
@@ -278,6 +305,8 @@ export class CatSocial {
     };
     for (const ch of [a, b]) {
       stopAfterStep(ch);
+      // The FSM may tick before the first scene step: no wander walk-off.
+      ch.wanderTimer = Math.max(ch.wanderTimer, SCENE_HOLD_SEC);
       this.sceneOf.set(ch.id, scene);
     }
     this.scenes.add(scene);

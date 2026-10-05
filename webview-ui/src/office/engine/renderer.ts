@@ -33,6 +33,7 @@ import {
   HEADLESS_CHARACTER_ALPHA,
   HOVERED_OUTLINE_ALPHA,
   OUTLINE_Z_SORT_OFFSET,
+  PET_SOCIAL_BUBBLE_OFFSET_PX,
   ROTATE_BUTTON_BG,
   SEAT_AVAILABLE_COLOR,
   SEAT_BUSY_COLOR,
@@ -51,6 +52,7 @@ import {
   hasCarpetSprites,
 } from '../sprites/carpetTiles.js';
 import { getPetSprites } from '../sprites/petSpriteData.js';
+import { getFurColor } from '../sprites/socialSprites.js';
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js';
 import {
   BUBBLE_HEART_SPRITE,
@@ -76,11 +78,12 @@ import {
   characterDrawOffsetY,
   getCharacterSprite,
 } from './characters.js';
+import { dominantFur, peekDrawable } from './housePeek.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
-import { renderZzz } from './zzzOverlay.js';
+import { renderPetZzz, renderZzz } from './zzzOverlay.js';
 
 // ── Settings ────────────────────────────────────────────────────
 
@@ -367,6 +370,12 @@ export function renderScene(
   pets: Pet[] = [],
 ): void {
   const drawables: ZDrawable[] = [];
+  // Fur of a pet in a fight, by its stand-in actor id (the cloud's other cat).
+  const petFur = (id: number) => {
+    const pet = pets.find((p) => p.actorId === id);
+    const sprites = pet ? getPetSprites(pet.petType) : null;
+    return sprites ? dominantFur(sprites.idleDown[0]) : undefined;
+  };
 
   // Furniture
   for (const f of furniture) {
@@ -397,8 +406,16 @@ export function renderScene(
   // Characters
   for (const ch of characters) {
     if (isHiddenInRunThrough(ch)) continue; // inside the play tunnel
-    const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom);
+    const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom, undefined, petFur);
     if (cloud) drawables.push(cloud);
+    // Asleep inside a cat house: only the ears or the tail show.
+    const peek = ch.state === CharacterState.ACTIVITY ? ch.activity?.spot?.peek : undefined;
+    if (peek && !ch.matrixEffect) {
+      drawables.push(
+        peekDrawable(peek, getFurColor(ch.palette, ch.hueShift), offsetX, offsetY, zoom),
+      );
+      continue;
+    }
     const sprites = getCharacterSprites(ch.palette, ch.hueShift);
     const spriteData = socialSpriteFor(ch, getCharacterSprite(ch, sprites));
     if (!spriteData) continue; // hidden inside the fight dust cloud
@@ -476,11 +493,23 @@ export function renderScene(
     const petSprites = getPetSprites(pet.petType);
     const spriteData = getPetSpriteData(pet, petSprites);
     if (!spriteData) continue;
+    const fur = petSprites ? dominantFur(petSprites.idleDown[0]) : '';
+    const cloud = pet.social?.cloud;
+    if (cloud)
+      drawables.push(socialCloudDrawable(pet, characters, offsetX, offsetY, zoom, fur, petFur)!);
+    if (pet.social?.pose === 'hidden') continue; // inside the fight dust cloud
+    if (pet.rest?.peek) {
+      drawables.push(peekDrawable(pet.rest.peek, fur, offsetX, offsetY, zoom));
+      continue;
+    }
 
     const cached = getCachedSprite(spriteData, zoom);
-    // Anchor at bottom-center at (pet.x, pet.y) — round to integer device pixels
-    const drawX = Math.round(offsetX + pet.x * zoom - cached.width / 2);
-    const drawY = Math.round(offsetY + pet.y * zoom - cached.height);
+    // Anchor at bottom-center at (pet.x, pet.y) — round to integer device pixels,
+    // shifted onto its spot while it rests there (a bed, a sofa seat).
+    const restX = pet.rest?.offsetX ?? 0;
+    const restY = pet.rest?.offsetY ?? 0;
+    const drawX = Math.round(offsetX + (pet.x + restX) * zoom - cached.width / 2);
+    const drawY = Math.round(offsetY + (pet.y + restY) * zoom - cached.height);
 
     // Z-sort key: matches the chair/character "row boundary" formula.
     // pet.y is the pixel center, so + TILE_SIZE/2 lifts us to the row's bottom edge.
@@ -977,10 +1006,12 @@ export function renderFrame(
 
   // Floating "Zzz" over napping cats, under the bubbles
   renderZzz(ctx, characters, offsetX, offsetY, zoom);
+  if (pets) renderPetZzz(ctx, pets, offsetX, offsetY, zoom);
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom);
   // Cat social pictograms and anger marks (yield to the bubbles above)
   renderSocialBubbles(ctx, characters, offsetX, offsetY, zoom);
+  if (pets) renderSocialBubbles(ctx, pets, offsetX, offsetY, zoom, PET_SOCIAL_BUBBLE_OFFSET_PX);
   // Pet heart bubbles (same overlay pass)
   if (pets && pets.length > 0) {
     renderPetBubbles(ctx, pets, offsetX, offsetY, zoom);

@@ -1,6 +1,12 @@
-import { ZZZ_CYCLE_SEC, ZZZ_EDGE_COLOR, ZZZ_FILL_COLOR, ZZZ_RISE_PX } from '../../constants.js';
+import {
+  PET_HEAD_ABOVE_ANCHOR_PX,
+  ZZZ_CYCLE_SEC,
+  ZZZ_EDGE_COLOR,
+  ZZZ_FILL_COLOR,
+  ZZZ_RISE_PX,
+} from '../../constants.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
-import type { Character, SpriteData } from '../types.js';
+import type { Character, Pet, SpriteData } from '../types.js';
 import { CharacterState } from '../types.js';
 import { activityHeadDropY, characterDrawOffsetX } from './characters.js';
 import { getIdleActivity } from './idleActivities.js';
@@ -46,15 +52,54 @@ export function renderZzz(
   for (const ch of characters) {
     if (ch.state !== CharacterState.ACTIVITY || !getIdleActivity(ch.activity?.id)?.zzz) continue;
     const headY = ch.y - HEAD_ABOVE_ANCHOR_PX + activityHeadDropY(ch);
-    for (let i = 0; i < 2; i++) {
-      const t = (nowSec / ZZZ_CYCLE_SEC + i * 0.5 + ch.id * 0.37) % 1;
-      const sprite = getCachedSprite(i === 0 ? SMALL_Z : BIG_Z, zoom);
-      const x = Math.round(offsetX + (ch.x + characterDrawOffsetX(ch) + 2 + t * 5) * zoom);
-      const y = Math.round(offsetY + (headY - t * ZZZ_RISE_PX) * zoom - sprite.height);
-      ctx.save();
-      ctx.globalAlpha = t < 0.8 ? 1 : (1 - t) / 0.2;
-      ctx.drawImage(sprite, x, y);
-      ctx.restore();
-    }
+    drawZzz(
+      ctx,
+      ch.x + characterDrawOffsetX(ch),
+      headY,
+      ch.id * 0.37,
+      offsetX,
+      offsetY,
+      zoom,
+      nowSec,
+    );
+  }
+}
+
+/** "Zzz" over napping pets (a nap claim, see petCareSystem.ts). */
+export function renderPetZzz(
+  ctx: CanvasRenderingContext2D,
+  pets: Pet[],
+  offsetX: number,
+  offsetY: number,
+  zoom: number,
+  nowSec: number = performance.now() / 1000,
+): void {
+  pets.forEach((pet, i) => {
+    if (!pet.rest?.zzz) return;
+    const headY = pet.y + pet.rest.offsetY - PET_HEAD_ABOVE_ANCHOR_PX;
+    drawZzz(ctx, pet.x + pet.rest.offsetX, headY, i * 0.53 + 0.2, offsetX, offsetY, zoom, nowSec);
+  });
+}
+
+/** Two letters rising and fading on staggered cycles above (x, headY). */
+function drawZzz(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  headY: number,
+  phase: number,
+  offsetX: number,
+  offsetY: number,
+  zoom: number,
+  nowSec: number,
+): void {
+  for (let i = 0; i < 2; i++) {
+    const t = (nowSec / ZZZ_CYCLE_SEC + i * 0.5 + phase) % 1;
+    const sprite = getCachedSprite(i === 0 ? SMALL_Z : BIG_Z, zoom);
+    const x = Math.round(offsetX + (x0 + 2 + t * 5) * zoom);
+    const y = Math.round(offsetY + (headY - t * ZZZ_RISE_PX) * zoom - sprite.height);
+    ctx.save();
+    ctx.globalAlpha = t < 0.8 ? 1 : (1 - t) / 0.2;
+    ctx.drawImage(sprite, x, y);
+    ctx.restore();
   }
 }
