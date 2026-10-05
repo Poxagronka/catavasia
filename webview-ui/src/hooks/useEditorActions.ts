@@ -455,7 +455,7 @@ export function useEditorActions(
 
   const handleRotateSelected = useCallback(() => {
     // If in furniture placement mode, cycle the selected type through the rotation group
-    if (editorState.activeTool === EditTool.FURNITURE_PLACE) {
+    if (editorState.isPlacingFurniture()) {
       const rotated = getRotatedType(editorState.selectedFurnitureType, 'cw');
       if (rotated) {
         editorState.selectedFurnitureType = rotated;
