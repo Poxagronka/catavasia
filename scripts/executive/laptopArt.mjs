@@ -5,57 +5,36 @@
 import { canvas } from './canvas.mjs';
 
 // ── Back: the open lid seen from behind ─────────────────────────────────
-// The lid stands on the desk top: x 2..13, y 7..13, with a dark hinge line
-// at y 14. A small square logo (L) sits in its centre: dim when off,
-// backlit when on.
+// A thin upright lid (x 1..13, y 4..12) with square corners and a bright top
+// edge, then a 1 px dark hinge gap and a thin base deck that is 1 px wider on
+// each side. The aluminum darkens from top to bottom. Column 15 stays clear:
+// the desk outline is at x 14.
 const LID_BACK = [
-  '...SSSSSSSSSS...',
-  '..SAAAAAAAAAAS..',
-  '..SAaaaaaaaaaS..',
-  '..SAaaaLLaaaaS..',
-  '..SAaaaLLaaaaS..',
-  '..SaaaaaaaaaaS..',
-  '..SSSSSSSSSSSS..',
-  '..nnnnnnnnnnnn..',
-  '..ssssssssssss..',
+  '.SiiiiiiiiiiiS..',
+  '.SAAAAAAAAAAAS..',
+  '.SuuuuuuuuuuuS..',
+  '.SuuuuuuuuuuuS..',
+  '.SuuuuuuuuuuuS..',
+  '.SaaaaaaaaaaaS..',
+  '.SaaaaaaaaaaaS..',
+  '.SaaaaaaaaaaaS..',
+  '.SSSSSSSSSSSSS..',
+  '..nnnnnnnnnnn...',
+  'SAAAAAAAAAAAAAS.',
+  'nSSSSSSSSSSSSSn.',
 ];
 
-/** The lid from behind; `on` adds the screen light that spills past its edges. */
+/** The lid from behind; `on` lights the logo and leaks the screen light. */
 export function laptopBack(on) {
   const c = canvas(16, 16);
-  c.stamp(
-    0,
-    7,
-    LID_BACK.map((row) => row.replaceAll('L', on ? 'C' : 'A')),
-  );
-  // The lid turns a little toward the Cat CEO (left): the screen edge shows there.
-  c.vline(2, 8, 13, on ? 'Z' : 'z');
-  c.vline(1, 9, 13, 'n');
-  c.set(2, 7, 'n');
-  // A diagonal sheen on the brushed aluminum.
-  c.dots(
-    [
-      [10, 8],
-      [9, 9],
-      [11, 8],
-    ],
-    'A',
-  );
+  c.stamp(0, 4, LID_BACK);
+  // A small logo mark in the centre of the lid.
+  c.rect(6, 7, 8, 8, on ? 'C' : 'S');
   if (on) {
-    // The screen light spills over the top edge and fades down the sides.
-    c.hline(4, 11, 5, 'x');
-    c.hline(3, 12, 6, 'X');
-    c.dots(
-      [
-        [2, 7],
-        [13, 7],
-      ],
-      'X',
-    );
-    c.set(1, 8, 'X');
-    c.set(0, 9, 'x');
-    c.set(0, 10, 'x');
-    c.set(14, 8, 'x');
+    // The screen light leaks over the top edge and down the sides.
+    c.hline(2, 12, 3, 'x');
+    c.vline(0, 4, 8, 'x');
+    c.vline(14, 4, 8, 'x');
   }
   return c.rows();
 }

@@ -29,7 +29,9 @@ export const PALETTE = {
   k: [92, 88, 100, 255], // steel highlight
   s: [0, 0, 0, 64], // soft shadow
   // Laptop (laptopArt.mjs): brushed aluminum, hinge, screen and its glow.
+  i: [246, 248, 252, 255], // aluminum top edge
   A: [226, 230, 236, 255], // aluminum highlight
+  u: [208, 213, 222, 255], // aluminum mid tone
   a: [190, 196, 206, 255], // aluminum
   S: [148, 154, 168, 255], // aluminum shade
   n: [52, 54, 64, 255], // laptop outline, hinge
