@@ -165,6 +165,15 @@
     animation: pixel-pulse 1.5s ease-in-out infinite;
   }
 
+  /* Terminal content must be monospace (Claude Code is a full-screen TUI). The
+     base `* { font-pixel }` rule reaches every xterm cell span, so re-assert the
+     mono stack here. --font-terminal is set inline by WheelTerminal from
+     TERMINAL_FONT_FAMILY, the same stack xterm measures its cell grid with. */
+  .xterm,
+  .xterm * {
+    font-family: var(--font-terminal);
+  }
+
   /* Pixel-style thin scrollbar utility — used by the Area card folder list
      where the mapped-folder count can exceed the card height. */
   .pixel-scrollbar::-webkit-scrollbar {

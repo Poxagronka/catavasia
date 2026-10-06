@@ -172,5 +172,8 @@
     "webapi-parser": {
       "ajv": "^6.15.0"
     }
+  },
+  "optionalDependencies": {
+    "@lydell/node-pty": "^1.2.0-beta.12"
   }
 }

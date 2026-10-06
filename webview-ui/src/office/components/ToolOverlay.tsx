@@ -40,6 +40,8 @@ interface ToolOverlayProps {
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
   onCloseAgent: (id: number) => void;
+  /** Open the cat terminal (standalone only; absent hides the button). */
+  onOpenTerminal?: (id: number) => void;
   alwaysShowOverlay: boolean;
 }
 
@@ -92,6 +94,7 @@ export function ToolOverlay({
   zoom,
   panRef,
   onCloseAgent,
+  onOpenTerminal,
   alwaysShowOverlay,
 }: ToolOverlayProps) {
   const [, setTick] = useState(0);
@@ -262,6 +265,21 @@ export function ToolOverlay({
                   </span>
                 )}
               </div>
+              {isSelected && !isSub && onOpenTerminal && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenTerminal(id);
+                  }}
+                  title="Open terminal"
+                  className="ml-2 shrink-0 leading-none w-auto! px-2"
+                  data-testid="open-cat-terminal"
+                >
+                  {'>_'}
+                </Button>
+              )}
               {isSelected && !isSub && (
                 <Button
                   variant="ghost"

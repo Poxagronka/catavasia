@@ -38,6 +38,18 @@ Design research and evidence: [orchestration-spec.md](orchestration-spec.md).
 - The Cats menu: Agents tab (look, name, prompt, role, model, effort: passed as `--model` / `--effort`; list the values the installed `claude --help` accepts, do not hardcode from memory), Hierarchy tab (tree editor), Pets tab (create, name, colour/pattern from the shared editor with more colours).
 - A task flows boss → briefing meeting (all cats gather in one room) → delegation down → work → reports up → result to the user. Cats walk to each other for every conversation. Speech bubbles appear, and hover shows the narrator summary.
 
+### Cat terminal decisions (feat/cat-terminal, phase 2b, agent-made)
+
+- Click a cat, then `>_` on its selected label: a docked panel opens (Chat tab default, Terminal tab). The task-modal click on a finished task cat stays unchanged.
+- Client contract `webview-ui/src/catTerminal/catSessionApi.ts`: `subscribe(catId, onEvent, onGone?)`, `send(catId, text)`, `canTakeWheel(catId)`, `takeWheel(catId, size, handlers)`, `releaseWheel(catId)`. Wire frames live in `core/src/catSession.ts`.
+- Server endpoints (`server/src/catTerminal/`): WS `/api/cat-sessions/:catId/events` (snapshot, then `entries` and `status` frames; same-origin only), POST `/api/cat-sessions/:catId/messages` `{text}` (token), WS `/api/cat-sessions/:catId/terminal?token=&cols=&rows=` (token + same-origin).
+- Phase 1 plugs in by implementing `CatSessionSource` (`snapshot`, `subscribe`, `send`, `beginWheel`, `endWheel`) and passing it where `httpServer.ts` builds `TaskBoardCatSource`. Today `catId` is the office agent id of a task-board cat. Phase 1 may use its own cat ids.
+- Lock: `catTerminal/sessionLocks.ts` holds one owner (`turn` or `wheel`) per session id. Phase 1 MUST take this same lock before it spawns a turn. A message or the wheel during a running turn gets HTTP 409 / WS close 4409.
+- A message to a task cat is one more headless turn: `claude --resume <id> -p` in the task worktree (checked out again from `task/<id>`), committed again when it ends. No mid-turn injection yet: the `priority: "now"` stream-json input needs phase 1's long-lived stdin. Streaming = rows arrive live per stream-json record, no `--include-partial-messages` token deltas.
+- The wheel: `claude --resume <id>` (interactive, normal permission prompts) in a PTY with cwd = the session's worktree. The PTY lives as long as its socket: closing the tab or "Give it back" kills it, commits the worktree and frees the lock. No headless-xterm replay on reload (upstream PR #347 has it; not needed for a one-socket drawer).
+- node-pty: `@lydell/node-pty` (optional dependency, prebuilt, verified to spawn on this Mac, Node 24). Loader ported from PR #347 `ptyModule.ts`. Without a working module the Terminal tab shows the reason and the chat still works.
+- Known limits: StrictMode double-mount in `vite dev` takes the wheel twice (the second gets 409). Cats without a task session show "no session" in the panel.
+
 ## Resource budget (RAM) — plan to reach the goal cheaper
 
 Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB peak RSS, 15.6 s wall time incl. the model reply. The research measured 300–850 MB per long-lived session.
