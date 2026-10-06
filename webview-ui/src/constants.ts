@@ -581,3 +581,36 @@ export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;
 export const PET_HEAD_ABOVE_ANCHOR_PX = 12;
 /** Outline for the ears / tail of a near-black cat, so they read against a dark doorway. */
 export const HOUSE_PEEK_RIM_COLOR = '#9A8AA0';
+
+// ── Cat terminal ("take the wheel" PTY, ported from upstream PR #347) ──
+/** Monospace stack: Claude Code is a full-screen TUI and needs aligned columns. */
+export const TERMINAL_FONT_FAMILY =
+  'ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace';
+export const TERMINAL_FONT_SIZE_PX = 13;
+export const TERMINAL_SCROLLBACK_LINES = 5_000;
+/** Debounce for propagating a resize to the PTY (fit on every frame thrashes it). */
+export const TERMINAL_RESIZE_DEBOUNCE_MS = 100;
+/** xterm theme, matched to the office palette (index.css :root). */
+export const TERMINAL_THEME = {
+  background: '#181828',
+  foreground: 'rgba(255, 255, 255, 0.9)',
+  cursor: '#6030ff',
+  cursorAccent: '#181828',
+  selectionBackground: 'rgba(96, 48, 255, 0.4)',
+  black: '#1e1e2e',
+  red: '#d14249',
+  green: '#89d185',
+  yellow: '#cca700',
+  blue: '#3794ff',
+  magenta: '#746fff',
+  cyan: '#4ad9d9',
+  white: 'rgba(255, 255, 255, 0.9)',
+  brightBlack: '#4a4a6a',
+  brightRed: '#ff6b72',
+  brightGreen: '#a8e5a4',
+  brightYellow: '#ffd700',
+  brightBlue: '#66aaff',
+  brightMagenta: '#a29bff',
+  brightCyan: '#7fe8e8',
+  brightWhite: '#ffffff',
+} as const;

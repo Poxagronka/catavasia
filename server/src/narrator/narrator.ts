@@ -144,6 +144,7 @@ export function taskLogInput(catId: number, entry: TaskLogEntry, ts: number): Na
     case 'error':
       return { catId, ts, kind: 'state', text: 'error' };
     case 'text':
+    case 'user': // A console message starts a new turn.
       return { catId, ts, kind: 'state', text: 'thinking' };
   }
 }

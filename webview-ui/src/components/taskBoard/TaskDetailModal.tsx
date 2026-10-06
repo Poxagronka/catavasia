@@ -139,6 +139,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
                     {entry.kind === 'tool' && (
                       <span className="text-status-active">{entry.name} </span>
                     )}
+                    {entry.kind === 'user' && <span className="text-accent-bright">You: </span>}
                     <span
                       className={entry.kind === 'error' ? 'text-status-error' : 'text-text-muted'}
                     >

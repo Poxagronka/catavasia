@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CatTerminalPanel } from './catTerminal/CatTerminalPanel.js';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { CatsModal } from './components/cats/CatsModal.js';
@@ -251,6 +252,9 @@ function App() {
   // A cat whose task-board run finished opens that task instead of a terminal.
   const [clickedTaskId, setClickedTaskId] = useState<string | null>(null);
 
+  // The cat terminal panel (standalone only): opened from the selected cat's label.
+  const [terminalCatId, setTerminalCatId] = useState<number | null>(null);
+
   const handleClick = useCallback((agentId: number) => {
     const os = getOfficeState();
     const taskId = os.characters.get(agentId)?.taskId;
@@ -456,6 +460,7 @@ function App() {
             zoom={editor.zoom}
             panRef={editor.panRef}
             onCloseAgent={handleCloseAgent}
+            onOpenTerminal={isBrowserRuntime ? setTerminalCatId : undefined}
             alwaysShowOverlay={alwaysShowOverlay}
           />
 
@@ -566,6 +571,14 @@ function App() {
       <HierarchyModal isOpen={isHierarchyOpen} onClose={() => setIsHierarchyOpen(false)} />
       {clickedTaskId && (
         <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />
+      )}
+      {terminalCatId !== null && (
+        <CatTerminalPanel
+          key={terminalCatId}
+          catId={String(terminalCatId)}
+          catLabel={officeState.characters.get(terminalCatId)?.folderName ?? 'Cat'}
+          onClose={() => setTerminalCatId(null)}
+        />
       )}
 
       <VersionIndicator
