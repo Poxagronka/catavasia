@@ -78,6 +78,8 @@ export class AgentRuntime {
 
   // Configuration refs (mutable, shared with scanners)
   readonly watchAllSessions = { current: false };
+  /** Standalone: send external sessions (guests) to clients. See guests.ts. */
+  readonly showGuests = { current: false };
   readonly hooksEnabled = { current: true };
 
   // Dependencies
@@ -314,7 +316,11 @@ export class AgentRuntime {
    * registered directly, so no project scan or Watch All Sessions gate is
    * involved. Its transcript is watched once the CLI creates it.
    */
-  launchHeadlessAgent(sessionId: string, cwd: string): AgentState {
+  launchHeadlessAgent(
+    sessionId: string,
+    cwd: string,
+    look?: { palette?: number; hueShift?: number },
+  ): AgentState {
     const projectDir = this.provider.getSessionDirs?.(cwd)[0] ?? cwd;
     const jsonlFile = path.join(projectDir, `${sessionId}.jsonl`);
     const id = this.store.nextAgentId.current++;
@@ -344,6 +350,9 @@ export class AgentRuntime {
       seenUnknownRecordTypes: new Set(),
       contextTokens: 0,
       maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
+      // A cat's breed is its palette; assignPaletteIfNeeded keeps a set one.
+      palette: look?.palette,
+      hueShift: look?.hueShift,
     };
     assignPaletteIfNeeded(agent, this.store);
     this.knownJsonlFiles.add(jsonlFile);
@@ -392,6 +401,17 @@ export class AgentRuntime {
     this.store.broadcast({ type: 'agentToolsClear', id });
     this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
     this.store.broadcast({ type: 'agentTaskFinished', id, taskId });
+  }
+
+  /**
+   * A cat turn (one short CLI process) started or ended. Between turns the cat
+   * idles; the transcript watcher adds the tool activity during a turn.
+   */
+  setHeadlessAgentActive(id: number, active: boolean): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    agent.isWaiting = !active;
+    this.store.broadcast({ type: 'agentStatus', id, status: active ? 'active' : 'waiting' });
   }
 
   /**

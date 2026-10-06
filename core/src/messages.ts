@@ -25,6 +25,18 @@ export type ServerMessage =
   | SubagentToolPermission
   | AgentTeamInfo
   | AgentTaskFinished
+  | CatProfilesLoaded
+  | CatProfileSaved
+  | CatProfileRejected
+  | CatHierarchy
+  | CatTurnStarted
+  | CatTurnFinished
+  | CatMessage
+  | FlowStateChanged
+  | QueueChanged
+  | NarratorLine
+  | NarratorSummary
+  | NarratorSettings
   | AgentContextUsage
   | LayoutLoaded
   | PetCareLoaded
@@ -66,7 +78,14 @@ export type ClientMessage =
   | RemoveExternalAssetDirectory
   | SaveAreaMappings
   | SetShowAreas
-  | RequestDiagnostics;
+  | RequestDiagnostics
+  | SaveCatProfile
+  | DeleteCatProfile
+  | SetCatParent
+  | PromoteCatToBoss
+  | SetTurnConcurrency
+  | SetShowGuests
+  | SetNarratorSettings;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -191,6 +210,148 @@ export interface AgentTaskFinished {
   taskId: string;
 }
 
+export interface CatProfilesLoaded {
+  type: 'catProfilesLoaded';
+  cats: CatProfile[];
+  engineOptions: EngineOptions[];
+}
+
+export interface CatProfile {
+  id: string;
+  name: string;
+  appearance: CatAppearance;
+  role: string;
+  systemPrompt: string;
+  engine: CatEngine;
+  model: string;
+  effort: string;
+  parentId: string | null;
+  isDefault?: boolean;
+}
+
+export interface CatAppearance {
+  breed?: string;
+  colors?: CatColorLayers;
+  pattern?: CatPattern;
+  eyes?: string;
+  collar?: string;
+}
+
+export interface CatColorLayers {
+  fur?: string;
+  belly?: string;
+  stripe?: string;
+  patchA?: string;
+  patchB?: string;
+  point?: string;
+}
+
+export type CatPattern =
+  'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie' | 'siamese' | 'bengal' | 'sweater';
+
+export type CatEngine = 'claude' | 'codex';
+
+export interface EngineOptions {
+  engine: CatEngine;
+  models: string[];
+  efforts: string[];
+}
+
+export interface CatProfileSaved {
+  type: 'catProfileSaved';
+  profile: CatProfile;
+}
+
+export interface CatProfileRejected {
+  type: 'catProfileRejected';
+  id?: string;
+  error: string;
+}
+
+export interface CatHierarchy {
+  type: 'catHierarchy';
+  bossId?: string;
+  children: Record<string, string[]>;
+}
+
+export interface CatTurnStarted {
+  type: 'catTurnStarted';
+  catId: string;
+  taskId: string;
+  id: number;
+}
+
+export interface CatTurnFinished {
+  type: 'catTurnFinished';
+  catId: string;
+  taskId: string;
+  id: number;
+  ok: boolean;
+  costUsd?: number;
+  inputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  outputTokens?: number;
+}
+
+export interface CatMessage {
+  type: 'catMessage';
+  taskId: string;
+  from: string;
+  to: string;
+  kind: CatMessageKind;
+  text: string;
+}
+
+export type CatMessageKind =
+  'task' | 'brief' | 'delegate' | 'ask' | 'reply' | 'report' | 'final' | 'nudge';
+
+export interface FlowStateChanged {
+  type: 'flowStateChanged';
+  taskId: string;
+  state: FlowState;
+}
+
+export type FlowState =
+  | 'briefing'
+  | 'delegating'
+  | 'working'
+  | 'reporting'
+  | 'merging'
+  | 'done'
+  | 'error'
+  | 'interrupted';
+
+export interface QueueChanged {
+  type: 'queueChanged';
+  running: string[];
+  queued: string[];
+  cap: number;
+}
+
+export interface NarratorLine {
+  type: 'narratorLine';
+  catId: number;
+  state: NarratorState;
+  line: string;
+}
+
+export type NarratorState =
+  'thinking' | 'reading' | 'editing' | 'testing' | 'waiting' | 'done' | 'error';
+
+export interface NarratorSummary {
+  type: 'narratorSummary';
+  conversationId: string;
+  catIds: number[];
+  summary: string;
+}
+
+export interface NarratorSettings {
+  type: 'narratorSettings';
+  aiSummaries: boolean;
+  rawToolStatus: boolean;
+}
+
 export interface AgentContextUsage {
   type: 'agentContextUsage';
   id: number;
@@ -291,6 +452,8 @@ export interface SettingsLoaded {
   hooksInfoShown: boolean;
   externalAssetDirectories: string[];
   showAreas: boolean;
+  showGuests?: boolean;
+  turnConcurrency?: number;
 }
 
 export interface HooksStatus {
@@ -453,4 +616,41 @@ export interface SetShowAreas {
 
 export interface RequestDiagnostics {
   type: 'requestDiagnostics';
+}
+
+export interface SaveCatProfile {
+  type: 'saveCatProfile';
+  profile: CatProfile;
+}
+
+export interface DeleteCatProfile {
+  type: 'deleteCatProfile';
+  id: string;
+}
+
+export interface SetCatParent {
+  type: 'setCatParent';
+  id: string;
+  parentId: string;
+}
+
+export interface PromoteCatToBoss {
+  type: 'promoteCatToBoss';
+  id: string;
+}
+
+export interface SetTurnConcurrency {
+  type: 'setTurnConcurrency';
+  value: number;
+}
+
+export interface SetShowGuests {
+  type: 'setShowGuests';
+  enabled: boolean;
+}
+
+export interface SetNarratorSettings {
+  type: 'setNarratorSettings';
+  aiSummaries?: boolean;
+  rawToolStatus?: boolean;
 }

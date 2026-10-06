@@ -25,7 +25,7 @@ import {
 } from '../office/toolUtils.js';
 import type { OfficeLayout, ToolActivity } from '../office/types.js';
 import { setWallSprites } from '../office/wallTiles.js';
-import { isBrowserRuntime, isE2E } from '../runtime.js';
+import { isE2E } from '../runtime.js';
 import { transport } from '../transport/index.js';
 
 /**
@@ -33,11 +33,17 @@ import { transport } from '../transport/index.js';
  * picked up by Watch All Sessions) and therefore has no terminal to focus. Its
  * character renders translucent so it reads as untouchable at a glance.
  *
- * Standalone is exempt: that adapter has no terminals at all, so every agent
- * would qualify and the cue would distinguish nothing.
+ * Standalone: the server sends an external session only while "Show Guests" is
+ * on (the office belongs to the user's own cats), so every external agent there
+ * is a guest, drawn translucent outside the hierarchy.
  */
-const isHeadlessAgent = (isExternal: boolean | undefined): boolean =>
-  isExternal === true && !isBrowserRuntime;
+const isHeadlessAgent = (isExternal: boolean | undefined): boolean => isExternal === true;
+
+/** Cat office settings; only a standalone server with the office sends them. */
+export interface CatOfficeSettings {
+  showGuests: boolean;
+  turnConcurrency: number;
+}
 
 export interface SubagentCharacter {
   id: number;
@@ -116,6 +122,9 @@ interface ExtensionMessageState {
   setAreaMappings: (m: Record<string, string[]>) => void;
   showAreas: boolean;
   setShowAreas: (v: boolean) => void;
+  /** Null when the server has no cat office (VS Code, older servers). */
+  catOffice: CatOfficeSettings | null;
+  setCatOffice: (v: CatOfficeSettings) => void;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -158,6 +167,7 @@ export function useExtensionMessages(
   const [consentQueue, setConsentQueue] = useState<HooksConsentRequest[]>([]);
   const consentRequest = consentQueue[0] ?? null;
   const [areaMappings, setAreaMappings] = useState<Record<string, string[]>>({});
+  const [catOffice, setCatOffice] = useState<CatOfficeSettings | null>(null);
   const [showAreas, setShowAreas] = useState(false);
 
   // The renderer keeps its own module-level copy (read every rAF frame), so both
@@ -681,6 +691,12 @@ export function useExtensionMessages(
         if (typeof msg.showAreas === 'boolean') {
           setShowAreas(msg.showAreas as boolean);
         }
+        if (typeof msg.turnConcurrency === 'number') {
+          setCatOffice({
+            showGuests: msg.showGuests === true,
+            turnConcurrency: msg.turnConcurrency as number,
+          });
+        }
         if (Array.isArray(msg.externalAssetDirectories)) {
           setExternalAssetDirectories(msg.externalAssetDirectories as string[]);
         }
@@ -816,5 +832,7 @@ export function useExtensionMessages(
     setAreaMappings,
     showAreas,
     setShowAreas,
+    catOffice,
+    setCatOffice,
   };
 }

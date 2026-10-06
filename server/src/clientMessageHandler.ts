@@ -7,13 +7,16 @@ import type { LoadedAssets, LoadedCharacterSprites, LoadedPetSprites } from './a
 import {
   getHooksConsent,
   getHooksEnabled,
+  parseTurnConcurrency,
   readConfig,
   setHooksEnabled,
   writeConfig,
 } from './configPersistence.js';
-import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT } from './constants.js';
+import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
+import { applyShowGuests } from './guests.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import type { Narrator } from './narrator/narrator.js';
+import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { readPetCareState, writePetCareState } from './petCarePersistence.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
 import { applyConsentChoice } from './providers/hook/consentExecutor.js';
@@ -62,6 +65,8 @@ export interface ClientMessageContext {
    * to false so a caller that forgets to pass it gets the safe answer.
    */
   privileged?: boolean;
+  /** Cat office (standalone only): profiles, hierarchy, turn queue. */
+  orchestrator?: Orchestrator;
   /** Narrator (standalone only): settings + current lines on connect. */
   narrator?: Narrator;
 }
@@ -74,10 +79,12 @@ const KEY_GHOST_HEADLESS_AGENTS = 'pixel-agents.ghostHeadlessAgents';
 const KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
 const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
+const KEY_SHOW_GUESTS = 'pixel-agents.showGuests';
+const KEY_TURN_CONCURRENCY = 'pixel-agents.turnConcurrency';
 export const KEY_NARRATOR_AI_SUMMARIES = 'pixel-agents.narratorAiSummaries';
 const KEY_NARRATOR_RAW_TOOL_STATUS = 'pixel-agents.narratorRawToolStatus';
 
-/** Narrator settings message (outside asyncapi.yaml, see core/src/narrator.ts). */
+/** The narratorSettings message (core/asyncapi.yaml). */
 function narratorSettingsMessage(adapter: ReturnType<AgentStateStore['getAdapter']>) {
   return {
     type: 'narratorSettings',
@@ -248,6 +255,38 @@ export function handleClientMessage(
         msg.choice,
         standaloneConsentEffects(ctx, send, provider),
       );
+      break;
+    }
+
+    case 'setShowGuests': {
+      // Guests are other people's sessions: revealing them is the operator's call.
+      if (typeof msg.enabled !== 'boolean' || !ctx.privileged) break;
+      adapter?.setSetting(KEY_SHOW_GUESTS, msg.enabled);
+      if (runtime) applyShowGuests(store, runtime.showGuests, msg.enabled);
+      break;
+    }
+
+    case 'setTurnConcurrency': {
+      const value = parseTurnConcurrency(msg.value);
+      if (value === undefined || !ctx.privileged) break;
+      adapter?.setSetting(KEY_TURN_CONCURRENCY, value);
+      ctx.orchestrator?.scheduler.setCap(value);
+      break;
+    }
+
+    case 'saveCatProfile':
+    case 'deleteCatProfile':
+    case 'setCatParent':
+    case 'promoteCatToBoss': {
+      const office = ctx.orchestrator;
+      if (!office) break;
+      const id = typeof msg.id === 'string' ? msg.id : undefined;
+      // A cat runs with no permission prompts, so its prompt and model are the
+      // operator's decision: the same out-of-band token as setHooksEnabled.
+      const error = ctx.privileged
+        ? office.editProfiles(msg)
+        : 'Editing cats needs the server token (open the tokened URL the CLI printed).';
+      if (error) send({ type: 'catProfileRejected', id, error });
       break;
     }
 
@@ -448,6 +487,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // its sole webview reader is the hooks tooltip gate.
   const hooksEnabled = getHooksEnabled(claudeProvider.id);
   const showAreas = adapter?.getSetting(KEY_SHOW_AREAS, false) ?? false;
+  const showGuests = adapter?.getSetting(KEY_SHOW_GUESTS, false) ?? false;
+  const turnConcurrency =
+    parseTurnConcurrency(adapter?.getSetting(KEY_TURN_CONCURRENCY, TURN_CONCURRENCY_DEFAULT)) ??
+    TURN_CONCURRENCY_DEFAULT;
   send({
     type: 'settingsLoaded',
     soundEnabled: adapter?.getSetting(KEY_SOUND_ENABLED, true) ?? true,
@@ -460,6 +503,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     hooksInfoShown: adapter?.getSetting(KEY_HOOKS_INFO_SHOWN, false) ?? false,
     externalAssetDirectories: cfg.externalAssetDirectories,
     showAreas,
+    ...(ctx.orchestrator ? { showGuests, turnConcurrency } : {}),
   });
 
   // 4a. Actual install state, distinct from the hooksEnabled preference —
@@ -510,6 +554,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   if (runtime) {
     runtime.watchAllSessions.current = watchAllSessions;
     runtime.hooksEnabled.current = hooksEnabled;
+    // Before existingAgents below, so a hidden guest never reaches this client.
+    if (ctx.orchestrator) runtime.showGuests.current = showGuests;
   }
 
   // 5. Restore persisted external agents (standalone only; VS Code handles its own restore)
@@ -551,6 +597,12 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // Pet care needs the pets, so it follows the layout that spawns them.
   send({ type: 'petCareLoaded', state: readPetCareState() });
 
+  // Cat office: profiles, tree and the turn queue (characters exist only during turns).
+  if (ctx.orchestrator) {
+    for (const message of ctx.orchestrator.profileMessages()) send({ ...message });
+    send({ type: 'queueChanged', ...ctx.orchestrator.scheduler.state() });
+  }
+
   // 8. Agent state, AFTER layoutLoaded -- the characters they target only
   // exist once the layout flush creates them. Without this a reconnecting
   // client shows bare characters until each agent takes another turn.
@@ -559,6 +611,6 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // 9. Narrator settings and current status lines.
   if (ctx.narrator) {
     send(narratorSettingsMessage(adapter));
-    for (const m of ctx.narrator.snapshot()) send(m as unknown as Record<string, unknown>);
+    for (const m of ctx.narrator.snapshot()) send({ ...m });
   }
 }

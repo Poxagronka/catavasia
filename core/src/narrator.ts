@@ -5,10 +5,18 @@
  * The narrator turns raw agent events into short English status lines (templates)
  * and conversation summaries (batched one-shot Haiku calls).
  *
- * The wire messages below travel over the same WebSocket as the AsyncAPI
- * messages but are NOT part of core/asyncapi.yaml yet. Orchestration phase 1
- * folds them into the spec (docs/catavasia/ROADMAP.md, "Narrator decisions").
+ * The wire messages (narratorLine, narratorSummary, narratorSettings,
+ * setNarratorSettings) are part of core/asyncapi.yaml; their types come from
+ * the generated messages.ts.
  */
+
+import type {
+  NarratorLine as NarratorLineMessage,
+  NarratorSettings as NarratorSettingsMessage,
+  NarratorSummary as NarratorSummaryMessage,
+} from './messages.js';
+
+export type { SetNarratorSettings } from './messages.js';
 
 /** Work state of a cat, as the narrator sees it. */
 export type NarratorState =
@@ -65,15 +73,8 @@ export interface NarratorSettings {
   rawToolStatus: boolean;
 }
 
-// ── Wire messages (outside asyncapi.yaml, see header) ──
+// ── Wire messages (core/asyncapi.yaml) ──
 
 /** Server -> client. */
 export type NarratorServerMessage =
-  | ({ type: 'narratorLine' } & NarratorLine)
-  | ({ type: 'narratorSummary' } & NarratorSummary)
-  | ({ type: 'narratorSettings' } & NarratorSettings);
-
-/** Client -> server. Absent fields keep their value. */
-export interface SetNarratorSettings extends Partial<NarratorSettings> {
-  type: 'setNarratorSettings';
-}
+  NarratorLineMessage | NarratorSummaryMessage | NarratorSettingsMessage;

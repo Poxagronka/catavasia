@@ -110,6 +110,8 @@ function App() {
     setAreaMappings,
     showAreas,
     setShowAreas,
+    catOffice,
+    setCatOffice,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -653,6 +655,16 @@ function App() {
         onToggleShowAreas={onToggleShowAreas}
         showAreasAvailable={areasAvailable}
         onExportLayout={handleExportLayout}
+        catOffice={catOffice}
+        onChangeCatOffice={(next) => {
+          if (catOffice?.showGuests !== next.showGuests) {
+            transport.send({ type: 'setShowGuests', enabled: next.showGuests });
+          }
+          if (catOffice?.turnConcurrency !== next.turnConcurrency) {
+            transport.send({ type: 'setTurnConcurrency', value: next.turnConcurrency });
+          }
+          setCatOffice(next);
+        }}
         onImportLayout={handleImportLayout}
       />
 
