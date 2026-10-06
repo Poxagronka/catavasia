@@ -22,6 +22,7 @@ fs.writeFileSync(path.join(BIN, 'claude'), FAKE_CLAUDE, { mode: 0o755 });
 const TURN_TIMEOUT_MS = 30_000;
 
 test.describe('Standalone / CEO dock', () => {
+  test.skip(process.platform === 'win32', 'the fake claude CLI is a POSIX sh script');
   test.use({ pathPrepend: BIN });
 
   test('the CEO answers in the dock with markdown; the dock collapses to a tab @area:standalone', async ({
