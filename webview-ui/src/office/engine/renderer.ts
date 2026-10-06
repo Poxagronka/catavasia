@@ -81,7 +81,7 @@ import {
   characterDrawOffsetY,
   getCharacterSprite,
 } from './characters.js';
-import { dominantFur, peekDrawable } from './housePeek.js';
+import { dominantFur, peekDrawable, peekTwitch } from './housePeek.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
@@ -437,7 +437,7 @@ export function renderScene(
     // Asleep inside a cat house: only the ears or the tail show.
     const peek = ch.state === CharacterState.ACTIVITY ? ch.activity?.spot?.peek : undefined;
     if (peek && !ch.matrixEffect) {
-      drawables.push(peekDrawable(peek, furColorOf(ch), offsetX, offsetY, zoom));
+      drawables.push(peekDrawable(peek, furColorOf(ch), offsetX, offsetY, zoom, peekTwitch(ch)));
       continue;
     }
     const sprites = ch.customSprites ?? getCharacterSprites(ch.palette, ch.hueShift);

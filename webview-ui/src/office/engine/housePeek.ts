@@ -10,20 +10,25 @@ import {
   HOUSE_PEEK_RIM_COLOR,
 } from '../../constants.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
-import type { HousePeek, SpriteData } from '../types.js';
+import type { Character, HousePeek, SpriteData } from '../types.js';
+import { pose } from './activityAnim.js';
+import { activityStep } from './characters.js';
 
 // o = outline, F = fur, p = inner ear. Bottom-centre is the anchor.
 const EARS = ['.o...o.', 'opo.opo', 'oFFoFFo'];
 const TAIL = ['....o.', '...oFo', 'ooooFo', 'oFFFo.'];
+// The dream twitch: one ear folds; the tail tip flicks up.
+const EARS_TWITCH = ['.....o.', '.oo.opo', 'oFFoFFo'];
+const TAIL_FLICK = ['.....o', '....oF', 'oooooF', 'oFFFFo'];
 
 const cache = new Map<string, SpriteData>();
 
-/** The ears / tail sprite in this fur color. */
-export function peekSprite(kind: HousePeek['kind'], fur: string): SpriteData {
-  const key = `${kind}:${fur}`;
+/** The ears / tail sprite in this fur color; `twitch`: the ear folds or the tail flicks. */
+export function peekSprite(kind: HousePeek['kind'], fur: string, twitch = false): SpriteData {
+  const key = `${kind}:${fur}:${twitch}`;
   let s = cache.get(key);
   if (!s) {
-    const rows = kind === 'ears' ? EARS : TAIL;
+    const rows = kind === 'ears' ? (twitch ? EARS_TWITCH : EARS) : twitch ? TAIL_FLICK : TAIL;
     const color: Record<string, string> = {
       // A near-black cat gets a light rim: a dark outline would vanish in the doorway.
       o: isDark(fur) ? HOUSE_PEEK_RIM_COLOR : HOUSE_PEEK_OUTLINE_COLOR,
@@ -51,8 +56,9 @@ export function peekDrawable(
   offsetX: number,
   offsetY: number,
   zoom: number,
+  twitch = false,
 ): { zY: number; draw: (c: CanvasRenderingContext2D) => void } {
-  const sprite = peekSprite(peek.kind, fur);
+  const sprite = peekSprite(peek.kind, fur, twitch);
   const img = getCachedSprite(sprite, zoom);
   const left = peek.x - Math.floor(sprite[0].length / 2);
   const top = peek.y - sprite.length;
@@ -80,4 +86,12 @@ export function dominantFur(sprite: SpriteData): string {
   for (const [c, n] of counts) if (n > max) [best, max] = [c, n];
   furCache.set(sprite, best);
   return best;
+}
+
+const TWITCH_POSES = new Set([pose('napTwitch'), pose('napFlick')]);
+
+/** A sleeper in a house twitches an ear or flicks its tail on the nap's twitch steps. */
+export function peekTwitch(ch: Character): boolean {
+  const step = activityStep(ch);
+  return !!step && TWITCH_POSES.has(step.f);
 }

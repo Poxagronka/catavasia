@@ -75,7 +75,7 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
     durationSec: [6, 12],
     ...TEASER,
     spots: (ctx) =>
-      adjacentSpots(ctx, itemsOfType(ctx, ['FEATHER_TEASER']), { sides: 'left', nudgePx: 2 }),
+      adjacentSpots(ctx, itemsOfType(ctx, ['FEATHER_TEASER']), { sides: 'left', nudgePx: 0 }),
     prop: 'sway',
   },
   {

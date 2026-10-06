@@ -102,7 +102,7 @@ export const STRETCH: AnimParts = {
     st('stretchFront', 1.4),
     st('stand', 0.25),
     st('stretchBack', 0.9),
-    st('stand', 0.5),
+    st('scrLook', 0.6),
   ],
 };
 

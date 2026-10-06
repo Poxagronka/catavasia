@@ -95,8 +95,8 @@ function reach(fr, dir, cat, press) {
       'armR',
       [
         [7, 18],
-        [11, 21],
-        [14 + p, 23 + p],
+        [11, 22],
+        [14 + p, 25 + p],
       ],
       Z_LIFT,
     );

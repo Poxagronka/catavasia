@@ -1411,10 +1411,8 @@ export class OfficeState {
         moving.set(uid, { dx: (step.px ?? 0) * flip, dy: step.py ?? 0 });
         continue;
       }
-      const prop = getIdleActivity(ch.activity?.id)?.prop;
-      if (prop && !getIdleActivity(ch.activity?.id)?.loop.some((s) => s.px || s.py)) {
-        moving.set(uid, prop);
-      }
+      // A cat's toy moves only by its animation steps; the free-running prop
+      // motion below is the pets' (they have no steps).
     }
     // A machine whose cup a cat carries around shows no cup.
     for (const ch of this.characters.values()) {

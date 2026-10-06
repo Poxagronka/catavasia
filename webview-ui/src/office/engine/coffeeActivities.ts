@@ -13,6 +13,7 @@
  * take part (petActivities.ts names no coffee activity).
  */
 
+import { Direction } from '../types.js';
 import type { AnimParts } from './activityAnim.js';
 import { st } from './activityAnim.js';
 import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
@@ -67,8 +68,15 @@ const RETURN: AnimParts = {
   ],
 };
 
+/** A cat beside a counter sits this many px lower: its paws meet the machine on the counter. */
+const COUNTER_SIDE_DROP_PX = 5;
+
 const machineSpots: IdleActivityDef['spots'] = (ctx) =>
-  adjacentSpots(ctx, itemsOfType(ctx, COFFEE_MACHINE_TYPES), { nudgePx: 3 });
+  adjacentSpots(ctx, itemsOfType(ctx, COFFEE_MACHINE_TYPES), { nudgePx: 3 }).map((s) =>
+    s.onFurniture || (s.facing !== Direction.LEFT && s.facing !== Direction.RIGHT)
+      ? s
+      : { ...s, offsetY: s.offsetY + COUNTER_SIDE_DROP_PX },
+  );
 
 export const COFFEE_ACTIVITIES: IdleActivityDef[] = [
   {
