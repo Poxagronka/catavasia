@@ -5,12 +5,14 @@
  * - Chat: the cat's turns across its tasks (CatConsoles).
  * - Send: during a live task, the message waits in the cat's inbox and its
  *   next turn reads it. A cat with no live task gets a new one-cat task in the
- *   folder of its newest task (else the server folder).
+ *   folder of its newest task; with no such folder, the CEO gives it work.
  * - Take the wheel: only between turns of a live task (no running or queued
  *   turn), and the wheel takes the same session lock as every turn.
  *
- * The Cat CEO is not a team cat: its chat is a one-off judge run that
- * answers (server/src/catCeo/ceoChat.ts), and it has no wheel.
+ * The Cat CEO is not a team cat and has no wheel. The literal id `cat-ceo`
+ * is the CEO desk (server/src/ceoDesk/). The CEO character's agent id still
+ * opens the judge chat (server/src/catCeo/ceoChat.ts) until the dock replaces
+ * it (docs/catavasia/ROADMAP.md, "CEO desk replaces the task board").
  *
  * Any other cat id falls through to the task-board source.
  */
@@ -20,6 +22,7 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
+import type { CeoDesk } from '../ceoDesk/ceoDesk.js';
 import { CAT_CEO_ID } from '../constants.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { TaskInputError, type TaskManager } from '../taskBoard/taskManager.js';
@@ -34,6 +37,7 @@ import { acquireSessionLock, sessionLockHolder } from './sessionLocks.js';
 
 const NO_LIVE_SESSION = 'The wheel needs a live task session: give the cat a task first';
 const CEO_NO_WHEEL = 'The Cat CEO has no terminal session: talk to it in the chat';
+const NO_FOLDER = 'Ask the CEO in the chat to give this cat work';
 
 export class OfficeCatSource implements CatSessionSource {
   private readonly board: TaskBoardCatSource;
@@ -45,11 +49,13 @@ export class OfficeCatSource implements CatSessionSource {
   constructor(
     private readonly office: Orchestrator,
     private readonly tasks: TaskManager,
+    private readonly desk?: CeoDesk,
   ) {
     this.board = new TaskBoardCatSource(tasks);
   }
 
   snapshot(agentId: string): CatSessionSnapshot | undefined {
+    if (this.isDesk(agentId)) return this.desk!.snapshot();
     const cat = this.catOf(agentId);
     if (!cat) return this.board.snapshot(agentId);
     const profile = this.office.cats.get(cat);
@@ -66,6 +72,7 @@ export class OfficeCatSource implements CatSessionSource {
   }
 
   subscribe(agentId: string, listener: (frame: CatSessionFrame) => void): () => void {
+    if (this.isDesk(agentId)) return this.desk!.subscribe(listener);
     const cat = this.catOf(agentId);
     if (!cat) return this.board.subscribe(agentId, listener);
     const { events } = this.office.consoles;
@@ -82,6 +89,10 @@ export class OfficeCatSource implements CatSessionSource {
   }
 
   async send(agentId: string, text: string): Promise<void> {
+    if (this.isDesk(agentId)) {
+      this.desk!.send(text);
+      return;
+    }
     const cat = this.catOf(agentId);
     if (!cat) return this.board.send(agentId, text);
     if (cat === CAT_CEO_ID) {
@@ -95,7 +106,8 @@ export class OfficeCatSource implements CatSessionSource {
     if (!this.office.resolveTarget(cat)) {
       throw new CatSessionError(400, `${cat} is not a team cat, so it takes no tasks`);
     }
-    const cwd = this.office.lastCwdOf(cat) ?? this.tasks.defaultCwd;
+    const cwd = this.office.lastCwdOf(cat);
+    if (!cwd) throw new CatSessionError(400, NO_FOLDER);
     try {
       await this.tasks.create(text, cwd, cat);
     } catch (err) {
@@ -105,6 +117,7 @@ export class OfficeCatSource implements CatSessionSource {
   }
 
   async beginWheel(agentId: string): Promise<WheelSession> {
+    if (this.isDesk(agentId)) throw new CatSessionError(400, CEO_NO_WHEEL);
     const cat = this.catOf(agentId);
     if (!cat) return this.board.beginWheel(agentId);
     if (cat === CAT_CEO_ID) throw new CatSessionError(400, CEO_NO_WHEEL);
@@ -132,6 +145,11 @@ export class OfficeCatSource implements CatSessionSource {
     this.wheels.get(cat)?.();
     this.wheels.delete(cat);
     this.office.consoles.statusChanged();
+  }
+
+  /** The literal `cat-ceo` id: the CEO desk chat. */
+  private isDesk(agentId: string): boolean {
+    return agentId === CAT_CEO_ID && !!this.desk;
   }
 
   private catOf(agentId: string): string | undefined {

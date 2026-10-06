@@ -21,6 +21,7 @@ import {
   loadAllPets,
 } from './assetReload.js';
 import { loadOrCreateAuthToken } from './authToken.js';
+import { CeoDesk } from './ceoDesk/ceoDesk.js';
 import {
   type AssetCache,
   KEY_NARRATOR_AI_SUMMARIES,
@@ -34,6 +35,7 @@ import {
   readConfig,
 } from './configPersistence.js';
 import {
+  CEO_MCP_PATH,
   LAYOUT_FILE_DIR,
   MAX_PORT,
   MIN_PORT,
@@ -277,6 +279,14 @@ async function main(): Promise<void> {
     // Finished one-cat runs keep their idle cat across restarts.
     tasks.restoreFinishedCats();
 
+    // CEO desk: the user's chat with the CEO, which starts team tasks as jobs.
+    const ceoDesk = new CeoDesk({
+      stateDir,
+      office: orchestrator,
+      tasks,
+      adapter: orchestrator.opts.adapters.find((a) => a.engine === 'claude')!,
+    });
+
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
     server.onHookEvent((providerId, event) => {
       runtime.handleHookEvent(providerId, event);
@@ -404,6 +414,7 @@ async function main(): Promise<void> {
       onReloadAssets,
       tasks,
       orchestrator,
+      ceoDesk,
       narrator,
       update,
       // One token across restarts (see authToken.ts). A self-update hands over
@@ -412,6 +423,7 @@ async function main(): Promise<void> {
     });
     currentConfig = { port: config.port, token: config.token };
     orchestrator.setServerUrl(`http://127.0.0.1:${config.port}`);
+    ceoDesk.setServerUrl(`http://127.0.0.1:${config.port}`, CEO_MCP_PATH);
 
     // Sync runtime refs with persisted settings BEFORE first scan tick. The
     // runtime's single hooksEnabled ref follows the Claude provider until the
@@ -483,6 +495,7 @@ async function main(): Promise<void> {
     function shutdown(): void {
       console.log('\nShutting down...');
       update.checker.dispose();
+      ceoDesk.dispose();
       tasks.dispose();
       narrator.dispose();
       runtime.dispose();

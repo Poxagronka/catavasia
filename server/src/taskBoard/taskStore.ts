@@ -22,6 +22,8 @@ export interface StoredTask extends TaskDetail {
   sessionId?: string;
   /** Folder the session runs in (inside the worktree when there is one). */
   agentCwd?: string;
+  /** The CEO desk chat that started this task as a job. */
+  chatId?: string;
 }
 
 interface TasksFile {

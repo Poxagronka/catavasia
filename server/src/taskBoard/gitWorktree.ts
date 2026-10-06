@@ -49,6 +49,11 @@ export async function inspectRepo(folder: string): Promise<RepoInfo | null> {
   }
 }
 
+/** The commit a ref names (a rework job starts from the branch of the job it corrects). */
+export async function revParse(repoRoot: string, ref: string): Promise<string> {
+  return (await git(repoRoot, ['rev-parse', '--verify', `${ref}^{commit}`])).trim();
+}
+
 export async function createWorktree(
   repo: RepoInfo,
   worktreePath: string,

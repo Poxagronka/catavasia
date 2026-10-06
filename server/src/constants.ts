@@ -213,6 +213,23 @@ export const CAT_CEO_CHAT_CONTEXT_MESSAGES = 20;
 export const CAT_CEO_CHAT_EDITS_PER_DAY = 10;
 /** Longest reply the chat keeps. */
 export const CAT_CEO_CHAT_REPLY_MAX_CHARS = 4000;
+// ── CEO desk (docs/catavasia/ROADMAP.md, "CEO desk replaces the task board") ──
+/** MCP endpoint of the CEO's desk tools (cats never see them). */
+export const CEO_MCP_PATH = '/api/ceo-mcp';
+/** cat-ceo/<file>: the live chat's state (session, folder, token, live jobs). */
+export const CEO_DESK_FILE = 'desk.json';
+/** cat-ceo/<dir>/<chatId>/: a chat's cwd; <chatId>.json beside it holds its history. */
+export const CEO_DESK_CHATS_DIR = 'chats';
+/** Rows kept in a chat history (newest). Never cut by text length. */
+export const CEO_DESK_HISTORY_MAX = 500;
+/** Jobs of one chat that may run at once. */
+export const CEO_DESK_MAX_LIVE_JOBS = 3;
+/** Rework jobs (start_job with `from`) per user request. */
+export const CEO_DESK_MAX_REWORKS = 2;
+/** Longest job result a job notice carries to the CEO. */
+export const CEO_DESK_NOTICE_MAX_CHARS = 50_000;
+/** Job card updates of one job are sent at most this often. */
+export const CEO_DESK_CARD_THROTTLE_MS = 1000;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;
 /** Self-update: how long the old server stays up after spawning the new one,

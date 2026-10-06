@@ -76,7 +76,7 @@ export function registerCatTerminalRoutes(
 
   /** Status with the PTY verdict folded in: no module means no wheel. */
   const withPty = (frame: CatSessionFrame): CatSessionFrame => {
-    if (frame.type === 'entries') return frame;
+    if (frame.type === 'entries' || frame.type === 'job') return frame;
     const reason = frame.status.wheelUnavailable ?? ptyReason();
     return { ...frame, status: { ...frame.status, wheelUnavailable: reason } };
   };

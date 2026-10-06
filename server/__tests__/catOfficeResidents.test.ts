@@ -118,7 +118,8 @@ afterEach(async () => {
 
 describe('resident cats', () => {
   it('spawns one character per profile at start and follows profile changes', () => {
-    expect(host.spawned.map((s) => s.id)).toEqual([1, 2, 3, 4]);
+    // Four cats and the CEO (always resident).
+    expect(host.spawned.map((s) => s.id)).toEqual([1, 2, 3, 4, 5]);
     expect(office.profileMessages().at(-1)).toMatchObject({
       type: 'catCharacters',
       characters: [
@@ -126,6 +127,7 @@ describe('resident cats', () => {
         { catId: 'murka', id: 2, appearance: { breed: 'smokey' } },
         { catId: 'pushok', id: 3 },
         { catId: 'codex', id: 4 },
+        { catId: 'cat-ceo', id: 5 },
       ],
     });
 
@@ -134,9 +136,9 @@ describe('resident cats', () => {
       appearance: { breed: 'mochi', pattern: 'tabby' },
     };
     expect(office.editProfiles({ type: 'saveCatProfile', profile: fresh })).toBeUndefined();
-    expect(host.spawned.map((s) => s.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(host.spawned.map((s) => s.id)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(lastCharacters()?.characters.find((c) => c.catId === 'mia')).toMatchObject({
-      id: 5,
+      id: 6,
       appearance: { pattern: 'tabby' },
     });
 
@@ -146,6 +148,7 @@ describe('resident cats', () => {
       'boss',
       'pushok',
       'codex',
+      'cat-ceo',
       'mia',
     ]);
   });
@@ -183,7 +186,7 @@ describe('resident cats', () => {
     const second = await settled((await tasks.create('two', repo, 'team')).id);
     expect(second.status).toBe('done');
 
-    expect(host.spawned).toHaveLength(4);
+    expect(host.spawned).toHaveLength(5);
     expect(host.removed).toEqual([]);
     expect(new Set(host.turns.map((t) => t.id))).toEqual(new Set([1, 2, 3]));
     // A turn of the second task points the same character at a new session.
@@ -235,18 +238,27 @@ describe('resident cats', () => {
 });
 
 describe('cat console of profile cats', () => {
-  it('starts a one-cat task when the cat has no live task, and shows its turns', async () => {
+  it("starts a one-cat task in the folder of the cat's last task, and shows its turns", async () => {
     const source = new OfficeCatSource(office, tasks);
     expect(source.snapshot('2')).toMatchObject({ title: 'Luna: Developer', entries: [] });
+    // No folder to work in yet: the CEO gives work (never a default folder).
+    await expect(source.send('2', 'write a file please')).rejects.toMatchObject({
+      code: 400,
+      message: 'Ask the CEO in the chat to give this cat work',
+    });
+    await settled((await tasks.create('seed', tmp, 'murka')).id);
     const frames: string[] = [];
     const off = source.subscribe('2', (f) => frames.push(f.type));
     await source.send('2', 'write a file please');
-    const task = await waitFor(() => tasks.list().find((t) => t.target === 'murka'));
-    expect(task.prompt).toBe('write a file please');
+    const task = await waitFor(() =>
+      tasks.list().find((t) => t.target === 'murka' && t.prompt === 'write a file please'),
+    );
+    expect(task.cwd).toBe(tmp);
     await settled(task.id);
     const entries = source.snapshot('2')!.entries;
-    expect(entries[0]).toMatchObject({ kind: 'user' });
-    expect(entries[0].text).toContain('write a file please');
+    expect(entries.some((e) => e.kind === 'user' && e.text.includes('write a file please'))).toBe(
+      true,
+    );
     expect(entries.some((e) => e.kind === 'text')).toBe(true);
     expect(frames).toContain('entries');
     expect(frames).toContain('status');

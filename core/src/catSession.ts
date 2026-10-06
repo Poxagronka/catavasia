@@ -8,6 +8,8 @@
  * in through the server's CatSessionSource interface without changing this file.
  */
 
+import type { JobCard } from './ceoDesk.js';
+
 /** One row of the chat console. */
 export type CatSessionEntry =
   | { kind: 'user'; text: string }
@@ -15,7 +17,12 @@ export type CatSessionEntry =
   | { kind: 'tool'; name: string; text: string }
   | { kind: 'error'; text: string }
   /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */
-  | { kind: 'edits'; text: string; catIds: string[] };
+  | { kind: 'edits'; text: string; catIds: string[] }
+  /**
+   * A job the CEO started (CEO desk): a later `job` frame updates it in place
+   * by jobId. `text` is the card as one line, for a console that has no card.
+   */
+  | { kind: 'job'; text: string; job: JobCard };
 
 /** Whether a cat can hand its session to an interactive terminal right now. */
 export interface CatSessionStatus {
@@ -27,13 +34,21 @@ export interface CatSessionStatus {
   wheelUnavailable?: string;
   /** What the console says while busy (default: the cat is working). */
   busyText?: string;
+  /** CEO desk: messages and job notices waiting for the next CEO turn. */
+  queued?: number;
+  /** CEO desk: the chat's work folder (null = sandbox). */
+  folder?: string | null;
+  /** CEO desk: what the chat's CEO session has cost so far. */
+  costUsd?: number;
 }
 
 /** Server -> client frames on `/api/cat-sessions/:catId/events`. */
 export type CatSessionFrame =
   | { type: 'snapshot'; entries: CatSessionEntry[]; status: CatSessionStatus; title: string }
   | { type: 'entries'; entries: CatSessionEntry[] }
-  | { type: 'status'; status: CatSessionStatus };
+  | { type: 'status'; status: CatSessionStatus }
+  /** CEO desk: the new state of a job card (replace the `job` entry with this jobId). */
+  | { type: 'job'; text: string; job: JobCard };
 
 /** Client -> server frames on `/api/cat-sessions/:catId/terminal`. */
 export type WheelClientFrame =
