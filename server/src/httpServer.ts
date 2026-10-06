@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
 import * as fs from 'fs';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
@@ -75,6 +76,12 @@ export interface HttpServerHandle {
 
 const startTime = Date.now();
 
+/** The request log line, without the token: the token lasts across restarts
+ *  (authToken.ts), so a saved log must not hold a working credential. */
+export function logRequest(req: { method: string; url: string }): { method: string; url: string } {
+  return { method: req.method, url: req.url.replace(/([?&]token=)[^&#]*/g, '$1[redacted]') };
+}
+
 /**
  * Create a Fastify server with hook endpoint, health check, and WebSocket support.
  *
@@ -83,7 +90,7 @@ const startTime = Date.now();
  */
 export async function createHttpServer(options: HttpServerOptions): Promise<HttpServerHandle> {
   const app = Fastify({
-    logger: !options.embedded,
+    logger: !options.embedded && { serializers: { req: logRequest } },
     bodyLimit: MAX_HOOK_BODY_SIZE,
   });
 
@@ -204,7 +211,7 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
   const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
     const bearer = timingSafeStringEqual(request.headers.authorization ?? '', `Bearer ${token}`);
     if (!bearer && !standaloneTokenValid(request.url, token)) {
-      return reply.code(401).send({ error: 'A valid session token is required' });
+      return reply.code(401).send({ error: EDIT_RIGHTS_HINT });
     }
   };
 

@@ -13,6 +13,13 @@ export const SERVER_JSON_DIR = '.pixel-agents';
 export const SERVER_JSON_NAME = 'server.json';
 export const HOOK_SCRIPTS_DIR = '.pixel-agents/hooks';
 
+// ── Auth ─────────────────────────────────────────────────────
+
+/** The one hint shown wherever the server refuses an edit for a missing or
+ *  wrong token (HTTP 401, a rejected WebSocket edit, a disabled control).
+ *  `pa` opens the office with the token in the URL. */
+export const EDIT_RIGHTS_HINT = 'Open the office with `pa` to get edit rights';
+
 // ── Display ──────────────────────────────────────────────────
 
 export const BASH_COMMAND_DISPLAY_MAX_LENGTH = 30;

@@ -12,7 +12,7 @@ import {
   type WheelClientFrame,
   type WheelServerFrame,
 } from '../../../core/src/catSession.js';
-import { sessionToken } from '../components/taskBoard/taskApi.js';
+import { sessionToken } from '../sessionToken.js';
 import { wheelBlocker } from './consoleState.js';
 
 export interface WheelHandlers {
