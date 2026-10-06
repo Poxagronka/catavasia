@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Status: design, not built. Installed CLI: `claude --version` → `2.1.290 (Claude Code)`.
 User questions: agents never clear their chats; `/clear` or `/compact` after each task? The role prompt must never burn.
-Related: [task-state-machine.md](task-state-machine.md) (`JoinMember` effect), [head-cat-judge.md](head-cat-judge.md) (who edits Rules and Lessons).
+Related: [task-state-machine.md](task-state-machine.md) (`JoinMember` effect), [cat-ceo-judge.md](cat-ceo-judge.md) (who edits Rules and Lessons).
 
 ## 1. Decisions in short
 
@@ -10,7 +10,7 @@ Related: [task-state-machine.md](task-state-machine.md) (`JoinMember` effect), [
 - **No `/compact` between tasks** and no session that lives across tasks. Cross-task memory lives in the cat's prompt file (`Rules`, `Lessons`), not in chat history.
 - **The role never burns.** It is in the system prompt on every request. The system prompt survives compaction (docs + probe below).
 - **Auto-compact only inside very long tasks**, at a 200K window per cat turn (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`).
-- **One prompt file per cat**: `~/.pixel-agents/prompts/<catId>.md` with a locked `Role & conduct` section (user only) and `Rules` + `Lessons` sections (Head Cat may edit). The server composes it into the per-task persona file at join time.
+- **One prompt file per cat**: `~/.pixel-agents/prompts/<catId>.md` with a locked `Role & conduct` section (user only) and `Rules` + `Lessons` sections (Cat CEO may edit). The server composes it into the per-task persona file at join time.
 - **Prompt edits apply from the cat's next session.** The CLI records the system prompt once per session (snapshot on, the default). We do not turn the snapshot off.
 
 ## 2. Verified facts
@@ -52,24 +52,24 @@ Base numbers: the cat's request prefix is about 36K tokens (F15), of which about
 | Cost, cache cold (> 1 h between tasks) | Same as warm: about $0.12 / $0.24 | Summary request reprocesses 100K uncached: Sonnet $0.40, Opus $0.80, plus the above (F13) |
 | What the cat sees | Role + Rules + Lessons + the task. Nothing stale. | A model-made summary of an unrelated task, old branch names, old worktree paths |
 | Prompt edits | The new session renders the current file | Compaction re-renders it too (F8) |
-| Determinism for review | Each task = one transcript, one prompt version | Summaries mix tasks; the Head Cat cannot tie a score to one prompt version |
+| Determinism for review | Each task = one transcript, one prompt version | Summaries mix tasks; the Cat CEO cannot tie a score to one prompt version |
 | RAM | Same (process per turn) | Same |
 
-Decision: new session per cat per task. `/clear` is not needed as a command: a new `--session-id` is the same thing (F9) and the server already owns the id. Memory that should outlive a task goes into `Lessons` through the Head Cat ([head-cat-judge.md](head-cat-judge.md)).
+Decision: new session per cat per task. `/clear` is not needed as a command: a new `--session-id` is the same thing (F9) and the server already owns the id. Memory that should outlive a task goes into `Lessons` through the Cat CEO ([cat-ceo-judge.md](cat-ceo-judge.md)).
 
 ## 4. Compaction inside a task
 
 - Each cat turn sets env `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` (F11). Reason: every tool call re-sends the prefix. At 900K context one Opus 5.5 request costs 900K × $0.20/MTok = $0.18 in cache reads alone; at 200K it costs $0.04. A turn with 40 tool calls: about $7.20 against $1.60.
 - The role survives (F6, F8). CLAUDE.md is re-injected (F6).
-- The office does not send `/compact` itself. A task that compacts is a signal: the stream shows `compact_boundary` with `trigger: "auto"`; the interpreter logs it as `CompactHappened{catId, preTokens, postTokens}` and the Head Cat sees it in its digest.
+- The office does not send `/compact` itself. A task that compacts is a signal: the stream shows `compact_boundary` with `trigger: "auto"`; the interpreter logs it as `CompactHappened{catId, preTokens, postTokens}` and the Cat CEO sees it in its digest.
 - The constant lives in `server/src/constants.ts` as `CAT_AUTO_COMPACT_WINDOW = 200_000`. Settings do not expose it.
 
 ## 5. Per-cat prompt file
 
 ### 5.1 Location and source of truth
 
-- `~/.pixel-agents/prompts/<catId>.md`, one file per cat, plus `head-cat.md` for the judge.
-- The folder is a local git repo (`git init`, no remote). Every change is one commit ([head-cat-judge.md](head-cat-judge.md) §7).
+- `~/.pixel-agents/prompts/<catId>.md`, one file per cat, plus `cat-ceo.md` for the judge.
+- The folder is a local git repo (`git init`, no remote). Every change is one commit ([cat-ceo-judge.md](cat-ceo-judge.md) §7).
 - The file is the only source of the cat's prompt text. `cats.json` drops `systemPrompt`. The wire field `CatProfile.systemPrompt` stays and carries the `Role & conduct` body, so the Cats menu contract does not change.
 
 ### 5.2 Format
@@ -78,16 +78,16 @@ Decision: new session per cat per task. `/clear` is not needed as a command: a n
 <!-- catavasia cat prompt v1 · cat: murka · do not rename the headings -->
 
 # Role & conduct
-<!-- LOCKED: only the user edits this section (Cats menu). The Head Cat never changes it. -->
+<!-- LOCKED: only the user edits this section (Cats menu). The Cat CEO never changes it. -->
 You are a careful front-end worker. ...
 
 # Rules
-<!-- The Head Cat may add, replace or remove items. One line per item. -->
+<!-- The Cat CEO may add, replace or remove items. One line per item. -->
 - [R1] Run `npm test` in your folder before you report. (task 9f2c, 2026-10-07)
 - [R2] ...
 
 # Lessons
-<!-- The Head Cat may add, replace or remove items. One line per item. -->
+<!-- The Cat CEO may add, replace or remove items. One line per item. -->
 - [L1] The webview tests need `npm run build:core` first. (task 9f2c, 2026-10-07)
 ```
 
@@ -104,14 +104,14 @@ Parser rules (`server/src/orchestrator/promptFile.ts`):
 | Role & conduct | 20,000 chars (`CAT_SYSTEM_PROMPT_MAX_CHARS`, unchanged) | Same limit as today's `systemPrompt` |
 | One Rules or Lessons item | 280 chars | One idea per line |
 | Rules | 12 items | Rules stay a short checklist |
-| Lessons | 20 items | The Head Cat must replace or remove before it adds past the cap |
+| Lessons | 20 items | The Cat CEO must replace or remove before it adds past the cap |
 | Whole file | 32 KB | Hard stop for hand edits |
 
 Rules + Lessons at the cap ≈ 32 × 280 = 9K chars ≈ 2.3K tokens. That is under 7 % of the 36K prefix (F15).
 
 ### 5.4 Who edits what
 
-| Section | User (Cats menu) | Head Cat | Hand edit on disk |
+| Section | User (Cats menu) | Cat CEO | Hand edit on disk |
 | :- | :- | :- | :- |
 | Role & conduct | Yes | Never (validator rejects) | Allowed; committed as `user(<cat>): manual edit` at next load |
 | Rules | Yes (delete an item, revert) | add / replace / remove items | Allowed, same commit rule |
@@ -125,9 +125,9 @@ At `JoinMember` (when a cat joins a task) the server composes the persona file `
 2. The cat's prompt file: `Role & conduct`, then `Rules`, then `Lessons`, headings kept.
 3. `## Office rules` (server text, `flowPrompts.ts`).
 
-The member records `promptSha` = the prompts repo `HEAD` commit for that file at join time. The Head Cat review ties scores to this sha ([head-cat-judge.md](head-cat-judge.md) §8).
+The member records `promptSha` = the prompts repo `HEAD` commit for that file at join time. The Cat CEO review ties scores to this sha ([cat-ceo-judge.md](cat-ceo-judge.md) §8).
 
-**Claude Code.** Every turn passes `--append-system-prompt-file <persona file>` (unchanged). The first request of the session records it (F2). Later turns reuse the record. A Head Cat edit made during the task does not reach the running session. It reaches the cat's next task. The Head Cat reviews after `done`, so the cat's next work is a new session anyway; in practice the edit applies at once. Cat console follow-ups on an old task session keep the old prompt. We keep the snapshot on: turning it off mid-task rebuilds the whole cache (F4) and changes behaviour inside one task.
+**Claude Code.** Every turn passes `--append-system-prompt-file <persona file>` (unchanged). The first request of the session records it (F2). Later turns reuse the record. A Cat CEO edit made during the task does not reach the running session. It reaches the cat's next task. The Cat CEO reviews after `done`, so the cat's next work is a new session anyway; in practice the edit applies at once. Cat console follow-ups on an old task session keep the old prompt. We keep the snapshot on: turning it off mid-task rebuilds the whole cache (F4) and changes behaviour inside one task.
 
 **Codex (later).** The Codex adapter passes the same composed text with `-c developer_instructions="<TOML string>"` on `codex exec` and on `codex exec resume`. Research (2026-10-06, `codex-adapter.md` in the session scratchpad, not committed): the value applied and persisted into a resumed turn. Not verified: whether a different value on resume replaces the stored one. The design does not depend on it, because the per-task text never changes inside a task. `AGENTS.md` in the cwd loads as project instructions on Codex, like CLAUDE.md on Claude.
 
