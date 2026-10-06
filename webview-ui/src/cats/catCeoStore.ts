@@ -62,8 +62,8 @@ export function createCatCeoStore(wire: Wire) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    // No local update: the server answers with catCeoSettings, or refuses.
     setSettings(patch: Partial<CeoSettings>) {
-      if (state.settings) set({ settings: { ...state.settings, ...patch } });
       wire.send({ type: 'setCatCeoSettings', ...patch });
     },
     requestHistory,

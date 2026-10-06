@@ -223,7 +223,7 @@ test('client store: settings, history and diff from the server; actions send the
   assert.equal(store.getSnapshot().history.murka[0].author, 'cat-ceo');
   assert.equal(store.getSnapshot().diffs['murka:abc'], '+- [R4] x');
   store.setSettings({ enabled: false });
-  assert.equal(store.getSnapshot().settings?.enabled, false);
+  assert.equal(store.getSnapshot().settings?.enabled, true, 'the server decides');
   store.revert('murka', 'abc');
   store.removeItem('murka', 'R4');
   store.saveItem('murka', 'Lessons', 'A fact.');

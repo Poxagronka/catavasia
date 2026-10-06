@@ -84,7 +84,10 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
             max={10}
             className={`${FIELD} text-xs`}
             value={settings.maxEditsPerCatPerDay}
-            onChange={(e) => set({ maxEditsPerCatPerDay: Number(e.target.value) })}
+            onChange={(e) => {
+              const n = e.target.valueAsNumber;
+              if (Number.isInteger(n)) set({ maxEditsPerCatPerDay: n });
+            }}
           />
         </label>
       </div>

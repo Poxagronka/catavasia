@@ -134,7 +134,8 @@ function apply(d: Draft, e: TaskEvent): Step['reply'] | void {
       if (s.review === 'reviewing') s.review = 'reviewed';
       return;
     case 'ReviewFailed':
-      if (s.review === 'reviewing') s.review = 'review_failed';
+      // A full queue fails a review before it starts.
+      if (s.review === 'reviewing' || s.review === 'review_pending') s.review = 'review_failed';
       return;
     case 'ToolActivity':
     case 'CompactHappened':

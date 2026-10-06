@@ -67,7 +67,9 @@ export function runGuard(
         `guard(${catId}): revert ${c.sha.slice(0, 7)} (score drop ${drop})`,
         'Prompt-Edit-By: guard',
       );
-      store.setFlag(c.sha, error ? 'manual review' : 'reverted');
+      // The user reverted C already: the guard has nothing left to do.
+      const undone = !error || error.startsWith('nothing to revert');
+      store.setFlag(c.sha, undone ? 'reverted' : 'manual review');
       if (!error) store.block(catId, now + CAT_CEO_GUARD_BLOCK_MS);
       done.push({ sha: c.sha, decision, ...(error ? { error } : {}) });
       continue;

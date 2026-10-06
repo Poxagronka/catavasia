@@ -150,6 +150,9 @@ export class PromptRepo {
    * not parse.
    */
   revert(catId: string, sha: string, subject: string, body?: string): string | undefined {
+    // A broken hand edit on disk is never thrown away by a revert.
+    const broken = this.read(catId).error;
+    if (broken) return `${broken}: fix the file or restore a version first`;
     this.commitHandEdit(catId);
     try {
       this.git('revert', '--no-commit', sha);

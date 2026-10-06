@@ -259,10 +259,13 @@ export class CatCeo {
         ...x,
         promptSha: shaOf(state, x.catId, x.assignmentId),
       }));
+    // A hand edit becomes its own commit first, so a Cat CEO commit (and its
+    // guard revert) holds only the judge's change; a broken file is not edited.
+    for (const catId of team) prompts.commitHandEdit(catId);
     const { patches, rejected } = planEdits(out.edits, {
       taskId: task.id,
       date: new Date(this.now).toISOString().slice(0, 10),
-      team,
+      team: team.filter((catId) => !prompts.read(catId).error),
       anomalies: out.anomalies,
       read: (catId) => prompts.read(catId).file,
       commitsLeft: (catId) => this.commitsLeft(catId),
