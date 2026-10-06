@@ -58,6 +58,7 @@ import {
   buildUserToolResultRecord,
   getClaudeProjectDir,
   seedTeamConfig,
+  requireSubagentCharacters,
 } from '../../../helpers/team';
 import {
   closeBottomPanel,
@@ -388,6 +389,7 @@ test.describe('Hooks ON / lifecycle', () => {
   test('three parallel Task subagents in one turn render distinct sub-characters @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     await waitForClaudeHookSetup(tmpHome);
@@ -457,6 +459,7 @@ test.describe('Hooks ON / lifecycle', () => {
   test('inline teammate removed from team config disappears within one second @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('teammate-removal-hooks-on');
     narrator.step('seeding a team config with a lead + one inline teammate');
@@ -519,6 +522,7 @@ test.describe('Hooks ON / lifecycle', () => {
   test('lead SessionEnd cascade-removes active inline teammates @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('lead-cascade-hooks-on');
 
@@ -674,6 +678,7 @@ test.describe('Hooks ON / lifecycle', () => {
   test('lead permission_prompt routes bubble to teammate not lead when teammates exist @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('teammate-permission-hooks-on');
 
@@ -763,6 +768,7 @@ test.describe('Hooks ON / lifecycle', () => {
   test('TeammateIdle marks only the targeted teammate done and leaves lead unchanged @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('targeted-teammate-idle-hooks-on');
 

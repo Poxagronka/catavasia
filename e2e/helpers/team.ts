@@ -1,6 +1,22 @@
 import fs from 'fs';
 import path from 'path';
 
+import { test } from '@playwright/test';
+
+import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants';
+
+/**
+ * Call first in a test that asserts sub-agent or teammate characters. The
+ * product draws one character per Claude session while
+ * SUBAGENT_CHARACTERS_ENABLED is off, so such a test has nothing to check.
+ */
+export function requireSubagentCharacters(): void {
+  test.skip(
+    !SUBAGENT_CHARACTERS_ENABLED,
+    'one character per session: sub-agent and teammate characters are off',
+  );
+}
+
 function claudeProjectDirName(workspaceDir: string): string {
   return workspaceDir.replace(/[^a-zA-Z0-9-]/g, '-');
 }

@@ -40,6 +40,7 @@ import {
   buildTeamMetadataRecord,
   buildTeammateSpawnResultRecord,
   seedTeamConfig,
+  requireSubagentCharacters,
 } from '../../../helpers/team';
 import { getPixelAgentsFrame, openPixelAgentsPanel, setSettings } from '../../../helpers/webview';
 
@@ -64,6 +65,7 @@ test.describe('Hooks ON / teams', () => {
   test('internal terminal lead with inline teammate routes tools to teammate @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     const teamName = uniqueTeamName('hooks-on-internal-inline');
@@ -121,6 +123,7 @@ test.describe('Hooks ON / teams', () => {
   test('internal terminal lead with tmux teammate routes tools to teammate @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     const teamName = uniqueTeamName('hooks-on-internal-tmux');
@@ -195,6 +198,7 @@ test.describe('Hooks ON / teams', () => {
   test('new-harness background agent becomes a named teammate character @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     // Newer harnesses (Claude 5) run every Agent spawn in the background as an
@@ -287,6 +291,7 @@ test.describe('Hooks ON / teams', () => {
   test('unnamed background spawn stays a sub-agent with live activity and survives Stop @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     // Unnamed Agent spawns (same CLI, no `name` in the input) take the async
@@ -358,6 +363,7 @@ test.describe('Hooks ON / teams', () => {
   test('named background spawn becomes a teammate and badges the spawner LEAD @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     // Same async flow, but the sidecar carries a `name` — and name is the
@@ -422,6 +428,7 @@ test.describe('Hooks ON / teams', () => {
   test('external session lead with inline teammate routes tools to teammate @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
 
     narrator.step('enabling Watch All Sessions so the external hooks-only session is adopted');
@@ -494,6 +501,7 @@ test.describe('Hooks ON / teams', () => {
   test('external session lead with tmux teammate routes tools to teammate @area:teams', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
 
     narrator.step('enabling Watch All Sessions so the external hooks-only session is adopted');
