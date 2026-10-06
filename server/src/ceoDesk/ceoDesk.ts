@@ -30,7 +30,7 @@ import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
-import { saveAttachments,type SavedAttachments } from './attachments.js';
+import { saveAttachments, type SavedAttachments } from './attachments.js';
 import { jobNotice } from './deskPrompt.js';
 import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, cardLine, DESK_MCP_NAME, type DeskToolHost, jobCard } from './deskTools.js';
