@@ -30,7 +30,16 @@ function clip(text: string): string {
 function summarizeInput(input: unknown): string {
   if (!input || typeof input !== 'object') return '';
   const rec = input as Record<string, unknown>;
-  for (const key of ['command', 'file_path', 'path', 'pattern', 'url', 'description', 'prompt']) {
+  for (const key of [
+    'command',
+    'file_path',
+    'notebook_path',
+    'path',
+    'pattern',
+    'url',
+    'description',
+    'prompt',
+  ]) {
     if (typeof rec[key] === 'string') return clip(rec[key]);
   }
   return clip(JSON.stringify(input));

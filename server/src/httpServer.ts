@@ -21,6 +21,7 @@ import {
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import type { Narrator } from './narrator/narrator.js';
 import { TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
 
@@ -50,6 +51,8 @@ export interface HttpServerOptions {
   onReloadAssets?: ReloadAssetsSideEffect;
   /** Task board runtime (standalone only). Enables the /api/tasks routes. */
   tasks?: TaskManager;
+  /** Narrator (standalone only). Sends its state to each new client. */
+  narrator?: Narrator;
 }
 
 /** Result of createHttpServer(). */
@@ -282,6 +285,7 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
           onSetHooksEnabled: options.onSetHooksEnabled,
           onReloadAssets: options.onReloadAssets,
           privileged,
+          narrator: options.narrator,
         });
       } catch {
         // Malformed JSON, ignore
