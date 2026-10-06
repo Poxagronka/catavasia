@@ -211,3 +211,6 @@ export const CAT_CEO_CHAT_EDITS_PER_DAY = 10;
 export const CAT_CEO_CHAT_REPLY_MAX_CHARS = 4000;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;
+/** Self-update: how long the old server stays up after spawning the new one,
+ *  so the open tab reads the `restarting` phase. */
+export const UPDATE_RESTART_GRACE_MS = 1500;

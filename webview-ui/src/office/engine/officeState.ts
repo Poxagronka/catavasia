@@ -1061,8 +1061,10 @@ export class OfficeState {
         const tileRow = seat.seatRow + dRow * d;
         autoOnTiles.add(`${tileCol},${tileRow}`);
       }
-      // Also check tiles to the sides of the facing direction (desks can be wide)
-      for (let d = 1; d <= AUTO_ON_SIDE_DEPTH; d++) {
+      // Also check tiles to the sides of the facing direction (desks can be wide).
+      // d = 0 is the seat row itself: a seat on a desk's background row (the
+      // Cat CEO behind the executive desk) has its laptop right beside it.
+      for (let d = 0; d <= AUTO_ON_SIDE_DEPTH; d++) {
         const baseCol = seat.seatCol + dCol * d;
         const baseRow = seat.seatRow + dRow * d;
         if (dCol !== 0) {

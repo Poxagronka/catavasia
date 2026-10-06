@@ -17,7 +17,7 @@ import { afterEach, beforeAll, beforeEach, test } from 'vitest';
 import { buildFurnitureCatalog } from '../../core/src/assets/build.ts';
 import { OfficeState } from '../src/office/engine/officeState.js';
 import { mulberry32 } from '../src/office/engine/socialMoves.js';
-import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
+import { buildDynamicCatalog, getCatalogEntry } from '../src/office/layout/furnitureCatalog.js';
 import { findPath } from '../src/office/layout/tileMap.js';
 import type { OfficeLayout } from '../src/office/types.js';
 import { CharacterState } from '../src/office/types.js';
@@ -43,8 +43,8 @@ afterEach(() => {
   Math.random = realRandom;
 });
 
-function layout(): OfficeLayout {
-  const file = path.join(ASSETS, 'default-layout-6.json');
+function layout(rev = 6): OfficeLayout {
+  const file = path.join(ASSETS, `default-layout-${rev}.json`);
   return JSON.parse(fs.readFileSync(file, 'utf-8')) as OfficeLayout;
 }
 
@@ -57,8 +57,8 @@ function runUntil(os: OfficeState, done: () => boolean, max = 60) {
 }
 
 /** The default office with `cats` plain cats and the Cat CEO as residents. */
-function office(cats: number, ceoWorking = false) {
-  const os = new OfficeState(layout());
+function office(cats: number, ceoWorking = false, rev = 6) {
+  const os = new OfficeState(layout(rev));
   for (let id = 1; id <= cats; id++) os.addAgent(id, 0, 0, undefined, true);
   os.addAgent(CEO, 0, 0, undefined, true);
   os.setResidentCats([
@@ -218,4 +218,15 @@ test('an office with no executive chair keeps the head-Area desk', () => {
   // The chair is not reserved then: any cat may take any seat.
   os.addAgent(1, 0, 0, undefined, true);
   assert.ok(os.characters.get(1)!.seatId);
+});
+
+test('revision 8: the laptop on the executive desk lights up while the Cat CEO works', () => {
+  const os = office(2, true, 8);
+  const laptop = () => os.furniture.find((f) => f.uid === 'f-ceo-laptop')!.sprite;
+  const sprite = (type: string) => getCatalogEntry(type)!.sprite;
+  runUntil(os, () => atChair(os));
+  assert.equal(laptop(), sprite('LAPTOP_BACK_ON'));
+  // The run ends: the screen goes dark.
+  os.setAgentActive(CEO, false);
+  assert.equal(laptop(), sprite('LAPTOP_BACK_OFF'));
 });
