@@ -84,18 +84,21 @@ The verifier runs the production `prepack` build, creates a tarball outside the 
 
 ### Maintainer release checklist
 
-A published GitHub Release coordinates publishing to the VS Code Marketplace, Open VSX, and npm through [`.github/workflows/publish-extension.yml`](.github/workflows/publish-extension.yml). Publishing is release-driven, not triggered by a push to `main` alone.
+catavasia publishes to npm automatically. [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml) runs on every push to `main` and on manual dispatch (**Actions → Publish npm → Run workflow**).
 
-One-time npm setup: configure the `pixel-agents` package's GitHub Actions [trusted publisher](https://docs.npmjs.com/trusted-publishers/) for `pixel-agents-hq/pixel-agents`, workflow `publish-extension.yml`, no environment, and allow `npm publish`.
-The GitHub-hosted workflow enforces Node >=22.14.0 and npm >=11.5.1 and uses OIDC (`id-token: write`); do not configure a long-lived publish token, and revoke any unused one.
+- Every merge to `main` sets the version to the previous `main` version +1 (for example, `1.4.1-cats.40` → `1.4.1-cats.41`). Set the same version in the root `package.json` and both root-version fields in `package-lock.json` (`npm version <v> --no-git-tag-version --ignore-scripts`).
+- The workflow reads the `package.json` version. When `npm view catavasia@<version>` finds it, the run stops: nothing to publish.
+- Otherwise it runs lint, check-types, format:check, `verify:npm-package` (production build + tarball smoke test), the package contract, webview tests and server tests. Then it publishes the verified tarball with `npm publish --tag latest`. Prerelease versions need `--tag latest`, else npm refuses them.
+- Auth is npm [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC, `id-token: write`, npm >=11.5.1, Node >=22.14.0). There is no npm token. Provenance is automatic.
+- A concurrency group runs one publish at a time, so two quick merges do not race.
 
-For each release:
+One-time owner setup:
 
-1. Update `CHANGELOG.md`, then set the same new version in the root `package.json` and both root-version fields in `package-lock.json`. The private workspace manifests are not released and do not receive the extension version.
-2. Run `npm ci`, `npm test`, and `npm run verify:npm-package`. Inspect the generated package if needed by manually dispatching **Publish Extension** in dry-run mode and downloading its `npm-package-*` artifact; manual dispatch never publishes to npm.
-3. Merge the release changes into `main` and wait for CI to pass.
-4. Create and publish a GitHub Release whose tag is exactly `v<package.json version>` and points to that commit on `main` (for example, `v1.4.0`). The npm job rejects a mismatched tag, ref, package identity, non-incrementing version, or changed tarball integrity.
-5. Confirm the Marketplace, Open VSX, and npm jobs succeeded, and verify the new npm version with `npm view pixel-agents version`.
+1. GitHub: open the fork's **Actions** tab and click **I understand my workflows, go ahead and enable them**. A fork runs no workflows until then.
+2. npmjs.com → package `catavasia` → **Settings** → **Trusted Publisher** → **GitHub Actions**: Organization or user `Poxagronka`, Repository `catavasia`, Workflow filename `publish-npm.yml`, Environment empty. Under **Allowed actions**, also allow `npm publish`. A configuration created after 2026-09-03 allows only `npm stage publish` by default, and a staged version waits for a manual 2FA approval.
+3. Optional: in the package **Settings → Publishing access**, select **Require two-factor authentication and disallow tokens**. Trusted publishing still works.
+
+The upstream [`publish-extension.yml`](.github/workflows/publish-extension.yml) (Marketplace, Open VSX and the upstream npm package) runs only in `pixel-agents-hq/pixel-agents`.
 
 ## Development Workflow
 

@@ -140,7 +140,7 @@ The [manual install](#manual-install) commands are plain `git` and `npm` command
 - **Settings → Check for updates** checks now. **Settings → Check for updates automatically** turns the checks off.
 - The build log is in `~/.pixel-agents/update/update-<time>.log`.
 
-**From the terminal.** Run `npm install -g catavasia@latest` to get the newest npm release. Or run the [installer](#install-from-source) line again to build the newest `main`. Your office, cats and tasks stay.
+**From the terminal.** Run `npm install -g catavasia@latest` to get the newest npm release. Each merge to `main` publishes a new npm release automatically. Or run the [installer](#install-from-source) line again to build the newest `main`. Your office, cats and tasks stay.
 
 ## Uninstall
 
