@@ -80,7 +80,8 @@ export function createServerCatsAdapter(
     }
     const full = engine === 'claude' ? { fullModelPattern: CLAUDE_FULL_MODEL } : {};
     const unavailable = found.unavailable ? { unavailable: found.unavailable } : {};
-    return { models: found.models, efforts: found.efforts, ...full, ...unavailable };
+    const status = found.status ? { status: found.status } : {};
+    return { models: found.models, efforts: found.efforts, ...full, ...unavailable, ...status };
   };
 
   const apply = (cats: CatProfile[], msg: ClientMessage) => {

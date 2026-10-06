@@ -4,6 +4,7 @@
  *   WS   /api/cat-sessions/:catId/events    snapshot, then live entries + status
  *   POST /api/cat-sessions/:catId/messages  { text } -> a new turn       [token]
  *   WS   /api/cat-sessions/:catId/terminal  "take the wheel" PTY          [token]
+ *   WS   /api/engines/:engine/login         the engine's login flow PTY   [token]
  *
  * SECURITY: a message starts a turn with NO permission prompts and the wheel
  * pipes keystrokes into a real process. Both need the same out-of-band server
@@ -12,6 +13,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import * as os from 'os';
 
 import {
   CAT_SESSION_API_PREFIX,
@@ -22,7 +24,7 @@ import {
   type WheelClientFrame,
   type WheelServerFrame,
 } from '../../../core/src/catSession.js';
-import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
+import { EDIT_RIGHTS_HINT, ENGINE_API_PREFIX } from '../../../core/src/constants.js';
 import { claudeProvider } from '../providers/index.js';
 import { CatSessionError, type CatSessionSource } from './catSessionSource.js';
 import type { PtyModuleResolution } from './ptyModule.js';
@@ -44,6 +46,11 @@ export interface CatTerminalRoutesOptions {
   pty: () => PtyModuleResolution;
   /** CLI binary override (tests). Default: the provider's launch command. */
   claudeBin?: string;
+  /** Engine login: the command per engine, and a hook when the login process ends (re-probe). */
+  engineLogin?: {
+    command(engine: string): { command: string; args: string[] } | undefined;
+    ended(engine: string): void;
+  };
 }
 
 interface CatSocket {
@@ -72,12 +79,12 @@ export function registerCatTerminalRoutes(
   options: CatTerminalRoutesOptions,
 ): void {
   const { source } = options;
-  const ptyReason = () => options.pty().reason ?? undefined;
+  if (options.engineLogin) registerEngineLoginRoute(app, options, options.engineLogin);
 
   /** Status with the PTY verdict folded in: no module means no wheel. */
   const withPty = (frame: CatSessionFrame): CatSessionFrame => {
     if (frame.type === 'entries' || frame.type === 'job') return frame;
-    const reason = frame.status.wheelUnavailable ?? ptyReason();
+    const reason = frame.status.wheelUnavailable ?? ptyReason(options);
     return { ...frame, status: { ...frame.status, wheelUnavailable: reason } };
   };
 
@@ -143,7 +150,7 @@ export function registerCatTerminalRoutes(
       }
       const { module } = options.pty();
       if (!module) {
-        sendJson(socket, { type: 'error', message: ptyReason() ?? 'No PTY module' });
+        sendJson(socket, { type: 'error', message: ptyReason(options) ?? 'No PTY module' });
         socket.close(CAT_WS_CLOSE_NOT_FOUND, 'no pty');
         return;
       }
@@ -231,6 +238,87 @@ export function registerCatTerminalRoutes(
       );
     },
   );
+}
+
+/** WS /api/engines/:engine/login: `claude auth login` / `codex login` in a PTY, for the browser login. */
+function registerEngineLoginRoute(
+  app: FastifyInstance,
+  options: CatTerminalRoutesOptions,
+  login: NonNullable<CatTerminalRoutesOptions['engineLogin']>,
+): void {
+  app.get<{ Params: { engine: string }; Querystring: { cols?: string; rows?: string } }>(
+    `${ENGINE_API_PREFIX}/:engine/login`,
+    { websocket: true },
+    (socket: CatSocket, request) => {
+      if (!options.isPrivileged(request) || !options.isSameOrigin(request)) {
+        socket.close(CAT_WS_CLOSE_UNAUTHORIZED, 'unauthorized');
+        return;
+      }
+      const { engine } = request.params;
+      const launch = login.command(engine);
+      const { module } = options.pty();
+      if (!launch || !module) {
+        const message = launch
+          ? (ptyReason(options) ?? 'No PTY module')
+          : `Unknown engine ${engine}`;
+        sendJson(socket, { type: 'error', message });
+        socket.close(CAT_WS_CLOSE_NOT_FOUND, 'no login');
+        return;
+      }
+      const env: Record<string, string> = {};
+      for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+      env.TERM = TERM_NAME;
+      let pty;
+      try {
+        pty = module.spawn(launch.command, launch.args, {
+          name: TERM_NAME,
+          cols: clampDimension(request.query.cols, DEFAULT_COLS),
+          rows: clampDimension(request.query.rows, DEFAULT_ROWS),
+          cwd: os.homedir(),
+          env,
+        });
+      } catch (err) {
+        sendJson(socket, {
+          type: 'error',
+          message: `Could not start ${launch.command}: ${String(err)}`,
+        });
+        socket.close(CAT_WS_CLOSE_BUSY, 'spawn failed');
+        return;
+      }
+      const live = pty;
+      let exited = false;
+      // Once per login: the process exit and the tab close both end it.
+      const end = () => {
+        if (exited) return;
+        exited = true;
+        login.ended(engine);
+      };
+      live.onData((data) => sendJson(socket, { type: 'output', data }));
+      live.onExit(({ exitCode }) => {
+        sendJson(socket, { type: 'exit', exitCode });
+        socket.close(1000, 'exited');
+        end();
+      });
+      socket.on('message', (raw) => {
+        const frame = parseClientFrame(raw.toString());
+        if (frame?.type === 'input') live.write(frame.data);
+        else if (frame) live.resize(frame.cols, frame.rows);
+      });
+      socket.on('close', () => {
+        if (exited) return;
+        try {
+          live.kill();
+        } catch {
+          // Already gone.
+        }
+        end();
+      });
+    },
+  );
+}
+
+function ptyReason(options: CatTerminalRoutesOptions): string | undefined {
+  return options.pty().reason ?? undefined;
 }
 
 function clampDimension(raw: string | undefined, fallback: number): number {

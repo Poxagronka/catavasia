@@ -142,6 +142,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
       isPrivileged,
       isSameOrigin: (req) => isAllowedWebSocketOrigin(req.headers.origin, req.headers.host),
       pty: ptyModule,
+      ...(options.orchestrator ? { engineLogin: options.orchestrator.engineLogin } : {}),
     });
   }
 

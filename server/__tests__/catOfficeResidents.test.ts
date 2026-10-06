@@ -231,6 +231,7 @@ describe('resident cats', () => {
     expect(targets.find((t) => t.id === 'team')).toEqual({
       id: 'team',
       label: 'Team: Oliver leads',
+      engine: 'claude',
     });
     expect(targets.find((t) => t.id === 'codex')?.disabled).toBe('codex has no adapter');
     expect(targets.find((t) => t.id === 'murka')?.disabled).toBeUndefined();

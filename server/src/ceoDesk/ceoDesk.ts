@@ -3,10 +3,8 @@
  * one live CEO conversation per office. Each user message is one turn of a
  * resumable Claude session in a stable cwd (cat-ceo/chats/<chatId>/). The CEO
  * answers itself or starts jobs (team tasks) with its desk tools; when a job
- * ends, a job notice with the full result becomes the CEO's next turn.
- *
- * One turn at a time: messages and notices wait in `pending` for the next
- * turn (not the TurnScheduler). The chat uses the `cat-ceo` session socket.
+ * ends, a job notice with the full result becomes the CEO's next turn. One
+ * turn at a time: messages and notices wait in `pending` (no TurnScheduler).
  */
 
 import { EventEmitter } from 'events';
@@ -19,6 +17,7 @@ import type {
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
+import { toConsoleEntry } from '../catTerminal/catSessionSource.js';
 import {
   CAT_CEO_DIR,
   CAT_CEO_ID,
@@ -27,6 +26,7 @@ import {
   CEO_DESK_HISTORY_MAX,
 } from '../constants.js';
 import type { EngineAdapter, TurnHandle, TurnOutcome } from '../orchestrator/engineAdapter.js';
+import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
@@ -217,12 +217,14 @@ export class CeoDesk implements OfficeToolHandler {
   private pump(): void {
     if (this.turn || !this.state.pending.length || !this.mcpUrl) return;
     const { adapter, office } = this.opts;
-    const unavailable = adapter.choices().unavailable;
-    if (unavailable) {
-      // TODO(preflight): show the engine's notReadyReason / actionableMessage.
+    const missing = adapter.choices().unavailable;
+    const down = missing
+      ? `${missing}.`
+      : office.notReady('claude') && office.engineDown('claude', false);
+    if (down) {
       this.state.pending = [];
       this.store.save(this.state);
-      this.add({ kind: 'error', text: `The CEO cannot answer: ${unavailable}.` });
+      this.add({ kind: 'error', text: `The CEO cannot answer: ${down}` });
       this.statusChanged();
       return;
     }
@@ -274,11 +276,7 @@ export class CeoDesk implements OfficeToolHandler {
     if (entry.kind !== 'tool' && entry.kind !== 'error') return;
     if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
     turn.held = undefined;
-    this.add(
-      entry.kind === 'tool'
-        ? { kind: 'tool', name: entry.name ?? 'Tool', text: entry.text }
-        : { kind: 'error', text: entry.text },
-    );
+    this.add(toConsoleEntry(entry));
   }
 
   private finishTurn(turn: Turn, outcome: TurnOutcome): void {
@@ -295,7 +293,9 @@ export class CeoDesk implements OfficeToolHandler {
         const text = outcome.ok ? (outcome.text ?? turn.held) : turn.held;
         if (text) this.add({ kind: 'text', text });
         if (!outcome.ok) {
-          this.add({ kind: 'error', text: `The CEO could not answer: ${outcome.error}` });
+          const auth = isAuthError(outcome.error);
+          const fix = auth ? ` ${this.opts.office.engineDown('claude', true)}` : '';
+          this.add({ kind: 'error', text: `The CEO could not answer: ${outcome.error}${fix}` });
         }
       }
       this.store.save(this.state);

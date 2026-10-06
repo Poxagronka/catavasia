@@ -132,7 +132,11 @@ export class OfficeCatSource implements CatSessionSource {
     this.office.consoles.statusChanged();
     // Claude cats keep the route's default (the provider's launch command).
     const profile = this.office.cats.get(cat);
-    const adapter = profile?.engine !== 'claude' && profile && this.office.adapterFor(profile);
+    // The raw adapter, not adapterFor(): a logged-out Codex cat still resumes with codex.
+    const adapter =
+      profile?.engine !== 'claude' &&
+      profile &&
+      this.office.opts.adapters.find((a) => a.engine === profile.engine);
     return {
       ...member,
       ...(adapter ? { launch: adapter.interactiveResumeCommand(member.sessionId) } : {}),

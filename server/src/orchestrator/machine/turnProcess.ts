@@ -13,6 +13,7 @@ import { taskLogInput } from '../../narrator/narrator.js';
 import type { StoredTask } from '../../taskBoard/taskStore.js';
 import { breedPalette } from '../catResidents.js';
 import type { CompactInfo, TurnHandle } from '../engineAdapter.js';
+import { isAuthError } from '../engineStatus.js';
 import { chatLines } from '../flowPrompts.js';
 import type { RunnerHost } from './interpreter.js';
 import type { Effect, TaskEvent } from './types.js';
@@ -66,8 +67,10 @@ export function spawnTurn(
   );
   const started: TaskEvent = { type: 'TurnStarted', catId: fx.catId, turnId: fx.turnId, agentId };
   let handle: TurnHandle;
+  const adapter = host.adapterFor(cat);
   try {
-    handle = host.adapterFor(cat)!.spawnTurn({
+    if (!adapter) throw new Error(host.engineDown(cat.engine, false));
+    handle = adapter.spawnTurn({
       sessionId: fx.sessionId,
       resume: fx.resume,
       cwd: fx.cwd,
@@ -77,6 +80,8 @@ export function spawnTurn(
       mcpConfigFile: ctx.mcpConfigFile,
       message: fx.message,
       onLog: (entry) => {
+        // "Not logged in" lines: the error row below says it once, with the fix.
+        if (entry.kind !== 'tool' && isAuthError(entry.text)) return;
         const name = entry.kind === 'tool' ? `${cat.name}: ${entry.name}` : cat.name;
         appendTaskLog(task, { ...entry, name });
         consoles.push(fx.catId, toConsoleEntry(entry));
@@ -95,13 +100,17 @@ export function spawnTurn(
     residents.turnEnded(fx.catId);
     ctx.dispatch(started);
     const error = err instanceof Error ? err.message : String(err);
-    const result = { ok: false, error, sessionStarted: false };
+    const result = { ok: false, error, sessionStarted: false, engineDown: !adapter };
     ctx.dispatch({ type: 'TurnFinished', catId: fx.catId, turnId: fx.turnId, result });
     return;
   }
   ctx.handles.set(fx.catId, handle);
   ctx.dispatch(started);
-  void handle.done.then((outcome) => {
+  void handle.done.then((raw) => {
+    const authFailed = !raw.ok && isAuthError(raw.error);
+    const outcome = authFailed
+      ? { ...raw, error: host.engineDown(cat.engine, true), engineDown: true }
+      : raw;
     ctx.handles.delete(fx.catId);
     residents.turnEnded(fx.catId);
     if (!outcome.ok) {

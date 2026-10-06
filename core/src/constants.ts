@@ -38,3 +38,20 @@ export const TRANSPORT_STATE_CONNECTING = 'connecting';
 export const TRANSPORT_STATE_CONNECTED = 'connected';
 export const TRANSPORT_STATE_RECONNECTING = 'reconnecting';
 export const TRANSPORT_STATE_DISCONNECTED = 'disconnected';
+
+// ── Engines ──────────────────────────────────────────────────
+
+/** npm install command of each engine CLI (package names checked with `npm view`, 2026-10-06). */
+export const ENGINE_INSTALL_COMMANDS = {
+  claude: 'npm install -g @anthropic-ai/claude-code',
+  codex: 'npm install -g @openai/codex',
+} as const;
+
+/** Login command of each engine CLI (from `claude auth --help` and `codex --help`). */
+export const ENGINE_LOGIN_COMMANDS = {
+  claude: ['claude', 'auth', 'login'],
+  codex: ['codex', 'login'],
+} as const;
+
+/** WS /api/engines/:engine/login runs the engine's login flow in a PTY (server token). */
+export const ENGINE_API_PREFIX = '/api/engines';

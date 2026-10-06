@@ -111,9 +111,12 @@ describe('CEO desk turns', () => {
     env = await startDeskOffice(() => ({ ok: false, error: 'Not logged in' }));
     env.desk.send('hi');
     await deskIdle(env.desk);
-    expect(env.desk.snapshot().entries.at(-1)).toEqual({
+    // An auth error also says how to log in (engine preflight).
+    expect(env.desk.snapshot().entries.at(-1)).toMatchObject({
       kind: 'error',
-      text: 'The CEO could not answer: Not logged in',
+      text: expect.stringMatching(
+        /^The CEO could not answer: Not logged in Claude Code is not logged in\. Press Log in/,
+      ),
     });
   });
 

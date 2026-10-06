@@ -1,3 +1,4 @@
+import type { CatEngine as Engine } from '../../../../core/src/messages.js';
 import type { TaskStatus, TaskSummary, TaskTarget } from '../../../../core/src/tasks.js';
 import { CAT_NAMES } from '../../constants.js';
 
@@ -34,9 +35,27 @@ export const STATUS_CLASS: Record<TaskStatus, string> = {
   error: 'text-status-error',
 };
 
-/** A new task goes to the team (its boss delegates down the hierarchy) when there are cats. */
+/**
+ * A new task goes to the team (its boss delegates down the hierarchy) when
+ * there are cats. Also when the team cannot run now: the form then says why
+ * and how to fix it, instead of a silent switch to a plain run.
+ */
 export function defaultTarget(targets: TaskTarget[]): string {
-  return targets.some((t) => t.id === 'team' && !t.disabled) ? 'team' : '';
+  return targets.some((t) => t.id === 'team') ? 'team' : '';
+}
+
+/**
+ * Why the chosen target cannot start now (its engine is missing or logged
+ * out), and that engine. A plain run (`''`) needs Claude Code.
+ */
+export function startBlocker(
+  targets: TaskTarget[],
+  target: string,
+  claudeProblem: string | null,
+): { reason: string; engine: Engine } | null {
+  if (!target) return claudeProblem ? { reason: claudeProblem, engine: 'claude' } : null;
+  const chosen = targets.find((t) => t.id === target);
+  return chosen?.disabled ? { reason: chosen.disabled, engine: chosen.engine ?? 'claude' } : null;
 }
 
 /** The Cat CEO review badge of a task card: short text and its hover text. */

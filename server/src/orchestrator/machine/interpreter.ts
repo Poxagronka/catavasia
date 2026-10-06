@@ -42,6 +42,8 @@ export interface RunnerHost {
   readonly consoles: CatConsoles;
   mcpUrl(): string;
   adapterFor(cat: CatProfile): EngineAdapter | undefined;
+  /** The engine cannot run (logged out when `authFailed`): what is wrong and how to fix it. */
+  engineDown(engine: CatProfile['engine'], authFailed: boolean): string;
   /** The persona file text of a cat (context-policy.md §6) and its prompt commit. */
   persona(cat: CatProfile): { text: string; sha?: string };
   emit(message: ServerMessage): void;

@@ -327,6 +327,11 @@ export function handleClientMessage(
       break;
     }
 
+    case 'checkEngines':
+      // Read-only (runs `--version` and the status commands): no token needed.
+      void ctx.orchestrator?.checkEngines();
+      break;
+
     case 'setHooksInfoShown':
       adapter?.setSetting(KEY_HOOKS_INFO_SHOWN, true);
       break;

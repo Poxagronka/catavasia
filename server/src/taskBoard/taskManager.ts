@@ -23,6 +23,7 @@ import {
   TASKS_FILE_NAME,
 } from '../constants.js';
 import { taskLogInput } from '../narrator/narrator.js';
+import { isAuthError } from '../orchestrator/engineStatus.js';
 import { claudeProvider } from '../providers/index.js';
 import { isProcessRunning } from '../server.js';
 import {
@@ -74,6 +75,10 @@ export interface TaskFlowRunner {
   resume(task: StoredTask, sink: FlowSink): void;
   /** Cancel a running or interrupted team task. */
   cancel(task: StoredTask, sink: FlowSink): void;
+  /** The lead's engine (claude for a plain run) is not ready: what is wrong and how to fix it. */
+  preflight(target?: string): Promise<string | undefined>;
+  /** A run failed: the engine cannot run (logged out when `authFailed`). Returns the message. */
+  engineDown(engine: 'claude', authFailed: boolean): string;
   dispose(): void;
 }
 
@@ -242,6 +247,13 @@ export class TaskManager {
       log: [],
       ...(job?.chatId ? { chatId: job.chatId } : {}),
     };
+
+    // Nothing spawns while the engine is missing or logged out: the task fails now, with the fix.
+    const problem = await flows?.preflight(target);
+    if (problem) {
+      if (target !== undefined) task.target = target;
+      return this.fail(task, problem);
+    }
 
     let agentCwd = cwd;
     const repo = await inspectRepo(cwd);
@@ -533,6 +545,8 @@ export class TaskManager {
 
   private onStreamLine(run: RunningTask, line: string): void {
     const parsed = parseStreamLine(line);
+    // "Not logged in" lines: the error row at the end says it once, with the fix.
+    parsed.log = parsed.log.filter((e) => e.kind === 'tool' || !isAuthError(e.text));
     if (parsed.result) run.result = parsed.result;
     this.narrateLine(run.task.agentId, parsed);
     const log = run.task.log;
@@ -566,6 +580,8 @@ export class TaskManager {
       task.error = result?.isError
         ? (result.text ?? 'The run reported an error')
         : `Exit code ${code ?? 'none'}: ${run.stderr.trim() || 'no output'}`;
+      if (isAuthError(task.error))
+        task.error = this.opts.flows?.engineDown('claude', true) ?? task.error;
     }
     if (worktreeError) task.error = task.error ? `${task.error}\n${worktreeError}` : worktreeError;
     task.finishedAt = Date.now();

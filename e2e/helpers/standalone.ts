@@ -46,6 +46,8 @@ export interface LaunchStandaloneOptions {
    *  they are the only ones that want the dialog. Never overwrites a
    *  config.json that already exists (a shared HOME was seeded by its owner). */
   seedHooksConsent?: boolean;
+  /** A folder put first on the host's PATH (fake engine CLIs: engines.spec.ts). */
+  pathPrepend?: string;
 }
 
 function delay(ms: number): Promise<void> {
@@ -101,6 +103,7 @@ function spawnStandaloneHost(args: {
   homeDir: string;
   hostPort: number;
   workspaceDir: string;
+  pathPrepend?: string;
 }): ChildProcessWithoutNullStreams {
   if (!fs.existsSync(STANDALONE_CLI)) {
     throw new Error(
@@ -116,6 +119,9 @@ function spawnStandaloneHost(args: {
         ...process.env,
         HOME: args.homeDir,
         USERPROFILE: args.homeDir,
+        ...(args.pathPrepend
+          ? { PATH: `${args.pathPrepend}${path.delimiter}${process.env.PATH ?? ''}` }
+          : {}),
       },
       stdio: 'pipe',
     },
@@ -248,7 +254,12 @@ export async function launchStandalone(
   let hostStdout = '';
   let hostStderr = '';
   function spawnAndAttach(): ChildProcessWithoutNullStreams {
-    const proc = spawnStandaloneHost({ homeDir: tmpHome, hostPort, workspaceDir });
+    const proc = spawnStandaloneHost({
+      homeDir: tmpHome,
+      hostPort,
+      workspaceDir,
+      pathPrepend: options.pathPrepend,
+    });
     proc.stdout.on('data', (chunk) => {
       hostStdout += chunk.toString();
     });

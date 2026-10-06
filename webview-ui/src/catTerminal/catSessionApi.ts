@@ -12,6 +12,7 @@ import {
   type WheelClientFrame,
   type WheelServerFrame,
 } from '../../../core/src/catSession.js';
+import { ENGINE_API_PREFIX } from '../../../core/src/constants.js';
 import { sessionToken } from '../sessionToken.js';
 import { wheelBlocker } from './consoleState.js';
 
@@ -44,6 +45,12 @@ export interface CatSessionApi {
   takeWheel(catId: string, size: { cols: number; rows: number }, h: WheelHandlers): WheelConnection;
   /** Close the PTY: the server ends the process and frees the session. */
   releaseWheel(catId: string): void;
+  /** Open an engine's login flow (`claude auth login`, `codex login`) in a PTY. */
+  openLogin(
+    engine: string,
+    size: { cols: number; rows: number },
+    h: WheelHandlers,
+  ): WheelConnection & { close(): void };
 }
 
 const RECONNECT_MS = 1500;
@@ -51,6 +58,39 @@ const RECONNECT_MS = 1500;
 function wsUrl(path: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}${path}`;
+}
+
+/** One PTY socket: output, exit and error frames in; input and resize frames out. */
+function openPty(
+  url: string,
+  h: WheelHandlers,
+  onClosed: (socket: WebSocket) => void,
+): { socket: WebSocket; connection: WheelConnection } {
+  const socket = new WebSocket(wsUrl(url));
+  socket.onmessage = (event: MessageEvent) => {
+    const frame = JSON.parse(String(event.data)) as WheelServerFrame;
+    if (frame.type === 'output') h.onOutput(frame.data);
+    else if (frame.type === 'exit') h.onExit(frame.exitCode);
+    else h.onError(frame.message);
+  };
+  socket.onclose = () => {
+    onClosed(socket);
+    h.onClose();
+  };
+  const sendFrame = (frame: WheelClientFrame) => {
+    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
+  };
+  return {
+    socket,
+    connection: {
+      write: (data) => sendFrame({ type: 'input', data }),
+      resize: (cols, rows) => sendFrame({ type: 'resize', cols, rows }),
+    },
+  };
+}
+
+function ptyQuery(size: { cols: number; rows: number }): string {
+  return `token=${encodeURIComponent(sessionToken ?? '')}&cols=${size.cols}&rows=${size.rows}`;
 }
 
 function catPath(catId: string, leaf: string): string {
@@ -118,26 +158,21 @@ function createCatSessionApi(): CatSessionApi {
 
     takeWheel(catId, size, h) {
       wheels.get(catId)?.close();
-      const query = `token=${encodeURIComponent(sessionToken ?? '')}&cols=${size.cols}&rows=${size.rows}`;
-      const socket = new WebSocket(wsUrl(`${catPath(catId, 'terminal')}?${query}`));
+      const { socket, connection } = openPty(
+        `${catPath(catId, 'terminal')}?${ptyQuery(size)}`,
+        h,
+        (closed) => {
+          if (wheels.get(catId) === closed) wheels.delete(catId);
+        },
+      );
       wheels.set(catId, socket);
-      socket.onmessage = (event: MessageEvent) => {
-        const frame = JSON.parse(String(event.data)) as WheelServerFrame;
-        if (frame.type === 'output') h.onOutput(frame.data);
-        else if (frame.type === 'exit') h.onExit(frame.exitCode);
-        else h.onError(frame.message);
-      };
-      socket.onclose = () => {
-        if (wheels.get(catId) === socket) wheels.delete(catId);
-        h.onClose();
-      };
-      const sendFrame = (frame: WheelClientFrame) => {
-        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
-      };
-      return {
-        write: (data) => sendFrame({ type: 'input', data }),
-        resize: (cols, rows) => sendFrame({ type: 'resize', cols, rows }),
-      };
+      return connection;
+    },
+
+    openLogin(engine, size, h) {
+      const url = `${ENGINE_API_PREFIX}/${encodeURIComponent(engine)}/login?${ptyQuery(size)}`;
+      const { socket, connection } = openPty(url, h, () => {});
+      return { ...connection, close: () => socket.close() };
     },
 
     releaseWheel(catId) {

@@ -138,7 +138,7 @@ describe('desk tools', () => {
     await deskIdle(env.desk);
     expect(env.ceo.replies[0]).toEqual({
       isError: true,
-      text: 'Oliver cannot work now: codex has no adapter.',
+      text: 'Oliver cannot work now. codex has no adapter',
     });
     expect(env.tasks.list()).toEqual([]);
   });

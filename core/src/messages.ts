@@ -103,7 +103,8 @@ export type ClientMessage =
   | RestorePromptVersion
   | RemovePromptItem
   | SavePromptItem
-  | TidyPrompt;
+  | TidyPrompt
+  | CheckEngines;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -282,6 +283,14 @@ export interface EngineOptions {
   models: string[];
   efforts: string[];
   unavailable?: string;
+  status?: EngineStatus;
+}
+
+export interface EngineStatus {
+  installed: boolean;
+  version?: string;
+  loggedIn?: boolean;
+  detail?: string;
 }
 
 export interface CatProfileSaved {
@@ -886,4 +895,8 @@ export interface SavePromptItem {
 export interface TidyPrompt {
   type: 'tidyPrompt';
   catId: string;
+}
+
+export interface CheckEngines {
+  type: 'checkEngines';
 }

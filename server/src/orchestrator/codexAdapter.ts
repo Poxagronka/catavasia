@@ -19,6 +19,7 @@
 import { execFileSync, spawn } from 'child_process';
 import * as fs from 'fs';
 
+import type { EngineStatus } from '../../../core/src/messages.js';
 import type { EngineChoices } from './catProfiles.js';
 import { parseCodexLine } from './codexEvents.js';
 import type {
@@ -28,6 +29,7 @@ import type {
   TurnOutcome,
   TurnRequest,
 } from './engineAdapter.js';
+import { probeEngine } from './engineStatus.js';
 
 const STDERR_TAIL_CHARS = 2000;
 /** The child env var that carries the office MCP token. */
@@ -115,6 +117,10 @@ export class CodexAdapter implements EngineAdapter {
   }
 
   /** Read back by spawnTurn: Codex takes the server as `-c` overrides, not a file. */
+  probeStatus(): Promise<EngineStatus> {
+    return probeEngine('codex', this.bin);
+  }
+
   mcpConfig(endpoint: OfficeMcpEndpoint): string {
     return JSON.stringify(endpoint);
   }

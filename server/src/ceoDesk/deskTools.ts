@@ -149,8 +149,9 @@ async function startJob(
   const to = arg(args, 'to') ?? 'team';
   const lead = host.office.resolveTarget(to);
   if (!lead) return fail(`Unknown cat: ${to}. Call list_team for the ids.`);
-  const blocked = engineBlocker(host.office, lead);
-  if (blocked) return fail(blocked);
+  // Preflight: the lead's engine must be installed and logged in (no failed task is stored).
+  const blocked = (await host.office.preflight(to)) ?? host.office.notReady(lead.engine);
+  if (blocked) return fail(`${lead.name} cannot work now. ${blocked}`);
   const running = host.liveJobs().filter((id) => host.tasks.get(id)?.status === 'running');
   if (running.length >= CEO_DESK_MAX_LIVE_JOBS) {
     return fail(
@@ -197,17 +198,6 @@ async function startJob(
     if (err instanceof TaskInputError) return fail(err.message);
     throw err;
   }
-}
-
-/**
- * Why the lead's engine cannot run now. TODO(preflight): when
- * feat/engine-preflight lands, return its notReadyReason / actionableMessage
- * for the lead's engine here (not installed, not logged in).
- */
-function engineBlocker(office: Orchestrator, lead: CatProfile): string | undefined {
-  if (office.adapterFor(lead)) return undefined;
-  const reason = office.catalog()[lead.engine]?.unavailable ?? `${lead.engine} has no adapter`;
-  return `${lead.name} cannot work now: ${reason}.`;
 }
 
 function chatTask(host: DeskToolHost, jobId: string | undefined): TaskDetail | string {
