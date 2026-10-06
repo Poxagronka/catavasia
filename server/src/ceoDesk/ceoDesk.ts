@@ -16,6 +16,7 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
+import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import {
   CAT_CEO_DIR,
@@ -29,6 +30,7 @@ import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
+import { saveAttachments,type SavedAttachments } from './attachments.js';
 import { jobNotice } from './deskPrompt.js';
 import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, cardLine, DESK_MCP_NAME, type DeskToolHost, jobCard } from './deskTools.js';
@@ -113,10 +115,20 @@ export class CeoDesk implements OfficeToolHandler {
     return this.state.folder;
   }
 
+  /** Save the files of a message in this chat (attachments.ts checks the limits). */
+  saveAttachments(uploads: CeoAttachmentUpload[]): SavedAttachments | { error: string } {
+    return saveAttachments(this.store.chatDir(this.state.chatId), this.state.chatId, uploads);
+  }
+
   /** A user message. Returns how many messages and notices wait for the next turn. */
-  send(text: string): number {
-    this.add({ kind: 'user', text });
-    this.state.pending.push({ kind: 'user', text });
+  send(text: string, files?: SavedAttachments): number {
+    const attachments = files?.attachments.length ? { attachments: files.attachments } : {};
+    this.add({ kind: 'user', text, ...attachments });
+    this.state.pending.push({
+      kind: 'user',
+      text: [text, ...(files?.lines ?? [])].filter(Boolean).join('\n'),
+      ...(files?.images.length ? { images: files.images } : {}),
+    });
     this.store.save(this.state);
     this.statusChanged();
     this.pump();
@@ -275,7 +287,8 @@ export class CeoDesk implements OfficeToolHandler {
         if (!outcome.ok) {
           const auth = isAuthError(outcome.error);
           const fix = auth ? ` ${this.opts.office.engineDown('claude', true)}` : '';
-          this.add({ kind: 'error', text: `The CEO could not answer: ${outcome.error}${fix}` });
+          const text = `The CEO could not answer: ${outcome.error}${fix}`;
+          this.add({ kind: 'error', text, ...(auth ? { login: true } : {}) });
         }
       }
       this.store.save(this.state);

@@ -6,7 +6,7 @@
 import type { CatSessionEntry } from '../../../core/src/catSession.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import { toConsoleEntry } from '../catTerminal/catSessionSource.js';
-import { CAT_CEO_ID } from '../constants.js';
+import { CAT_CEO_ID, CEO_DESK_TURN_BUDGET_USD } from '../constants.js';
 import type { EngineAdapter, TurnHandle } from '../orchestrator/engineAdapter.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { deskPersona, turnMessage, userPart } from './deskPrompt.js';
@@ -34,7 +34,11 @@ export interface DeskTurnInput {
   onLog: (entry: TaskLogEntry) => void;
 }
 
-/** Start the Claude turn that answers the queued parts. */
+/**
+ * Start the Claude turn that answers the queued parts. The CEO may read the
+ * work folder (--add-dir) but never edits files itself (the team does). It has
+ * the user's own MCP servers, like their terminal; the cats stay strict.
+ */
 export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
   const { adapter, office, store, state, mcpUrl, parts, onLog } = input;
   const message = turnMessage(
@@ -57,6 +61,15 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     systemPromptFile,
     mcpConfigFile,
     message,
+    images: parts.flatMap((p) => p.images ?? []),
+    extraArgs: [
+      ...(state.folder ? ['--add-dir', state.folder] : []),
+      '--disallowedTools',
+      'Edit,Write,NotebookEdit',
+      '--max-budget-usd',
+      String(CEO_DESK_TURN_BUDGET_USD),
+    ],
+    userMcp: true,
     onLog,
   });
 }

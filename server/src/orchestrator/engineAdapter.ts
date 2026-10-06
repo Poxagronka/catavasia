@@ -26,6 +26,12 @@ export interface TurnRequest {
   mcpConfigFile: string;
   /** The user message of this turn. */
   message: string;
+  /** Image files the message carries (PNG, JPEG, GIF, WebP). */
+  images?: string[];
+  /** CLI arguments after the adapter's own (Claude only). */
+  extraArgs?: string[];
+  /** Keep the user's own MCP servers beside the office server (Claude only). */
+  userMcp?: boolean;
   /** Activity-log lines as they stream. */
   onLog?: (entry: TaskLogEntry) => void;
   /**

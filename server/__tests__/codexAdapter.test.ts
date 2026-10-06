@@ -160,6 +160,22 @@ describe('codex adapter', () => {
     expect(tomlString('a\u007fb')).toBe('"a\\u007Fb"');
   });
 
+  it('attaches each image with -i before the other flags (also on resume)', () => {
+    const req = { sessionId: 'abc', resume: true, model: 'm', images: ['/a.png', '/b.jpg'] };
+    const args = codexTurnArgs(req as TurnRequest, '', 'http://h/mcp');
+    expect(args.slice(0, 8)).toEqual([
+      'exec',
+      'resume',
+      'abc',
+      '-i',
+      '/a.png',
+      '-i',
+      '/b.jpg',
+      '--json',
+    ]);
+    expect(args.at(-1)).toBe('-');
+  });
+
   async function runTurn(replay: string, resume = false) {
     process.env.FAKE_CODEX_REPLAY = fixture(replay);
     const persona = path.join(tmp, 'kodi.md');
