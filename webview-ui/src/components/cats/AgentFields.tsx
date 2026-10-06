@@ -37,13 +37,13 @@ export function Select({
   );
 }
 
-/** Engine labels; an engine the server cannot run yet says so. */
+/** Engine labels; an engine the server cannot run says why ("Codex CLI not found"). */
 function engineLabels(): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(ENGINE_LABELS).map(([engine, label]) => [
-      engine,
-      catsApi.engineOptions(engine as Engine).unavailable ? `${label} (adapter not ready)` : label,
-    ]),
+    Object.entries(ENGINE_LABELS).map(([engine, label]) => {
+      const reason = catsApi.engineOptions(engine as Engine).unavailable;
+      return [engine, reason ? `${label} (${reason})` : label];
+    }),
   );
 }
 

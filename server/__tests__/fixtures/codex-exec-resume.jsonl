@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"01a1123e-0257-7ce1-9048-a6d216302ae6"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"file_change","changes":[{"path":"/tmp/repo/b.txt","kind":"add"}],"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"file_change","changes":[{"path":"/tmp/repo/b.txt","kind":"add"}],"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"world"}}
+{"type":"turn.completed","usage":{"input_tokens":70348,"cached_input_tokens":54272,"cache_write_input_tokens":0,"output_tokens":363,"reasoning_output_tokens":127}}

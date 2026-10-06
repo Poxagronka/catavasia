@@ -91,8 +91,15 @@ export class ClaudeAdapter implements EngineAdapter {
         const help = execFileSync(this.bin, ['--help'], { encoding: 'utf-8', timeout: 15_000 });
         this.cachedChoices = parseClaudeHelp(help);
       } catch (err) {
-        console.error(`[Pixel Agents] Cats: could not read \`${this.bin} --help\`: ${err}`);
-        return { models: [], efforts: [], fullModelPattern: FULL_MODEL_PATTERN };
+        const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
+        if (!missing)
+          console.error(`[Pixel Agents] Cats: could not read \`${this.bin} --help\`: ${err}`);
+        return {
+          models: [],
+          efforts: [],
+          fullModelPattern: FULL_MODEL_PATTERN,
+          ...(missing ? { unavailable: 'Claude Code CLI not found' } : {}),
+        };
       }
     }
     return this.cachedChoices;

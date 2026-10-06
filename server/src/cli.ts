@@ -44,6 +44,7 @@ import { FileStateAdapter } from './fileStateAdapter.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
 import { Narrator } from './narrator/narrator.js';
 import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
+import { CodexAdapter } from './orchestrator/codexAdapter.js';
 import { Orchestrator } from './orchestrator/orchestrator.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { isProcessRunning, PixelAgentsServer } from './server.js';
@@ -195,7 +196,7 @@ async function main(): Promise<void> {
     const orchestrator = new Orchestrator({
       host: runtime,
       stateDir,
-      adapters: [new ClaudeAdapter()],
+      adapters: [new ClaudeAdapter(), new CodexAdapter()],
       emit: (message) => store.broadcast({ ...message }),
       turnConcurrency:
         parseTurnConcurrency(adapter.getSetting('pixel-agents.turnConcurrency', undefined)) ??

@@ -145,6 +145,8 @@ export interface TurnResult {
   sessionCostUsd?: number;
   usage?: StreamUsage;
   sessionStarted: boolean;
+  /** The engine chose the session id (Codex): the member resumes this one. */
+  sessionId?: string;
 }
 
 export type TaskEvent =

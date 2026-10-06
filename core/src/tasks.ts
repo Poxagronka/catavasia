@@ -96,7 +96,7 @@ export interface TaskTarget {
   /** `team` or a cat id. */
   id: string;
   label: string;
-  /** Why this choice cannot run now (a Codex cat: no adapter yet). */
+  /** Why this choice cannot run now (its engine CLI is missing: "Codex CLI not found"). */
   disabled?: string;
 }
 

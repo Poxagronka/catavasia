@@ -5,7 +5,7 @@
  * starts (or resumes) the cat's session, reads one user message, streams its
  * events, and exits. The prompt cache lives on the provider side, so a resumed
  * session keeps it while its TTL holds (measured: docs/catavasia/ROADMAP.md).
- * Claude Code is the first adapter; Codex is reserved (`CatEngine`).
+ * Adapters: Claude Code (`claudeAdapter.ts`) and Codex (`codexAdapter.ts`).
  */
 
 import type { CatEngine } from '../../../core/src/messages.js';
@@ -28,9 +28,18 @@ export interface TurnRequest {
   message: string;
   /** Activity-log lines as they stream. */
   onLog?: (entry: TaskLogEntry) => void;
+  /**
+   * A tool started or ended, for an engine whose activity the office sees
+   * only in this stream (Codex). Claude cats show tools from hooks and the
+   * transcript instead, so the Claude adapter never calls it.
+   */
+  onActivity?: (activity: ToolActivity) => void;
   /** The engine compacted the conversation (Claude: `system/compact_boundary`). */
   onCompact?: (info: CompactInfo) => void;
 }
+
+export type ToolActivity =
+  { toolId: string; toolName: string; status: string } | { toolId: string; done: true };
 
 export interface CompactInfo {
   trigger: string;
@@ -49,6 +58,8 @@ export interface TurnOutcome {
   error?: string;
   /** The CLI created or resumed the session (a later turn can resume it). */
   sessionStarted: boolean;
+  /** The engine chose the session id itself (Codex): later turns resume this one. */
+  sessionId?: string;
 }
 
 export interface TurnHandle {
