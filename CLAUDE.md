@@ -329,6 +329,8 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
 
 **Tripwire**: `.gitignore` ignores every `tasks/` directory — a folder named `tasks` is silently untracked AND skipped by Tailwind's class scan. That is why the folders are named `taskBoard`.
 
+**Narrator** (`server/src/narrator/`, contract `core/src/narrator.ts`): task board events → Russian hover lines (templates) + batched one-shot Haiku summaries every 10 s. Tripwire: its WS messages are NOT in `core/asyncapi.yaml` yet; every Haiku sentence must pass the server-side evidence check. Decisions: docs/catavasia/ROADMAP.md, "Narrator decisions".
+
 ## Persistence
 
 ```
@@ -339,7 +341,7 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
   layout.json              OfficeLayout (shared across surfaces)
   server.json              { port, pid, authToken }
   tasks.json               Task board tasks (all standalone servers)
-  cats.json                Cat profiles + hierarchy ({ version: 1, cats })
+  cats.json                Cat + pet profiles and the hierarchy ({ version: 1, cats, pets })
   orchestrator/<taskId>/   Per-cat persona + office MCP config of a running team task
   pets-state.json          Pet care: cat needs, bowl levels, litter boxes, floor poops (both surfaces)
   worktrees/<taskId>/      Git worktree of a running task (removed on finish)
@@ -434,7 +436,7 @@ Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Er
 
 **Grid expansion**: In floor/wall/erase tools, a ghost border (dashed outline) appears 1 tile outside the grid. Clicking a ghost tile calls `expandLayout()` to grow the grid by 1 tile in that direction. New tiles are VOID. Furniture positions and character positions shift when expanding left/up. Max: `MAX_COLS`×`MAX_ROWS` (64×64). Default: `DEFAULT_COLS`×`DEFAULT_ROWS` (20×11). Characters outside bounds after resize relocated to random walkable tiles.
 
-**Default layout upgrades**: the newest `assets/default-layout-N.json` is the default. A saved `layout.json` that equals an older bundled default (fingerprint ignores key order, `layoutRevision`, empty optional fields) is upgraded at load; an edited one is kept, and the editor's "Default" button (`resetLayoutToDefault`) replaces it on request. Keep older default files: they are the fingerprints.
+**Default layout upgrades**: the newest `assets/default-layout-N.json` is the default. A saved `layout.json` that equals an older bundled default (fingerprint ignores key order, `layoutRevision`, empty optional fields) is upgraded at load; an edited one is kept, and the editor's "Default" button and Settings "Reset layout to default" (both `resetLayoutToDefault`, shared `DefaultLayoutReset` confirm) replace it on request. Keep older default files: they are the fingerprints.
 
 **Layout model**: `{ version: 1, cols, rows, tiles: TileType[], furniture: PlacedFurniture[], tileColors?: ColorValue[] }`. Grid dimensions are dynamic. Persisted via debounced saveLayout message → `writeLayoutToFile()` → `~/.pixel-agents/layout.json`.
 

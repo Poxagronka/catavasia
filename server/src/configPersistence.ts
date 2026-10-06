@@ -23,6 +23,10 @@ export interface AdapterSettings {
   showGuests: boolean;
   /** Cap on cat turns that run at once (standalone cat office). */
   turnConcurrency: number;
+  /** Narrator: batched Haiku conversation summaries. */
+  narratorAiSummaries: boolean;
+  /** Narrator: show the raw tool status instead of the Russian line (debug). */
+  narratorRawToolStatus: boolean;
 }
 
 /** All keys in AdapterSettings. Used by adapters to map `pixel-agents.foo` → `foo`.
@@ -40,6 +44,8 @@ export const ADAPTER_SETTING_KEYS = [
   'areaMappings',
   'showGuests',
   'turnConcurrency',
+  'narratorAiSummaries',
+  'narratorRawToolStatus',
 ] as const;
 
 export type AdapterSettingKey = (typeof ADAPTER_SETTING_KEYS)[number];
@@ -78,6 +84,8 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   areaMappings: {},
   showGuests: false,
   turnConcurrency: TURN_CONCURRENCY_DEFAULT,
+  narratorAiSummaries: true,
+  narratorRawToolStatus: false,
 };
 
 /** A turn cap inside TURN_CONCURRENCY_MIN..MAX, or undefined. */
@@ -172,6 +180,14 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
       typeof obj.showGuests === 'boolean' ? obj.showGuests : DEFAULT_ADAPTER_SETTINGS.showGuests,
     turnConcurrency:
       parseTurnConcurrency(obj.turnConcurrency) ?? DEFAULT_ADAPTER_SETTINGS.turnConcurrency,
+    narratorAiSummaries:
+      typeof obj.narratorAiSummaries === 'boolean'
+        ? obj.narratorAiSummaries
+        : DEFAULT_ADAPTER_SETTINGS.narratorAiSummaries,
+    narratorRawToolStatus:
+      typeof obj.narratorRawToolStatus === 'boolean'
+        ? obj.narratorRawToolStatus
+        : DEFAULT_ADAPTER_SETTINGS.narratorRawToolStatus,
   };
 }
 

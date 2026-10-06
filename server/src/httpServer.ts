@@ -22,6 +22,7 @@ import {
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
 import { filterGuestMessage } from './guests.js';
+import type { Narrator } from './narrator/narrator.js';
 import { registerOfficeMcpRoute } from './orchestrator/officeMcp.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
@@ -55,6 +56,8 @@ export interface HttpServerOptions {
   tasks?: TaskManager;
   /** Cat office (standalone only). Enables the office MCP endpoint and cat messages. */
   orchestrator?: Orchestrator;
+  /** Narrator (standalone only). Sends its state to each new client. */
+  narrator?: Narrator;
 }
 
 /** Result of createHttpServer(). */
@@ -302,6 +305,7 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
           onSetHooksEnabled: options.onSetHooksEnabled,
           onReloadAssets: options.onReloadAssets,
           privileged,
+          narrator: options.narrator,
         });
       } catch {
         // Malformed JSON, ignore

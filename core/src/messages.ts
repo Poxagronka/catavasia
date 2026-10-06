@@ -34,6 +34,9 @@ export type ServerMessage =
   | CatMessage
   | FlowStateChanged
   | QueueChanged
+  | NarratorLine
+  | NarratorSummary
+  | NarratorSettings
   | AgentContextUsage
   | LayoutLoaded
   | PetCareLoaded
@@ -78,8 +81,13 @@ export type ClientMessage =
   | RequestDiagnostics
   | SaveCatProfile
   | DeleteCatProfile
+  | SetCatParent
+  | PromoteCatToBoss
+  | SavePetProfile
+  | DeletePetProfile
   | SetTurnConcurrency
-  | SetShowGuests;
+  | SetShowGuests
+  | SetNarratorSettings;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -206,40 +214,60 @@ export interface AgentTaskFinished {
 
 export interface CatProfilesLoaded {
   type: 'catProfilesLoaded';
-  profiles: CatProfile[];
-  models: string[];
-  efforts: string[];
+  cats: CatProfile[];
+  pets: PetProfile[];
+  engineOptions: EngineOptions[];
 }
 
 export interface CatProfile {
   id: string;
   name: string;
+  appearance: CatAppearance;
   role: string;
   systemPrompt: string;
   engine: CatEngine;
   model: string;
-  effort?: string;
-  parentId?: string;
-  appearance: CatAppearance;
+  effort: string;
+  parentId: string | null;
+  isDefault?: boolean;
 }
 
-export type CatEngine = 'claude' | 'codex';
-
 export interface CatAppearance {
-  breed?: number;
-  hueShift?: number;
+  breed?: string;
+  colors?: CatColorLayers;
   pattern?: CatPattern;
-  fur?: string;
-  shade?: string;
-  light?: string;
-  belly?: string;
-  stripe?: string;
   eyes?: string;
   collar?: string;
 }
 
+export interface CatColorLayers {
+  fur?: string;
+  belly?: string;
+  stripe?: string;
+  patchA?: string;
+  patchB?: string;
+  point?: string;
+}
+
 export type CatPattern =
-  'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie' | 'siamese' | 'bengal' | 'sphynx';
+  'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie' | 'siamese' | 'bengal' | 'sweater';
+
+export type CatEngine = 'claude' | 'codex';
+
+export interface PetProfile {
+  id: string;
+  name: string;
+  species: PetSpecies;
+  appearance: CatAppearance;
+}
+
+export type PetSpecies = 'cat';
+
+export interface EngineOptions {
+  engine: CatEngine;
+  models: string[];
+  efforts: string[];
+}
 
 export interface CatProfileSaved {
   type: 'catProfileSaved';
@@ -254,7 +282,7 @@ export interface CatProfileRejected {
 
 export interface CatHierarchy {
   type: 'catHierarchy';
-  roots: string[];
+  bossId?: string;
   children: Record<string, string[]>;
 }
 
@@ -311,6 +339,29 @@ export interface QueueChanged {
   running: string[];
   queued: string[];
   cap: number;
+}
+
+export interface NarratorLine {
+  type: 'narratorLine';
+  catId: number;
+  state: NarratorState;
+  line: string;
+}
+
+export type NarratorState =
+  'thinking' | 'reading' | 'editing' | 'testing' | 'waiting' | 'done' | 'error';
+
+export interface NarratorSummary {
+  type: 'narratorSummary';
+  conversationId: string;
+  catIds: number[];
+  summary: string;
+}
+
+export interface NarratorSettings {
+  type: 'narratorSettings';
+  aiSummaries: boolean;
+  rawToolStatus: boolean;
 }
 
 export interface AgentContextUsage {
@@ -589,6 +640,27 @@ export interface DeleteCatProfile {
   id: string;
 }
 
+export interface SetCatParent {
+  type: 'setCatParent';
+  id: string;
+  parentId: string;
+}
+
+export interface PromoteCatToBoss {
+  type: 'promoteCatToBoss';
+  id: string;
+}
+
+export interface SavePetProfile {
+  type: 'savePetProfile';
+  pet: PetProfile;
+}
+
+export interface DeletePetProfile {
+  type: 'deletePetProfile';
+  id: string;
+}
+
 export interface SetTurnConcurrency {
   type: 'setTurnConcurrency';
   value: number;
@@ -597,4 +669,10 @@ export interface SetTurnConcurrency {
 export interface SetShowGuests {
   type: 'setShowGuests';
   enabled: boolean;
+}
+
+export interface SetNarratorSettings {
+  type: 'setNarratorSettings';
+  aiSummaries?: boolean;
+  rawToolStatus?: boolean;
 }

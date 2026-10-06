@@ -110,6 +110,10 @@ components:
         - $ref: '#/components/schemas/CatMessage'
         - $ref: '#/components/schemas/FlowStateChanged'
         - $ref: '#/components/schemas/QueueChanged'
+        # Narrator
+        - $ref: '#/components/schemas/NarratorLine'
+        - $ref: '#/components/schemas/NarratorSummary'
+        - $ref: '#/components/schemas/NarratorSettings'
         # Context window
         - $ref: '#/components/schemas/AgentContextUsage'
         # Layout
@@ -162,8 +166,13 @@ components:
         - $ref: '#/components/schemas/RequestDiagnostics'
         - $ref: '#/components/schemas/SaveCatProfile'
         - $ref: '#/components/schemas/DeleteCatProfile'
+        - $ref: '#/components/schemas/SetCatParent'
+        - $ref: '#/components/schemas/PromoteCatToBoss'
+        - $ref: '#/components/schemas/SavePetProfile'
+        - $ref: '#/components/schemas/DeletePetProfile'
         - $ref: '#/components/schemas/SetTurnConcurrency'
         - $ref: '#/components/schemas/SetShowGuests'
+        - $ref: '#/components/schemas/SetNarratorSettings'
       discriminator: type
 
     # ── Server message variants ────────────────────────────────────
@@ -853,29 +862,28 @@ components:
 
     CatProfilesLoaded:
       description: |
-        Every cat profile, plus the model and effort values the engine CLI
-        accepts (read from the installed CLI, not hardcoded). Sent on connect
-        and after a profile is deleted.
+        Every cat and pet profile, plus per engine the model and effort values
+        its installed CLI accepts (read from `claude --help`, not hardcoded).
+        Sent on connect and after every profile change.
       type: object
       additionalProperties: false
-      required: [type, profiles, models, efforts]
+      required: [type, cats, pets, engineOptions]
       properties:
         type:
           const: catProfilesLoaded
-        profiles:
+        cats:
           type: array
           items:
             $ref: '#/components/schemas/CatProfile'
-        models:
+        pets:
           type: array
-          description: Model aliases from `claude --help`. A full model name (claude-...) is also accepted.
           items:
-            type: string
-        efforts:
+            $ref: '#/components/schemas/PetProfile'
+        engineOptions:
           type: array
-          description: Effort levels from `claude --help`.
+          description: One entry per engine with an adapter. A full model name (claude-...) is also accepted.
           items:
-            type: string
+            $ref: '#/components/schemas/EngineOptions'
 
     CatProfileSaved:
       description: One cat profile was created or changed.
@@ -889,7 +897,7 @@ components:
           $ref: '#/components/schemas/CatProfile'
 
     CatProfileRejected:
-      description: A saveCatProfile or deleteCatProfile request failed validation. Sent to the requester only.
+      description: A cat or pet change failed validation or the hierarchy rules. Sent to the requester only.
       type: object
       additionalProperties: false
       required: [type, error]
@@ -903,18 +911,17 @@ components:
 
     CatHierarchy:
       description: |
-        The cat tree. `roots` have no parent; `children` maps a cat id to its
-        direct reports in display order. Sent on connect and after every change.
+        The cat tree. `bossId` is the one cat with no parent (absent when there
+        are no cats); `children` maps a cat id to its direct reports in list
+        order. Sent on connect and after every change.
       type: object
       additionalProperties: false
-      required: [type, roots, children]
+      required: [type, children]
       properties:
         type:
           const: catHierarchy
-        roots:
-          type: array
-          items:
-            type: string
+        bossId:
+          type: string
         children:
           type: object
           additionalProperties:
@@ -1020,6 +1027,54 @@ components:
             type: string
         cap:
           type: integer
+
+    NarratorLine:
+      description: Russian status line of one cat (narrator template output), sent on change only.
+      type: object
+      additionalProperties: false
+      required: [type, catId, state, line]
+      properties:
+        type:
+          const: narratorLine
+        catId:
+          type: integer
+          description: Office agent id of the cat.
+        state:
+          $ref: '#/components/schemas/NarratorState'
+        line:
+          type: string
+          description: Russian, at most 60 characters.
+
+    NarratorSummary:
+      description: Haiku summary of one conversation, validated by the server.
+      type: object
+      additionalProperties: false
+      required: [type, conversationId, catIds, summary]
+      properties:
+        type:
+          const: narratorSummary
+        conversationId:
+          type: string
+        catIds:
+          type: array
+          items:
+            type: integer
+        summary:
+          type: string
+          description: Russian, at most 120 characters.
+
+    NarratorSettings:
+      description: Narrator settings (standalone), sent on connect and after a change.
+      type: object
+      additionalProperties: false
+      required: [type, aiSummaries, rawToolStatus]
+      properties:
+        type:
+          const: narratorSettings
+        aiSummaries:
+          type: boolean
+        rawToolStatus:
+          type: boolean
 
     # ── Client message variants ────────────────────────────────────
 
@@ -1334,13 +1389,59 @@ components:
           $ref: '#/components/schemas/CatProfile'
 
     DeleteCatProfile:
-      description: Delete one cat (needs the server token). Its reports move to its parent.
+      description: Delete one cat (needs the server token). Its reports move to its parent; a deleted boss hands over to its first report.
       type: object
       additionalProperties: false
       required: [type, id]
       properties:
         type:
           const: deleteCatProfile
+        id:
+          type: string
+
+    SetCatParent:
+      description: Make cat `id` report to `parentId` (needs the server token). Refused on a cycle or an unknown cat.
+      type: object
+      additionalProperties: false
+      required: [type, id, parentId]
+      properties:
+        type:
+          const: setCatParent
+        id:
+          type: string
+        parentId:
+          type: string
+
+    PromoteCatToBoss:
+      description: Cat `id` becomes the boss; the old boss reports to it (needs the server token).
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: promoteCatToBoss
+        id:
+          type: string
+
+    SavePetProfile:
+      description: Create or replace one pet profile (needs the server token).
+      type: object
+      additionalProperties: false
+      required: [type, pet]
+      properties:
+        type:
+          const: savePetProfile
+        pet:
+          $ref: '#/components/schemas/PetProfile'
+
+    DeletePetProfile:
+      description: Delete one pet (needs the server token).
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: deletePetProfile
         id:
           type: string
 
@@ -1366,21 +1467,37 @@ components:
         enabled:
           type: boolean
 
+    SetNarratorSettings:
+      description: Change narrator settings (standalone). Absent fields keep their value.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: setNarratorSettings
+        aiSummaries:
+          type: boolean
+        rawToolStatus:
+          type: boolean
+
     # ── Supporting schemas ─────────────────────────────────────────
 
     CatProfile:
       description: |
-        One cat of the office: who it is, how it looks, which engine and model
-        it runs, and its place in the hierarchy (`parentId` absent = root).
+        One cat of the office: who it is, how it looks, which engine, model and
+        effort it runs, and its place in the tree (`parentId` null = the boss;
+        exactly one cat is the boss).
       type: object
       additionalProperties: false
-      required: [id, name, role, systemPrompt, engine, model, appearance]
+      required: [id, name, appearance, role, systemPrompt, engine, model, effort, parentId]
       properties:
         id:
           type: string
           description: Stable id, `^[a-z0-9][a-z0-9-]{0,31}$`.
         name:
           type: string
+        appearance:
+          $ref: '#/components/schemas/CatAppearance'
         role:
           type: string
         systemPrompt:
@@ -1393,36 +1510,79 @@ components:
         effort:
           type: string
         parentId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        isDefault:
+          type: boolean
+          description: Seeded by the app, not by the user.
+
+    PetProfile:
+      description: One office pet. Only cats have art today.
+      type: object
+      additionalProperties: false
+      required: [id, name, species, appearance]
+      properties:
+        id:
           type: string
+        name:
+          type: string
+        species:
+          $ref: '#/components/schemas/PetSpecies'
         appearance:
           $ref: '#/components/schemas/CatAppearance'
 
+    EngineOptions:
+      type: object
+      additionalProperties: false
+      required: [engine, models, efforts]
+      properties:
+        engine:
+          $ref: '#/components/schemas/CatEngine'
+        models:
+          type: array
+          items:
+            type: string
+        efforts:
+          type: array
+          items:
+            type: string
+
     CatAppearance:
       description: |
-        A bundled breed (`breed` = char_N palette index) or a custom coat
-        (`pattern` + colours as `#rrggbb`). `eyes` and `collar` override either.
+        A breed preset (`breed` = lower-case breed name, e.g. `marmalade`) and
+        optional overrides: coat `pattern`, colour layers, eyes, collar
+        (`#rrggbb`, or `none` for no collar). A missing layer keeps the colour
+        of the base breed.
       type: object
       additionalProperties: false
       properties:
         breed:
-          type: integer
-        hueShift:
-          type: integer
+          type: string
+        colors:
+          $ref: '#/components/schemas/CatColorLayers'
         pattern:
           $ref: '#/components/schemas/CatPattern'
+        eyes:
+          type: string
+        collar:
+          type: string
+
+    CatColorLayers:
+      type: object
+      additionalProperties: false
+      properties:
         fur:
-          type: string
-        shade:
-          type: string
-        light:
           type: string
         belly:
           type: string
         stripe:
           type: string
-        eyes:
+        patchA:
           type: string
-        collar:
+        patchB:
+          type: string
+        point:
           type: string
 
     CatEngine:
@@ -1431,7 +1591,15 @@ components:
 
     CatPattern:
       type: string
-      enum: [solid, tabby, tuxedo, calico, tortie, siamese, bengal, sphynx]
+      enum: [solid, tabby, tuxedo, calico, tortie, siamese, bengal, sweater]
+
+    PetSpecies:
+      type: string
+      enum: [cat]
+
+    NarratorState:
+      type: string
+      enum: [thinking, reading, editing, testing, waiting, done, error]
 
     CatMessageKind:
       type: string

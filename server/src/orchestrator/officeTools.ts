@@ -15,7 +15,7 @@ import type { TaskFlow } from '../../../core/src/tasks.js';
 import { CAT_MESSAGE_MAX_CHARS } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
-import { childrenOf, relationOf } from './catProfiles.js';
+import { childrenOf, relationOf } from './catTree.js';
 import type { TurnHandle } from './engineAdapter.js';
 import { askMessage, catLabel, delegateMessage, replyMessage, teamText } from './flowPrompts.js';
 import type { OfficeToolResult } from './officeMcp.js';

@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
 
 import type { CatOfficeSettings } from '../hooks/useExtensionMessages.js';
+import { setNarratorSettings, useNarratorSettings } from '../narratorStore.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
+import { DefaultLayoutReset } from './DefaultLayoutReset.js';
 import { Button } from './ui/Button.js';
 import { Checkbox } from './ui/Checkbox.js';
 import { MenuItem } from './ui/MenuItem.js';
@@ -40,6 +42,8 @@ interface SettingsModalProps {
   /** Cat office settings; null hides them (no office on this server). */
   catOffice: CatOfficeSettings | null;
   onChangeCatOffice: (next: CatOfficeSettings) => void;
+  /** Same action as the editor's Default button (sends resetLayoutToDefault). */
+  onResetLayoutToDefault: () => void;
 }
 
 /** Choices for "Cats working at once" (server range 1..12). */
@@ -66,13 +70,23 @@ export function SettingsModal({
   onImportLayout,
   catOffice,
   onChangeCatOffice,
+  onResetLayoutToDefault,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assetDirDraft, setAssetDirDraft] = useState('');
+  const narrator = useNarratorSettings();
+  const [resetConfirming, setResetConfirming] = useState(false);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Settings">
+    <Modal
+      isOpen={isOpen}
+      onClose={() => {
+        setResetConfirming(false);
+        onClose();
+      }}
+      title="Settings"
+    >
       {/* Open Sessions Folder opens an OS file manager — impossible in the browser. */}
       {!isBrowserRuntime && (
         <MenuItem
@@ -109,6 +123,17 @@ export function SettingsModal({
       >
         Import Layout
       </MenuItem>
+      <div className="py-4 px-10">
+        <DefaultLayoutReset
+          label="Reset layout to default"
+          confirming={resetConfirming}
+          onConfirmingChange={setResetConfirming}
+          onReset={() => {
+            onResetLayoutToDefault();
+            onClose();
+          }}
+        />
+      </div>
       {isBrowserRuntime && (
         <input
           ref={fileInputRef}
@@ -238,6 +263,21 @@ export function SettingsModal({
               ))}
             </select>
           </label>
+        </>
+      )}
+      {/* The narrator runs in the standalone server only (task board cats). */}
+      {isBrowserRuntime && (
+        <>
+          <Checkbox
+            label="AI summaries (Haiku)"
+            checked={narrator.aiSummaries}
+            onChange={() => setNarratorSettings({ aiSummaries: !narrator.aiSummaries })}
+          />
+          <Checkbox
+            label="Raw tool status"
+            checked={narrator.rawToolStatus}
+            onChange={() => setNarratorSettings({ rawToolStatus: !narrator.rawToolStatus })}
+          />
         </>
       )}
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />

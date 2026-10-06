@@ -20,7 +20,11 @@ import {
   loadAllFurniture,
   loadAllPets,
 } from './assetReload.js';
-import type { AssetCache, ReloadAssetsSideEffect } from './clientMessageHandler.js';
+import {
+  type AssetCache,
+  KEY_NARRATOR_AI_SUMMARIES,
+  type ReloadAssetsSideEffect,
+} from './clientMessageHandler.js';
 import {
   getHooksConsent,
   getHooksEnabled,
@@ -31,6 +35,7 @@ import {
 import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
+import { Narrator } from './narrator/narrator.js';
 import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
 import { Orchestrator } from './orchestrator/orchestrator.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
@@ -158,6 +163,14 @@ async function main(): Promise<void> {
     // Create runtime first (before server.start, so we can pass it in)
     const runtime = new AgentRuntime(store, claudeProvider);
 
+    // Narrator: Russian status lines (templates) + batched Haiku summaries.
+    const narrator = new Narrator({
+      broadcast: (m) => store.broadcast({ ...m }),
+      aiSummariesEnabled: () => adapter.getSetting(KEY_NARRATOR_AI_SUMMARIES, true),
+    });
+    store.on('broadcast', (m: Record<string, unknown>) => narrator.observeBroadcast(m));
+    store.on('agentRemoved', (id: number) => narrator.forget(id));
+
     // Cat office: cat profiles, team tasks, and the office MCP tools.
     const stateDir = path.join(os.homedir(), LAYOUT_FILE_DIR);
     const orchestrator = new Orchestrator({
@@ -168,6 +181,7 @@ async function main(): Promise<void> {
       turnConcurrency:
         parseTurnConcurrency(adapter.getSetting('pixel-agents.turnConcurrency', undefined)) ??
         TURN_CONCURRENCY_DEFAULT,
+      narrate: (input) => narrator.push(input),
     });
     runtime.showGuests.current = adapter.getSetting('pixel-agents.showGuests', false);
 
@@ -178,6 +192,7 @@ async function main(): Promise<void> {
       stateDir,
       defaultCwd: process.cwd(),
       flows: orchestrator,
+      narrate: (input) => narrator.push(input),
     });
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
@@ -275,6 +290,7 @@ async function main(): Promise<void> {
       onReloadAssets,
       tasks,
       orchestrator,
+      narrator,
     });
     currentConfig = { port: config.port, token: config.token };
     orchestrator.setServerUrl(`http://127.0.0.1:${config.port}`);
@@ -349,6 +365,7 @@ async function main(): Promise<void> {
     function shutdown(): void {
       console.log('\nShutting down...');
       tasks.dispose();
+      narrator.dispose();
       runtime.dispose();
       server.stop();
       process.exit(0);

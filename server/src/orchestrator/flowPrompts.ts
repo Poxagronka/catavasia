@@ -6,7 +6,7 @@
 
 import type { CatProfile } from '../../../core/src/messages.js';
 import type { MergeOutcome } from '../taskBoard/gitWorktree.js';
-import { childrenOf, relationOf } from './catProfiles.js';
+import { childrenOf, relationOf } from './catTree.js';
 
 export function catLabel(cat: CatProfile): string {
   return `${cat.name} (${cat.id})`;

@@ -15,6 +15,7 @@ import {
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
 import { applyShowGuests } from './guests.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
+import type { Narrator } from './narrator/narrator.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { readPetCareState, writePetCareState } from './petCarePersistence.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
@@ -66,6 +67,8 @@ export interface ClientMessageContext {
   privileged?: boolean;
   /** Cat office (standalone only): profiles, hierarchy, turn queue. */
   orchestrator?: Orchestrator;
+  /** Narrator (standalone only): settings + current lines on connect. */
+  narrator?: Narrator;
 }
 
 // ── Setting key constants (mirror adapters/vscode/constants.ts) ──
@@ -78,6 +81,17 @@ const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
 const KEY_SHOW_GUESTS = 'pixel-agents.showGuests';
 const KEY_TURN_CONCURRENCY = 'pixel-agents.turnConcurrency';
+export const KEY_NARRATOR_AI_SUMMARIES = 'pixel-agents.narratorAiSummaries';
+const KEY_NARRATOR_RAW_TOOL_STATUS = 'pixel-agents.narratorRawToolStatus';
+
+/** The narratorSettings message (core/asyncapi.yaml). */
+function narratorSettingsMessage(adapter: ReturnType<AgentStateStore['getAdapter']>) {
+  return {
+    type: 'narratorSettings',
+    aiSummaries: adapter?.getSetting(KEY_NARRATOR_AI_SUMMARIES, true) ?? true,
+    rawToolStatus: adapter?.getSetting(KEY_NARRATOR_RAW_TOOL_STATUS, false) ?? false,
+  };
+}
 
 /**
  * Handle incoming ClientMessage from a WebSocket client.
@@ -260,17 +274,19 @@ export function handleClientMessage(
     }
 
     case 'saveCatProfile':
-    case 'deleteCatProfile': {
+    case 'deleteCatProfile':
+    case 'setCatParent':
+    case 'promoteCatToBoss':
+    case 'savePetProfile':
+    case 'deletePetProfile': {
       const office = ctx.orchestrator;
       if (!office) break;
+      const id = typeof msg.id === 'string' ? msg.id : undefined;
       // A cat runs with no permission prompts, so its prompt and model are the
       // operator's decision: the same out-of-band token as setHooksEnabled.
-      const id = msg.type === 'deleteCatProfile' ? String(msg.id) : undefined;
-      if (!ctx.privileged) {
-        send({ type: 'catProfileRejected', id, error: 'Editing cats needs the server token.' });
-        break;
-      }
-      const error = id !== undefined ? office.deleteProfile(id) : office.saveProfile(msg.profile);
+      const error = ctx.privileged
+        ? office.editProfiles(msg)
+        : 'Editing cats needs the server token (open the tokened URL the CLI printed).';
       if (error) send({ type: 'catProfileRejected', id, error });
       break;
     }
@@ -317,6 +333,17 @@ export function handleClientMessage(
     case 'setShowAreas': {
       const enabled = msg.enabled as boolean;
       adapter?.setSetting(KEY_SHOW_AREAS, enabled);
+      break;
+    }
+
+    case 'setNarratorSettings': {
+      if (typeof msg.aiSummaries === 'boolean') {
+        adapter?.setSetting(KEY_NARRATOR_AI_SUMMARIES, msg.aiSummaries);
+      }
+      if (typeof msg.rawToolStatus === 'boolean') {
+        adapter?.setSetting(KEY_NARRATOR_RAW_TOOL_STATUS, msg.rawToolStatus);
+      }
+      store.broadcast(narratorSettingsMessage(adapter));
       break;
     }
 
@@ -581,4 +608,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // exist once the layout flush creates them. Without this a reconnecting
   // client shows bare characters until each agent takes another turn.
   resendAgentActivity(send, store);
+
+  // 9. Narrator settings and current Russian status lines.
+  if (ctx.narrator) {
+    send(narratorSettingsMessage(adapter));
+    for (const m of ctx.narrator.snapshot()) send({ ...m });
+  }
 }

@@ -1,22 +1,42 @@
 /**
- * Cat profiles and the cat hierarchy: validation, tree helpers, and the
- * ~/.pixel-agents/cats.json store (versioned, atomic tmp + rename writes).
+ * Cat and pet profiles, the cat hierarchy, and the ~/.pixel-agents/cats.json
+ * store (versioned, atomic tmp + rename writes).
  *
- * A profile is the whole definition of one cat: look, role, system prompt,
- * engine, model, effort, and `parentId` (absent = root). The tree may have any
- * depth; a save that would create a cycle is refused.
+ * The shapes are the wire types (core/asyncapi.yaml), the same ones the Cats
+ * menu uses (webview-ui/src/cats/catsApi.ts). The tree rules mirror
+ * webview-ui/src/cats/hierarchy.ts: exactly one boss (`parentId: null`), any
+ * depth, no cycles, a deleted cat's reports move up, a deleted boss hands over
+ * to its first report, "promote to boss" puts the old boss under the new one.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 
-import type { CatAppearance, CatEngine, CatProfile } from '../../../core/src/messages.js';
-import {
-  CAT_NAME_MAX_CHARS,
-  CAT_SYSTEM_PROMPT_MAX_CHARS,
-  HUE_SHIFT_MAX_DEG,
-  PALETTE_COUNT,
-} from '../constants.js';
+import type {
+  CatAppearance,
+  CatEngine,
+  CatProfile,
+  PetProfile,
+} from '../../../core/src/messages.js';
+import { CAT_NAME_MAX_CHARS, CAT_SYSTEM_PROMPT_MAX_CHARS } from '../constants.js';
+import { bossOf, isInSubtree, normalizeHierarchy } from './catTree.js';
+
+/** Breed preset ids in char_N order (= palette index). Mirrors scripts/cats/breeds.mjs names. */
+export const CAT_BREED_IDS = [
+  'marmalade',
+  'smokey',
+  'shadow',
+  'snow',
+  'tux',
+  'patches',
+  'tortie',
+  'mochi',
+  'nikolai',
+  'butterscotch',
+  'leo',
+  'dobby',
+  'bear',
+] as const;
 
 /** Values one engine CLI accepts, read from the installed binary. */
 export interface EngineChoices {
@@ -29,158 +49,133 @@ export interface EngineChoices {
 /** Engines with an adapter. An engine absent here cannot run a cat. */
 export type EngineCatalog = Partial<Record<CatEngine, EngineChoices>>;
 
-export type ProfileResult = { ok: true; profile: CatProfile } | { ok: false; error: string };
+type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const ENGINES: readonly CatEngine[] = ['claude', 'codex'];
-const PATTERNS = ['solid', 'tabby', 'tuxedo', 'calico', 'tortie', 'siamese', 'bengal', 'sphynx'];
-const COLOR_KEYS = ['fur', 'shade', 'light', 'belly', 'stripe', 'eyes', 'collar'] as const;
+const PATTERNS = ['solid', 'tabby', 'tuxedo', 'calico', 'tortie', 'siamese', 'bengal', 'sweater'];
+const LAYERS = ['fur', 'belly', 'stripe', 'patchA', 'patchB', 'point'] as const;
+
+class ProfileError extends Error {}
 
 function text(value: unknown, field: string, max: number, allowEmpty = false): string {
-  if (typeof value !== 'string') throw new Error(`${field} must be a string`);
+  if (typeof value !== 'string') throw new ProfileError(`${field} must be a string`);
   const trimmed = value.trim();
-  if (!allowEmpty && !trimmed) throw new Error(`${field} is empty`);
-  if (trimmed.length > max) throw new Error(`${field} is longer than ${max} characters`);
+  if (!allowEmpty && !trimmed) throw new ProfileError(`${field} is empty`);
+  if (trimmed.length > max) throw new ProfileError(`${field} is longer than ${max} characters`);
   return trimmed;
 }
 
+function id(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !ID_RE.test(value)) {
+    throw new ProfileError(`${field} must match ^[a-z0-9][a-z0-9-]{0,31}$`);
+  }
+  return value;
+}
+
+function hex(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !HEX_RE.test(value)) {
+    throw new ProfileError(`${field} must be #rrggbb`);
+  }
+  return value.toLowerCase();
+}
+
 function appearance(raw: unknown): CatAppearance {
-  if (!raw || typeof raw !== 'object') throw new Error('appearance must be an object');
+  if (!raw || typeof raw !== 'object') throw new ProfileError('appearance must be an object');
   const rec = raw as Record<string, unknown>;
   const out: CatAppearance = {};
   if (rec.breed !== undefined) {
-    if (
-      !Number.isInteger(rec.breed) ||
-      (rec.breed as number) < 0 ||
-      (rec.breed as number) >= PALETTE_COUNT
-    ) {
-      throw new Error(`appearance.breed must be an integer 0..${PALETTE_COUNT - 1}`);
+    if (!CAT_BREED_IDS.includes(rec.breed as (typeof CAT_BREED_IDS)[number])) {
+      throw new ProfileError(`unknown breed "${String(rec.breed)}"`);
     }
-    out.breed = rec.breed as number;
-  }
-  if (rec.hueShift !== undefined) {
-    const h = rec.hueShift;
-    if (!Number.isInteger(h) || (h as number) < 0 || (h as number) > HUE_SHIFT_MAX_DEG) {
-      throw new Error(`appearance.hueShift must be an integer 0..${HUE_SHIFT_MAX_DEG}`);
-    }
-    out.hueShift = h as number;
+    out.breed = rec.breed as string;
   }
   if (rec.pattern !== undefined) {
     if (typeof rec.pattern !== 'string' || !PATTERNS.includes(rec.pattern)) {
-      throw new Error(`appearance.pattern must be one of ${PATTERNS.join(', ')}`);
+      throw new ProfileError(`unknown pattern "${String(rec.pattern)}"`);
     }
     out.pattern = rec.pattern as CatAppearance['pattern'];
   }
-  for (const key of COLOR_KEYS) {
-    const v = rec[key];
-    if (v === undefined) continue;
-    if (typeof v !== 'string' || !HEX_RE.test(v))
-      throw new Error(`appearance.${key} must be #rrggbb`);
-    out[key] = v.toLowerCase();
+  if (rec.colors !== undefined) {
+    if (!rec.colors || typeof rec.colors !== 'object')
+      throw new ProfileError('colors must be an object');
+    const colors = rec.colors as Record<string, unknown>;
+    out.colors = {};
+    for (const layer of LAYERS) {
+      if (colors[layer] !== undefined) out.colors[layer] = hex(colors[layer], `colors.${layer}`);
+    }
   }
-  if (out.breed === undefined && (out.pattern === undefined || out.fur === undefined)) {
-    throw new Error('appearance needs a breed, or a custom pattern with a fur colour');
-  }
+  if (rec.eyes !== undefined) out.eyes = hex(rec.eyes, 'eyes');
+  if (rec.collar !== undefined)
+    out.collar = rec.collar === 'none' ? 'none' : hex(rec.collar, 'collar');
   return out;
 }
 
-/**
- * Validate and normalize one profile. Unknown fields are dropped. With
- * `catalog`, the engine must have an adapter and the model and effort must be
- * values that engine's CLI accepts; without it (loading the file) only the
- * shape is checked, so a CLI upgrade never deletes a cat.
- */
-export function validateProfile(raw: unknown, catalog?: EngineCatalog): ProfileResult {
+function settle<T>(build: () => T): Result<T> {
   try {
-    if (!raw || typeof raw !== 'object') throw new Error('profile must be an object');
+    return { ok: true, value: build() };
+  } catch (err) {
+    if (err instanceof ProfileError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+/**
+ * Validate and normalize one cat. Unknown fields are dropped. With `catalog`,
+ * the engine must have an adapter and the model and effort must be values its
+ * CLI accepts; without it (loading the file) only the shape is checked, so a
+ * CLI upgrade never deletes a cat.
+ */
+export function validateCat(raw: unknown, catalog?: EngineCatalog): Result<CatProfile> {
+  return settle(() => {
+    if (!raw || typeof raw !== 'object') throw new ProfileError('profile must be an object');
     const rec = raw as Record<string, unknown>;
-    if (typeof rec.id !== 'string' || !ID_RE.test(rec.id)) {
-      throw new Error('id must match ^[a-z0-9][a-z0-9-]{0,31}$');
-    }
     const engine = rec.engine as CatEngine;
-    if (!ENGINES.includes(engine)) throw new Error(`engine must be one of ${ENGINES.join(', ')}`);
-    const profile: CatProfile = {
-      id: rec.id,
+    if (!ENGINES.includes(engine)) throw new ProfileError(`unknown engine "${String(engine)}"`);
+    const cat: CatProfile = {
+      id: id(rec.id, 'id'),
       name: text(rec.name, 'name', CAT_NAME_MAX_CHARS),
+      appearance: appearance(rec.appearance),
       role: text(rec.role, 'role', CAT_NAME_MAX_CHARS, true),
       systemPrompt: text(rec.systemPrompt, 'systemPrompt', CAT_SYSTEM_PROMPT_MAX_CHARS, true),
       engine,
       model: text(rec.model, 'model', CAT_NAME_MAX_CHARS * 2),
-      appearance: appearance(rec.appearance),
+      effort: text(rec.effort, 'effort', CAT_NAME_MAX_CHARS),
+      parentId:
+        rec.parentId === null || rec.parentId === undefined ? null : id(rec.parentId, 'parentId'),
     };
-    if (rec.effort !== undefined && rec.effort !== '') {
-      profile.effort = text(rec.effort, 'effort', CAT_NAME_MAX_CHARS);
-    }
-    if (rec.parentId !== undefined && rec.parentId !== '') {
-      if (typeof rec.parentId !== 'string' || !ID_RE.test(rec.parentId)) {
-        throw new Error('parentId must be a cat id');
-      }
-      if (rec.parentId === profile.id) throw new Error('a cat cannot be its own parent');
-      profile.parentId = rec.parentId;
-    }
+    if (rec.isDefault === true) cat.isDefault = true;
+    if (cat.parentId === cat.id) throw new ProfileError('a cat cannot report to itself');
     if (catalog) {
       const choices = catalog[engine];
-      if (!choices) throw new Error(`engine ${engine} is not available yet`);
-      const fullName = choices.fullModelPattern?.test(profile.model) ?? false;
-      if (!choices.models.includes(profile.model) && !fullName) {
-        throw new Error(
-          `model ${profile.model} is not accepted by ${engine}: use ${choices.models.join(', ')} or a full model name`,
+      if (!choices) throw new ProfileError(`engine ${engine} is not available yet`);
+      const fullName = choices.fullModelPattern?.test(cat.model) ?? false;
+      if (!choices.models.includes(cat.model) && !fullName) {
+        throw new ProfileError(
+          `model "${cat.model}" is not accepted by ${engine}: use ${choices.models.join(', ')} or a full model name`,
         );
       }
-      if (profile.effort !== undefined && !choices.efforts.includes(profile.effort)) {
-        throw new Error(`effort must be one of ${choices.efforts.join(', ')}`);
+      if (!choices.efforts.includes(cat.effort)) {
+        throw new ProfileError(`effort must be one of ${choices.efforts.join(', ')}`);
       }
     }
-    return { ok: true, profile };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
+    return cat;
+  });
 }
 
-// ── Tree helpers ────────────────────────────────────────────
-
-export function childrenOf(cats: readonly CatProfile[], id: string): CatProfile[] {
-  return cats.filter((c) => c.parentId === id);
-}
-
-export function rootsOf(cats: readonly CatProfile[]): CatProfile[] {
-  return cats.filter((c) => c.parentId === undefined);
-}
-
-export function hierarchyOf(cats: readonly CatProfile[]): {
-  roots: string[];
-  children: Record<string, string[]>;
-} {
-  const children: Record<string, string[]> = {};
-  for (const cat of cats) {
-    if (cat.parentId !== undefined) (children[cat.parentId] ??= []).push(cat.id);
-  }
-  return { roots: rootsOf(cats).map((c) => c.id), children };
-}
-
-/** True when giving `id` the parent `parentId` would close a loop. */
-export function createsCycle(cats: readonly CatProfile[], id: string, parentId: string): boolean {
-  const byId = new Map(cats.map((c) => [c.id, c]));
-  let cursor: string | undefined = parentId;
-  for (let hops = 0; cursor !== undefined && hops <= cats.length; hops++) {
-    if (cursor === id) return true;
-    cursor = byId.get(cursor)?.parentId;
-  }
-  return false;
-}
-
-export type Relation = 'parent' | 'child' | 'sibling';
-
-/** How `to` stands to `from` in the tree, or null when they are not adjacent. */
-export function relationOf(cats: readonly CatProfile[], from: string, to: string): Relation | null {
-  const a = cats.find((c) => c.id === from);
-  const b = cats.find((c) => c.id === to);
-  if (!a || !b || a.id === b.id) return null;
-  if (a.parentId === b.id) return 'parent';
-  if (b.parentId === a.id) return 'child';
-  if (a.parentId !== undefined && a.parentId === b.parentId) return 'sibling';
-  return null;
+export function validatePet(raw: unknown): Result<PetProfile> {
+  return settle(() => {
+    if (!raw || typeof raw !== 'object') throw new ProfileError('pet must be an object');
+    const rec = raw as Record<string, unknown>;
+    if (rec.species !== 'cat') throw new ProfileError(`unknown species "${String(rec.species)}"`);
+    return {
+      id: id(rec.id, 'id'),
+      name: text(rec.name, 'name', CAT_NAME_MAX_CHARS),
+      species: 'cat',
+      appearance: appearance(rec.appearance),
+    };
+  });
 }
 
 // ── Default team ────────────────────────────────────────────
@@ -191,31 +186,36 @@ const WORKER_PROMPT =
 
 /** Seeded when cats.json is missing: one Opus boss and three Sonnet workers. */
 export function defaultTeam(): CatProfile[] {
-  const worker = (id: string, name: string, breed: number): CatProfile => ({
-    id,
+  const worker = (catId: string, name: string, breed: string): CatProfile => ({
+    id: catId,
     name,
+    appearance: { breed },
     role: 'Developer',
     systemPrompt: WORKER_PROMPT,
     engine: 'claude',
     model: 'sonnet',
+    effort: 'medium',
     parentId: 'boss',
-    appearance: { breed },
+    isDefault: true,
   });
   return [
     {
       id: 'boss',
       name: 'Barsik',
+      appearance: { breed: 'marmalade' },
       role: 'Team lead',
       systemPrompt:
         'You lead a team of cats. Split the user task into independent parts, one per worker, ' +
         'so that no two workers edit the same file. Check the merged result before you report.',
       engine: 'claude',
       model: 'opus',
-      appearance: { breed: 0 },
+      effort: 'high',
+      parentId: null,
+      isDefault: true,
     },
-    worker('murka', 'Murka', 1),
-    worker('pushok', 'Pushok', 3),
-    worker('ryzhik', 'Ryzhik', 8),
+    worker('murka', 'Murka', 'smokey'),
+    worker('pushok', 'Pushok', 'snow'),
+    worker('ryzhik', 'Ryzhik', 'nikolai'),
   ];
 }
 
@@ -224,71 +224,126 @@ export function defaultTeam(): CatProfile[] {
 interface CatsFile {
   version: 1;
   cats: CatProfile[];
+  pets: PetProfile[];
 }
 
+/** cats.json: every mutation validates, keeps the tree rules, and writes atomically. */
 export class CatStore {
-  private cats: CatProfile[];
+  private cats: CatProfile[] = [];
+  private pets: PetProfile[] = [];
 
   constructor(
     private readonly filePath: string,
     private readonly catalog: () => EngineCatalog,
   ) {
-    this.cats = this.load();
+    this.load();
   }
 
   list(): CatProfile[] {
     return this.cats.map((c) => ({ ...c }));
   }
 
-  get(id: string): CatProfile | undefined {
-    return this.cats.find((c) => c.id === id);
+  listPets(): PetProfile[] {
+    return this.pets.map((p) => ({ ...p }));
   }
 
-  /** Create or replace one profile. The parent must exist and form no cycle. */
-  save(raw: unknown): ProfileResult {
-    const result = validateProfile(raw, this.catalog());
+  get(catId: string): CatProfile | undefined {
+    return this.cats.find((c) => c.id === catId);
+  }
+
+  /** Create or replace a cat; returns the saved cat, or an error. */
+  saveCat(raw: unknown): Result<CatProfile> {
+    const result = validateCat(raw, this.catalog());
     if (!result.ok) return result;
-    const { profile } = result;
-    if (profile.parentId !== undefined) {
-      if (!this.get(profile.parentId)) {
-        return { ok: false, error: `parent ${profile.parentId} does not exist` };
-      }
-      if (createsCycle(this.cats, profile.id, profile.parentId)) {
-        return {
-          ok: false,
-          error: `${profile.parentId} reports to ${profile.id}: that is a cycle`,
-        };
-      }
+    const cat = result.value;
+    if (cat.parentId !== null && !this.get(cat.parentId)) {
+      return { ok: false, error: `parent ${cat.parentId} does not exist` };
     }
-    const index = this.cats.findIndex((c) => c.id === profile.id);
-    if (index >= 0) this.cats[index] = profile;
-    else this.cats.push(profile);
-    this.write();
-    return { ok: true, profile };
+    const next = this.cats.some((c) => c.id === cat.id)
+      ? this.cats.map((c) => (c.id === cat.id ? cat : c))
+      : [...this.cats, cat];
+    if (cat.parentId !== null && isInSubtree(next, cat.id, cat.parentId)) {
+      return { ok: false, error: 'a cat cannot report to itself or to one of its reports' };
+    }
+    // A second cat with parentId null is not a new boss: promoteToBoss does that.
+    const old = this.get(cat.id);
+    const fixed = cat.parentId === null && old?.parentId !== null && this.cats.length > 0;
+    this.commit(
+      next.map((c) => (fixed && c.id === cat.id ? { ...c, parentId: bossOf(this.cats)!.id } : c)),
+    );
+    return { ok: true, value: this.get(cat.id)! };
   }
 
-  /** Delete one cat. Its reports move up to its parent (or become roots). */
-  remove(id: string): string | undefined {
-    const cat = this.get(id);
-    if (!cat) return `cat ${id} does not exist`;
-    this.cats = this.cats.filter((c) => c.id !== id);
-    for (const child of this.cats) {
-      if (child.parentId !== id) continue;
-      if (cat.parentId === undefined) delete child.parentId;
-      else child.parentId = cat.parentId;
+  /** Delete a cat. Its reports move to its parent; a deleted boss hands over to its first report. */
+  removeCat(catId: string): string | undefined {
+    const gone = this.get(catId);
+    if (!gone) return `cat ${catId} does not exist`;
+    const rest = this.cats.filter((c) => c.id !== catId);
+    const heir = gone.parentId ?? rest.find((c) => c.parentId === catId)?.id ?? null;
+    this.commit(
+      rest.map((c) => {
+        if (gone.parentId === null && c.id === heir) return { ...c, parentId: null };
+        return c.parentId === catId ? { ...c, parentId: heir } : c;
+      }),
+    );
+    return undefined;
+  }
+
+  /** Make `catId` report to `parentId`. Refuses unknown cats and cycles. */
+  setParent(catId: string, parentId: string): string | undefined {
+    if (!this.get(catId) || !this.get(parentId)) return 'unknown cat';
+    if (isInSubtree(this.cats, catId, parentId)) {
+      return 'a cat cannot report to itself or to one of its reports';
     }
+    this.commit(this.cats.map((c) => (c.id === catId ? { ...c, parentId } : c)));
+    return undefined;
+  }
+
+  /** `catId` becomes the boss; the old boss reports to it. */
+  promoteToBoss(catId: string): string | undefined {
+    if (!this.get(catId)) return 'unknown cat';
+    const boss = bossOf(this.cats);
+    if (!boss || boss.id === catId) return undefined;
+    this.commit(
+      this.cats.map((c) => {
+        if (c.id === catId) return { ...c, parentId: null };
+        if (c.id === boss.id) return { ...c, parentId: catId };
+        return c;
+      }),
+    );
+    return undefined;
+  }
+
+  savePet(raw: unknown): Result<PetProfile> {
+    const result = validatePet(raw);
+    if (!result.ok) return result;
+    const pet = result.value;
+    this.pets = this.pets.some((p) => p.id === pet.id)
+      ? this.pets.map((p) => (p.id === pet.id ? pet : p))
+      : [...this.pets, pet];
+    this.write();
+    return result;
+  }
+
+  removePet(petId: string): string | undefined {
+    if (!this.pets.some((p) => p.id === petId)) return `pet ${petId} does not exist`;
+    this.pets = this.pets.filter((p) => p.id !== petId);
     this.write();
     return undefined;
   }
 
-  private load(): CatProfile[] {
+  private commit(cats: CatProfile[]): void {
+    this.cats = normalizeHierarchy(cats);
+    this.write();
+  }
+
+  private load(): void {
     let raw: string;
     try {
       raw = fs.readFileSync(this.filePath, 'utf-8');
     } catch {
-      this.cats = defaultTeam();
-      this.write();
-      return this.cats;
+      this.commit(defaultTeam());
+      return;
     }
     let parsed: Partial<CatsFile>;
     try {
@@ -301,34 +356,30 @@ export class CatStore {
       console.warn(
         `[Pixel Agents] Cats: ${this.filePath} unreadable (${err}); copied to ${backup}`,
       );
-      this.cats = defaultTeam();
-      this.write();
-      return this.cats;
+      this.commit(defaultTeam());
+      return;
     }
-    const cats: CatProfile[] = [];
-    for (const entry of parsed.cats) {
-      const result = validateProfile(entry);
-      if (!result.ok) {
-        console.warn(`[Pixel Agents] Cats: dropped an invalid cat: ${result.error}`);
-      } else if (cats.some((c) => c.id === result.profile.id)) {
-        console.warn(`[Pixel Agents] Cats: dropped a duplicate cat id ${result.profile.id}`);
-      } else {
-        cats.push(result.profile);
+    const keep = <T extends { id: string }>(
+      entries: unknown[],
+      check: (e: unknown) => Result<T>,
+    ) => {
+      const out: T[] = [];
+      for (const entry of entries) {
+        const result = check(entry);
+        if (!result.ok)
+          console.warn(`[Pixel Agents] Cats: dropped an invalid entry: ${result.error}`);
+        else if (out.some((e) => e.id === result.value.id))
+          console.warn(`[Pixel Agents] Cats: dropped duplicate ${result.value.id}`);
+        else out.push(result.value);
       }
-    }
-    // A dangling parent or a hand-made cycle makes the cat a root.
-    for (const cat of cats) {
-      if (cat.parentId === undefined) continue;
-      const others = cats.filter((c) => c !== cat);
-      if (!cats.some((c) => c.id === cat.parentId) || createsCycle(others, cat.id, cat.parentId)) {
-        delete cat.parentId;
-      }
-    }
-    return cats;
+      return out;
+    };
+    this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e)));
+    this.pets = keep(Array.isArray(parsed.pets) ? parsed.pets : [], validatePet);
   }
 
   private write(): void {
-    const data: CatsFile = { version: 1, cats: this.cats };
+    const data: CatsFile = { version: 1, cats: this.cats, pets: this.pets };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });

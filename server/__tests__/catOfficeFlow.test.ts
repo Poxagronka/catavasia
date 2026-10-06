@@ -5,6 +5,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ServerMessage } from '../../core/src/messages.js';
+import type { NarratorInput } from '../../core/src/narrator.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { createHttpServer, type HttpServerHandle } from '../src/httpServer.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
@@ -17,6 +18,7 @@ let stateDir: string;
 let fakeLog: string;
 let host: FakeCatHost;
 let emitted: ServerMessage[];
+let narrated: NarratorInput[];
 let office: Orchestrator;
 let tasks: TaskManager;
 let server: HttpServerHandle;
@@ -35,15 +37,16 @@ function makeRepo(): string {
   return repo;
 }
 
-const cat = (id: string, name: string, model: string, parentId?: string, breed = 0) => ({
+const cat = (id: string, name: string, model: string, parentId: string | null, breed: string) => ({
   id,
   name,
   role: parentId ? 'Developer' : 'Team lead',
   systemPrompt: `I am ${name}.`,
   engine: 'claude',
   model,
+  effort: 'medium',
   appearance: { breed },
-  ...(parentId ? { parentId } : {}),
+  parentId,
 });
 
 async function startOffice(): Promise<void> {
@@ -53,20 +56,22 @@ async function startOffice(): Promise<void> {
     JSON.stringify({
       version: 1,
       cats: [
-        cat('boss', 'Barsik', 'opus', undefined, 0),
-        cat('murka', 'Murka', 'sonnet', 'boss', 1),
-        cat('pushok', 'Pushok', 'sonnet', 'boss', 3),
+        cat('boss', 'Barsik', 'opus', null, 'marmalade'),
+        cat('murka', 'Murka', 'sonnet', 'boss', 'smokey'),
+        cat('pushok', 'Pushok', 'sonnet', 'boss', 'snow'),
       ],
     }),
   );
   host = new FakeCatHost();
   emitted = [];
+  narrated = [];
   office = new Orchestrator({
     host,
     stateDir,
     adapters: [new ClaudeAdapter(writeFakeClaude(tmp))],
     emit: (m) => emitted.push(m),
     turnConcurrency: 6,
+    narrate: (input) => narrated.push(input),
   });
   server = await createHttpServer({
     embedded: true,
@@ -169,6 +174,13 @@ describe('team task (1 boss + 2 workers)', () => {
     expect(host.launched.map((l) => l.palette).sort()).toEqual([0, 1, 3]);
     expect(host.finished.map((f) => f.id).sort()).toEqual([1, 2, 3]);
     expect(task.palette).toBe(0);
+
+    // The narrator hears tool calls, office messages and the final result.
+    expect(narrated.some((n) => n.kind === 'tool' && n.tool === 'Write')).toBe(true);
+    expect(narrated).toContainEqual(
+      expect.objectContaining({ kind: 'message', from: 'Barsik', to: 'Murka' }),
+    );
+    expect(narrated.some((n) => n.kind === 'result' && n.from === 'Barsik')).toBe(true);
   });
 
   it('runs a single-cat task in a plain folder and reports to the user', async () => {
@@ -187,6 +199,27 @@ describe('team task (1 boss + 2 workers)', () => {
 
   it('lists the team and each cat as targets', () => {
     expect(tasks.targets().map((t) => t.id)).toEqual(['team', 'boss', 'murka', 'pushok']);
+  });
+});
+
+describe('cat profiles over the office API', () => {
+  it('broadcasts the snapshot after a change and refuses a cycle', () => {
+    emitted = [];
+    expect(office.editProfiles({ type: 'setCatParent', id: 'murka', parentId: 'pushok' })).toBe(
+      undefined,
+    );
+    const loaded = emitted.find((m) => m.type === 'catProfilesLoaded');
+    expect(loaded).toMatchObject({
+      engineOptions: [{ engine: 'claude', models: ['fable', 'opus', 'sonnet'] }],
+    });
+    expect(emitted.find((m) => m.type === 'catHierarchy')).toEqual({
+      type: 'catHierarchy',
+      bossId: 'boss',
+      children: { boss: ['pushok'], pushok: ['murka'] },
+    });
+    expect(
+      office.editProfiles({ type: 'setCatParent', id: 'pushok', parentId: 'murka' }),
+    ).toContain('one of its reports');
   });
 });
 

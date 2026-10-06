@@ -21,6 +21,7 @@ import type {
   FlowState,
   ServerMessage,
 } from '../../../core/src/messages.js';
+import type { NarratorInput } from '../../../core/src/narrator.js';
 import type { TaskTarget } from '../../../core/src/tasks.js';
 import {
   CATS_FILE_NAME,
@@ -32,7 +33,8 @@ import {
 } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
-import { CatStore, type EngineCatalog, hierarchyOf, rootsOf } from './catProfiles.js';
+import { CAT_BREED_IDS, CatStore, type EngineCatalog } from './catProfiles.js';
+import { bossOf, hierarchyOf } from './catTree.js';
 import type { EngineAdapter } from './engineAdapter.js';
 import { catLabel, personaText, rootTaskMessage } from './flowPrompts.js';
 import { endFlowWorkspaces, prepareWorkspace, runTurnFor } from './flowTurns.js';
@@ -64,6 +66,8 @@ export interface OrchestratorOptions {
   adapters: EngineAdapter[];
   emit: (message: ServerMessage) => void;
   turnConcurrency: number;
+  /** Narrator input: tool activity, office messages and results of the cats. */
+  narrate?: (input: NarratorInput) => void;
 }
 
 export class Orchestrator implements OfficeToolHandler, FlowContext {
@@ -99,25 +103,52 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   // ── Profiles (WebSocket) ──
 
   profileMessages(): ServerMessage[] {
-    const claude = this.catalog().claude ?? { models: [], efforts: [] };
-    const profiles = this.cats.list();
+    const cats = this.cats.list();
+    const engineOptions = this.opts.adapters.map((a) => {
+      const { models, efforts } = a.choices();
+      return { engine: a.engine, models, efforts };
+    });
     return [
-      { type: 'catProfilesLoaded', profiles, models: claude.models, efforts: claude.efforts },
-      { type: 'catHierarchy', ...hierarchyOf(profiles) },
+      { type: 'catProfilesLoaded', cats, pets: this.cats.listPets(), engineOptions },
+      { type: 'catHierarchy', ...hierarchyOf(cats) },
     ];
   }
 
-  saveProfile(raw: unknown): string | undefined {
-    const result = this.cats.save(raw);
-    if (!result.ok) return result.error;
-    this.opts.emit({ type: 'catProfileSaved', profile: result.profile });
-    this.opts.emit({ type: 'catHierarchy', ...hierarchyOf(this.cats.list()) });
-    return undefined;
-  }
-
-  deleteProfile(id: string): string | undefined {
-    const error = this.cats.remove(id);
-    if (!error) for (const msg of this.profileMessages()) this.opts.emit(msg);
+  /**
+   * One Cats-menu change (client message). Returns an error, or broadcasts the
+   * new snapshot: the tree rules may move other cats too.
+   */
+  editProfiles(msg: Record<string, unknown>): string | undefined {
+    const catId = String(msg.id ?? '');
+    let error: string | undefined;
+    switch (msg.type) {
+      case 'saveCatProfile': {
+        const result = this.cats.saveCat(msg.profile);
+        if (!result.ok) return result.error;
+        this.opts.emit({ type: 'catProfileSaved', profile: result.value });
+        break;
+      }
+      case 'deleteCatProfile':
+        error = this.cats.removeCat(catId);
+        break;
+      case 'setCatParent':
+        error = this.cats.setParent(catId, String(msg.parentId ?? ''));
+        break;
+      case 'promoteCatToBoss':
+        error = this.cats.promoteToBoss(catId);
+        break;
+      case 'savePetProfile': {
+        const result = this.cats.savePet(msg.pet);
+        error = result.ok ? undefined : result.error;
+        break;
+      }
+      case 'deletePetProfile':
+        error = this.cats.removePet(catId);
+        break;
+      default:
+        return `unknown change ${String(msg.type)}`;
+    }
+    if (!error) for (const message of this.profileMessages()) this.opts.emit(message);
     return error;
   }
 
@@ -125,17 +156,17 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
 
   targets(): TaskTarget[] {
     const cats = this.cats.list();
-    const root = rootsOf(cats)[0];
+    const boss = bossOf(cats);
     return [
-      ...(root ? [{ id: 'team', label: `Team (${root.name} leads)` }] : []),
+      ...(boss ? [{ id: 'team', label: `Team (${boss.name} leads)` }] : []),
       ...cats.map((c) => ({ id: c.id, label: c.role ? `${c.name}: ${c.role}` : c.name })),
     ];
   }
 
-  /** The cat that leads a task for `target`: `team` = the first root cat. */
+  /** The cat that leads a task for `target`: `team` = the boss. */
   resolveTarget(target: string): CatProfile | undefined {
     const cats = this.cats.list();
-    return target === 'team' ? rootsOf(cats)[0] : cats.find((c) => c.id === target);
+    return target === 'team' ? bossOf(cats) : cats.find((c) => c.id === target);
   }
 
   /** Start a team task. `cwd` is where the root works (the task worktree, or the folder). */
@@ -198,6 +229,19 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   message(flow: Flow, from: string, to: string, kind: CatMessageKind, text: string): void {
     this.opts.emit({ type: 'catMessage', taskId: flow.task.id, from, to, kind, text });
     this.log(flow, { kind: 'message', name: `${from} -> ${to} (${kind})`, text });
+    const sender = flow.members.get(from)?.agentId;
+    if (sender !== undefined) {
+      const name = (catId: string) => flow.cats.find((c) => c.id === catId)?.name ?? catId;
+      const narrated = kind === 'final' ? 'result' : 'message';
+      this.opts.narrate?.({
+        catId: sender,
+        ts: Date.now(),
+        kind: narrated,
+        from: name(from),
+        to: name(to),
+        text,
+      });
+    }
   }
 
   setState(flow: Flow, state: FlowState): void {
@@ -233,11 +277,13 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
       this.lastAgentByCat.delete(member.cat.id);
       this.opts.host.removeAgent(previous);
     }
-    const { breed, hueShift } = member.cat.appearance;
-    const agent = this.opts.host.launchHeadlessAgent(member.sessionId, member.cwd, {
-      palette: breed,
-      hueShift: breed === undefined ? undefined : (hueShift ?? 0),
-    });
+    // The office character shows the breed preset; custom coats are drawn by the Cats menu art.
+    const palette = CAT_BREED_IDS.indexOf(member.cat.appearance.breed as never);
+    const agent = this.opts.host.launchHeadlessAgent(
+      member.sessionId,
+      member.cwd,
+      palette >= 0 ? { palette, hueShift: 0 } : undefined,
+    );
     member.agentId = agent.id;
     if (member.cat.id === flow.rootId) {
       Object.assign(flow.task, {

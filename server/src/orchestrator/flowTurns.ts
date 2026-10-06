@@ -11,6 +11,7 @@
 import * as path from 'path';
 
 import { TASK_WORKTREES_DIR } from '../constants.js';
+import { taskLogInput } from '../narrator/narrator.js';
 import {
   commitAll,
   createWorktree,
@@ -78,11 +79,13 @@ export async function runTurnFor(office: Orchestrator, flow: Flow, member: Membe
     systemPromptFile: member.systemPromptFile,
     mcpConfigFile: member.mcpConfigFile,
     message,
-    onLog: (entry) =>
+    onLog: (entry) => {
       office.log(flow, {
         ...entry,
         name: entry.kind === 'tool' ? `${member.cat.name}: ${entry.name}` : member.cat.name,
-      }),
+      });
+      office.opts.narrate?.(taskLogInput(agentId, entry, Date.now()));
+    },
   });
   const outcome = await member.handle.done;
   member.handle = undefined;
@@ -104,8 +107,10 @@ export async function runTurnFor(office: Orchestrator, flow: Flow, member: Membe
     cacheCreationTokens: outcome.usage?.cacheCreationTokens,
     outputTokens: outcome.usage?.outputTokens,
   });
-  if (!outcome.ok)
+  if (!outcome.ok) {
     office.log(flow, { kind: 'error', name: member.cat.name, text: outcome.error ?? '' });
+    office.opts.narrate?.({ catId: agentId, ts: Date.now(), kind: 'state', text: 'error' });
+  }
   office.save(flow);
   if (flow.ended) return;
 

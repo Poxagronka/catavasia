@@ -1,23 +1,18 @@
-import Fastify from 'fastify';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CatProfile } from '../../core/src/messages.js';
-import { AgentStateStore } from '../src/agentStateStore.js';
-import { applyShowGuests, filterGuestMessage } from '../src/guests.js';
-import { CatStore, type EngineCatalog, validateProfile } from '../src/orchestrator/catProfiles.js';
-import { parseClaudeHelp } from '../src/orchestrator/claudeAdapter.js';
-import { registerOfficeMcpRoute } from '../src/orchestrator/officeMcp.js';
 import {
-  callOfficeTool,
-  type Flow,
-  type FlowContext,
-  type Member,
-} from '../src/orchestrator/officeTools.js';
+  CAT_BREED_IDS,
+  CatStore,
+  type EngineCatalog,
+  validateCat,
+  validatePet,
+} from '../src/orchestrator/catProfiles.js';
+import { parseClaudeHelp } from '../src/orchestrator/claudeAdapter.js';
 import { TurnScheduler } from '../src/orchestrator/turnScheduler.js';
-import type { AgentState } from '../src/types.js';
 
 /** Lines copied from `claude --help` of Claude Code 2.1.290. */
 const HELP = `  --effort <level>                      Effort level for the current session
@@ -38,7 +33,9 @@ const profile = (over: Partial<CatProfile> = {}): Record<string, unknown> => ({
   systemPrompt: 'Be kind.',
   engine: 'claude',
   model: 'sonnet',
-  appearance: { breed: 1 },
+  effort: 'medium',
+  parentId: null,
+  appearance: { breed: 'smokey' },
   ...over,
 });
 
@@ -56,69 +53,128 @@ describe('engine choices', () => {
 });
 
 describe('profile validation', () => {
-  it('normalizes a valid profile and drops unknown fields', () => {
-    const result = validateProfile({ ...profile(), extra: 1, effort: 'high' }, CATALOG);
-    expect(result).toEqual({
-      ok: true,
-      profile: { ...profile(), name: 'Murka', effort: 'high' },
-    });
+  it('normalizes a valid cat and drops unknown fields', () => {
+    const result = validateCat({ ...profile(), extra: 1, effort: 'high' }, CATALOG);
+    expect(result).toEqual({ ok: true, value: { ...profile(), name: 'Murka', effort: 'high' } });
   });
 
   it.each([
     [{ id: 'Bad Id' }, 'id must match'],
-    [{ engine: 'gpt' }, 'engine must be one of'],
+    [{ engine: 'gpt' }, 'unknown engine'],
     [{ engine: 'codex' }, 'engine codex is not available yet'],
-    [{ model: 'gpt-5' }, 'model gpt-5 is not accepted'],
+    [{ model: 'gpt-5' }, 'model "gpt-5" is not accepted'],
+    [{ model: 'haiku' }, 'model "haiku" is not accepted'],
     [{ effort: 'turbo' }, 'effort must be one of'],
     [{ name: '  ' }, 'name is empty'],
-    [{ parentId: 'murka' }, 'own parent'],
-    [{ appearance: {} }, 'appearance needs a breed'],
-    [{ appearance: { breed: 99 } }, 'appearance.breed'],
-    [{ appearance: { pattern: 'tabby', fur: 'red' } }, 'appearance.fur must be #rrggbb'],
+    [{ parentId: 'murka' }, 'cannot report to itself'],
+    [{ appearance: { breed: 'lion' } }, 'unknown breed "lion"'],
+    [{ appearance: { pattern: 'plaid' } }, 'unknown pattern'],
+    [{ appearance: { colors: { fur: 'red' } } }, 'colors.fur must be #rrggbb'],
+    [{ appearance: { collar: 'blue' } }, 'collar must be #rrggbb'],
   ])('rejects %j', (over, error) => {
-    const result = validateProfile(profile(over as Partial<CatProfile>), CATALOG);
+    const result = validateCat(profile(over as Partial<CatProfile>), CATALOG);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toContain(error);
   });
 
   it('accepts a full model name and a custom coat', () => {
     /* eslint-disable pixel-agents/no-inline-colors -- coat colours are the data under test */
-    const custom = { pattern: 'calico', fur: '#AABBCC', eyes: '#00ff00' };
-    const result = validateProfile(
-      profile({ model: 'claude-haiku-4-5-20251001', appearance: custom as never }),
+    const look = { breed: 'tux', pattern: 'calico', colors: { fur: '#AABBCC' }, collar: 'none' };
+    const result = validateCat(
+      profile({ model: 'claude-haiku-4-5-20251001', appearance: look as never }),
       CATALOG,
     );
-    expect(result.ok && result.profile.appearance).toEqual({ ...custom, fur: '#aabbcc' });
+    expect(result.ok && result.value.appearance).toEqual({ ...look, colors: { fur: '#aabbcc' } });
     /* eslint-enable pixel-agents/no-inline-colors */
+  });
+
+  it('validates pets (cats only)', () => {
+    const pet = {
+      id: 'pet-1',
+      name: 'Biscuit',
+      species: 'cat',
+      appearance: { breed: 'butterscotch' },
+    };
+    expect(validatePet(pet).ok).toBe(true);
+    expect(validatePet({ ...pet, species: 'dog' }).ok).toBe(false);
+  });
+
+  it('keeps breed ids in char_N order of scripts/cats/breeds.mjs', async () => {
+    const { BREEDS } = (await import('../../scripts/cats/breeds.mjs')) as {
+      BREEDS: Array<{ name: string }>;
+    };
+    expect([...CAT_BREED_IDS]).toEqual(BREEDS.map((b) => b.name.toLowerCase()));
   });
 });
 
 describe('CatStore', () => {
   const file = () => path.join(tmp, 'cats.json');
+  const tree = (store: CatStore) => store.list().map((c) => [c.id, c.parentId]);
 
   it('seeds a default team (Opus boss, three Sonnet workers) when the file is missing', () => {
     const store = new CatStore(file(), () => CATALOG);
     const cats = store.list();
-    expect(cats.map((c) => [c.id, c.model, c.parentId])).toEqual([
-      ['boss', 'opus', undefined],
-      ['murka', 'sonnet', 'boss'],
-      ['pushok', 'sonnet', 'boss'],
-      ['ryzhik', 'sonnet', 'boss'],
+    expect(cats.map((c) => [c.id, c.model, c.effort, c.parentId])).toEqual([
+      ['boss', 'opus', 'high', null],
+      ['murka', 'sonnet', 'medium', 'boss'],
+      ['pushok', 'sonnet', 'medium', 'boss'],
+      ['ryzhik', 'sonnet', 'medium', 'boss'],
     ]);
-    for (const cat of cats) expect(validateProfile(cat, CATALOG).ok).toBe(true);
-    expect(JSON.parse(fs.readFileSync(file(), 'utf-8')).version).toBe(1);
+    for (const cat of cats) expect(validateCat(cat, CATALOG).ok).toBe(true);
+    const onDisk = JSON.parse(fs.readFileSync(file(), 'utf-8'));
+    expect(onDisk.version).toBe(1);
+    expect(onDisk.pets).toEqual([]);
   });
 
-  it('refuses a cycle and a missing parent, and reparents on delete', () => {
+  it('keeps exactly one boss and refuses cycles and unknown parents', () => {
     const store = new CatStore(file(), () => CATALOG);
-    expect(store.save(profile({ id: 'kitten', parentId: 'murka' })).ok).toBe(true);
-    const cycle = store.save({ ...store.get('boss'), parentId: 'kitten' });
-    expect(!cycle.ok && cycle.error).toContain('cycle');
-    const orphan = store.save(profile({ id: 'x', parentId: 'ghost' }));
+    expect(store.saveCat(profile({ id: 'kitten', parentId: 'murka' })).ok).toBe(true);
+    // A new cat without a parent reports to the boss: promoteToBoss makes bosses.
+    expect(store.saveCat(profile({ id: 'stray' })).ok).toBe(true);
+    expect(store.get('stray')?.parentId).toBe('boss');
+    const cycle = store.saveCat({ ...store.get('murka'), parentId: 'kitten' });
+    expect(!cycle.ok && cycle.error).toContain('one of its reports');
+    expect(store.setParent('murka', 'kitten')).toContain('one of its reports');
+    expect(store.setParent('boss', 'murka')).toContain('one of its reports');
+    const orphan = store.saveCat(profile({ id: 'x', parentId: 'ghost' }));
     expect(!orphan.ok && orphan.error).toContain('does not exist');
-    expect(store.remove('murka')).toBeUndefined();
-    expect(store.get('kitten')?.parentId).toBe('boss');
-    expect(new CatStore(file(), () => CATALOG).get('kitten')?.parentId).toBe('boss');
+    expect(store.setParent('kitten', 'pushok')).toBeUndefined();
+    expect(store.get('kitten')?.parentId).toBe('pushok');
+  });
+
+  it('promotes a boss and hands the tree over on delete', () => {
+    const store = new CatStore(file(), () => CATALOG);
+    expect(store.promoteToBoss('pushok')).toBeUndefined();
+    expect(store.get('pushok')?.parentId).toBeNull();
+    expect(store.get('boss')?.parentId).toBe('pushok');
+    // Deleting a middle cat moves its reports up.
+    expect(store.removeCat('boss')).toBeUndefined();
+    expect(tree(store)).toEqual([
+      ['murka', 'pushok'],
+      ['pushok', null],
+      ['ryzhik', 'pushok'],
+    ]);
+    // Deleting the boss hands over to its first report.
+    expect(store.removeCat('pushok')).toBeUndefined();
+    expect(tree(store)).toEqual([
+      ['murka', null],
+      ['ryzhik', 'murka'],
+    ]);
+    expect(tree(new CatStore(file(), () => CATALOG))).toEqual(tree(store));
+  });
+
+  it('stores pets next to the cats', () => {
+    const store = new CatStore(file(), () => CATALOG);
+    const pet = {
+      id: 'pet-1',
+      name: 'Biscuit',
+      species: 'cat',
+      appearance: { breed: 'butterscotch' },
+    };
+    expect(store.savePet(pet).ok).toBe(true);
+    expect(new CatStore(file(), () => CATALOG).listPets()).toEqual([pet]);
+    expect(store.removePet('pet-1')).toBeUndefined();
+    expect(store.removePet('pet-1')).toContain('does not exist');
   });
 
   it('keeps a copy of an unreadable file and starts from the default team', () => {
@@ -160,197 +216,5 @@ describe('TurnScheduler', () => {
     await Promise.all(done);
     expect(scheduler.state()).toEqual({ running: [], queued: [], cap: 2 });
     expect(states.length).toBeGreaterThan(0);
-  });
-});
-
-describe('office MCP protocol', () => {
-  it('answers initialize, tools/list and tools/call; notifications get 202', async () => {
-    const app = Fastify();
-    const calls: unknown[] = [];
-    registerOfficeMcpRoute(app, {
-      knowsToken: (t) => t === 'cat-token',
-      callTool: (token, name, args) => {
-        calls.push({ token, name, args });
-        return { text: 'done', isError: name === 'bad' };
-      },
-    });
-    const post = (payload: unknown) =>
-      app.inject({
-        method: 'POST',
-        url: '/mcp',
-        headers: { authorization: 'Bearer cat-token' },
-        payload: payload as object,
-      });
-    const init = await post({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { protocolVersion: '2025-03-26' },
-    });
-    expect(init.json().result.protocolVersion).toBe('2025-03-26');
-    expect(init.json().result.capabilities.tools).toBeDefined();
-    expect((await post({ jsonrpc: '2.0', method: 'notifications/initialized' })).statusCode).toBe(
-      202,
-    );
-    const list = await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-    expect(list.json().result.tools.map((t: { name: string }) => t.name)).toEqual([
-      'brief',
-      'delegate',
-      'ask',
-      'reply',
-      'report',
-      'list_team',
-    ]);
-    const call = await post({
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: { name: 'bad', arguments: { a: 1 } },
-    });
-    expect(call.json().result).toEqual({
-      content: [{ type: 'text', text: 'done' }],
-      isError: true,
-    });
-    expect(calls).toEqual([{ token: 'cat-token', name: 'bad', args: { a: 1 } }]);
-    expect((await app.inject({ method: 'GET', url: '/mcp' })).statusCode).toBe(405);
-    await app.close();
-  });
-});
-
-describe('office tools: hierarchy', () => {
-  // boss -> mid -> deep, boss -> w1
-  const cats = [
-    profile({ id: 'boss', name: 'Boss' }),
-    profile({ id: 'mid', name: 'Mid', parentId: 'boss' }),
-    profile({ id: 'w1', name: 'W1', parentId: 'boss' }),
-    profile({ id: 'deep', name: 'Deep', parentId: 'mid' }),
-  ] as unknown as CatProfile[];
-  const member = (cat: CatProfile) =>
-    ({
-      cat,
-      inbox: [],
-      askedBy: new Set(),
-      waitingOn: new Set(),
-      pendingMerges: [],
-    }) as unknown as Member;
-  let flow: Flow;
-  let delivered: Array<[string, string]>;
-  let ctx: FlowContext;
-  const call = (from: string, name: string, args: Record<string, unknown> = {}) =>
-    callOfficeTool(ctx, flow, from, name, args);
-
-  beforeEach(() => {
-    delivered = [];
-    flow = {
-      task: { id: 't1', flow: { root: 'boss', state: 'briefing', nodes: [], turns: 0 } },
-      cats,
-      rootId: 'boss',
-      members: new Map(cats.map((c) => [c.id, member(c)])),
-      repo: null,
-      ended: false,
-    } as unknown as Flow;
-    ctx = {
-      deliver: (f, to, text) => {
-        delivered.push([to, text]);
-        return f.members.get(to)!;
-      },
-      message: () => {},
-      setState: (f, state) => {
-        f.task.flow.state = state;
-      },
-    };
-  });
-
-  it('delegates only to direct reports', () => {
-    expect(call('w1', 'delegate', { to: 'deep', task: 'x' })).toMatchObject({ isError: true });
-    expect(call('boss', 'delegate', { to: 'deep', task: 'x' }).text).toContain(
-      'not your direct report',
-    );
-    expect(call('boss', 'delegate', { to: 'mid', task: 'build' }).isError).toBeUndefined();
-    expect(flow.task.flow.nodes).toEqual([
-      { cat: 'mid', from: 'boss', goal: 'build', status: 'working', branch: undefined },
-    ]);
-    expect(flow.task.flow.state).toBe('working');
-    expect(delivered[0][0]).toBe('mid');
-    expect(call('boss', 'delegate', { to: 'mid', task: 'again' }).text).toContain('still works');
-  });
-
-  it('lets ask and reply go up, down and to siblings only', () => {
-    expect(call('deep', 'ask', { to: 'w1', question: 'q' })).toMatchObject({ isError: true });
-    expect(call('boss', 'ask', { to: 'deep', question: 'q' })).toMatchObject({ isError: true });
-    expect(call('deep', 'ask', { to: 'mid', question: 'q' }).isError).toBeUndefined();
-    expect(call('w1', 'ask', { to: 'mid', question: 'q' }).isError).toBeUndefined();
-    expect(flow.members.get('mid')!.askedBy).toEqual(new Set(['deep', 'w1']));
-    expect(call('mid', 'reply', { to: 'w1', answer: 'a' }).isError).toBeUndefined();
-    expect(flow.members.get('mid')!.askedBy).toEqual(new Set(['deep']));
-    expect(flow.members.get('w1')!.waitingOn.size).toBe(0);
-  });
-
-  it('reports only on a delegated task; the root reports last; only the root briefs', () => {
-    expect(call('w1', 'report', { result: 'r' }).text).toContain('Nobody gave you a task');
-    expect(call('w1', 'brief', { plan: 'p' })).toMatchObject({ isError: true });
-    expect(call('boss', 'brief', { plan: 'p' }).isError).toBeUndefined();
-    call('boss', 'delegate', { to: 'mid', task: 'build' });
-    expect(call('mid', 'report', { result: 'built' }).isError).toBeUndefined();
-    expect(flow.members.get('mid')!.outgoingReport).toBe('built');
-    expect(call('boss', 'report', { result: 'r' }).text).toContain('Wait: mid');
-    flow.task.flow.nodes[0].status = 'reported';
-    expect(call('boss', 'report', { result: 'final' }).isError).toBeUndefined();
-    expect(flow.members.get('boss')!.final).toBe('final');
-  });
-
-  it('rejects unknown cats, tools and empty arguments', () => {
-    expect(call('boss', 'delegate', { to: 'ghost', task: 'x' }).text).toContain('no cat with id');
-    expect(call('boss', 'fly')).toMatchObject({ isError: true });
-    expect(call('boss', 'delegate', { to: 'mid' }).text).toContain('"task" is required');
-    expect(call('w1', 'list_team').text).toContain('Your lead Boss');
-  });
-});
-
-describe('guests', () => {
-  const agent = (isExternal: boolean) =>
-    ({
-      isExternal,
-      activeToolStatuses: new Map([['t1', 'Reading']]),
-      activeToolNames: new Map([['t1', 'Read']]),
-      backgroundAgentToolIds: new Set(),
-      isWaiting: false,
-    }) as unknown as AgentState;
-
-  it('hides guests by default and shows them when showGuests is on', () => {
-    const store = new AgentStateStore();
-    store.set(1, agent(false));
-    store.set(2, agent(true));
-    const show = { current: false };
-    expect(filterGuestMessage({ type: 'agentCreated', id: 2 }, store, show)).toBeNull();
-    expect(filterGuestMessage({ type: 'agentStatus', id: 1 }, store, show)).not.toBeNull();
-    expect(filterGuestMessage({ type: 'agentClosed', id: 2 }, store, show)).not.toBeNull();
-    const existing = filterGuestMessage(
-      {
-        type: 'existingAgents',
-        agents: [1, 2],
-        agentMeta: { 1: {}, 2: {} },
-        folderNames: {},
-        externalAgents: { 2: true },
-      },
-      store,
-      show,
-    );
-    expect(existing).toMatchObject({ agents: [1], agentMeta: { 1: {} }, externalAgents: {} });
-
-    const added: number[] = [];
-    const sent: Array<Record<string, unknown>> = [];
-    store.on('agentAdded', (id) => added.push(id));
-    store.on('broadcast', (m) => sent.push(m));
-    applyShowGuests(store, show, true);
-    expect(show.current).toBe(true);
-    expect(added).toEqual([2]);
-    expect(sent).toEqual([
-      { type: 'agentToolStart', id: 2, toolId: 't1', status: 'Reading', toolName: 'Read' },
-    ]);
-    expect(filterGuestMessage({ type: 'agentCreated', id: 2 }, store, show)).not.toBeNull();
-    sent.length = 0;
-    applyShowGuests(store, show, false);
-    expect(sent).toEqual([{ type: 'agentClosed', id: 2 }]);
   });
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import type { useEditorActions } from '../hooks/useEditorActions.js';
 import type { EditorState } from '../office/editor/editorState.js';
+import { DefaultLayoutReset } from './DefaultLayoutReset.js';
 import { Button } from './ui/Button.js';
 
 interface EditActionBarProps {
@@ -70,34 +71,12 @@ export function EditActionBar({ editor, editorState: es }: EditActionBarProps) {
           )}
         </>
       )}
-      {!showDefaultConfirm ? (
-        <Button
-          variant="default"
-          size="md"
-          onClick={() => setShowDefaultConfirm(true)}
-          title="Replace your office with the default layout"
-        >
-          Default
-        </Button>
-      ) : (
-        <div className="flex gap-4 items-center">
-          <span className="text-base text-reset-text">Replace with default?</span>
-          <Button
-            variant="default"
-            size="md"
-            className="bg-danger text-white"
-            onClick={() => {
-              setShowDefaultConfirm(false);
-              editor.handleResetToDefault();
-            }}
-          >
-            Yes
-          </Button>
-          <Button variant="default" size="md" onClick={() => setShowDefaultConfirm(false)}>
-            No
-          </Button>
-        </div>
-      )}
+      <DefaultLayoutReset
+        label="Default"
+        confirming={showDefaultConfirm}
+        onConfirmingChange={setShowDefaultConfirm}
+        onReset={editor.handleResetToDefault}
+      />
     </div>
   );
 }
