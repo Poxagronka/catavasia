@@ -21,7 +21,7 @@ import { HOUSE_NAP, NAP } from './idleAnims.js';
 export const BED_POSES: Readonly<Record<string, OnItemPose>> = {
   BED_CUSHION: { front: { offsetX: 0, offsetY: 4 } },
   BED_BASKET: { front: { offsetX: 0, offsetY: 4 } },
-  BED_HAMMOCK: { front: { offsetX: 0, offsetY: -3 } },
+  BED_HAMMOCK: { front: { offsetX: 0, offsetY: -3 }, side: { offsetX: 2, offsetY: -5 } },
   BED_DONUT: { front: { offsetX: 0, offsetY: 4 } },
 };
 

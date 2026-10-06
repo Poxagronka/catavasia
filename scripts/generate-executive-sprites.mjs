@@ -62,7 +62,7 @@ for (const item of EXECUTIVE_ITEMS) {
       ...writePng(path.join(dir, `${id}.png`), rows, id),
     });
     const members = item.members.map((m) => {
-      const id = `${item.id}_${m.orientation.toUpperCase()}`;
+      const id = m.id ?? `${item.id}_${m.orientation.toUpperCase()}`;
       if (m.on) {
         // On/off state group; several "on" frames animate (the PC manifest pattern).
         const on =

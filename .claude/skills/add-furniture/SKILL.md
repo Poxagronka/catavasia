@@ -17,10 +17,10 @@ rotate, carry its states, and have cat animations that do not break with
 different object positions.** Mechanism and reference: `docs/catavasia/furniture.md`
 (read it whole before ART). Enforcement: `webview-ui/test/furnitureRotation.test.ts`.
 
-Kind: **loop** skill. It runs under `.claude/skill-loop/PROTOCOL.md` (read it
-whole before START): one state at a time, a state file rewritten at every
-transition, any state may go to BLOCKED with one AskUserQuestion, and the
-JUDGE → IMPROVE → LEDGER tail before the PR state.
+Kind: **loop** skill under `.claude/skill-loop/PROTOCOL.md` (read it whole
+before START): one state at a time, and the JUDGE → IMPROVE → LEDGER tail
+before the PR state. Write `state.md` before the first SPEC command and
+rewrite it at each transition: the judge counts one write per Evidence line.
 
 ## State machine
 
@@ -53,6 +53,9 @@ JUDGE → IMPROVE → LEDGER tail before the PR state.
   placement: a plant, a toy, a house with a door on one side.
 - `symmetric` when it looks the same flipped, or must not flip (lettering).
 - Every view carries every state: an item with `on` art has `on` in every view.
+- An existing item that gains views needs in Facts only its id, the new scheme
+  with a reason, and its states. It keeps its front id (saved layouts); a
+  saved `<ID>:left` loads as the front (`layoutSerializer.ts`).
 
 ## 2. ART — the generator
 
@@ -102,13 +105,15 @@ Write every spot for the FRONT view; the builders turn it (furniture.md §4).
 
 ## 6. PREVIEW and 7. SCORE
 
+- No idle activity (desk, table, PC): `--work` on the desk (seat CUSHIONED_CHAIR:
+  EXECUTIVE_CHAIR and LEAD_CHAIR are reserved), `--states` for an on-state.
 - Read every strip (Read the PNG). Score 0-10 per view × activity:
   silhouette reads as the item (2), the cat's pose meets the item (paws on it,
   sits in it, no float or overlap) (3), the pose faces the right way in this
   view (2), cute and alive (2), no artifact (stray pixel, wrong z) (1).
-- Below 8: name the defect in Evidence, rework, re-record. Three rounds max.
-- Copy the final strips and `orientation-sheet.png` to the PR body (upload or
-  link), with SCORES.md.
+- Below 8: name the defect in Evidence, rework, re-record, then Read the new
+  strip. A score stands only on a Read after its last re-record. Three rounds max.
+- Put the final strips, `orientation-sheet.png` and SCORES.md in the PR body.
 
 ## 8. LAYOUT (optional)
 
@@ -120,7 +125,8 @@ an edited office is kept.
 
 ## 9. Gate
 
-Run from the worktree root, root `npm ci` only:
+Run from the worktree root, root `npm ci` only. If the base moved, merge it
+first, and list each merge and push in Done:
 
 ```bash
 npm run check-types && npm run lint && npm run format:check && npm run knip \

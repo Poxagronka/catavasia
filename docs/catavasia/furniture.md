@@ -122,12 +122,18 @@ PNGs and `manifest.json` of its items. Pass `rotationScheme` and views through
 the generator, never by hand-editing generated manifests. Cat poses for a new
 activity go in `scripts/cats/*Poses.mjs` and are rendered by
 `node scripts/generate-cat-sprites.mjs`. Upstream items without a generator
-(`DESK`, `PLANT`, ...) keep hand-written manifests.
+(`DESK`, `PLANT`, ...) keep hand-written manifests; new views of an upstream
+item come from a script that reads its PNG (`generate-table-sprites.mjs`,
+`generate-pc-sprites.mjs`).
 
 ## 9. Previews
 
 - `npx tsx scripts/preview-furniture.ts <TYPE> [--out DIR]` — a GIF and a
   frame strip per view × cat activity, three coats side by side.
+- `npx tsx scripts/preview-furniture.ts <DESK> --work [--chair ID]` — a cat typing
+  at a desk or table in every view (the chair on the item's working side).
+- `npx tsx scripts/preview-furniture.ts <TYPE> --states` — each view's off
+  sprite and its on animation.
 - `npx tsx scripts/preview-furniture.ts --sheet [--out DIR]` — every catalog
   item in every view on one sheet.
 

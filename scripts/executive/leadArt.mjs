@@ -1,4 +1,4 @@
-// The team lead's furniture: a warm oak desk (front 48x32, side 32x48) with
+// The team lead's furniture: a warm oak desk (front and back 48x32, side 32x48) with
 // two monitors, a desk plant, a mug and a "LEAD" nameplate, and a padded
 // office chair with armrests (16x32: front, back, side). It sits between the
 // plain worker desk and the Cat CEO's mahogany executive desk: nicer wood and
@@ -142,6 +142,62 @@ export function leadDeskSide() {
   c.hline(14, 17, 43, 'a');
   c.set(14, 43, 'A');
   c.hline(3, 28, 47, 'o');
+  return c.rows();
+}
+
+/** A monitor seen from the front: a lit blue screen with lines of text, the stand. */
+function monitorFront(c, x0, y0) {
+  c.box(x0, y0, x0 + 11, y0 + 8, 'n', 'Z');
+  c.hline(x0 + 2, x0 + 7, y0 + 2, 'c');
+  c.hline(x0 + 2, x0 + 9, y0 + 4, 'c');
+  c.hline(x0 + 2, x0 + 5, y0 + 6, 'c');
+  c.vline(x0 + 5, y0 + 9, y0 + 10, 'n');
+  c.vline(x0 + 6, y0 + 9, y0 + 10, 'K');
+  c.hline(x0 + 3, x0 + 8, y0 + 11, 'n');
+}
+
+// ── Desk, back view (3x2 tiles): the lead sits in front of it, facing away ──
+export function leadDeskBack() {
+  const c = canvas(48, 32);
+  c.box(1, 7, 46, 20, 'o', 'O');
+  c.hline(2, 45, 8, 'T');
+  for (const [x0, x1, y] of [
+    [36, 43, 11],
+    [7, 17, 12],
+    [25, 33, 17],
+    [4, 11, 16],
+  ])
+    c.hline(x0, x1, y, 'P');
+  c.hline(2, 45, 19, 'U');
+  c.hline(1, 46, 20, 'o');
+  // The far edge, turned: the plant at the left, the mug between the monitors.
+  deskPlant(c, 2, 4);
+  mug(c, 22, 9);
+  // The monitors on the lead's edge: their screens face the lead and the room.
+  monitorFront(c, 4, 8);
+  monitorFront(c, 32, 8);
+  // Keyboard and mouse between them, by the lead's paws.
+  c.box(18, 15, 29, 18, 'S', 'a');
+  c.hline(19, 28, 16, 'A');
+  c.box(15, 16, 16, 18, 'S', 'A');
+  // The lead's side, y 21..31: two drawer pedestals and the open knee hole.
+  c.box(1, 21, 46, 31, 'o', 'U');
+  for (const [x0, x1] of [
+    [2, 13],
+    [34, 45],
+  ]) {
+    c.box(x0, 22, x1, 25, 'D', 'U');
+    c.box(x0, 26, x1, 30, 'D', 'U');
+    c.hline(x0 + 1, x1 - 1, 22, 'O');
+    const mid = Math.floor((x0 + x1) / 2);
+    for (const y of [23, 28]) {
+      c.hline(mid - 1, mid + 2, y, 'a');
+      c.set(mid - 1, y, 'A');
+    }
+  }
+  c.rect(14, 21, 33, 31, 'o');
+  c.hline(15, 32, 21, 'D');
+  c.hline(1, 46, 31, 'o');
   return c.rows();
 }
 

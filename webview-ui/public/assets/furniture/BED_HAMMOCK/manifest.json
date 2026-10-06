@@ -2,12 +2,33 @@
   "id": "BED_HAMMOCK",
   "name": "Radiator Hammock",
   "category": "beds",
-  "type": "asset",
   "canPlaceOnWalls": false,
   "canPlaceOnSurfaces": false,
   "backgroundTiles": 1,
-  "width": 16,
-  "height": 32,
-  "footprintW": 1,
-  "footprintH": 2
+  "type": "group",
+  "groupType": "rotation",
+  "rotationScheme": "3-way-mirror",
+  "members": [
+    {
+      "type": "asset",
+      "id": "BED_HAMMOCK",
+      "file": "BED_HAMMOCK.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "front"
+    },
+    {
+      "type": "asset",
+      "id": "BED_HAMMOCK_SIDE",
+      "file": "BED_HAMMOCK_SIDE.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "side",
+      "mirrorSide": true
+    }
+  ]
 }

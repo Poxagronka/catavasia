@@ -1151,11 +1151,13 @@ export class OfficeState {
           if (autoOnTiles.has(`${item.col + dc},${item.row + dr}`)) {
             let onType = getOnStateType(item.type);
             if (onType !== item.type) {
-              // Check if the on-state type has animation frames
-              const frames = getAnimationFrames(onType);
+              // Check if the on-state type has animation frames (a mirrored
+              // left view plays the same frames, mirrored: keep its suffix)
+              const [onBase, view] = onType.split(':');
+              const frames = getAnimationFrames(onBase);
               if (frames && frames.length > 1) {
                 const frameIdx = animFrame % frames.length;
-                onType = frames[frameIdx];
+                onType = view ? `${frames[frameIdx]}:${view}` : frames[frameIdx];
               }
               return { ...item, type: onType };
             }

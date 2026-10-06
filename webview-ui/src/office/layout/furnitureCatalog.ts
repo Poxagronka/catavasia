@@ -257,14 +257,21 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
       sm.set(asset.state, asset.id);
     }
   }
+  const pairState = (onId: string, offId: string) => {
+    stateGroups.set(onId, offId);
+    stateGroups.set(offId, onId);
+    offToOn.set(offId, onId);
+    onToOff.set(onId, offId);
+  };
+  const hasEntry = (id: string) => allEntries.some((e) => e.type === id);
   for (const sm of stateMap.values()) {
     const onId = sm.get('on');
     const offId = sm.get('off');
     if (onId && offId) {
-      stateGroups.set(onId, offId);
-      stateGroups.set(offId, onId);
-      offToOn.set(offId, onId);
-      onToOff.set(onId, offId);
+      pairState(onId, offId);
+      // The mirrored left view switches on too when both states mirror.
+      if (hasEntry(`${onId}:left`) && hasEntry(`${offId}:left`))
+        pairState(`${onId}:left`, `${offId}:left`);
     }
   }
 
@@ -331,8 +338,9 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
   internalCatalog = allEntries;
 
   // Visible catalog: exclude non-front variants and "on" state variants
+  // Virtual mirrored views (`<ID>:left`) are never in the palette either.
   const visibleEntries = allEntries.filter(
-    (e) => !nonFrontIds.has(e.type) && !onStateIds.has(e.type),
+    (e) => !nonFrontIds.has(e.type) && !onStateIds.has(e.type) && !e.type.includes(':'),
   );
 
   // Strip orientation/state suffix from labels for grouped variants
