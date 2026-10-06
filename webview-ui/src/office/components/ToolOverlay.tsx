@@ -21,9 +21,10 @@ import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
 import { narratorHover } from '../../narratorStore.js';
 import { activityHeadDropY, characterDrawOffsetX } from '../engine/characters.js';
 import type { OfficeState } from '../engine/officeState.js';
+import { whiteboardTooltip } from '../engine/whiteboardNotes.js';
 import { overlayProjection } from '../projection.js';
 import type { ToolActivity } from '../types.js';
-import { CharacterState } from '../types.js';
+import { CharacterState, TILE_SIZE } from '../types.js';
 
 // Both turn-end states show the green checkmark bubble. A finished turn (Stop)
 // shows ONLY the checkmark (the label falls through to its normal idle text);
@@ -40,9 +41,8 @@ interface ToolOverlayProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
-  onCloseAgent: (id: number) => void;
-  /** Open the cat terminal (standalone only; absent hides the button). */
-  onOpenTerminal?: (id: number) => void;
+  /** Open the cat panel on its Chat tab (standalone only; absent hides the button). */
+  onOpenChat?: (id: number) => void;
   alwaysShowOverlay: boolean;
 }
 
@@ -78,6 +78,26 @@ function getActivityText(
   return 'Idle';
 }
 
+/** 8x7 pixel speech bubble, drawn in the current text color. */
+function ChatBubbleIcon() {
+  return (
+    <svg
+      width={16}
+      height={14}
+      viewBox="0 0 8 7"
+      shapeRendering="crispEdges"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x={1} y={0} width={6} height={1} />
+      <rect x={0} y={1} width={8} height={3} />
+      <rect x={1} y={4} width={6} height={1} />
+      <rect x={1} y={5} width={2} height={1} />
+      <rect x={1} y={6} width={1} height={1} />
+    </svg>
+  );
+}
+
 function getFuelColor(ratio: number): string {
   if (ratio >= CONTEXT_CRITICAL_THRESHOLD) return CONTEXT_GAUGE_COLOR_CRITICAL;
   if (ratio >= CONTEXT_DANGER_THRESHOLD) return CONTEXT_GAUGE_COLOR_DANGER;
@@ -94,8 +114,7 @@ export function ToolOverlay({
   containerRef,
   zoom,
   panRef,
-  onCloseAgent,
-  onOpenTerminal,
+  onOpenChat,
   alwaysShowOverlay,
 }: ToolOverlayProps) {
   const [, setTick] = useState(0);
@@ -124,6 +143,12 @@ export function ToolOverlay({
 
   // All character IDs
   const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
+
+  // The hovered whiteboard: "Tasks" above its top edge, then the live counts.
+  const board = officeState
+    .getLayout()
+    .furniture.find((f) => f.uid === officeState.hoveredWhiteboardUid);
+  const boardLines = board ? whiteboardTooltip(officeState.taskCounts) : [];
 
   return (
     <>
@@ -279,33 +304,21 @@ export function ToolOverlay({
                   </span>
                 )}
               </div>
-              {isSelected && !isSub && onOpenTerminal && (
+              {/* The label has no close/delete button: cats are deleted only
+                  from the Cats menu. */}
+              {isSelected && !isSub && onOpenChat && (
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenTerminal(id);
+                    onOpenChat(id);
                   }}
-                  title="Open terminal"
+                  title="Chat"
                   className="ml-2 shrink-0 leading-none w-auto! px-2"
-                  data-testid="open-cat-terminal"
+                  data-testid="open-cat-chat"
                 >
-                  {'>_'}
-                </Button>
-              )}
-              {isSelected && !isSub && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCloseAgent(id);
-                  }}
-                  title="Close agent"
-                  className="ml-2 shrink-0 leading-none"
-                >
-                  ×
+                  <ChatBubbleIcon />
                 </Button>
               )}
             </div>
@@ -333,6 +346,23 @@ export function ToolOverlay({
           </div>
         );
       })}
+      {board && (
+        <div
+          className="absolute -translate-x-1/2 -translate-y-full pixel-panel px-8 pt-2 pb-4 whitespace-nowrap flex flex-col items-center"
+          style={{
+            left: project.toScreenX((board.col + 1) * TILE_SIZE),
+            top: project.toScreenY(board.row * TILE_SIZE + 4),
+            pointerEvents: 'none',
+            zIndex: 43,
+          }}
+          data-testid="whiteboard-tooltip"
+        >
+          <span className="leading-none" style={{ fontSize: '22px' }}>
+            {boardLines[0]}
+          </span>
+          {boardLines[1] && <span className="text-2xs leading-none">{boardLines[1]}</span>}
+        </div>
+      )}
     </>
   );
 }

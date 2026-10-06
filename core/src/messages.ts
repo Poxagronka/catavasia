@@ -47,6 +47,7 @@ export type ServerMessage =
   | NarratorSettings
   | AgentContextUsage
   | LayoutLoaded
+  | ResetAllResult
   | PetCareLoaded
   | FurnitureAssetsLoaded
   | CharacterSpritesLoaded
@@ -80,6 +81,7 @@ export type ClientMessage =
   | SetWatchAllSessions
   | ExportLayout
   | ResetLayoutToDefault
+  | ResetAllToDefault
   | ImportLayout
   | OpenSessionsFolder
   | AddExternalAssetDirectory
@@ -367,6 +369,7 @@ export interface CatCharacter {
   name: string;
   appearance: CatAppearance;
   working: boolean;
+  lead?: boolean;
 }
 
 export interface CatCeoSettings {
@@ -528,6 +531,12 @@ export interface LayoutLoaded {
   type: 'layoutLoaded';
   layout: Record<string, any> | null;
   wasReset?: boolean;
+}
+
+export interface ResetAllResult {
+  type: 'resetAllResult';
+  backupDir?: string;
+  error?: string;
 }
 
 export interface PetCareLoaded {
@@ -749,6 +758,10 @@ export interface ExportLayout {
 
 export interface ResetLayoutToDefault {
   type: 'resetLayoutToDefault';
+}
+
+export interface ResetAllToDefault {
+  type: 'resetAllToDefault';
 }
 
 export interface ImportLayout {

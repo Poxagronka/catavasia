@@ -15,10 +15,10 @@ import * as path from 'path';
 import type { CatAppearance, CatEngine, CatProfile } from '../../../core/src/messages.js';
 import { CAT_NAME_MAX_CHARS, CAT_SYSTEM_PROMPT_MAX_CHARS } from '../constants.js';
 import { bossOf, isInSubtree, normalizeHierarchy } from './catTree.js';
-import type { PromptItem } from './promptFile.js';
+import type { PromptFile, PromptItem } from './promptFile.js';
 import type { PromptRepo } from './promptRepo.js';
 
-/** Breed preset ids in char_N order (= palette index). Mirrors scripts/cats/breeds.mjs names. */
+/** Breed preset ids in char_N order (= palette index). Mirrors scripts/cats/breeds.mjs ids (else names). */
 export const CAT_BREED_IDS = [
   'marmalade',
   'smokey',
@@ -188,7 +188,7 @@ export function defaultTeam(): CatProfile[] {
   return [
     {
       id: 'boss',
-      name: 'Barsik',
+      name: 'Oliver',
       appearance: { breed: 'marmalade' },
       role: 'Team lead',
       systemPrompt:
@@ -200,11 +200,20 @@ export function defaultTeam(): CatProfile[] {
       parentId: null,
       isDefault: true,
     },
-    worker('murka', 'Murka', 'smokey'),
-    worker('pushok', 'Pushok', 'snow'),
-    worker('ryzhik', 'Ryzhik', 'nikolai'),
+    // The ids predate the English names: prompt files and branches are keyed by them.
+    worker('murka', 'Luna', 'smokey'),
+    worker('pushok', 'Milo', 'snow'),
+    worker('ryzhik', 'Pepper', 'nikolai'),
   ];
 }
+
+/** Default names before the English ones, by cat id: load() renames a cat that still has one. */
+const OLD_DEFAULT_NAMES: Record<string, string> = {
+  boss: 'Barsik',
+  murka: 'Murka',
+  pushok: 'Pushok',
+  ryzhik: 'Ryzhik',
+};
 
 // ── Store ───────────────────────────────────────────────────
 
@@ -341,6 +350,23 @@ export class CatStore {
     return undefined;
   }
 
+  /**
+   * The default team again, with fresh prompt files: `extra` adds the prompt
+   * files of non-cats (the Cat CEO). Every other prompt file is deleted, all in
+   * one commit. Returns an error, and changes nothing, when a file would not parse.
+   */
+  resetToDefaults(extra: Record<string, PromptFile>): string | undefined {
+    const team = defaultTeam();
+    const files = { ...extra };
+    for (const cat of team) files[cat.id] = { role: cat.systemPrompt, rules: [], lessons: [] };
+    const error = this.prompts.replaceAll(files, 'user(all): reset to defaults');
+    if (error) return error;
+    this.promptErrors.clear();
+    this.commit(team);
+    for (const cat of team) this.reloadPrompt(cat.id);
+    return undefined;
+  }
+
   private commit(cats: CatProfile[]): void {
     this.cats = normalizeHierarchy(cats);
     this.write();
@@ -386,10 +412,19 @@ export class CatStore {
       return out;
     };
     this.ceoBlock = parsed.catCeo;
-    this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e)));
+    const team = defaultTeam();
+    let renamed = false;
+    this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e))).map((cat) => {
+      if (OLD_DEFAULT_NAMES[cat.id] !== cat.name) return cat;
+      renamed = true;
+      return { ...cat, name: team.find((d) => d.id === cat.id)!.name };
+    });
     this.syncPrompts();
     // The prompt text moved to the prompt files: cats.json drops it.
-    if (parsed.cats.some((c) => (c as { systemPrompt?: unknown })?.systemPrompt !== undefined)) {
+    if (
+      renamed ||
+      parsed.cats.some((c) => (c as { systemPrompt?: unknown })?.systemPrompt !== undefined)
+    ) {
       this.write();
     }
   }

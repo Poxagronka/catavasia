@@ -15,7 +15,13 @@ function browserStore(): Storage | null {
   }
 }
 
-export const catsApi: CatsApi = createServerCatsAdapter(transport, createLocalCatsAdapter(), {
+const local = createLocalCatsAdapter();
+// "Reset everything" done: the browser-local cats go back to the seed too.
+transport.onMessage((msg) => {
+  if (msg.type === 'resetAllResult' && msg.backupDir) local.resetToSeed();
+});
+
+export const catsApi: CatsApi = createServerCatsAdapter(transport, local, {
   privileged: sessionToken !== null,
   store: browserStore(),
 });

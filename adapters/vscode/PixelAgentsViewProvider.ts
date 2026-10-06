@@ -53,6 +53,7 @@ import {
   hookProviderById,
   hookProviders,
 } from '../../server/src/providers/index.js';
+import { resetAll } from '../../server/src/resetAll.js';
 import { PixelAgentsServer } from '../../server/src/server.js';
 import {
   getProjectDirPath,
@@ -483,6 +484,16 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           writeLayoutToFile(this.defaultLayout);
           this.webview?.postMessage({ type: 'layoutLoaded', layout: this.defaultLayout });
         }
+      } else if (message.type === 'resetAllToDefault') {
+        // No cat office in VS Code: the layout and the pet-care state only.
+        const result = resetAll(this.defaultLayout, undefined, () =>
+          this.layoutWatcher?.markOwnWrite(),
+        );
+        if (result.backupDir) {
+          this.webview?.postMessage({ type: 'layoutLoaded', layout: this.defaultLayout });
+          this.webview?.postMessage({ type: 'petCareLoaded', state: null });
+        }
+        this.webview?.postMessage({ type: 'resetAllResult', ...result });
       } else if (message.type === 'savePetCare') {
         writePetCareState(message.state);
       } else if (message.type === 'setSoundEnabled') {

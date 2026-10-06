@@ -16,12 +16,14 @@ import { IntroBubble } from './components/IntroBubble.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { PetRadialMenu } from './components/PetRadialMenu.js';
 import { SettingsModal } from './components/SettingsModal.js';
+import { fetchTasks } from './components/taskBoard/taskApi.js';
 import { TaskBoard } from './components/taskBoard/TaskBoard.js';
 import { TaskDetailModal } from './components/taskBoard/TaskDetailModal.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
+import { TASK_POLL_INTERVAL_MS } from './constants.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
@@ -32,6 +34,7 @@ import { ToolOverlay } from './office/components/ToolOverlay.js';
 import { EditorState } from './office/editor/editorState.js';
 import { EditorToolbar } from './office/editor/EditorToolbar.js';
 import { OfficeState } from './office/engine/officeState.js';
+import { countTasks } from './office/engine/whiteboardNotes.js';
 import { exportLayoutToFile } from './office/layout/exportLayout.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
@@ -130,10 +133,33 @@ function App() {
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTasksOpen, setIsTasksOpen] = useState(false);
+  const openTasks = useCallback(() => setIsTasksOpen(true), []);
+
+  // The whiteboards show the live task counts (standalone only: VS Code has no task board).
+  useEffect(() => {
+    if (!isBrowserRuntime) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const { tasks } = await fetchTasks();
+        if (alive) getOfficeState().taskCounts = countTasks(tasks);
+      } catch {
+        /* server gone: keep the last counts */
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), TASK_POLL_INTERVAL_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
   const [isCatsOpen, setIsCatsOpen] = useState(false);
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   /** The cat the Hierarchy chart asked the Cats menu to open on. */
   const [catsFocusId, setCatsFocusId] = useState<string | null>(null);
+  /** The Cats menu opens on the focused cat's Prompt history (a Cat CEO chat edit link). */
+  const [catsFocusHistory, setCatsFocusHistory] = useState(false);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -258,10 +284,6 @@ function App() {
     editor.handleToggleEditMode,
   );
 
-  const handleCloseAgent = useCallback((id: number) => {
-    transport.send({ type: 'closeAgent', id });
-  }, []);
-
   // A cat whose task-board run finished opens that task instead of a terminal.
   const [clickedTaskId, setClickedTaskId] = useState<string | null>(null);
 
@@ -377,6 +399,7 @@ function App() {
       <OfficeCanvas
         officeState={officeState}
         onClick={handleClick}
+        onOpenTasks={isBrowserRuntime ? openTasks : undefined}
         isEditMode={editor.isEditMode}
         editorState={editorState}
         onEditorTileAction={editor.handleEditorTileAction}
@@ -469,8 +492,7 @@ function App() {
             containerRef={containerRef}
             zoom={editor.zoom}
             panRef={editor.panRef}
-            onCloseAgent={handleCloseAgent}
-            onOpenTerminal={isBrowserRuntime ? setTerminalCatId : undefined}
+            onOpenChat={isBrowserRuntime ? setTerminalCatId : undefined}
             alwaysShowOverlay={alwaysShowOverlay}
           />
 
@@ -587,9 +609,11 @@ function App() {
       <CatsModal
         isOpen={isCatsOpen}
         focusCatId={catsFocusId}
+        focusHistory={catsFocusHistory}
         onClose={() => {
           setIsCatsOpen(false);
           setCatsFocusId(null);
+          setCatsFocusHistory(false);
         }}
         getOfficeState={getOfficeState}
         onCommitPets={editor.commitPets}
@@ -612,6 +636,11 @@ function App() {
           catId={String(terminalCatId)}
           catLabel={officeState.characters.get(terminalCatId)?.folderName ?? 'Cat'}
           onClose={() => setTerminalCatId(null)}
+          onOpenPromptHistory={(catId) => {
+            setCatsFocusId(catId);
+            setCatsFocusHistory(true);
+            setIsCatsOpen(true);
+          }}
         />
       )}
 
@@ -637,7 +666,8 @@ function App() {
         onClose={() => setIsSettingsOpen(false)}
         isDebugMode={isDebugMode}
         onToggleDebugMode={handleToggleDebugMode}
-        onResetLayoutToDefault={editor.handleResetToDefault}
+        onResetLayoutToDefault={() => editor.handleResetToDefault()}
+        onResetAll={() => editor.handleResetToDefault('resetAllToDefault')}
         alwaysShowOverlay={alwaysShowOverlay}
         onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
         ghostHeadlessAgents={ghostHeadlessAgents}

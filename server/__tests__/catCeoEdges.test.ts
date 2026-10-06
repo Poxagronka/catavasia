@@ -23,7 +23,7 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 const file = (rules: PromptFile['rules']): PromptFile => ({
-  role: 'You are Murka.',
+  role: 'You are Luna.',
   rules,
   lessons: [],
 });

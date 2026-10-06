@@ -23,6 +23,7 @@ import type { ConsentEffects } from './providers/hook/consentExecutor.js';
 import { applyConsentChoice } from './providers/hook/consentExecutor.js';
 import { hooksConsentRequest } from './providers/hook/consentGate.js';
 import { claudeProvider, hookProviderById, hookProviders } from './providers/index.js';
+import { resetAll } from './resetAll.js';
 
 type WsSend = (message: Record<string, unknown>) => void;
 
@@ -145,6 +146,21 @@ export function handleClientMessage(
         send({ type: 'layoutLoaded', layout: cache.defaultLayout });
       }
       break;
+
+    case 'resetAllToDefault': {
+      // Replacing the cats and their prompts is the operator's decision, like editing them.
+      const result =
+        ctx.orchestrator && !ctx.privileged
+          ? { error: EDIT_RIGHTS_HINT }
+          : resetAll(cache?.defaultLayout, ctx.orchestrator);
+      if (result.backupDir) {
+        // Every open tab shows the new office (the cats are broadcast by the orchestrator).
+        store.broadcast({ type: 'layoutLoaded', layout: cache!.defaultLayout });
+        store.broadcast({ type: 'petCareLoaded', state: null });
+      }
+      send({ type: 'resetAllResult', ...result });
+      break;
+    }
 
     case 'savePetCare':
       writePetCareState(msg.state);

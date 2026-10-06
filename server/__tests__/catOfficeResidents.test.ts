@@ -80,9 +80,9 @@ beforeEach(async () => {
     JSON.stringify({
       version: 1,
       cats: [
-        cat('boss', 'Barsik', null, 'marmalade'),
-        cat('murka', 'Murka', 'boss', 'smokey'),
-        cat('pushok', 'Pushok', 'boss', 'snow'),
+        cat('boss', 'Oliver', null, 'marmalade'),
+        cat('murka', 'Luna', 'boss', 'smokey'),
+        cat('pushok', 'Milo', 'boss', 'snow'),
         cat('codex', 'Kodi', 'boss', 'leo', 'codex'),
       ],
       // The Cat CEO has its own tests (catCeo*.test.ts): no judge runs here.
@@ -122,7 +122,7 @@ describe('resident cats', () => {
     expect(office.profileMessages().at(-1)).toMatchObject({
       type: 'catCharacters',
       characters: [
-        { catId: 'boss', id: 1, name: 'Barsik', working: false },
+        { catId: 'boss', id: 1, name: 'Oliver', working: false },
         { catId: 'murka', id: 2, appearance: { breed: 'smokey' } },
         { catId: 'pushok', id: 3 },
         { catId: 'codex', id: 4 },
@@ -148,6 +148,30 @@ describe('resident cats', () => {
       'codex',
       'mia',
     ]);
+  });
+
+  it('marks the tree root as the team lead; the flag follows a new root', () => {
+    const leads = () =>
+      office
+        .profileMessages()
+        .filter((m): m is CatCharacters => m.type === 'catCharacters')
+        .at(-1)!
+        .characters.filter((c) => c.lead)
+        .map((c) => c.catId);
+    expect(leads()).toEqual(['boss']);
+
+    expect(office.editProfiles({ type: 'promoteCatToBoss', id: 'pushok' })).toBeUndefined();
+    expect(leads()).toEqual(['pushok']);
+    // The broadcast after the change carries the new lead too.
+    expect(
+      lastCharacters()
+        ?.characters.filter((c) => c.lead)
+        .map((c) => c.catId),
+    ).toEqual(['pushok']);
+
+    // The root is deleted: its first report becomes the root and the lead.
+    expect(office.editProfiles({ type: 'deleteCatProfile', id: 'pushok' })).toBeUndefined();
+    expect(leads()).toEqual(['boss']);
   });
 
   it('keeps one character per cat across two team tasks and links it to the newest task', async () => {
@@ -203,7 +227,7 @@ describe('resident cats', () => {
     const targets = tasks.targets();
     expect(targets.find((t) => t.id === 'team')).toEqual({
       id: 'team',
-      label: 'Team: Barsik leads',
+      label: 'Team: Oliver leads',
     });
     expect(targets.find((t) => t.id === 'codex')?.disabled).toBe('codex adapter not ready');
     expect(targets.find((t) => t.id === 'murka')?.disabled).toBeUndefined();
@@ -213,7 +237,7 @@ describe('resident cats', () => {
 describe('cat console of profile cats', () => {
   it('starts a one-cat task when the cat has no live task, and shows its turns', async () => {
     const source = new OfficeCatSource(office, tasks);
-    expect(source.snapshot('2')).toMatchObject({ title: 'Murka: Developer', entries: [] });
+    expect(source.snapshot('2')).toMatchObject({ title: 'Luna: Developer', entries: [] });
     const frames: string[] = [];
     const off = source.subscribe('2', (f) => frames.push(f.type));
     await source.send('2', 'write a file please');
@@ -236,10 +260,10 @@ describe('cat console of profile cats', () => {
     const repo = makeRepo();
     const { id } = await tasks.create('make files', repo, 'team');
     const source = new OfficeCatSource(office, tasks);
-    // Murka hangs in its turn: busy, no wheel.
+    // Luna hangs in its turn: busy, no wheel.
     await waitFor(() => (office.hasPendingTurn('murka') ? true : undefined));
     await expect(source.beginWheel('2')).rejects.toMatchObject({ code: 409 });
-    // The boss waits for Murka's report: idle between turns, session started.
+    // The boss waits for Luna's report: idle between turns, session started.
     await waitFor(() =>
       !office.hasPendingTurn('boss') && office.liveMember('boss')?.member.started
         ? true
