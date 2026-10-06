@@ -342,8 +342,13 @@ Follow-up of "Every furniture item turns": real side/back art where a mirror ima
 - **Saved mirror views**: a `<ID>:left` saved while an item was mirror-only (PR A) loads as the front once the item has drawn views (`migrateFurnitureTypes`).
 - **Previews**: `--work` (a cat typing at a desk or table in every view; the executive and lead chairs are held for the Cat CEO and the lead, so the previews use the cushioned chair) and `--states` (a view's off sprite and its on animation).
 
-## Clock moves to the lounge (feat/clock-move, agent-made 2026-10-06)
+## Clock, whiteboard and CEO office moves (feat/clock-move, agent-made 2026-10-06)
 
-User requirement: "Remove the clock from this wall (the top wall of the cats' main work room, next to the whiteboard) and hang it on the top wall of another room."
+User requirements: "Remove the clock from this wall (the top wall of the cats' main work room, next to the whiteboard) and hang it on the top wall of another room." Then: "Hang the clock in the second room in place of the central painting", "Hang the whiteboard in the center behind the team lead's desk", and "Put the CEO room in the default layout directly to the left of the room where the team lead sits".
 
-- **Default layout revision 10** (from 9). Only the `CLOCK` moves: from (4,9) in the main work room to (13,9) on the lounge top wall, between the small painting (12) and the large painting (14-15). Nothing else changes. Untouched revisions 1-9 upgrade, an edited office is kept. "Reset layout to default" and "Reset everything" write revision 10.
+- **Default layout revision 10** (from 9). The grid stays 38×22. Untouched revisions 1-9 upgrade, an edited office is kept. "Reset layout to default" and "Reset everything" write revision 10.
+- **CEO office**: the whole 7×7 office (walnut floor, red rug, desk, chair, laptop, plaque, shelf, painting, plants) moves from the far right (cols 30-36) to cols 1-7. It is mirrored, so the doorway side faces the work room: a 2-tile doorway in the shared wall (col 8, rows 13-14), framed by the two small plants. The executive desk keeps its own set: the laptop stays on its right third. The old playroom doorway (col 37, rows 14-15) is closed.
+- **Other rooms**: the work room, the lounge and the playroom shift 8 columns right (work room cols 9-17, lounge 19-26, playroom 28-36).
+- **Clock**: the lounge's central `LARGE_PAINTING` (was cols 14-15) goes. The clock hangs at (22,9), the left column of the painting's place. A 1-tile clock cannot sit centred on a 2-tile slot.
+- **Whiteboard**: at (12,9), over the lead desk (cols 12-14). A 2-tile board over a 3-tile desk covers the centre column and the one left of it: the tile grid has no closer fit. The wall around it is symmetric: hanging plant (9), bookshelf (10-11), board (12-13), bookshelf (14-15), hanging plant (16).
+- **Tests** read positions from the layout: every seat and activity spot of the newest default is reachable from the lounge (`defaultPlayroom.test.ts`), the CEO office and its doorway (`ceoOffice.test.ts`), the board over the desk (`leadDesk.test.ts`), the brew spots (`coffeeAndSkills.test.ts`), the rev 9 → 10 differences (`layoutMigration.test.ts`).

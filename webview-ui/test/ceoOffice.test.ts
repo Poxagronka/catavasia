@@ -1,8 +1,9 @@
 /**
- * The Cat CEO office of the bundled default (revision 6): the room and its
- * doorway, the executive chair reserved for the Cat CEO (no other cat takes
- * it), the Cat CEO back at its desk when a run starts and after a review
- * talk, and the head-Area fallback of an office with no executive chair.
+ * The Cat CEO office of the bundled default (revision 6, moved left of the
+ * work room in revision 10): the room and its doorway, the executive chair
+ * reserved for the Cat CEO (no other cat takes it), the Cat CEO back at its
+ * desk when a run starts and after a review talk, and the head-Area fallback
+ * of an office with no executive chair.
  *
  * Run with: npm test
  */
@@ -20,7 +21,7 @@ import { mulberry32 } from '../src/office/engine/socialMoves.js';
 import { buildDynamicCatalog, getCatalogEntry } from '../src/office/layout/furnitureCatalog.js';
 import { findPath } from '../src/office/layout/tileMap.js';
 import type { OfficeLayout } from '../src/office/types.js';
-import { CharacterState } from '../src/office/types.js';
+import { CharacterState, TileType } from '../src/office/types.js';
 
 const ASSETS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'assets');
 const CEO = 99;
@@ -117,6 +118,48 @@ test('revision 6 has the furnished Cat CEO office, in reach from the main room',
     walk.some((t) => t.col === 29),
     'the way goes through the doorway in the playroom wall',
   );
+});
+
+test('revision 10: the CEO office sits left of the work room, a doorway in the shared wall', () => {
+  const l = layout(10);
+  const tile = (c: number, r: number) => l.tiles[r * l.cols + c];
+  const at = (uid: string) => l.furniture.find((f) => f.uid === uid)!;
+  const desk = at('f-ceo-desk');
+  // The shared wall: the first wall column right of the executive chair.
+  const chair = at(CHAIR);
+  let wall = chair.col;
+  while (tile(wall, chair.row) !== TileType.WALL) wall++;
+  const door = Array.from({ length: l.rows }, (_, r) => r).filter(
+    (r) => tile(wall, r) !== TileType.WALL && tile(wall, r) !== TileType.VOID,
+  );
+  assert.deepEqual(door, [13, 14]);
+  // The whole office is left of that wall; the lead desk and every other room are right of it.
+  for (const f of l.furniture) {
+    assert.equal(f.uid.startsWith('f-ceo-'), f.col < wall, `${f.uid} at col ${f.col}`);
+  }
+  assert.ok(at('f-lead-desk').col > wall);
+  assert.ok(l.carpetTiles?.[(desk.row + 1) * l.cols + desk.col + 1], 'a rug under the desk');
+  // No room is left at the far right: the outer column is wall or void.
+  for (let r = 0; r < l.rows; r++) {
+    const t = tile(l.cols - 1, r);
+    assert.ok(t === TileType.WALL || t === TileType.VOID, `col ${l.cols - 1} row ${r}`);
+  }
+  // From the work room, the way to the chair goes through that doorway.
+  const os = new OfficeState(l);
+  const seat = os.seats.get(CHAIR)!;
+  assert.equal(os.ceoChairSeat(), CHAIR);
+  const blocked = new Set(os.blockedTiles);
+  blocked.delete(`${seat.seatCol},${seat.seatRow}`);
+  const work = { col: at('f-lead-desk').col + 1, row: 15 };
+  const walk = findPath(work.col, work.row, seat.seatCol, seat.seatRow, os.tileMap, blocked);
+  assert.ok(
+    walk.some((t) => t.col === wall && door.includes(t.row)),
+    'through the doorway',
+  );
+  // The chair stays the Cat CEO's in the new place too.
+  const full = office(20, false, 10);
+  assert.equal(full.characters.get(CEO)!.seatId, CHAIR);
+  for (let id = 1; id <= 20; id++) assert.notEqual(full.characters.get(id)!.seatId, CHAIR);
 });
 
 test('the Cat CEO takes the executive chair; no other cat sits there', () => {
