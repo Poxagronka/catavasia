@@ -176,9 +176,12 @@ export class TaskManager {
     return toSummary(task);
   }
 
-  /** The newest task whose office character is `agentId`. */
+  /** The newest task whose office character is `agentId`. Only tasks this
+   *  process owns: agent ids start at 1 again after a restart. */
   findByAgent(agentId: number): TaskDetail | undefined {
-    const tasks = Object.values(this.allTasks()).filter((t) => t.agentId === agentId);
+    const tasks = Object.values(this.allTasks()).filter(
+      (t) => t.agentId === agentId && t.ownerPid === process.pid,
+    );
     const task = tasks.sort((a, b) => b.createdAt - a.createdAt)[0];
     return task ? toDetail(task) : undefined;
   }
@@ -208,7 +211,15 @@ export class TaskManager {
     const entry: TaskLogEntry = { kind: 'user', text };
     stored.log.push(entry);
     this.events.emit('log', id, [entry]);
-    this.spawnRun(stored, text, true, release);
+    try {
+      this.spawnRun(stored, text, true, release);
+    } catch (err) {
+      this.running.delete(id);
+      release();
+      this.fail(stored, `Could not start claude: ${errorText(err)}`);
+      this.events.emit('status', id);
+      throw err;
+    }
   }
 
   /** Lock the session for an interactive PTY and return where to run it. */
@@ -360,6 +371,10 @@ export class TaskManager {
     this.running.delete(task.id);
     this.store.save(task);
     run.releaseLock();
+    // The error row is not in the log; the console shows it once, here.
+    if (task.status === 'error' && task.error) {
+      this.events.emit('log', task.id, [{ kind: 'error', text: task.error }]);
+    }
     this.events.emit('status', task.id);
     console.log(`[Pixel Agents] Task ${task.id} ${task.status}`);
   }

@@ -72,10 +72,6 @@ export class TaskBoardCatSource implements CatSessionSource {
     };
     const onStatus = (id: string) => {
       if (id !== taskId) return;
-      const task = this.tasks.get(id);
-      if (task?.status === 'error' && task.error && !this.tasks.isRunning(id)) {
-        listener({ type: 'entries', entries: [{ kind: 'error', text: task.error }] });
-      }
       listener({ type: 'status', status: this.status(id) });
     };
     this.tasks.events.on('log', onLog);

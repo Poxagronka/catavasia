@@ -172,6 +172,15 @@ describe('console event mapping', () => {
       text: 'x',
     });
     expect(new TaskBoardCatSource(manager).snapshot('99')).toBeUndefined();
+
+    // After a restart agent ids start at 1 again: a task from an earlier
+    // server process never maps to a live cat.
+    const restarted = new TaskManager({ host, stateDir, defaultCwd: tmp, claudeBin: fakeBin });
+    const file = path.join(stateDir, 'tasks.json');
+    const stored = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    for (const t of Object.values(stored.tasks) as Array<{ ownerPid: number }>) t.ownerPid = 1;
+    fs.writeFileSync(file, JSON.stringify(stored));
+    expect(restarted.findByAgent(7)).toBeUndefined();
   });
 
   it('streams a snapshot, then live entries and status frames', async () => {

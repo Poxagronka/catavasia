@@ -166,13 +166,13 @@ export function registerCatTerminalRoutes(
 
       void source.beginWheel(catId).then(
         ({ sessionId, cwd }) => {
-          const launch = claudeProvider.buildLaunchCommand!(sessionId, cwd);
-          const args = launch.args.map((a) => (a === '--session-id' ? '--resume' : a));
-          const env: Record<string, string> = {};
-          for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-          Object.assign(env, launch.env, { TERM: TERM_NAME });
           let pty;
           try {
+            const launch = claudeProvider.buildLaunchCommand!(sessionId, cwd);
+            const args = launch.args.map((a) => (a === '--session-id' ? '--resume' : a));
+            const env: Record<string, string> = {};
+            for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+            Object.assign(env, launch.env, { TERM: TERM_NAME });
             pty = module.spawn(options.claudeBin ?? launch.command, args, {
               name: TERM_NAME,
               cols,

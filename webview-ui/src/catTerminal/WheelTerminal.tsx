@@ -50,6 +50,7 @@ export function WheelTerminal({ catId, onEnded }: WheelTerminalProps) {
     term.focus();
 
     let error: string | null = null;
+    let disposed = false;
     const wheel = catSessionApi.takeWheel(
       catId,
       { cols: term.cols, rows: term.rows },
@@ -61,7 +62,9 @@ export function WheelTerminal({ catId, onEnded }: WheelTerminalProps) {
         onError: (message) => {
           error = message;
         },
-        onClose: () => endedRef.current(error),
+        onClose: () => {
+          if (!disposed) endedRef.current(error);
+        },
       },
     );
     term.onData((data) => wheel.write(data));
@@ -83,6 +86,7 @@ export function WheelTerminal({ catId, onEnded }: WheelTerminalProps) {
     observer.observe(host);
 
     return () => {
+      disposed = true;
       if (timer) clearTimeout(timer);
       observer.disconnect();
       catSessionApi.releaseWheel(catId);

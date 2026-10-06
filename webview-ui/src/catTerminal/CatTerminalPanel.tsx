@@ -88,8 +88,8 @@ export function CatTerminalPanel({ catId, catLabel, onClose }: CatTerminalPanelP
       {!gone && tab === 'chat' && (
         <ChatConsole state={state} onSend={(text) => catSessionApi.send(catId, text)} />
       )}
-      {!gone && tab === 'terminal' && driving && (
-        <>
+      {!gone && driving && (
+        <div className={`flex-1 min-h-0 flex-col ${tab === 'terminal' ? 'flex' : 'hidden'}`}>
           <div className="flex items-center gap-8 px-10 py-4 text-xs text-text-muted">
             <span className="flex-1">You drive the cat's session. The cat waits.</span>
             <Button variant="default" size="sm" onClick={() => setDriving(false)}>
@@ -103,7 +103,7 @@ export function CatTerminalPanel({ catId, catLabel, onClose }: CatTerminalPanelP
               setWheelNote(message ?? 'The session went back to the cat.');
             }}
           />
-        </>
+        </div>
       )}
       {!gone && tab === 'terminal' && !driving && (
         <div className="flex-1 flex flex-col items-center justify-center gap-12 p-16 text-center">

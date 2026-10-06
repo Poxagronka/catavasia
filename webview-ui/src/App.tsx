@@ -562,6 +562,7 @@ function App() {
       )}
       {terminalCatId !== null && (
         <CatTerminalPanel
+          key={terminalCatId}
           catId={String(terminalCatId)}
           catLabel={officeState.characters.get(terminalCatId)?.folderName ?? 'Cat'}
           onClose={() => setTerminalCatId(null)}
