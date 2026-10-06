@@ -409,3 +409,16 @@ User requirement: build the convenient start of the owner's private `pa` helper 
 - **postinstall** (`launch/postinstall.ts` → `dist/postinstall.js`, in `files`): runs only when `npm_config_global=true` or `npm_config_location=global`. The package.json script is `node -e "try{require('./dist/postinstall.js').runPostinstall()}catch{}"`, so `npm ci` in the repo (no `dist/` yet, not global) does nothing and never fails. It prints one line, but npm 7+ hides install-script output, so `install.sh` prints how to start. `--ignore-scripts` skips it: docs say run `catavasia shortcut`. The in-game update runs `npm install -g`, so each update writes the launcher again (same content).
 - **Uninstall**: npm 7+ runs no uninstall scripts, so there is no `preuninstall`. The documented step `node "$(npm root -g)/catavasia/dist/uninstall.js"` (already the hook-removal step) now also removes the launcher files, by exact path and marker only. `catavasia shortcut --remove` removes only the launcher. Side effect: the VS Code extension uninstall runs the same file, so it also removes a CLI launcher of the same user.
 - **Tab title**: `webview-ui/index.html` `<title>` is `catavasia`.
+
+## Automatic npm publish (ci/npm-auto-publish, 1.4.1-cats.41, agent-made 2026-10-06)
+
+User requirement: publish every new version to npm through a GitHub workflow. Each merge to `main` bumps the version +1.
+
+- **New workflow `publish-npm.yml`**, not `scripts/publish-npm-package.mjs`. The script is bound to GitHub Release tags (`refs/tags/v<version>`) and fails on a re-run with a different tarball integrity. The fork releases on push to `main`, so the workflow skips a version that `npm view` already finds and publishes the verified tarball directly.
+- **Triggers**: push to `main` and `workflow_dispatch`. A `check` job reads `package.json` and runs `npm view catavasia@<version>`. Found → stop. E404 → publish. Any other npm error → fail, never a blind publish.
+- **Gate in the publish job**: lint, check-types, format:check, `verify:npm-package` (production build + install smoke test of the tarball), package contract, webview tests, server tests with `--testTimeout=60000`. knip and e2e stay in `ci.yml` only.
+- **Auth**: npm trusted publishing (OIDC). The job has `id-token: write` and upgrades npm to `^11.15.0` (trusted publishing needs >=11.5.1, staged publishing >=11.15.0). Node comes from `.nvmrc` (22, latest patch >=22.14.0). No npm token is stored anywhere.
+- **Direct `npm publish --tag latest`**, not `npm stage publish`: a staged version waits for the owner's manual 2FA approval with the hardware key, which defeats automation. The owner must allow `npm publish` in the trusted publisher's Allowed actions.
+- **Concurrency** group `publish-npm`, no cancel: two merges publish one after the other. The second run sees its own new version.
+- **Upstream-only jobs**: both jobs in `publish-extension.yml` get `if: github.repository == 'pixel-agents-hq/pixel-agents'`. A guard, not a deletion, keeps upstream merges simple. `update-badges.yml` already has this guard. `ci.yml` stays: its only secrets (Vercel) sit behind a precheck that skips the deploy when they are missing.
+- **Owner steps** (agent cannot do them): enable Actions on the fork, configure the npm trusted publisher. See CONTRIBUTING.md, "Maintainer release checklist".

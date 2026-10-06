@@ -16,6 +16,9 @@ concurrency:
 
 jobs:
   publish:
+    # Upstream-only: needs upstream Marketplace/Open VSX secrets and the upstream
+    # npm trusted publisher. The catavasia fork publishes via publish-npm.yml.
+    if: github.repository == 'pixel-agents-hq/pixel-agents'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -88,6 +91,9 @@ jobs:
 
   publish-npm:
     name: Verify and Publish npm Package
+    # Upstream-only: needs upstream Marketplace/Open VSX secrets and the upstream
+    # npm trusted publisher. The catavasia fork publishes via publish-npm.yml.
+    if: github.repository == 'pixel-agents-hq/pixel-agents'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
