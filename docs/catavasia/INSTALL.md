@@ -2,11 +2,12 @@
 
 This guide installs Catavasia, starts it, updates it and removes it. It also lists the fixes for common problems.
 
-Catavasia is not on npm. You build it from this repository. The installer script does all of the steps for you.
+Install catavasia from npm. As an alternative, the installer script builds it from GitHub `main`.
 
 ## Contents
 
 - [Quick install](#quick-install)
+- [Install from source](#install-from-source)
 - [Requirements](#requirements)
 - [What the installer does](#what-the-installer-does)
 - [First start](#first-start)
@@ -20,13 +21,13 @@ Catavasia is not on npm. You build it from this repository. The installer script
 
 ## Quick install
 
-On macOS or Linux, run this line in a terminal:
+Run this line in a terminal (Node.js 20 or later):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Poxagronka/catavasia/main/install.sh | bash
+npm install -g catavasia
 ```
 
-The script takes a few minutes. At the end it prints `Catavasia <version> is installed.` Then start the game:
+Then start the game:
 
 ```bash
 cd /path/to/your/project
@@ -34,6 +35,18 @@ catavasia
 ```
 
 Open the URL that `catavasia` prints.
+
+To try catavasia once without an install, run `npx catavasia` in your project folder.
+
+## Install from source
+
+On macOS or Linux, this script builds catavasia from GitHub `main` and installs the `catavasia` command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Poxagronka/catavasia/main/install.sh | bash
+```
+
+The script takes a few minutes. At the end it prints `Catavasia <version> is installed.` Use it to get changes that are on `main` but not yet on npm.
 
 To read the script before you run it, open [install.sh](../../install.sh). It has about 100 lines.
 
@@ -44,11 +57,11 @@ To read the script before you run it, open [install.sh](../../install.sh). It ha
 | macOS or Linux                                                | any current version               | The installer and the in-game update run there. On Windows, use WSL2.                                            |
 | [Node.js](https://nodejs.org)                                 | 20 or later (22 recommended)      | Runs the server. The installer reads the minimum from `package.json`.                                            |
 | npm                                                           | comes with Node.js                | Builds and installs the package.                                                                                 |
-| git                                                           | any                               | Downloads the source.                                                                                            |
+| git                                                           | any                               | Downloads the source (installer only). The cat team uses git worktrees.                                          |
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | installed and logged in           | The cats run `claude` to do your tasks. Without it, you can still watch the office and your own Claude sessions. |
 | A browser                                                     | current Chrome, Firefox or Safari | Shows the office.                                                                                                |
 
-About 500 MB of free disk space is necessary during the build. The installer deletes the build folder when it ends.
+About 500 MB of free disk space is necessary during the source build. The installer deletes the build folder when it ends.
 
 ## What the installer does
 
@@ -121,7 +134,7 @@ The [manual install](#manual-install) commands are plain `git` and `npm` command
 - **Settings → Check for updates** checks now. **Settings → Check for updates automatically** turns the checks off.
 - The build log is in `~/.pixel-agents/update/update-<time>.log`.
 
-**From the terminal.** Run the [quick install](#quick-install) line again. It installs the newest `main` over the old version. Your office, cats and tasks stay.
+**From the terminal.** Run `npm install -g catavasia@latest` to get the newest npm release. Or run the [installer](#install-from-source) line again to build the newest `main`. Your office, cats and tasks stay.
 
 ## Uninstall
 
@@ -179,7 +192,7 @@ All files are in `~/.pixel-agents/`:
 
 **The build fails.** The installer shows the last 40 lines of the build log. Check the Node.js version first. Then send a [bug report](https://github.com/Poxagronka/catavasia/issues/new?template=bug_report.yml) with those lines.
 
-**`EADDRINUSE` (the port is busy).** Another program uses the port that you gave with `--port`. Start `catavasia` without `--port` to get a free port, or pick another port. To see which program holds the port, run `lsof -iTCP:<port> -sTCP:LISTEN`.
+**"Port N is busy. Use --port <other> or stop the other process."** Another program uses the port that you gave with `--port`. Start `catavasia` without `--port` to get a free port, or pick another port. To see which program holds the port, run `lsof -iTCP:<port> -sTCP:LISTEN`.
 
 **"Open the office with `catavasia` to get edit rights".** The tab has no valid token, so it can only watch. The fix is: open the full URL that `catavasia` prints, with its `?token=` part. After that, the tab keeps the token after a reload. The browser saves the token per port, so use a fixed `--port` to keep it across server restarts.
 

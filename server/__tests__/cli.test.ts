@@ -444,4 +444,33 @@ describe('dist/cli.js entry-point guard', () => {
       fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
   });
+
+  itBuilt('exits 1 with a one-line message when --port is busy', async () => {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-cli-busy-'));
+    const blocker = net.createServer();
+    await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    const port = (blocker.address() as net.AddressInfo).port;
+    try {
+      const { code, stderr } = await new Promise<{ code: number | null; stderr: string }>(
+        (resolve) => {
+          const child = spawn(process.execPath, [CLI_BUNDLE, '--port', port.toString()], {
+            env: { ...process.env, HOME: tmpHome, USERPROFILE: tmpHome },
+            stdio: ['ignore', 'ignore', 'pipe'],
+            timeout: CLI_START_TIMEOUT_MS,
+          });
+          let err = '';
+          child.stderr.on('data', (d: Buffer) => (err += d.toString()));
+          child.on('close', (c) => resolve({ code: c, stderr: err }));
+        },
+      );
+      expect(code).toBe(1);
+      expect(stderr).toContain(
+        `Port ${port.toString()} is busy. Use --port <other> or stop the other process.`,
+      );
+      expect(stderr).not.toContain('EADDRINUSE');
+    } finally {
+      blocker.close();
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
 });

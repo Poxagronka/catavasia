@@ -57,7 +57,7 @@ test('validates release tag, ref, repository, and monotonic version', () => {
   const manifest = {
     name: 'catavasia',
     version: '1.4.0',
-    repository: { url: 'https://github.com/pixel-agents-hq/pixel-agents' },
+    repository: { url: 'git+https://github.com/Poxagronka/catavasia.git' },
   };
   assert.doesNotThrow(() =>
     validateReleaseIdentity({

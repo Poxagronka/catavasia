@@ -448,6 +448,12 @@ async function main(): Promise<void> {
     };
     update.checker.start();
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+      console.error(
+        `Port ${String(args.port)} is busy. Use --port <other> or stop the other process.`,
+      );
+      process.exit(1);
+    }
     console.error('Failed to start server:', err);
     process.exit(1);
   }
