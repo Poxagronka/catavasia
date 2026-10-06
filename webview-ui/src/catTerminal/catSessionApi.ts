@@ -1,8 +1,6 @@
 /**
  * Client side of the cat terminal: one contract, `catSessionApi`, for the chat
- * console and the "take the wheel" PTY. Today the server feeds it from the
- * task board; the orchestrator (phase 1) feeds the same endpoints later, so
- * this file does not change when it lands.
+ * console, the CEO dock (session `cat-ceo`) and the "take the wheel" PTY.
  */
 
 import {
@@ -107,7 +105,9 @@ function createCatSessionApi(): CatSessionApi {
       let timer: ReturnType<typeof setTimeout> | null = null;
       let disposed = false;
       const open = () => {
-        socket = new WebSocket(wsUrl(catPath(catId, 'events')));
+        // The token reads sessions that need it (the CEO desk); others ignore it.
+        const query = sessionToken ? `?token=${encodeURIComponent(sessionToken)}` : '';
+        socket = new WebSocket(wsUrl(`${catPath(catId, 'events')}${query}`));
         socket.onmessage = (event: MessageEvent) => {
           const frame = JSON.parse(String(event.data)) as CatSessionFrame;
           if (frame.type === 'snapshot' || frame.type === 'status') {

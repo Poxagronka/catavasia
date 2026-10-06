@@ -48,6 +48,11 @@ export class CatOfficeFeed {
     this.bus = bus;
   }
 
+  /** The office agent id of a resident cat (profile id), e.g. to open its chat. */
+  agentIdOf(catId: string): number | undefined {
+    return this.agentOf.get(catId);
+  }
+
   handle(msg: ServerMessage): void {
     switch (msg.type) {
       case 'catCharacters':

@@ -40,6 +40,17 @@
   /* Shadow */
   --shadow-pixel: 2px 2px 0px #0a0a14;
 
+  /* Reading text: chats, results, notices (TYPOGRAPHY spec in docs/catavasia/ROADMAP.md,
+     "CEO desk replaces the task board"). The pixel font stays on headings and labels. */
+  --font-body: -apple-system, system-ui, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --font-code: 'SF Mono', ui-monospace, Menlo, monospace;
+  --text-body-size: 15px;
+  --text-body-small: 14px;
+  --text-code-size: 13px;
+  --leading-body: 1.55;
+  --color-text-body: #e6e6ee;
+  --measure-body: 680px;
+
   /* Non-utility values */
   --vignette: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
   --btn-disabled-opacity: 0.35;
@@ -92,7 +103,7 @@
   html,
   body,
   #root {
-    @apply m-0 w-full h-full overflow-hidden font-pixel text-base text-text;
+    @apply m-0 w-full h-full overflow-hidden font-pixel text-base text-text bg-bg;
   }
 
   * {
@@ -104,6 +115,34 @@
   /* Panel with standard pixel-art border + shadow */
   .pixel-panel {
     @apply bg-bg border-2 border-border rounded-none shadow-pixel;
+  }
+
+  /* Reading text (see --font-body). `*` re-asserts the family over the base
+     `* { font-pixel }` rule; a `font-pixel` utility (headings) still wins. */
+  .prose-body {
+    font-family: var(--font-body);
+    font-size: var(--text-body-size);
+    line-height: var(--leading-body);
+    font-weight: 400;
+    color: var(--color-text-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  .prose-body * {
+    font-family: inherit;
+  }
+  .prose-small {
+    font-size: var(--text-body-small);
+  }
+  .prose-measure {
+    max-width: var(--measure-body);
+  }
+  /* Code and logs. */
+  .prose-code,
+  .prose-code *,
+  .prose-body :where(code, pre) {
+    font-family: var(--font-code);
+    font-size: var(--text-code-size);
+    line-height: 1.5;
   }
 
   /* Horizontal carousel for editor items */

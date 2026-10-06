@@ -9,7 +9,9 @@
  * SECURITY: a message starts a turn with NO permission prompts and the wheel
  * pipes keystrokes into a real process. Both need the same out-of-band server
  * token as POST /api/tasks (`?token=` or Bearer). Reading the events needs a
- * same-origin handshake only, like the task board read routes.
+ * same-origin handshake only, like the task board read routes, except for a
+ * session whose source says it needs the token (the CEO desk: job reports and
+ * project folders).
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -97,6 +99,10 @@ export function registerCatTerminalRoutes(
         return;
       }
       const { catId } = request.params;
+      if (source.needsToken?.(catId) && !options.isPrivileged(request)) {
+        socket.close(CAT_WS_CLOSE_UNAUTHORIZED, 'token required');
+        return;
+      }
       const snapshot = source.snapshot(catId);
       if (!snapshot) {
         socket.close(CAT_WS_CLOSE_NOT_FOUND, 'no session for this cat');

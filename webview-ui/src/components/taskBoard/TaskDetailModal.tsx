@@ -44,11 +44,13 @@ function Meta({ task }: { task: TaskDetail }) {
   return (
     <div className="flex gap-12 items-start">
       <CatAvatar palette={task.palette} hueShift={task.hueShift} />
-      <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-2 text-xs min-w-0">
+      <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-2 items-baseline text-xs min-w-0">
         {facts.map(([label, value]) => (
           <div key={label} className="contents">
             <span className="text-text-muted">{label}</span>
-            <span className={`break-all ${label === 'Status' ? STATUS_CLASS[task.status] : ''}`}>
+            <span
+              className={`prose-body prose-small break-all ${label === 'Status' ? STATUS_CLASS[task.status] : ''}`}
+            >
               {value}
             </span>
           </div>
@@ -93,18 +95,20 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
             <Meta task={task} />
             <TaskControls task={task} onChanged={(s) => setTask({ ...task, ...s })} />
             <Section title="Prompt">
-              <div className="whitespace-pre-wrap text-text-muted">{task.prompt}</div>
+              <div className="prose-body prose-measure whitespace-pre-wrap break-words">
+                {task.prompt}
+              </div>
             </Section>
             {task.error && (
               <Section title="Error">
-                <pre className="whitespace-pre-wrap text-status-error text-xs">{task.error}</pre>
+                <pre className="prose-code whitespace-pre-wrap text-status-error">{task.error}</pre>
               </Section>
             )}
             <Section title="Result">
               {task.result ? (
-                <Markdown text={task.result} />
+                <Markdown text={task.result} className="prose-measure" />
               ) : (
-                <span className="text-text-muted">
+                <span className="prose-body text-text-muted">
                   {task.status === 'running' ? 'The cat is still working...' : 'No result text.'}
                 </span>
               )}
@@ -112,10 +116,10 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
             {task.changedFiles && (
               <Section title={`Changed files (${task.changedFiles.length})`}>
                 {task.changedFiles.length === 0 && (
-                  <span className="text-text-muted">No changes.</span>
+                  <span className="prose-body text-text-muted">No changes.</span>
                 )}
                 {task.changedFiles.map((f) => (
-                  <div key={f.path} className="text-xs">
+                  <div key={f.path} className="prose-code break-all">
                     <span className="text-accent-bright inline-block w-20">{f.status}</span>
                     {f.path}
                   </div>
@@ -124,7 +128,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
             )}
             {task.diff && (
               <Section title={task.diffTruncated ? 'Diff (truncated)' : 'Diff'}>
-                <pre className="bg-bg-dark border-2 border-border p-6 overflow-x-auto text-xs leading-tight max-h-[420px]">
+                <pre className="prose-code bg-bg-dark border-2 border-border p-6 overflow-x-auto max-h-[420px]">
                   {task.diff.split('\n').map((line, n) => (
                     <div key={n} className={diffLineClass(line)}>
                       {line || ' '}
@@ -137,7 +141,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
               <summary className="cursor-pointer text-accent-bright text-base">
                 Activity log ({task.log.length})
               </summary>
-              <div className="flex flex-col gap-2 mt-6 text-xs">
+              <div className="prose-code flex flex-col gap-2 mt-6">
                 {task.log.map((entry, n) => (
                   <div key={n} className="break-all">
                     {entry.kind === 'tool' && (

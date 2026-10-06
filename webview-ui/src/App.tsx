@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TRANSPORT_STATE_CONNECTED } from '../../core/src/constants.js';
 import { CatOfficeFeed } from './catOfficeFeed.js';
 import { CatTerminalPanel } from './catTerminal/CatTerminalPanel.js';
+import { CeoDock } from './ceoDesk/CeoDock.js';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { CareRadialMenu } from './components/CareRadialMenu.js';
@@ -23,7 +24,7 @@ import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
-import { TASK_POLL_INTERVAL_MS } from './constants.js';
+import { CAT_CEO_ID, TASK_POLL_INTERVAL_MS } from './constants.js';
 import { EngineLoginPanel } from './engines/EngineLoginPanel.js';
 import { EngineBanner } from './engines/EngineNotice.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
@@ -56,6 +57,9 @@ orchestratorEvents.on((e) => officeStateRef.current?.scenes.handle(e));
 // The server's cat office feeds them: resident cats, messages, flow states, the turn queue.
 const catOfficeFeed = new CatOfficeFeed(() => officeStateRef.current, orchestratorEvents);
 transport.onMessage((m) => catOfficeFeed.handle(m));
+/** The CEO cat (standalone): it opens the CEO dock instead of a cat terminal. */
+const isCeoAgent = (agentId: number) =>
+  isBrowserRuntime && agentId === catOfficeFeed.agentIdOf(CAT_CEO_ID);
 transport.onStateChange((state) => {
   if (state !== TRANSPORT_STATE_CONNECTED) catOfficeFeed.connectionLost();
 });
@@ -286,8 +290,18 @@ function App() {
 
   // The cat terminal panel (standalone only): opened from the selected cat's label.
   const [terminalCatId, setTerminalCatId] = useState<number | null>(null);
+  // The CEO desk dock (standalone only): the CEO cat opens it, not a cat terminal.
+  const [dockExpandKey, setDockExpandKey] = useState(0);
+  const openCatChat = (agentId: number) => {
+    if (isCeoAgent(agentId)) setDockExpandKey((k) => k + 1);
+    else setTerminalCatId(agentId);
+  };
 
   const handleClick = useCallback((agentId: number) => {
+    if (isCeoAgent(agentId)) {
+      setDockExpandKey((k) => k + 1);
+      return;
+    }
     const os = getOfficeState();
     const taskId = os.characters.get(agentId)?.taskId;
     if (taskId) {
@@ -392,7 +406,12 @@ function App() {
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+    <div
+      ref={containerRef}
+      className="h-full relative overflow-hidden"
+      // The open CEO dock takes the right edge of a wide window (CeoDock sets --dock-space).
+      style={{ width: 'calc(100% - var(--dock-space, 0px))' }}
+    >
       <OfficeCanvas
         officeState={officeState}
         onClick={handleClick}
@@ -489,7 +508,7 @@ function App() {
             containerRef={containerRef}
             zoom={editor.zoom}
             panRef={editor.panRef}
-            onOpenChat={isBrowserRuntime ? setTerminalCatId : undefined}
+            onOpenChat={isBrowserRuntime ? openCatChat : undefined}
             alwaysShowOverlay={alwaysShowOverlay}
           />
 
@@ -562,12 +581,12 @@ function App() {
         title="Instant Detection is ON"
         zIndex={52}
       >
-        <div className="text-base text-text px-10" style={{ lineHeight: 1.4 }}>
+        <div className="prose-body prose-measure px-10">
           <p className="mb-8">Your catavasia office now reacts in real-time:</p>
           <ul className="mb-8 pl-18 list-disc m-0">
-            <li className="text-sm mb-2">Permission prompts appear instantly</li>
-            <li className="text-sm mb-2">Turn completions detected the moment they happen</li>
-            <li className="text-sm mb-2">Sound notifications play immediately</li>
+            <li className="mb-2">Permission prompts appear instantly</li>
+            <li className="mb-2">Turn completions detected the moment they happen</li>
+            <li className="mb-2">Sound notifications play immediately</li>
           </ul>
           <p className="mb-12 text-text-muted">
             This works through Claude Code Hooks, small event listeners that notify catavasia
@@ -576,12 +595,12 @@ function App() {
           <div className="text-center">
             <button
               onClick={() => setIsHooksInfoOpen(false)}
-              className="py-4 px-20 text-lg bg-accent text-white border-2 border-accent rounded-none cursor-pointer shadow-pixel"
+              className="font-pixel py-4 px-20 text-lg bg-accent text-white border-2 border-accent rounded-none cursor-pointer shadow-pixel"
             >
               Got it
             </button>
           </div>
-          <p className="mt-8 text-xs text-text-muted text-center">
+          <p className="mt-8 prose-small text-text-muted text-center">
             To disable, go to Settings {'>'} Instant Detection
           </p>
         </div>
@@ -629,7 +648,17 @@ function App() {
       {clickedTaskId && (
         <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />
       )}
-      {terminalCatId !== null && (
+      {isBrowserRuntime && (
+        <CeoDock
+          expandKey={dockExpandKey}
+          onOpenTask={setClickedTaskId}
+          onOpenCat={(catId) => {
+            const agentId = catOfficeFeed.agentIdOf(catId);
+            if (agentId !== undefined) setTerminalCatId(agentId);
+          }}
+        />
+      )}
+      {terminalCatId !== null && !isCeoAgent(terminalCatId) && (
         <CatTerminalPanel
           key={terminalCatId}
           catId={String(terminalCatId)}

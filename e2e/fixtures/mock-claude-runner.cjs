@@ -215,9 +215,7 @@ function isPixelAgentsHookCommand(homeDir, command) {
     path.join(homeDir, '.pixel-agents', 'hooks', 'claude-hook.js'),
   );
 
-  return (
-    normalizedCommand.includes(currentHookPath)
-  );
+  return normalizedCommand.includes(currentHookPath);
 }
 
 function resolveTemplateString(template, context) {
@@ -277,10 +275,7 @@ function buildContext(homeDir, scenario, sessionId, cwd) {
 
   for (const sessionDefinition of scenario.sessions || []) {
     const resolvedSessionId = resolveTemplateString(sessionDefinition.sessionIdTemplate, context);
-    const resolvedCwd = resolveTemplateString(
-      sessionDefinition.cwdTemplate || '{{cwd}}',
-      context,
-    );
+    const resolvedCwd = resolveTemplateString(sessionDefinition.cwdTemplate || '{{cwd}}', context);
     const resolvedTranscriptPath = sessionDefinition.transcriptPathTemplate
       ? resolveTemplateString(sessionDefinition.transcriptPathTemplate, context)
       : undefined;
@@ -365,7 +360,11 @@ async function emitHook(homeDir, context, payload) {
   for (const entry of entries) {
     const hooks = Array.isArray(entry?.hooks) ? entry.hooks : [];
     for (const hook of hooks) {
-      if (hook?.type !== 'command' || typeof hook.command !== 'string' || hook.command.length === 0) {
+      if (
+        hook?.type !== 'command' ||
+        typeof hook.command !== 'string' ||
+        hook.command.length === 0
+      ) {
         continue;
       }
       if (!isPixelAgentsHookCommand(homeDir, hook.command)) {
@@ -492,7 +491,62 @@ async function playScenario(homeDir, scenario, context) {
   echo(null, 'session ended');
 }
 
+function flagValue(argv, name) {
+  const at = argv.indexOf(name);
+  return at >= 0 ? argv[at + 1] : undefined;
+}
+
+/**
+ * Headless turn: `claude -p --input-format stream-json ...` (the CEO desk and
+ * the cat office). Reads the one user message from stdin and answers like the
+ * real CLI's stream-json output: init, one assistant message, the result.
+ * The answer echoes the user's words, plus a markdown list and a code block.
+ */
+async function headlessTurn(argv) {
+  let input = '';
+  for await (const chunk of process.stdin) input += chunk;
+  const first = JSON.parse(input.trim().split('\n')[0] || '{}');
+  const content = first.message ? first.message.content : '';
+  const message = typeof content === 'string' ? content : JSON.stringify(content);
+  // The CEO desk wraps the user's words: "[Message from the user]\n<text>".
+  const marker = '[Message from the user]\n';
+  const at = message.lastIndexOf(marker);
+  const said = (at >= 0 ? message.slice(at + marker.length) : message).trim();
+  const sessionId = flagValue(argv, '--session-id') || flagValue(argv, '--resume') || '';
+  const fence = '`'.repeat(3);
+  const text = [
+    `Mock CEO: ${said}`,
+    '',
+    '- first point',
+    '- second point',
+    '',
+    fence,
+    'echo mock',
+    fence,
+  ].join('\n');
+  const say = (record) =>
+    process.stdout.write(`${JSON.stringify({ session_id: sessionId, ...record })}\n`);
+  logInvocation(os.homedir(), sessionId, process.cwd(), argv);
+  say({ type: 'system', subtype: 'init' });
+  say({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
+  say({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: text,
+    total_cost_usd: 0.001,
+    duration_ms: 5,
+    num_turns: 1,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  });
+}
+
 async function main() {
+  const argv = process.argv.slice(2);
+  if (argv.includes('-p') && flagValue(argv, '--input-format') === 'stream-json') {
+    await headlessTurn(argv);
+    return;
+  }
   const sessionId = parseSessionId(process.argv.slice(2));
   const cwd = process.cwd();
   const homeDir = os.homedir();
@@ -520,12 +574,11 @@ async function main() {
   await playScenario(homeDir, scenario, context);
 }
 
-main()
-  .catch((error) => {
-    const homeDir = os.homedir();
-    logAction(
-      homeDir,
-      `error ${error instanceof Error ? error.stack || error.message : String(error)}`,
-    );
-    process.exitCode = 1;
-  });
+main().catch((error) => {
+  const homeDir = os.homedir();
+  logAction(
+    homeDir,
+    `error ${error instanceof Error ? error.stack || error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+});

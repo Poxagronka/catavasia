@@ -35,12 +35,9 @@ describe('toRows', () => {
       { kind: 'text', text: 'halfway' },
       tool('Bash'),
     ]);
-    expect(rows.map((r) => (r.kind === 'tools' ? r.tools.length : r.entry.kind))).toEqual([
-      'user',
-      2,
-      'text',
-      1,
-    ]);
+    expect(
+      rows.map((r) => (r.kind === 'message' ? r.entry.kind : r.kind === 'tools' && r.tools.length)),
+    ).toEqual(['user', 2, 'text', 1]);
   });
 });
 

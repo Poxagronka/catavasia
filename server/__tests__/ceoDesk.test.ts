@@ -1,11 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { WebSocket } from 'ws';
 
 import type { CatSessionEntry, CatSessionFrame } from '../../core/src/catSession.js';
 import { OfficeCatSource } from '../src/catTerminal/officeCatSource.js';
 import { RESTARTED_TEXT } from '../src/ceoDesk/ceoDesk.js';
 import { DESK_RULES } from '../src/ceoDesk/deskPrompt.js';
+import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
 import { waitFor } from './catOfficeHarness.js';
 import {
   type CeoTurn,
@@ -74,6 +76,8 @@ describe('CEO desk turns', () => {
       log: [
         { kind: 'text', text: 'Let me look.' },
         { kind: 'tool', name: 'Read', text: 'README.md' },
+        // A desk tool's raw input: callTool writes its readable row instead.
+        { kind: 'tool', name: 'mcp__desk__list_team', text: '{}' },
         { kind: 'text', text: 'FULL fin… (cut)' },
       ],
     }));
@@ -182,7 +186,21 @@ describe('CEO desk jobs', () => {
     expect(notice).toContain('- A murka.txt');
     expect(git(repo, 'show', `task/${job.id}:murka.txt`)).toBe('meow from murka\n');
 
+    const endpoint = JSON.parse(fs.readFileSync(env.ceo.turns[0].mcpConfigFile, 'utf-8'));
+    expect(endpoint.name).toBe('desk');
+    // The real Claude config names the server `desk`: tool rows read mcp__desk__start_job.
+    expect(Object.keys(JSON.parse(new ClaudeAdapter().mcpConfig(endpoint)).mcpServers)).toEqual([
+      'desk',
+    ]);
     const rows = desk.snapshot().entries;
+    const started = rows.findIndex((e) => e.kind === 'tool');
+    expect(rows[started]).toEqual({
+      kind: 'tool',
+      name: 'mcp__desk__start_job',
+      text: `Started job ${job.id} → Team (Oliver)`,
+    });
+    // The card follows the row that started the job.
+    expect(rows[started + 1]).toMatchObject({ kind: 'job', job: { jobId: job.id } });
     const card = rows.find((e) => e.kind === 'job');
     expect(card).toMatchObject({
       kind: 'job',
@@ -321,6 +339,23 @@ describe('cat sessions of the CEO desk', () => {
       code: 400,
       message: 'Ask the CEO in the chat to give this cat work',
     });
+  });
+
+  it('streams the desk chat only to a socket with the token', async () => {
+    env = await startDeskOffice(() => ({ text: 'ok' }));
+    const url = `ws://127.0.0.1:${env.server.port}/api/cat-sessions/cat-ceo/events`;
+    const open = (query: string) =>
+      new Promise<{ code?: number; frame?: CatSessionFrame }>((resolve) => {
+        const socket = new WebSocket(`${url}${query}`);
+        socket.on('message', (data) => {
+          resolve({ frame: JSON.parse(String(data)) as CatSessionFrame });
+          socket.close();
+        });
+        socket.on('close', (code) => resolve({ code }));
+      });
+    expect(await open('')).toEqual({ code: 4401 });
+    expect(await open('?token=wrong')).toEqual({ code: 4401 });
+    expect((await open('?token=tok')).frame).toMatchObject({ type: 'snapshot', title: 'Cat CEO' });
   });
 
   it('gates the /api/ceo routes with the token', async () => {

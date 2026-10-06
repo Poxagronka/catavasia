@@ -40,18 +40,20 @@ export function ResetEverything({
           Reset everything
         </Button>
         {result?.backupDir && (
-          <span className="text-xs text-text-muted break-all">
+          <span className="prose-body prose-small text-text-muted break-all">
             Reset done. Old files: {result.backupDir}
           </span>
         )}
-        {result?.error && <span className="text-xs text-reset-text">{result.error}</span>}
+        {result?.error && (
+          <span className="prose-body prose-small text-reset-text">{result.error}</span>
+        )}
       </div>
     );
   }
   const armed = typed === RESET_WORD;
   return (
     <div className="flex flex-col gap-4">
-      <span className="text-base text-reset-text">
+      <span className="prose-body text-reset-text">
         Your cats, their prompts, the layout and the pets go back to the defaults. A backup is saved
         first. Type {RESET_WORD} to confirm.
       </span>

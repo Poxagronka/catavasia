@@ -115,7 +115,7 @@ export class ClaudeAdapter implements EngineAdapter {
   mcpConfig(endpoint: OfficeMcpEndpoint): string {
     return JSON.stringify({
       mcpServers: {
-        office: {
+        [endpoint.name ?? 'office']: {
           type: 'http',
           url: endpoint.url,
           headers: { Authorization: `Bearer ${endpoint.token}` },
