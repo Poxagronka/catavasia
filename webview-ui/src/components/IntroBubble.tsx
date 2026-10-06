@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { DISCORD_INVITE_URL } from '../changelogData.js';
 import {
-  CLAUDE_CODE_INSTALL_COMMAND,
-  CLAUDE_CODE_URL,
   INTRO_BUBBLE_EDGE_MARGIN_PX,
   INTRO_BUBBLE_MAX_WIDTH_PX,
   INTRO_BUBBLE_Z_INDEX,
 } from '../constants.js';
 import type { ConsentChoice } from '../hooks/introTourState.js';
 import type { OfficeState } from '../office/engine/officeState.js';
-import { DiscordIcon } from './ChangelogModal.js';
 import { computeIntroBubbleGeometry } from './introBubbleGeometry.js';
+import { IntroStepBody } from './IntroStepBody.js';
+import {
+  AFTER_CONSENT_STEP,
+  CLOSING_STEP,
+  CONSENT_STEP,
+  INTRO_STEP_COUNT,
+  INTRO_STEPS,
+  introStepTitle,
+} from './introSteps.js';
 import { Button } from './ui/Button.js';
 
 interface IntroBubbleProps {
@@ -54,28 +59,29 @@ interface IntroBubbleProps {
   escapeSuppressed: boolean;
 }
 
-const STEP_COUNT = 4;
 const WELCOME_STEP = 0;
-const CLAUDE_CODE_STEP = 1;
-const CONSENT_STEP = 2;
-const CLOSING_STEP = 3;
 
 /**
- * The Intro: the four-step first-run tour the greeter character "speaks",
- * shared by both surfaces (the VS Code webview and the standalone browser
- * render this same component off the same server message).
+ * The Intro: the first-run tour the greeter character "speaks", shared by
+ * both surfaces (the VS Code webview and the standalone browser render this
+ * same component off the same server message). The steps and what each one
+ * shows live in introSteps.ts; their copy in IntroStepBody.tsx.
  *
- * Steps: welcome → Claude Code → hooks consent → all set. The consent step is
- * the same first-run ask as before, now wrapped in a tour; its copy still
- * arrives from the server and its buttons still send `hooksConsentResponse`
- * the moment they are clicked. Back from the closing step re-opens the consent
- * step for a genuine change of mind — the server treats a revised answer as an
- * absolute statement and undoes a landed install when the revision asks for
- * that (consentGate's disable/revert actions).
+ * Steps: welcome → engines → hooks consent → CEO → lead + Cats → tasks →
+ * office → all set. The consent step is the same first-run ask as before; its
+ * copy still arrives from the server and its buttons still send
+ * `hooksConsentResponse` the moment they are clicked. A choice moves on to the
+ * step after the ask; Back to the consent step re-opens it for a genuine
+ * change of mind — the server treats a revised answer as an absolute
+ * statement and undoes a landed install when the revision asks for that
+ * (consentGate's disable/revert actions).
  *
- * Diegetic: a greeter character (char_0) stands near the office's bottom-left
- * corner and this component is its speech bubble, anchored up-right of its
- * head like ToolOverlay anchors above agents. Mounting spawns the greeter;
+ * Diegetic: a greeter character (char_0) appears near the office's
+ * bottom-left corner and this component is its speech bubble, anchored
+ * up-right of its head like ToolOverlay anchors above agents. On each feature
+ * step the greeter walks to the furniture the step talks about and the camera
+ * follows it (OfficeState.greeterVisit); an office without that item keeps
+ * the greeter in place with the same text. Mounting spawns the greeter;
  * EVERY close path — the X, Escape, Let's Go, or a hooksStatus that moots an
  * unanswered ask — unmounts this component, and the unmount despawns the
  * greeter, so the two can never disagree. While mounted it feeds
@@ -115,6 +121,12 @@ export function IntroBubble({
     officeState.spawnGreeter();
     return () => officeState.despawnGreeter();
   }, [officeState]);
+
+  // "Show": each step walks the greeter to the item it talks about. A missing
+  // item leaves the greeter where it stands (greeterVisit returns false).
+  useEffect(() => {
+    officeState.greeterVisit(INTRO_STEPS[step].visit);
+  }, [officeState, step]);
 
   useEffect(() => {
     if (escapeSuppressed) return;
@@ -157,12 +169,12 @@ export function IntroBubble({
     return () => cancelAnimationFrame(rafId);
   }, [officeState, zoom, containerRef, panRef]);
 
-  // The held install's verdict arrived (installPending fell): move on to the
-  // closing step. Back is disabled while pending, so the fall can only ever
-  // happen with the consent step on screen.
+  // The held install's verdict arrived (installPending fell): move on past
+  // the ask. Back is disabled while pending, so the fall can only ever happen
+  // with the consent step on screen.
   const prevPendingRef = useRef(false);
   useEffect(() => {
-    if (prevPendingRef.current && !installPending) setStep(CLOSING_STEP);
+    if (prevPendingRef.current && !installPending) setStep(AFTER_CONSENT_STEP);
     prevPendingRef.current = installPending;
   }, [installPending]);
 
@@ -213,15 +225,11 @@ export function IntroBubble({
     // A decline has no outcome to wait on, so it advances immediately. An
     // install holds this step (buttons disabled via installPending) and
     // advances when its verdict arrives — the pending-fall effect above.
-    if (choice !== 'install') setStep(CLOSING_STEP);
+    if (choice !== 'install') setStep(AFTER_CONSENT_STEP);
   };
 
-  const titles = [
-    'Welcome to catavasia!',
-    'Powered by Claude Code',
-    headline,
-    installFailed ? "Hooks couldn't be installed" : "You're all set!",
-  ];
+  const stepId = INTRO_STEPS[step].id;
+  const title = introStepTitle(stepId, headline, installFailed);
 
   return (
     <div
@@ -252,7 +260,7 @@ export function IntroBubble({
       <div
         ref={bubbleRef}
         role="dialog"
-        aria-label={titles[step]}
+        aria-label={title}
         className="pixel-panel relative py-10 px-14 leading-[1.4]"
         style={{ maxWidth }}
       >
@@ -268,9 +276,9 @@ export function IntroBubble({
           x
         </Button>
 
-        {/* Step dots: the tour's "1 of 4", drawn as pixels rather than prose. */}
-        <div className="flex gap-4 mb-8" aria-label={`Step ${step + 1} of ${STEP_COUNT}`}>
-          {Array.from({ length: STEP_COUNT }, (_, i) => (
+        {/* Step dots: the tour's "1 of N", drawn as pixels rather than prose. */}
+        <div className="flex gap-4 mb-8" aria-label={`Step ${step + 1} of ${INTRO_STEP_COUNT}`}>
+          {Array.from({ length: INTRO_STEP_COUNT }, (_, i) => (
             <div
               key={i}
               aria-hidden
@@ -279,71 +287,9 @@ export function IntroBubble({
           ))}
         </div>
 
-        <div className="text-xl mb-8 text-accent-bright pr-20">{titles[step]}</div>
+        <div className="text-xl mb-8 text-accent-bright pr-20">{title}</div>
 
-        {step === WELCOME_STEP && (
-          <p className="text-sm m-0 mb-8">
-            In this office, your AI agents become tiny pixel characters: they type at their desks
-            while they work, wander off when they're done, and speak up when they need you.
-          </p>
-        )}
-
-        {step === CLAUDE_CODE_STEP && (
-          <>
-            <p className="text-sm m-0 mb-8">
-              The office watches your Claude Code sessions and brings them to life in here. New to
-              Claude Code? Download it first:
-            </p>
-            <div className="text-sm bg-btn-bg border-2 border-border py-4 px-8 mb-8 select-all">
-              {CLAUDE_CODE_INSTALL_COMMAND}
-            </div>
-            <p className="text-sm m-0 mb-8">
-              For more info, visit{' '}
-              <a
-                href={CLAUDE_CODE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-bright hover:text-accent no-underline"
-              >
-                claude.com/claude-code
-              </a>
-            </p>
-          </>
-        )}
-
-        {step === CONSENT_STEP &&
-          disclosure.split('\n\n').map((paragraph, i) => (
-            <p key={i} className="text-sm m-0 mb-8">
-              {paragraph}
-            </p>
-          ))}
-
-        {step === CLOSING_STEP && (
-          <>
-            {installFailed ? (
-              <p className="text-sm m-0 mb-8">
-                Something went wrong writing to your Claude Code settings, so the office will watch
-                your sessions the slower way instead. No worries, everything still works and you can
-                retry activating them any time from Settings.
-              </p>
-            ) : null}
-            <p className="text-sm m-0 mb-8">
-              Enjoy your new office! Questions, ideas, or pixel art to show off? Come hang out in
-              our Discord.
-            </p>
-            <p className="text-base text-center m-0 mt-12 mb-12">
-              <a
-                href={DISCORD_INVITE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-8 text-accent-bright hover:text-accent no-underline"
-              >
-                <DiscordIcon />
-                Join our Discord!
-              </a>
-            </p>
-          </>
-        )}
+        <IntroStepBody id={stepId} disclosure={disclosure} installFailed={installFailed} />
 
         <div className="flex items-center justify-between gap-6 mt-10 flex-wrap">
           {/* Left slot: Back everywhere it can go back; a spacer on the opening
