@@ -186,5 +186,20 @@ export const CAT_CEO_GUARD_REVERT_DROP = 15;
 export const CAT_CEO_GUARD_WATCH_DROP = 8;
 /** After a guard revert, the Cat CEO does not edit that cat for this long. */
 export const CAT_CEO_GUARD_BLOCK_MS = 24 * 60 * 60 * 1000;
+/** Tidy (cat-ceo-judge.md §14): an automatic tidy starts at this share of the Rules or Lessons cap. */
+export const CAT_CEO_TIDY_CAP_SHARE = 0.8;
+/** ... or after this many reviews of the cat since its last tidy. */
+export const CAT_CEO_TIDY_EVERY_REVIEWS = 10;
+/** The sweep tidies every cat once per this period while the office runs. */
+export const CAT_CEO_TIDY_SWEEP_MS = 7 * 24 * 60 * 60 * 1000;
+export const CAT_CEO_TIDY_SWEEP_CHECK_MS = 60 * 60 * 1000;
+/** Automatic tidies leave this many places of the Cat CEO queue to task reviews. */
+export const CAT_CEO_TIDY_QUEUE_RESERVE = 3;
+/** Item changes in one tidy commit. */
+export const CAT_CEO_TIDY_MAX_CHANGES = 8;
+/** Review summaries of the cat in the tidy digest. */
+export const CAT_CEO_TIDY_SUMMARIES = 5;
+/** Prompt commits read for the item history of a tidy (newest). */
+export const CAT_CEO_TIDY_LOG_MAX = 200;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;

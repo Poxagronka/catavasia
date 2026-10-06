@@ -103,6 +103,31 @@ test('feed: a review walks to the cats, lowest score first, at most 4, with edit
   );
 });
 
+test('feed: a tidy with changes walks to the cat; one without changes does not', () => {
+  const { f, events } = feed();
+  f.handle({
+    type: 'promptTidy',
+    catId: 'murka',
+    state: 'done',
+    text: 'murka: nothing',
+    changed: 0,
+  });
+  f.handle({ type: 'promptTidy', catId: 'murka', state: 'queued', text: 'queued' });
+  f.handle({
+    type: 'promptTidy',
+    catId: 'murka',
+    state: 'done',
+    text: 'murka: tidied 3 items',
+    sha: 'abc',
+    changed: 3,
+  });
+  const talks = events.filter((e): e is CatMessageEvent => e.type === 'catMessage');
+  assert.deepEqual(
+    talks.map((t) => [t.from, t.to, t.kind, t.text, t.tooltip]),
+    [[16, 12, 'review', 'tidied 3 items', 'murka: tidied 3 items']],
+  );
+});
+
 test('feed: no Cat CEO character, no walk', () => {
   const { f, events } = feed(false);
   f.handle(REVIEW);
@@ -211,6 +236,7 @@ test('client store: settings, history and diff from the server; actions send the
     model: 'opus',
     effort: 'high',
     maxEditsPerCatPerDay: 2,
+    tidyUserItems: false,
     systemPrompt: 'judge',
   });
   assert.equal(store.getSnapshot().settings?.model, 'opus');
@@ -234,6 +260,41 @@ test('client store: settings, history and diff from the server; actions send the
     { type: 'revertPromptEdit', catId: 'murka', sha: 'abc' },
     { type: 'removePromptItem', catId: 'murka', itemId: 'R4' },
     { type: 'savePromptItem', catId: 'murka', section: 'Lessons', text: 'A fact.' },
+    { type: 'getPromptHistory', catId: 'murka' },
+  ]);
+});
+
+test('client store: Tidy now, the tidy state, and the last tidy of a loaded history', () => {
+  const sent: ClientMessage[] = [];
+  let handler: (m: ServerMessage) => void = () => {};
+  const store = createCatCeoStore({
+    send: (m) => sent.push(m),
+    onMessage: (h) => {
+      handler = h;
+      return () => {};
+    },
+  });
+  store.tidyNow('murka');
+  handler({ type: 'promptTidy', catId: 'murka', state: 'queued', text: 'queued' });
+  assert.equal(store.getSnapshot().tidy.murka.state, 'queued');
+  const row = {
+    op: 'remove' as const,
+    applied: false,
+    section: 'Rules' as const,
+    before: [{ id: 'R1', text: 'mine' }],
+    reason: 'stale',
+  };
+  handler({
+    type: 'promptHistory',
+    catId: 'murka',
+    entries: [],
+    lastTidy: { at: 1, trigger: 'manual', summary: 's', rows: [row] },
+  });
+  assert.equal(store.getSnapshot().lastTidy.murka?.rows[0].applied, false);
+  // A finished tidy refreshes the open history.
+  handler({ type: 'promptTidy', catId: 'murka', state: 'done', text: 'done', changed: 1 });
+  assert.deepEqual(sent, [
+    { type: 'tidyPrompt', catId: 'murka' },
     { type: 'getPromptHistory', catId: 'murka' },
   ]);
 });

@@ -45,6 +45,7 @@ import { authorOf, runGuard } from './regressionGuard.js';
 import { buildDigest, type CatHistory } from './reviewDigest.js';
 import { branchDiffs, commitMessage } from './reviewGit.js';
 import { type ReviewRecord, ReviewStore } from './reviewStore.js';
+import { CatTidy, isTidyCommit } from './tidy.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -72,8 +73,10 @@ export interface ReviewSink {
 export class CatCeo {
   readonly store: ReviewStore;
   private waiting = 0;
-  /** Reviews in flight (tests wait for them). */
+  /** Reviews and tidies in flight (tests wait for them). */
   readonly running = new Set<Promise<void>>();
+  /** Prompt hygiene: tidies of the cats' Rules and Lessons (§14). */
+  readonly tidy: CatTidy;
 
   constructor(private readonly opts: CatCeoOptions) {
     this.store = new ReviewStore(path.join(opts.stateDir, CAT_CEO_DIR, 'reviews.json'));
@@ -87,6 +90,26 @@ export class CatCeo {
     } else {
       prompts.commitHandEdit(CAT_CEO_ID);
     }
+    this.tidy = new CatTidy({
+      prompts,
+      store: this.store,
+      settings: () => this.settings,
+      catIds: () => opts.cats.list().map((c) => c.id),
+      queueRoom: () => CAT_CEO_QUEUE_MAX - this.waiting,
+      enqueue: (job) =>
+        this.enqueue(job, (err) => console.error(`[Pixel Agents] Cat CEO: ${errorText(err)}`)),
+      judge: (rules, digest, schema) => this.judge(rules, digest, schema),
+      emit: opts.emit,
+      log: (kind, text) => opts.consoles.push(CAT_CEO_ID, { kind, text }),
+      working: (on) => opts.residents().setWorking(CAT_CEO_ID, on),
+      promptsChanged: opts.promptsChanged,
+      now: () => this.now,
+    });
+    this.tidy.start();
+  }
+
+  dispose(): void {
+    this.tidy.dispose();
   }
 
   private get now(): number {
@@ -138,27 +161,58 @@ export class CatCeo {
     const since = this.now - DAY_MS;
     const made = this.opts.cats.prompts
       .log(catId)
-      .filter((c) => authorOf(c.subject) === 'cat-ceo' && c.at > since).length;
+      .filter(
+        (c) => authorOf(c.subject) === 'cat-ceo' && !isTidyCommit(c.subject) && c.at > since,
+      ).length;
     return Math.max(0, this.settings.maxEditsPerCatPerDay - made);
   }
 
   /** RequestReview (task-state-machine.md §3.4): queue one review of a finished task. */
   request(task: StoredTask, state: TaskState, sink: ReviewSink): void {
     const reviewId = `rv-${crypto.randomBytes(4).toString('hex')}`;
-    if (this.waiting >= CAT_CEO_QUEUE_MAX) {
+    const queued = this.enqueue(
+      () => this.review(task, state, sink, reviewId),
+      (err) => this.fail(task, sink, reviewId, errorText(err)),
+    );
+    if (!queued) {
       this.fail(task, sink, reviewId, 'The Cat CEO queue is full; this task is not reviewed.');
       return;
     }
-    this.waiting++;
     this.setReview(task, sink, { state: 'pending', reviewId });
-    const job = this.opts.scheduler
+  }
+
+  /** One Cat CEO job (review or tidy) in its scheduler slot: FIFO, at most 10 waiting (D9). */
+  private enqueue(job: () => Promise<void>, onError: (err: unknown) => void): boolean {
+    if (this.waiting >= CAT_CEO_QUEUE_MAX) return false;
+    this.waiting++;
+    const run = this.opts.scheduler
       .run(CAT_CEO_ID, () => {
         this.waiting--;
-        return this.review(task, state, sink, reviewId);
+        return job();
       })
-      .catch((err: unknown) => this.fail(task, sink, reviewId, errorText(err)));
-    this.running.add(job);
-    void job.finally(() => this.running.delete(job));
+      .catch(onError);
+    this.running.add(run);
+    void run.finally(() => this.running.delete(run));
+    return true;
+  }
+
+  /** One fresh judge process with the Cat CEO's Role + `rules` (a review's or a tidy's). */
+  private judge(rules: string, digest: string, schema?: object) {
+    const s = this.settings;
+    const cwd = path.join(this.opts.stateDir, CAT_CEO_DIR, 'work');
+    fs.mkdirSync(cwd, { recursive: true });
+    const role = this.opts.cats.prompts.read(CAT_CEO_ID).file.role;
+    return (this.opts.judge ?? runJudge)({
+      bin: this.opts.claudeBin ?? 'claude',
+      model: s.model,
+      effort: s.effort,
+      systemPrompt: `${role}\n\n${rules}`,
+      digest,
+      cwd,
+      budgetUsd: CAT_CEO_BUDGET_USD,
+      timeoutMs: CAT_CEO_TIMEOUT_MS,
+      ...(schema ? { schema } : {}),
+    });
   }
 
   private setReview(task: StoredTask, sink: ReviewSink, review: TaskReview): void {
@@ -197,7 +251,6 @@ export class CatCeo {
     sink: ReviewSink,
     reviewId: string,
   ): Promise<void> {
-    const s = this.settings;
     this.setReview(task, sink, { state: 'reviewing', reviewId });
     this.logEvent(task.id, { type: 'ReviewStarted', reviewId });
     this.opts.emit({ type: 'reviewStarted', taskId: task.id, reviewId });
@@ -217,19 +270,7 @@ export class CatCeo {
         prompts: Object.fromEntries(team.map((c) => [c, this.opts.cats.prompts.read(c).file])),
         history: Object.fromEntries(team.map((c) => [c, this.history(c)])),
       });
-      const cwd = path.join(this.opts.stateDir, CAT_CEO_DIR, 'work');
-      fs.mkdirSync(cwd, { recursive: true });
-      const role = this.opts.cats.prompts.read(CAT_CEO_ID).file.role;
-      const result = await (this.opts.judge ?? runJudge)({
-        bin: this.opts.claudeBin ?? 'claude',
-        model: s.model,
-        effort: s.effort,
-        systemPrompt: `${role}\n\n${JUDGE_RULES}`,
-        digest,
-        cwd,
-        budgetUsd: CAT_CEO_BUDGET_USD,
-        timeoutMs: CAT_CEO_TIMEOUT_MS,
-      });
+      const result = await this.judge(JUDGE_RULES, digest);
       if (!result.ok) throw new Error(`${result.error}${costNote(result.costUsd)}`);
       const parsed = parseJudgeOutput(result.output);
       if (!parsed.ok)
@@ -344,6 +385,7 @@ export class CatCeo {
       kind: 'text',
       text: `${out.verdict}: ${out.summary}${costNote(costUsd)}`,
     });
+    this.tidy.afterReview([...new Set(scores.map((x) => x.catId))]);
   }
 
   /** The bounded memory of §5.4: last 5 scores and last 3 prompt commits of a cat. */

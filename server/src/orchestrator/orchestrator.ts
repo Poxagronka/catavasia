@@ -225,13 +225,11 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
       return { error: `cat ${catId} does not exist` };
     const prompts = this.cats.prompts;
     if (msg.type === 'getPromptHistory') {
-      return {
-        reply: {
-          type: 'promptHistory',
-          catId,
-          entries: promptHistory(catId, prompts, this.ceo.store),
-        },
-      };
+      return { reply: promptHistory(catId, prompts, this.ceo.store) };
+    }
+    if (msg.type === 'tidyPrompt') {
+      const error = this.ceo.tidy.requestManual(catId);
+      return error ? { error } : {};
     }
     if (msg.type === 'getPromptDiff') {
       const diff = promptDiff(prompts, catId, msg.sha);
@@ -242,13 +240,7 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     if (error) return { error };
     this.cats.reloadPrompt(catId);
     for (const message of this.profileMessages()) this.opts.emit(message);
-    return {
-      reply: {
-        type: 'promptHistory',
-        catId,
-        entries: promptHistory(catId, prompts, this.ceo.store),
-      },
-    };
+    return { reply: promptHistory(catId, prompts, this.ceo.store) };
   }
 
   // ── Task board ──
@@ -325,6 +317,7 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
 
   /** Server shutdown: every task goes to `interrupted` (T13) and its turns stop. */
   dispose(): void {
+    this.ceo.dispose();
     for (const runner of this.runners.values()) runner.interrupt();
     this.runners.clear();
     this.tokens.clear();

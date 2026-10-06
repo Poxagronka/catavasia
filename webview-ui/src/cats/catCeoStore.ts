@@ -6,12 +6,16 @@
 //   committed by the server, which answers with the new history (and new
 //   profiles). A refused change comes back as `catProfileRejected` (useCats).
 // - A Cat CEO review that edited a cat refreshes that cat's open history.
+// - Tidy now: `tidyPrompt` -> `promptTidy` (queued, then done / skipped /
+//   failed); a finished tidy refreshes that cat's open history.
 
 import type {
   CatCeoSettings,
   ClientMessage,
   PromptHistoryEntry,
   PromptSection,
+  PromptTidy,
+  PromptTidyInfo,
   ServerMessage,
 } from '../../../core/src/messages.js';
 
@@ -23,6 +27,10 @@ export interface CeoSnapshot {
   history: Record<string, PromptHistoryEntry[]>;
   /** Diff text by `<catId>:<sha>`. */
   diffs: Record<string, string>;
+  /** The newest tidy of each cat whose history was loaded. */
+  lastTidy: Record<string, PromptTidyInfo | undefined>;
+  /** The newest tidy state message of each cat. */
+  tidy: Record<string, Pick<PromptTidy, 'state' | 'text'>>;
 }
 
 interface Wire {
@@ -31,7 +39,7 @@ interface Wire {
 }
 
 export function createCatCeoStore(wire: Wire) {
-  let state: CeoSnapshot = { settings: null, history: {}, diffs: {} };
+  let state: CeoSnapshot = { settings: null, history: {}, diffs: {}, lastTidy: {}, tidy: {} };
   const listeners = new Set<() => void>();
   const set = (next: Partial<CeoSnapshot>) => {
     state = { ...state, ...next };
@@ -45,13 +53,20 @@ export function createCatCeoStore(wire: Wire) {
         set({ settings: msg });
         break;
       case 'promptHistory':
-        set({ history: { ...state.history, [msg.catId]: msg.entries } });
+        set({
+          history: { ...state.history, [msg.catId]: msg.entries },
+          lastTidy: { ...state.lastTidy, [msg.catId]: msg.lastTidy },
+        });
         break;
       case 'promptDiff':
         set({ diffs: { ...state.diffs, [`${msg.catId}:${msg.sha}`]: msg.diff } });
         break;
       case 'reviewFinished':
         for (const e of msg.edits) if (state.history[e.catId]) requestHistory(e.catId);
+        break;
+      case 'promptTidy':
+        set({ tidy: { ...state.tidy, [msg.catId]: { state: msg.state, text: msg.text } } });
+        if (msg.state !== 'queued' && state.history[msg.catId]) requestHistory(msg.catId);
         break;
     }
   });
@@ -73,6 +88,7 @@ export function createCatCeoStore(wire: Wire) {
       wire.send({ type: 'restorePromptVersion', catId, sha }),
     removeItem: (catId: string, itemId: string) =>
       wire.send({ type: 'removePromptItem', catId, itemId }),
+    tidyNow: (catId: string) => wire.send({ type: 'tidyPrompt', catId }),
     saveItem: (catId: string, section: PromptSection, text: string, itemId?: string) =>
       wire.send({ type: 'savePromptItem', catId, section, text, ...(itemId ? { itemId } : {}) }),
   };

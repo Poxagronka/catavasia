@@ -21,6 +21,8 @@ export interface JudgeRequest {
   cwd: string;
   budgetUsd: number;
   timeoutMs: number;
+  /** Output schema: the review's (default) or the tidy's. */
+  schema?: object;
 }
 
 export type JudgeResult =
@@ -36,7 +38,7 @@ export function judgeArgs(
     '--output-format',
     'json',
     '--json-schema',
-    JSON.stringify(JUDGE_SCHEMA),
+    JSON.stringify(req.schema ?? JUDGE_SCHEMA),
     '--model',
     req.model,
     '--effort',
@@ -45,6 +47,9 @@ export function judgeArgs(
     '',
     '--strict-mcp-config',
     '--safe-mode',
+    // The user's `language` setting would win over the judge rules (a real run answered in Russian).
+    '--settings',
+    JSON.stringify({ language: 'en' }),
     '--no-session-persistence',
     '--max-budget-usd',
     String(req.budgetUsd),

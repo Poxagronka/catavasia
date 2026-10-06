@@ -12,6 +12,8 @@
  * - reviewFinished: the Cat CEO walks to the reviewed cats, lowest score
  *   first (at most CAT_CEO_MAX_WALKS), and says "<score> · <bubble>"; the
  *   anomalies of that cat are the hover text (a `review` talk).
+ * - promptTidy (done, with changes): the Cat CEO walks to that cat and says
+ *   "tidied N items" (the same `review` talk).
  *
  * A lost connection ends every open briefing: the server cannot send the
  * final state then, and a meeting waits for a non-briefing state.
@@ -75,6 +77,21 @@ export class CatOfficeFeed {
       case 'reviewFinished':
         this.onReview(msg);
         break;
+      case 'promptTidy': {
+        const ceo = this.agentOf.get(CAT_CEO_ID);
+        const to = this.agentOf.get(msg.catId);
+        if (msg.state !== 'done' || !msg.changed || ceo === undefined || to === undefined) break;
+        const text = `tidied ${msg.changed} ${msg.changed === 1 ? 'item' : 'items'}`;
+        this.bus.emit({
+          type: 'catMessage',
+          from: ceo,
+          to,
+          kind: 'review',
+          text,
+          tooltip: msg.text,
+        });
+        break;
+      }
     }
   }
 
