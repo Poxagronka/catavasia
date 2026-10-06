@@ -1,19 +1,24 @@
 import { useState } from 'react';
 
+import type { TaskTarget } from '../../../../core/src/tasks.js';
 import { Button } from '../ui/Button.js';
 import { createTask } from './taskApi.js';
 
 interface NewTaskFormProps {
   defaultCwd: string;
+  /** Team and cats from the server; empty hides the "Who" field. */
+  targets: TaskTarget[];
   onCreated: () => void;
   onCancel: () => void;
 }
 
 const FIELD = 'w-full bg-bg-dark border-2 border-border text-text p-6 rounded-none outline-none';
 
-export function NewTaskForm({ defaultCwd, onCreated, onCancel }: NewTaskFormProps) {
+export function NewTaskForm({ defaultCwd, targets, onCreated, onCancel }: NewTaskFormProps) {
   const [prompt, setPrompt] = useState('');
   const [cwd, setCwd] = useState(defaultCwd);
+  /** '' = one plain run (no cat office). */
+  const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +27,7 @@ export function NewTaskForm({ defaultCwd, onCreated, onCancel }: NewTaskFormProp
     setBusy(true);
     setError(null);
     try {
-      await createTask({ prompt, cwd: cwd.trim() || undefined });
+      await createTask({ prompt, cwd: cwd.trim() || undefined, target: target || undefined });
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -56,6 +61,23 @@ export function NewTaskForm({ defaultCwd, onCreated, onCancel }: NewTaskFormProp
           spellCheck={false}
         />
       </label>
+      {targets.length > 0 && (
+        <label className="text-xs text-text-muted">
+          Who
+          <select
+            className={`${FIELD} text-xs mt-2`}
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+          >
+            <option value="">One cat, plain run</option>
+            {targets.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="text-2xs text-warning">
         Runs claude with no permission prompts, in a git worktree on branch task/&lt;id&gt;.
       </div>

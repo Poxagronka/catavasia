@@ -25,11 +25,14 @@ import {
   getHooksConsent,
   getHooksEnabled,
   grantHooksConsent,
+  parseTurnConcurrency,
   readConfig,
 } from './configPersistence.js';
-import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT } from './constants.js';
+import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
+import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
+import { Orchestrator } from './orchestrator/orchestrator.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
 import { TaskManager } from './taskBoard/taskManager.js';
@@ -155,11 +158,26 @@ async function main(): Promise<void> {
     // Create runtime first (before server.start, so we can pass it in)
     const runtime = new AgentRuntime(store, claudeProvider);
 
-    // Task board: each task runs as a headless agent of this runtime.
+    // Cat office: cat profiles, team tasks, and the office MCP tools.
+    const stateDir = path.join(os.homedir(), LAYOUT_FILE_DIR);
+    const orchestrator = new Orchestrator({
+      host: runtime,
+      stateDir,
+      adapters: [new ClaudeAdapter()],
+      emit: (message) => store.broadcast({ ...message }),
+      turnConcurrency:
+        parseTurnConcurrency(adapter.getSetting('pixel-agents.turnConcurrency', undefined)) ??
+        TURN_CONCURRENCY_DEFAULT,
+    });
+    runtime.showGuests.current = adapter.getSetting('pixel-agents.showGuests', false);
+
+    // Task board: each task runs as a headless agent of this runtime, or as a
+    // team task of the cat office when it targets the team or one cat.
     const tasks = new TaskManager({
       host: runtime,
-      stateDir: path.join(os.homedir(), LAYOUT_FILE_DIR),
+      stateDir,
       defaultCwd: process.cwd(),
+      flows: orchestrator,
     });
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
@@ -256,8 +274,10 @@ async function main(): Promise<void> {
       onSetHooksEnabled,
       onReloadAssets,
       tasks,
+      orchestrator,
     });
     currentConfig = { port: config.port, token: config.token };
+    orchestrator.setServerUrl(`http://127.0.0.1:${config.port}`);
 
     // Sync runtime refs with persisted settings BEFORE first scan tick. The
     // runtime's single hooksEnabled ref follows the Claude provider until the

@@ -25,6 +25,15 @@ export type ServerMessage =
   | SubagentToolPermission
   | AgentTeamInfo
   | AgentTaskFinished
+  | CatProfilesLoaded
+  | CatProfileSaved
+  | CatProfileRejected
+  | CatHierarchy
+  | CatTurnStarted
+  | CatTurnFinished
+  | CatMessage
+  | FlowStateChanged
+  | QueueChanged
   | AgentContextUsage
   | LayoutLoaded
   | PetCareLoaded
@@ -66,7 +75,11 @@ export type ClientMessage =
   | RemoveExternalAssetDirectory
   | SaveAreaMappings
   | SetShowAreas
-  | RequestDiagnostics;
+  | RequestDiagnostics
+  | SaveCatProfile
+  | DeleteCatProfile
+  | SetTurnConcurrency
+  | SetShowGuests;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -191,6 +204,115 @@ export interface AgentTaskFinished {
   taskId: string;
 }
 
+export interface CatProfilesLoaded {
+  type: 'catProfilesLoaded';
+  profiles: CatProfile[];
+  models: string[];
+  efforts: string[];
+}
+
+export interface CatProfile {
+  id: string;
+  name: string;
+  role: string;
+  systemPrompt: string;
+  engine: CatEngine;
+  model: string;
+  effort?: string;
+  parentId?: string;
+  appearance: CatAppearance;
+}
+
+export type CatEngine = 'claude' | 'codex';
+
+export interface CatAppearance {
+  breed?: number;
+  hueShift?: number;
+  pattern?: CatPattern;
+  fur?: string;
+  shade?: string;
+  light?: string;
+  belly?: string;
+  stripe?: string;
+  eyes?: string;
+  collar?: string;
+}
+
+export type CatPattern =
+  'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie' | 'siamese' | 'bengal' | 'sphynx';
+
+export interface CatProfileSaved {
+  type: 'catProfileSaved';
+  profile: CatProfile;
+}
+
+export interface CatProfileRejected {
+  type: 'catProfileRejected';
+  id?: string;
+  error: string;
+}
+
+export interface CatHierarchy {
+  type: 'catHierarchy';
+  roots: string[];
+  children: Record<string, string[]>;
+}
+
+export interface CatTurnStarted {
+  type: 'catTurnStarted';
+  catId: string;
+  taskId: string;
+  id: number;
+}
+
+export interface CatTurnFinished {
+  type: 'catTurnFinished';
+  catId: string;
+  taskId: string;
+  id: number;
+  ok: boolean;
+  costUsd?: number;
+  inputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  outputTokens?: number;
+}
+
+export interface CatMessage {
+  type: 'catMessage';
+  taskId: string;
+  from: string;
+  to: string;
+  kind: CatMessageKind;
+  text: string;
+}
+
+export type CatMessageKind =
+  'task' | 'brief' | 'delegate' | 'ask' | 'reply' | 'report' | 'final' | 'nudge';
+
+export interface FlowStateChanged {
+  type: 'flowStateChanged';
+  taskId: string;
+  state: FlowState;
+}
+
+export type FlowState =
+  | 'briefing'
+  | 'delegating'
+  | 'working'
+  | 'reporting'
+  | 'merging'
+  | 'done'
+  | 'error'
+  | 'interrupted';
+
+export interface QueueChanged {
+  type: 'queueChanged';
+  running: string[];
+  queued: string[];
+  cap: number;
+}
+
 export interface AgentContextUsage {
   type: 'agentContextUsage';
   id: number;
@@ -291,6 +413,8 @@ export interface SettingsLoaded {
   hooksInfoShown: boolean;
   externalAssetDirectories: string[];
   showAreas: boolean;
+  showGuests?: boolean;
+  turnConcurrency?: number;
 }
 
 export interface HooksStatus {
@@ -453,4 +577,24 @@ export interface SetShowAreas {
 
 export interface RequestDiagnostics {
   type: 'requestDiagnostics';
+}
+
+export interface SaveCatProfile {
+  type: 'saveCatProfile';
+  profile: CatProfile;
+}
+
+export interface DeleteCatProfile {
+  type: 'deleteCatProfile';
+  id: string;
+}
+
+export interface SetTurnConcurrency {
+  type: 'setTurnConcurrency';
+  value: number;
+}
+
+export interface SetShowGuests {
+  type: 'setShowGuests';
+  enabled: boolean;
 }

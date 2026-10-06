@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import type { CatOfficeSettings } from '../hooks/useExtensionMessages.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
@@ -36,7 +37,13 @@ interface SettingsModalProps {
   onExportLayout: () => void;
   /** Browser-native layout import from a chosen file (standalone only). */
   onImportLayout: (file: File) => void;
+  /** Cat office settings; null hides them (no office on this server). */
+  catOffice: CatOfficeSettings | null;
+  onChangeCatOffice: (next: CatOfficeSettings) => void;
 }
+
+/** Choices for "Cats working at once" (server range 1..12). */
+const TURN_CONCURRENCY_CHOICES = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function SettingsModal({
   isOpen,
@@ -57,6 +64,8 @@ export function SettingsModal({
   showAreasAvailable,
   onExportLayout,
   onImportLayout,
+  catOffice,
+  onChangeCatOffice,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -205,6 +214,31 @@ export function SettingsModal({
       )}
       {showAreasAvailable && (
         <Checkbox label="Show Areas" checked={showAreas} onChange={onToggleShowAreas} />
+      )}
+      {catOffice && (
+        <>
+          <Checkbox
+            label="Show Guests"
+            checked={catOffice.showGuests}
+            onChange={() => onChangeCatOffice({ ...catOffice, showGuests: !catOffice.showGuests })}
+          />
+          <label className="flex items-center justify-between w-full py-6 px-10">
+            <span>Cats Working at Once</span>
+            <select
+              value={catOffice.turnConcurrency}
+              onChange={(e) =>
+                onChangeCatOffice({ ...catOffice, turnConcurrency: Number(e.target.value) })
+              }
+              className="bg-bg border-2 border-border rounded-none text-text text-xs py-2 px-4"
+            >
+              {TURN_CONCURRENCY_CHOICES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
       )}
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
     </Modal>

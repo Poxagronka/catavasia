@@ -69,6 +69,65 @@ export interface WorktreeOutcome {
   diffTruncated: boolean;
 }
 
+/** Identity flags for a commit: none when the repo has its own user.email. */
+async function identityArgs(worktreePath: string): Promise<string[]> {
+  const hasIdentity = await git(worktreePath, ['config', 'user.email']).then(
+    (v) => v.trim() !== '',
+    () => false,
+  );
+  return hasIdentity ? [] : FALLBACK_IDENTITY;
+}
+
+/** Commit everything in the worktree. Returns false when there was nothing to commit. */
+export async function commitAll(worktreePath: string, message: string): Promise<boolean> {
+  await git(worktreePath, ['add', '-A']);
+  const staged = (await git(worktreePath, ['diff', '--cached', '--name-only'])).trim();
+  if (!staged) return false;
+  const identity = await identityArgs(worktreePath);
+  await git(worktreePath, [...identity, 'commit', '--no-verify', '-q', '-m', message]);
+  return true;
+}
+
+export type MergeOutcome = { ok: true } | { ok: false; conflicts: string[]; error: string };
+
+/**
+ * Merge `branch` into the branch checked out in `worktreePath`. On a conflict
+ * the merge stays in progress, so the cat that owns the worktree resolves it.
+ * Any other failure is aborted.
+ */
+export async function mergeBranch(
+  worktreePath: string,
+  branch: string,
+  message: string,
+): Promise<MergeOutcome> {
+  const identity = await identityArgs(worktreePath);
+  try {
+    await git(worktreePath, [
+      ...identity,
+      'merge',
+      '--no-ff',
+      '--no-verify',
+      '-m',
+      message,
+      branch,
+    ]);
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    const unmerged = await git(worktreePath, ['diff', '--name-only', '--diff-filter=U']).catch(
+      () => '',
+    );
+    const conflicts = unmerged.split('\n').filter(Boolean);
+    if (conflicts.length === 0) await git(worktreePath, ['merge', '--abort']).catch(() => '');
+    return { ok: false, conflicts, error };
+  }
+}
+
+/** Remove a worktree; its branch stays. */
+export async function removeWorktree(repoRoot: string, worktreePath: string): Promise<void> {
+  await git(repoRoot, ['worktree', 'remove', '--force', worktreePath]);
+}
+
 /**
  * Commit everything the agent left in the worktree, collect the diff against
  * the base commit, then remove the worktree. The branch stays.
@@ -79,16 +138,7 @@ export async function finalizeWorktree(
   baseCommit: string,
   message: string,
 ): Promise<WorktreeOutcome> {
-  await git(worktreePath, ['add', '-A']);
-  const staged = (await git(worktreePath, ['diff', '--cached', '--name-only'])).trim();
-  if (staged) {
-    const hasIdentity = await git(worktreePath, ['config', 'user.email']).then(
-      (v) => v.trim() !== '',
-      () => false,
-    );
-    const identity = hasIdentity ? [] : FALLBACK_IDENTITY;
-    await git(worktreePath, [...identity, 'commit', '--no-verify', '-q', '-m', message]);
-  }
+  await commitAll(worktreePath, message);
   const nameStatus = await git(worktreePath, ['diff', '--name-status', baseCommit, 'HEAD']);
   const changedFiles = nameStatus
     .split('\n')
@@ -100,6 +150,6 @@ export async function finalizeWorktree(
   let diff = await git(worktreePath, ['diff', baseCommit, 'HEAD']);
   const diffTruncated = Buffer.byteLength(diff) > TASK_DIFF_MAX_BYTES;
   if (diffTruncated) diff = diff.slice(0, TASK_DIFF_MAX_BYTES);
-  await git(repoRoot, ['worktree', 'remove', '--force', worktreePath]);
+  await removeWorktree(repoRoot, worktreePath);
   return { changedFiles, diff, diffTruncated };
 }

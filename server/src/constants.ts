@@ -123,3 +123,20 @@ export const TASK_DIFF_MAX_BYTES = 200_000;
 export const TASK_LOG_MAX_ENTRIES = 500;
 export const TASK_LOG_TEXT_MAX_CHARS = 300;
 export const TASK_STDERR_TAIL_CHARS = 2000;
+
+// ── Cat office (orchestrator) ───────────────────────────────
+/** ~/.pixel-agents/<name>: cat profiles and hierarchy. */
+export const CATS_FILE_NAME = 'cats.json';
+/** ~/.pixel-agents/<dir>/<taskId>/: per-cat system prompt and MCP config files of a team task. */
+export const ORCHESTRATOR_DIR = 'orchestrator';
+/** Office MCP endpoint (HTTP transport) that cat sessions call. */
+export const OFFICE_MCP_PATH = '/mcp';
+export const TURN_CONCURRENCY_DEFAULT = 6;
+export const TURN_CONCURRENCY_MIN = 1;
+export const TURN_CONCURRENCY_MAX = 12;
+/** Safety stop: a team task that started this many turns ends with an error. */
+export const FLOW_MAX_TURNS = 80;
+export const CAT_NAME_MAX_CHARS = 40;
+export const CAT_SYSTEM_PROMPT_MAX_CHARS = 20_000;
+/** Cap on one office message (delegate/ask/reply/report text). */
+export const CAT_MESSAGE_MAX_CHARS = 20_000;

@@ -13,6 +13,16 @@ export interface StreamResult {
   costUsd?: number;
   durationMs?: number;
   numTurns?: number;
+  sessionId?: string;
+  usage?: StreamUsage;
+}
+
+/** Token counts of the `result` event (the prompt cache shows in the cache fields). */
+export interface StreamUsage {
+  inputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  outputTokens: number;
 }
 
 export interface ParsedStreamLine {
@@ -40,6 +50,17 @@ function num(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined;
 }
 
+function parseUsage(raw: unknown): StreamUsage | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const u = raw as Record<string, unknown>;
+  return {
+    inputTokens: num(u.input_tokens) ?? 0,
+    cacheReadTokens: num(u.cache_read_input_tokens) ?? 0,
+    cacheCreationTokens: num(u.cache_creation_input_tokens) ?? 0,
+    outputTokens: num(u.output_tokens) ?? 0,
+  };
+}
+
 /** Parse one stdout line. Non-JSON and unknown records yield no entries. */
 export function parseStreamLine(line: string): ParsedStreamLine {
   let rec: Record<string, unknown>;
@@ -57,6 +78,8 @@ export function parseStreamLine(line: string): ParsedStreamLine {
         costUsd: num(rec.total_cost_usd),
         durationMs: num(rec.duration_ms),
         numTurns: num(rec.num_turns),
+        sessionId: typeof rec.session_id === 'string' ? rec.session_id : undefined,
+        usage: parseUsage(rec.usage),
       },
     };
   }

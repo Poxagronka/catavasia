@@ -21,6 +21,9 @@ import {
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import { filterGuestMessage } from './guests.js';
+import { registerOfficeMcpRoute } from './orchestrator/officeMcp.js';
+import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
 
@@ -50,6 +53,8 @@ export interface HttpServerOptions {
   onReloadAssets?: ReloadAssetsSideEffect;
   /** Task board runtime (standalone only). Enables the /api/tasks routes. */
   tasks?: TaskManager;
+  /** Cat office (standalone only). Enables the office MCP endpoint and cat messages. */
+  orchestrator?: Orchestrator;
 }
 
 /** Result of createHttpServer(). */
@@ -93,6 +98,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
   if (options.tasks) registerTaskRoutes(app, options.tasks, options.token);
+  if (options.orchestrator) registerOfficeMcpRoute(app, options.orchestrator);
 
   // ── Listen ──────────────────────────────────────────────────
 
@@ -151,7 +157,11 @@ function registerHookRoute(app: FastifyInstance, options: HttpServerOptions): vo
 function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: string): void {
   // Reads are open like the office itself: anyone who can load the SPA sees
   // the board.
-  app.get('/api/tasks', async () => ({ tasks: tasks.list(), defaultCwd: tasks.defaultCwd }));
+  app.get('/api/tasks', async () => ({
+    tasks: tasks.list(),
+    defaultCwd: tasks.defaultCwd,
+    targets: tasks.targets(),
+  }));
 
   app.get<{ Params: { id: string } }>('/api/tasks/:id', async (request, reply) => {
     const task = tasks.get(request.params.id);
@@ -162,7 +172,7 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
   // Creating a task spawns an agent with NO permission prompts, so it needs the
   // same out-of-band secret as the hook install (standaloneTokenValid): the
   // `?token=` from the printed URL, or the Bearer token.
-  app.post<{ Body: { prompt: string; cwd?: string } }>(
+  app.post<{ Body: { prompt: string; cwd?: string; target?: string } }>(
     '/api/tasks',
     {
       // onRequest runs before body validation, so an untokened caller learns
@@ -182,19 +192,20 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
           properties: {
             prompt: { type: 'string', minLength: 1, maxLength: TASK_PROMPT_MAX_CHARS },
             cwd: { type: 'string', minLength: 1 },
+            target: { type: 'string', minLength: 1, maxLength: 64 },
           },
           required: ['prompt'],
         },
       },
     },
     async (request, reply) => {
-      const { prompt, cwd } = request.body;
+      const { prompt, cwd, target } = request.body;
       if (!prompt.trim()) return reply.code(400).send({ error: 'Prompt is empty' });
       if (cwd !== undefined && !isDirectory(cwd)) {
         return reply.code(400).send({ error: `Not a folder: ${cwd}` });
       }
       try {
-        return reply.code(201).send(await tasks.create(prompt, cwd));
+        return reply.code(201).send(await tasks.create(prompt, cwd, target));
       } catch (err) {
         if (err instanceof TaskInputError) return reply.code(400).send({ error: err.message });
         throw err;
@@ -237,11 +248,19 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
     // consulted, because every position is reproducible by a forwarder.
     const privileged = options.embedded || standaloneTokenValid(request.url, options.token);
 
-    const { store } = options;
+    const { store, runtime } = options;
+    // Standalone hides guests (external sessions) unless showGuests is on.
+    const send = (message: Record<string, unknown>) => {
+      const visible =
+        options.embedded || !runtime || !options.orchestrator
+          ? message
+          : filterGuestMessage(message, store, runtime.showGuests);
+      if (visible) safeSend(socket, visible);
+    };
 
     // Pipe store events to WebSocket client
     const onAgentAdded = (id: number, agent: AgentState) => {
-      safeSend(socket, {
+      send({
         type: 'agentCreated',
         id,
         folderName: agent.folderName,
@@ -257,11 +276,11 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
     };
 
     const onAgentRemoved = (id: number) => {
-      safeSend(socket, { type: 'agentClosed', id });
+      send({ type: 'agentClosed', id });
     };
 
     const onBroadcast = (message: Record<string, unknown>) => {
-      safeSend(socket, message);
+      send(message);
     };
 
     store.on('agentAdded', onAgentAdded);
@@ -275,9 +294,10 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
         if (!options.embedded && msg.type) {
           console.log('[Pixel Agents] WS client message:', msg.type);
         }
-        handleClientMessage(msg, (m) => safeSend(socket, m), {
+        handleClientMessage(msg, send, {
           store,
-          runtime: options.runtime,
+          runtime,
+          orchestrator: options.orchestrator,
           cache: options.assetCache ?? null,
           onSetHooksEnabled: options.onSetHooksEnabled,
           onReloadAssets: options.onReloadAssets,
