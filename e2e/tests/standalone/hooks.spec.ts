@@ -77,15 +77,19 @@ test.describe('Standalone / hooks', () => {
       session_id: sessionId,
       hook_event_name: 'PostToolUse',
     });
-    const postToolMessages = await standalone.drainMessages();
-    expect(
-      postToolMessages.some(
-        (message) =>
-          message.type === 'agentToolDone' &&
-          message.toolId === toolStart?.toolId &&
-          message.id === toolStart?.id,
-      ),
-    ).toBe(true);
+    // The hook POST returns before the broadcast reaches the page: poll.
+    const postToolMessages: RecordedServerMessage[] = [];
+    await expect
+      .poll(async () => {
+        postToolMessages.push(...(await standalone.drainMessages()));
+        return postToolMessages.some(
+          (message) =>
+            message.type === 'agentToolDone' &&
+            message.toolId === toolStart?.toolId &&
+            message.id === toolStart?.id,
+        );
+      })
+      .toBe(true);
     await expectOverlayVisible(page, 'Needs approval');
 
     await sendHookEvent(standalone.hookServerConfig, {

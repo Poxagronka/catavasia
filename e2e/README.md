@@ -253,13 +253,13 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 
 ### `@area:standalone` (14 tests)
 
-- `e2e/standalone/ceoDock.spec.ts:27` — the CEO answers in the dock with markdown; the dock collapses to a tab (Standalone / CEO dock)
-- `e2e/standalone/ceoDock.spec.ts:54` — a pasted image and a picked file reach the CEO and show in the sent row (Standalone / CEO dock)
+- `e2e/standalone/ceoDock.spec.ts:28` — the CEO answers in the dock with markdown; the dock collapses to a tab (Standalone / CEO dock)
+- `e2e/standalone/ceoDock.spec.ts:55` — a pasted image and a picked file reach the CEO and show in the sent row (Standalone / CEO dock)
 - `e2e/standalone/engines.spec.ts:44` — a logged-out Claude Code: notice, blocked Start, and Log in in the terminal (Standalone / engines)
 - `e2e/standalone/hooks.spec.ts:17` — propagates hook-driven lifecycle into the browser UI (Standalone / hooks)
-- `e2e/standalone/hooks.spec.ts:138` — the tokened page shows the Intro and Install writes the hooks (Standalone / hooks consent)
-- `e2e/standalone/hooks.spec.ts:165` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)
-- `e2e/standalone/hooks.spec.ts:197` — the hooks checkbox reflects install state and its click is the consent grant (Standalone / hooks consent)
+- `e2e/standalone/hooks.spec.ts:142` — the tokened page shows the Intro and Install writes the hooks (Standalone / hooks consent)
+- `e2e/standalone/hooks.spec.ts:169` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)
+- `e2e/standalone/hooks.spec.ts:201` — the hooks checkbox reflects install state and its click is the consent grant (Standalone / hooks consent)
 - `e2e/standalone/multi-server-hooks.spec.ts:36` — extension and standalone both stay hook-driven without cross-contamination (Standalone / multi-server hooks)
 - `e2e/standalone/ui.spec.ts:31` — closeAgent despawns the character (Standalone / UI)
 - `e2e/standalone/ui.spec.ts:78` — Debug View renders JSONL diagnostics in standalone (Standalone / UI)
