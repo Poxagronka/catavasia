@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { EDIT_RIGHTS_HINT } from '../../../../core/src/constants.js';
 import type { TaskSummary, TaskTarget } from '../../../../core/src/tasks.js';
 import { useCats } from '../../cats/useCats.js';
 import { TASK_POLL_INTERVAL_MS } from '../../constants.js';
+import { sessionToken } from '../../sessionToken.js';
 import { Button } from '../ui/Button.js';
 import { CatAvatar } from './CatAvatar.js';
 import { NewTaskForm } from './NewTaskForm.js';
-import { fetchTasks, sessionToken } from './taskApi.js';
+import { fetchTasks } from './taskApi.js';
 import { TaskDetailModal } from './TaskDetailModal.js';
 import { formatElapsed, reviewBadge, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
 
@@ -100,11 +102,7 @@ export function TaskBoard({ isOpen, onClose }: TaskBoardProps) {
               size="md"
               variant={canCreate ? (isFormOpen ? 'active' : 'accent') : 'disabled'}
               disabled={!canCreate}
-              title={
-                canCreate
-                  ? 'New task'
-                  : 'Open the URL with ?token= that pixel-agents printed to create tasks'
-              }
+              title={canCreate ? 'New task' : EDIT_RIGHTS_HINT}
               onClick={() => setIsFormOpen((v) => !v)}
             >
               +
@@ -115,9 +113,7 @@ export function TaskBoard({ isOpen, onClose }: TaskBoardProps) {
           </div>
         </div>
         {!canCreate && (
-          <div className="text-2xs text-text-muted px-10 py-4">
-            View only: open the tokened URL to add tasks.
-          </div>
+          <div className="text-2xs text-text-muted px-10 py-4">View only. {EDIT_RIGHTS_HINT}.</div>
         )}
         {isFormOpen && canCreate && (
           <NewTaskForm

@@ -3,6 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 // Isolated temp HOME: the server writes ~/.pixel-agents/{server.json,servers/}.
 let tmpBase: string;
 
@@ -88,7 +89,9 @@ describe('/api/update routes', () => {
     const { base } = await startServer(TOKEN);
     expect((await fetch(`${base}/api/update`)).status).toBe(401);
     expect((await fetch(`${base}/api/update/start`, { method: 'POST' })).status).toBe(401);
-    expect((await fetch(`${base}/api/update?token=wrong`)).status).toBe(401);
+    const wrong = await fetch(`${base}/api/update?token=wrong`);
+    expect(wrong.status).toBe(401);
+    expect(await wrong.json()).toEqual({ error: EDIT_RIGHTS_HINT });
     expect((await fetch(`${base}/api/update?token=${TOKEN}`)).status).toBe(200);
     const bearer = await fetch(`${base}/api/update/check`, {
       method: 'POST',

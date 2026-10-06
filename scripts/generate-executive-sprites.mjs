@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Generates the Cat CEO office furniture (assets/furniture/<ID>/ + manifest.json):
 // the executive desk, the executive chair (front, back, side), the CEO plaque
-// and the laptop (front, back, side, on/off).
+// and the laptop (front, back, side, on/off); and the team lead's desk (front,
+// side) and chair (front, back, side), and the whiteboard (Tasks).
 //
 //   node scripts/generate-executive-sprites.mjs
 //
 // The art is drawn in scripts/executive/executiveArt.mjs and is MIT like the
 // rest of the repo. The desk lands in the "desks" tab, the chair in "chairs",
-// the plaque in "wall", the laptop in "electronics" (with the PC).
+// the plaque in "wall", the laptop in "electronics" (with the PC). The lead
+// desk and chair join "desks" and "chairs", the whiteboard "wall".
 
 import fs from 'node:fs';
 import path from 'node:path';

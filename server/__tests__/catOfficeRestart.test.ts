@@ -11,6 +11,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { ServerMessage } from '../../core/src/messages.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { createHttpServer, type HttpServerHandle } from '../src/httpServer.js';
@@ -146,7 +147,9 @@ describe('restart', () => {
     await boot();
     const before = tasks.get(id)!;
     expect(before).toMatchObject({ status: 'error', flow: { state: 'interrupted' } });
-    expect((await post(`/api/tasks/${id}/resume`)).statusCode).toBe(401);
+    const refused = await post(`/api/tasks/${id}/resume`);
+    expect(refused.statusCode).toBe(401);
+    expect(refused.json()).toEqual({ error: EDIT_RIGHTS_HINT });
     const resumed = await post(`/api/tasks/${id}/resume`, 'tok');
     expect(resumed.statusCode).toBe(200);
     expect(resumed.json()).toMatchObject({ status: 'running', flow: { state: 'working' } });

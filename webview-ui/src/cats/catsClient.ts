@@ -1,6 +1,7 @@
 // The app-wide CatsApi the Cats and Hierarchy modals share: the server office
 // when it answers, the browser-local cats until then (see serverCatsAdapter.ts).
 
+import { sessionToken } from '../sessionToken.js';
 import { transport } from '../transport/index.js';
 import type { CatsApi } from './catsApi.js';
 import { createLocalCatsAdapter } from './localCatsAdapter.js';
@@ -14,9 +15,6 @@ function browserStore(): Storage | null {
   }
 }
 
-const hasToken =
-  typeof window !== 'undefined' && !!new URLSearchParams(window.location.search).get('token');
-
 const local = createLocalCatsAdapter();
 // "Reset everything" done: the browser-local cats go back to the seed too.
 transport.onMessage((msg) => {
@@ -24,6 +22,6 @@ transport.onMessage((msg) => {
 });
 
 export const catsApi: CatsApi = createServerCatsAdapter(transport, local, {
-  privileged: hasToken,
+  privileged: sessionToken !== null,
   store: browserStore(),
 });

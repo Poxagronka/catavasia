@@ -6,6 +6,7 @@ import {
   AUTO_ON_SIDE_DEPTH,
   CAT_CEO_AREA_PATTERN,
   CAT_CEO_CHAIR,
+  CAT_LEAD_CHAIR,
   CHARACTER_HIT_HALF_WIDTH,
   CHARACTER_HIT_HEIGHT,
   DISMISS_BUBBLE_FAST_FADE_SEC,
@@ -77,6 +78,8 @@ import { createPet, updatePet } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
 import { DESK_READ_SEC, SKILL_READ, SKILL_TOOL } from './skillReading.js';
+import type { TaskCounts } from './whiteboardNotes.js';
+import { WHITEBOARD_TYPE, whiteboardSprite } from './whiteboardNotes.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
 function seatFacingOffset(direction: Direction): { dCol: number; dRow: number } {
@@ -94,6 +97,8 @@ export interface ResidentCat {
   working: boolean;
   /** The Cat CEO: it takes the executive chair, else a desk in a "head" Area. */
   ceo?: boolean;
+  /** The team lead (root of the cat tree): it takes the lead chair when the office has one. */
+  lead?: boolean;
 }
 
 export class OfficeState {
@@ -133,6 +138,10 @@ export class OfficeState {
   private nextSubagentId = -1;
   /** Resident cats of the cat office by agent id (setResidentCats). */
   private residents = new Map<number, ResidentCat>();
+  /** Live task counts the whiteboards show as sticky notes; null = unknown (no notes). */
+  taskCounts: TaskCounts | null = null;
+  /** The whiteboard under the mouse (its "Tasks" tooltip), or null. */
+  hoveredWhiteboardUid: string | null = null;
 
   /**
    * folderName → list of Area labels that workspace folder belongs to.
@@ -291,8 +300,8 @@ export class OfficeState {
       }
     }
 
-    // The Cat CEO walks to its desk in the new office (an executive chair just placed).
-    for (const r of this.residents.values()) if (r.ceo) this.applyResident(r.id);
+    // The Cat CEO and the team lead walk to their desks in the new office (a chair just placed).
+    for (const r of this.residents.values()) if (r.ceo || r.lead) this.applyResident(r.id);
 
     // Relocate any pets that ended up outside bounds or on non-walkable tiles
     for (const pet of this.pets) {
@@ -526,14 +535,31 @@ export class OfficeState {
    * Null when the office has no executive chair (an edited office).
    */
   ceoChairSeat(): string | null {
-    const chair = this.layout.furniture.find((f) => furnitureKind(f.type) === CAT_CEO_CHAIR);
+    return this.chairSeat(CAT_CEO_CHAIR);
+  }
+
+  /**
+   * Seat of the lead chair: the team lead's own desk, reserved for it.
+   * Null when the office has no lead chair (an older or edited office).
+   */
+  leadChairSeat(): string | null {
+    return this.chairSeat(CAT_LEAD_CHAIR);
+  }
+
+  private chairSeat(group: string): string | null {
+    const chair = this.layout.furniture.find((f) => furnitureKind(f.type) === group);
     return chair && this.seats.has(chair.uid) ? chair.uid : null;
   }
 
-  /** The executive chair is reserved: true for it unless `agentId` is the Cat CEO. */
+  /**
+   * The executive chair is reserved for the Cat CEO and the lead chair for
+   * the team lead: true for such a seat unless `agentId` is its owner.
+   */
   private reservedFor(seatId: string, agentId?: number): boolean {
-    if (agentId !== undefined && this.residents.get(agentId)?.ceo) return false;
-    return seatId === this.ceoChairSeat();
+    const r = agentId !== undefined ? this.residents.get(agentId) : undefined;
+    if (seatId === this.ceoChairSeat()) return !r?.ceo;
+    if (seatId === this.leadChairSeat()) return !r?.lead;
+    return false;
   }
 
   /**
@@ -612,9 +638,10 @@ export class OfficeState {
     const anchor = nearAgentId !== undefined ? this.characters.get(nearAgentId) : undefined;
     const anchorAt = anchorTile(anchor, this.seats);
     let seatId: string | null = null;
-    // The Cat CEO starts at its executive chair.
-    const ceoChair = this.residents.get(id)?.ceo ? this.ceoChairSeat() : null;
-    if (ceoChair && !this.seats.get(ceoChair)!.assigned) seatId = ceoChair;
+    // The Cat CEO starts at its executive chair, the team lead at the lead chair.
+    const r = this.residents.get(id);
+    const ownChair = r?.ceo ? this.ceoChairSeat() : r?.lead ? this.leadChairSeat() : null;
+    if (ownChair && !this.seats.get(ownChair)!.assigned) seatId = ownChair;
     if (!seatId && preferredSeatId && this.seats.has(preferredSeatId)) {
       const seat = this.seats.get(preferredSeatId)!;
       if (
@@ -680,14 +707,38 @@ export class OfficeState {
     const r = this.residents.get(id);
     const ch = this.characters.get(id);
     if (!r || !ch) return;
-    if (r.ceo) {
-      const desk = this.ceoDesk(ch);
-      if (desk && desk !== ch.seatId) this.reassignSeat(id, desk);
+    // The Cat CEO and the team lead own a desk; a cat that lost the lead role leaves its chair.
+    const desk = r.ceo ? this.ceoDesk(ch) : r.lead ? this.leadChairSeat() : null;
+    if (desk && desk !== ch.seatId) {
+      this.vacateSeat(desk, id);
+      this.reassignSeat(id, desk);
+    } else if (!desk && ch.seatId && this.reservedFor(ch.seatId, id)) {
+      this.vacateSeat(ch.seatId);
     }
     ch.agentName = r.name;
     ch.customSprites = appearanceSprites(r.appearance);
     // A resident cat between turns idles (idle activities); in a turn it works.
     if (ch.isActive !== r.working) this.setAgentActive(id, r.working);
+  }
+
+  /**
+   * Move the cat seated on `seatId` (other than `keepId`) to a free seat, or
+   * leave it seatless when none is free. Frees the seat for its owner.
+   */
+  private vacateSeat(seatId: string, keepId?: number): void {
+    for (const [otherId, other] of this.characters) {
+      if (otherId === keepId || other.seatId !== seatId) continue;
+      const next = this.findFreeSeat(other.folderName);
+      if (next) {
+        this.reassignSeat(otherId, next);
+      } else {
+        // No free seat: it stands up and steps off the chair (a rare full office).
+        this.seats.get(seatId)!.assigned = false;
+        other.seatId = null;
+        other.state = CharacterState.IDLE;
+        this.relocateCharacterToWalkable(other);
+      }
+    }
   }
 
   /**
@@ -1520,7 +1571,16 @@ export class OfficeState {
       const prop = getIdleActivity(claim?.kind)?.prop;
       if (claim?.spot?.itemUid && prop) moving.set(claim.spot.itemUid, prop);
     }
-    if (moving.size === 0 && frames.size === 0) return this.furniture;
+    // Whiteboards show the live task counts.
+    const counts = this.taskCounts;
+    const boards = new Set(
+      counts
+        ? this.layout.furniture
+            .filter((p) => furnitureKind(p.type) === WHITEBOARD_TYPE)
+            .map((p) => p.uid)
+        : [],
+    );
+    if (moving.size === 0 && frames.size === 0 && boards.size === 0) return this.furniture;
     const typeOf = new Map(
       this.layout.furniture.filter((p) => frames.has(p.uid)).map((p) => [p.uid, p.type]),
     );
@@ -1528,6 +1588,9 @@ export class OfficeState {
       const motion = f.uid ? moving.get(f.uid) : undefined;
       const frame = f.uid ? frames.get(f.uid) : undefined;
       let out = f;
+      if (counts && f.uid && boards.has(f.uid)) {
+        out = { ...out, sprite: whiteboardSprite(f.sprite, counts) };
+      }
       if (frame !== undefined) {
         const type = typeOf.get(f.uid!);
         const sprite = type ? itemFrameSprite(type, frame) : undefined;
@@ -1581,6 +1644,7 @@ export class OfficeState {
       claim: (ch, choice) => this.life.claimIdle(ch, choice),
       startNext: (ch, id, from) => this.startChained(ch, id, from),
       finished: (ch, run) => this.litter.finished(ch, run),
+      due: (ch) => this.litter.startDue(ch),
     };
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {

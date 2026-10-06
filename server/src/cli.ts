@@ -20,6 +20,7 @@ import {
   loadAllFurniture,
   loadAllPets,
 } from './assetReload.js';
+import { loadOrCreateAuthToken } from './authToken.js';
 import {
   type AssetCache,
   KEY_NARRATOR_AI_SUMMARIES,
@@ -344,7 +345,9 @@ async function main(): Promise<void> {
       orchestrator,
       narrator,
       update,
-      token: inheritedToken,
+      // One token across restarts (see authToken.ts). A self-update hands over
+      // the same token, so the inherited one wins only if the file changed.
+      token: inheritedToken ?? loadOrCreateAuthToken(),
     });
     currentConfig = { port: config.port, token: config.token };
     orchestrator.setServerUrl(`http://127.0.0.1:${config.port}`);

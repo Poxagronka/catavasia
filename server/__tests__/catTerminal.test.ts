@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
 import type { CatSessionFrame } from '../../core/src/catSession.js';
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import { TaskBoardCatSource, toConsoleEntry } from '../src/catTerminal/catSessionSource.js';
 import { registerCatTerminalRoutes } from '../src/catTerminal/catTerminalRoutes.js';
 import type { IPty, PtyModule, PtySpawnOptions } from '../src/catTerminal/ptyModule.js';
@@ -295,7 +296,9 @@ describe('token gating', () => {
     await manager.create('first');
     await settled();
     expect((await post('', 'hi')).status).toBe(401);
-    expect((await post('?token=wrong', 'hi')).status).toBe(401);
+    const wrong = await post('?token=wrong', 'hi');
+    expect(wrong.status).toBe(401);
+    expect(await wrong.json()).toEqual({ error: EDIT_RIGHTS_HINT });
 
     const socket = new WebSocket(`ws://${base}/terminal`);
     const code = await new Promise<number>((r) => socket.on('close', (c: number) => r(c)));

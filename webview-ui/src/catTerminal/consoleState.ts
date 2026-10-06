@@ -9,6 +9,7 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
+import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 
 /** What the console renders: the frames folded into one view. */
 export interface CatConsoleState {
@@ -56,7 +57,7 @@ export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
 
 /** Why the wheel is not offered, or null when it is. */
 export function wheelBlocker(status: CatSessionStatus, hasToken: boolean): string | null {
-  if (!hasToken) return 'Open the page from the tokened URL the CLI printed';
+  if (!hasToken) return EDIT_RIGHTS_HINT;
   if (status.wheelUnavailable) return status.wheelUnavailable;
   if (status.wheelHeld) return 'The wheel is already taken';
   if (status.busy) return 'The cat is working: wait for the turn to end';

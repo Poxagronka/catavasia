@@ -9,6 +9,7 @@ import type { Pet } from './office/types.js';
 import { TILE_SIZE } from './office/types.js';
 import type { OrchestratorEvent } from './orchestratorEvents.js';
 import { orchestratorEvents } from './orchestratorEvents.js';
+import { transport } from './transport/index.js';
 
 declare global {
   interface Window {
@@ -107,6 +108,8 @@ declare global {
         parentToolId?: string;
       }>;
       selectAgent?: (id: number) => void;
+      /** Send closeAgent for an agent (the cat label has no close button). */
+      closeAgent?: (id: number) => void;
       /** Cat social scenes: seed the RNG and start an encounter between two
        *  agents (kind forced when given). Returns the started kind or null. */
       socialEncounter?: (
@@ -125,8 +128,8 @@ declare global {
 
 /**
  * Install e2e test observables on window.__pixelAgentsTestHooks. Mostly
- * read-only / append-only; the one action (selectAgent) only sets selection
- * state and changes no production logic. Called once at module-load from
+ * read-only / append-only; the actions (selectAgent, closeAgent) drive the
+ * same state or message a user action produces. Called once at module-load from
  * App.tsx with the singleton officeStateRef.
  *
  * - getCharacters(): point-in-time snapshot of every character's matrix, team, and bubble state.
@@ -137,10 +140,12 @@ declare global {
  * - playedSounds: populated separately by notificationSound.ts (same namespace,
  *   different owner).
  * - selectAgent(id): sets officeState.selectedAgentId directly, the same state
- *   a canvas click produces. Lets e2e reveal an agent's "Close agent" (×)
- *   button deterministically instead of pixel-hunting the sprite on the canvas
- *   (see closeAgentFromOverlay in e2e/helpers/office.ts). ToolOverlay reads
- *   selectedAgentId every rAF, so the × button surfaces on the next frame.
+ *   a canvas click produces. Lets e2e select an agent deterministically
+ *   instead of pixel-hunting the sprite on the canvas. ToolOverlay reads
+ *   selectedAgentId every rAF, so the selected label surfaces on the next frame.
+ * - closeAgent(id): sends the closeAgent message (as the Debug View ✕ does).
+ *   The cat label has no close button, so e2e closes agents through this
+ *   hook (see closeAgent in e2e/helpers/office.ts).
  */
 export function installTestHooks(officeStateRef: { current: OfficeState | null }): void {
   if (typeof window === 'undefined') return;
@@ -183,6 +188,8 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
     const os = officeStateRef.current;
     if (os) os.selectedAgentId = id;
   };
+
+  hooks.closeAgent = (id) => transport.send({ type: 'closeAgent', id });
 
   hooks.socialEncounter = (aId, bId, kind, seed) => {
     const os = officeStateRef.current;

@@ -3,6 +3,9 @@
 // (16x32) and a silver laptop for the desk (16x16: front, back, side, with
 // an "on" state). MIT like the rest of the repo.
 //
+// The team lead's desk and chair (leadArt.mjs) and the whiteboard
+// (whiteboardArt.mjs) come from the same generator.
+//
 // Unlike the string templates of the beds and the coffee corner, these
 // sprites are drawn with small primitives (rect, line, dots) into a char
 // grid: the desk is too wide to keep readable as 48-char rows. One character
@@ -11,6 +14,14 @@
 import { ceoPlaque, chairBack, chairFront, chairSide } from './chairArt.mjs';
 import { executiveDesk, executiveDeskBack, executiveDeskSide } from './deskArt.mjs';
 import { LAPTOP_MEMBERS } from './laptopArt.mjs';
+import {
+  leadChairBack,
+  leadChairFront,
+  leadChairSide,
+  leadDeskFront,
+  leadDeskSide,
+} from './leadArt.mjs';
+import { whiteboard } from './whiteboardArt.mjs';
 
 export { PALETTE } from './canvas.mjs';
 
@@ -63,5 +74,38 @@ export const EXECUTIVE_ITEMS = [
     backgroundTiles: 0,
     rotationScheme: '3-way-mirror',
     members: LAPTOP_MEMBERS,
+  },
+  {
+    id: 'LEAD_DESK',
+    name: 'Team Lead Desk',
+    category: 'desks',
+    backgroundTiles: 1,
+    rotationScheme: '2-way',
+    members: [
+      { orientation: 'front', rows: leadDeskFront() },
+      { orientation: 'side', rows: leadDeskSide() },
+    ],
+  },
+  {
+    id: 'LEAD_CHAIR',
+    name: 'Team Lead Chair',
+    category: 'chairs',
+    backgroundTiles: 1,
+    rotationScheme: '3-way-mirror',
+    members: [
+      { orientation: 'front', rows: leadChairFront() },
+      { orientation: 'back', rows: leadChairBack() },
+      { orientation: 'side', rows: leadChairSide(), mirrorSide: true },
+    ],
+  },
+  {
+    id: 'WHITEBOARD',
+    // Lettering must not mirror: R keeps it.
+    rotationScheme: 'symmetric',
+    name: 'Whiteboard',
+    category: 'wall',
+    canPlaceOnWalls: true,
+    backgroundTiles: 0,
+    rows: whiteboard(),
   },
 ];

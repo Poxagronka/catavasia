@@ -96,6 +96,8 @@ export const LAYOUT_FILE_NAME = 'layout.json';
 export const LAYOUT_FILE_POLL_INTERVAL_MS = 2000;
 export const LAYOUT_REVISION_KEY = 'layoutRevision';
 export const CONFIG_FILE_NAME = 'config.json';
+/** ~/.pixel-agents/<name>: the standalone server's auth token (0600), kept across restarts. */
+export const AUTH_TOKEN_FILE_NAME = 'auth-token';
 /** ~/.pixel-agents/<name>: pet-care needs, bowls, litter (shared by both surfaces). */
 export const PETS_STATE_FILE_NAME = 'pets-state.json';
 /** Upper bound for a savePetCare payload, so a hostile client cannot fill the disk. */

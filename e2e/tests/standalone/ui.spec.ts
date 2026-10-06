@@ -7,9 +7,11 @@ import type { TestHooksWindow } from '../../helpers/editor';
 import { sendHookEvent, sessionStartStartup } from '../../helpers/hooks';
 import { buildSeedLayout } from '../../helpers/layout-seed';
 import {
-  closeAgentFromOverlay,
+  closeAgent,
   expectOverlayCount,
   expectOverlayVisible,
+  getOverlayByText,
+  selectCharacter,
 } from '../../helpers/office';
 import { openSettingsModal, setSettings } from '../../helpers/webview';
 
@@ -51,7 +53,13 @@ test.describe('Standalone / UI', () => {
     await expectOverlayVisible(page, 'Reading close-agent.ts');
     await standalone.drainMessages();
 
-    await closeAgentFromOverlay(page, { text: 'Reading close-agent.ts' });
+    // The selected cat label offers only the Chat button: no close/delete.
+    const overlay = getOverlayByText(page, 'Reading close-agent.ts').first();
+    await selectCharacter(page, Number(await overlay.getAttribute('data-agent-id')));
+    await expect(overlay.locator('button[title="Chat"]')).toBeVisible();
+    await expect(overlay.locator('button[title="Close agent"]')).toHaveCount(0);
+
+    await closeAgent(page, { text: 'Reading close-agent.ts' });
 
     await expectOverlayCount(page, 0);
     const messages = await standalone.drainMessages();

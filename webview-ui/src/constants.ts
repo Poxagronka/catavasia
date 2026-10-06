@@ -442,6 +442,8 @@ export const CAT_CEO_ID = 'cat-ceo';
 export const CAT_CEO_CHAIR = 'EXECUTIVE_CHAIR';
 /** Without an executive chair, an Area whose label matches holds the Cat CEO's desk. */
 export const CAT_CEO_AREA_PATTERN = /head|ceo/i;
+/** Furniture group of the team lead's chair: reserved for the root of the cat tree. */
+export const CAT_LEAD_CHAIR = 'LEAD_CHAIR';
 /** The Cat CEO walks to at most this many reviewed cats (lowest scores first). */
 export const CAT_CEO_MAX_WALKS = 4;
 
@@ -669,9 +671,27 @@ export const ACTIVITY_FX_COLORS = {
 /** The empty slot of a book taken from a shelf (the bookshelf art's darkest line). */
 export const SHELF_BACK_COLOR = '#301c1c';
 
+// ── Tasks whiteboard (office/engine/whiteboardNotes.ts) ──────
+/** Sticky note per task status: paper and its adhesive strip / folded corner. */
+export const WHITEBOARD_NOTE_COLORS = {
+  running: { paper: '#f6d24a', strip: '#dcb42c' },
+  waiting: { paper: '#f39ac0', strip: '#d9729e' },
+  done: { paper: '#93d67e', strip: '#6cb85a' },
+} as const;
+/** Marker ink of the counts on the notes. */
+export const WHITEBOARD_INK = '#2e3040';
+/** Soft shadow a note casts on the board. */
+export const WHITEBOARD_NOTE_SHADOW = '#c9c9c4';
+
 // ── Litter boxes and floor poop (all cats, see engine/litterLife.ts) ──
 /** Relative weight of a litter box visit in an agent cat's idle pick (low: a rare need). */
 export const LITTER_ACTIVITY_WEIGHT = 0.2;
+/**
+ * Idle-loop seconds after which an agent cat goes to a box at its next idle
+ * pick, whatever the roll: the rare random visit alone left long droughts.
+ * Each cat starts at a random point of this span, so visits do not bunch up.
+ */
+export const LITTER_DUE_SEC = 30 * 60;
 /** Px a cat in an open box is drawn lower: the front wall hides its paws. */
 export const LITTER_SPOT_OFFSET_Y = 3;
 /** Chance of zoomies after a box visit, the dashes they last, and how far a dash runs (tiles). */

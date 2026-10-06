@@ -60,6 +60,7 @@ export class CatOfficeFeed {
             appearance: c.appearance as Appearance,
             working: c.working,
             ...(c.catId === CAT_CEO_ID ? { ceo: true } : {}),
+            ...(c.lead ? { lead: true } : {}),
           })),
         );
         break;
