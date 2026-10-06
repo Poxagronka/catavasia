@@ -1,26 +1,60 @@
-# Contributing to Pixel Agents
+# Contributing to Catavasia
 
-Thanks for your interest in contributing to Pixel Agents! All contributions are welcome — features, bug fixes, documentation improvements, refactors, and more.
+Thank you for your help. Bug reports, feedback, ideas, docs and code are all welcome.
 
-This project is licensed under the [MIT License](LICENSE), so your contributions will be too. No CLA or DCO is required.
+Catavasia is the cat fork of [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents). Send issues and pull requests for the cat fork to [Poxagronka/catavasia](https://github.com/Poxagronka/catavasia), not to upstream. A bug that also happens in upstream Pixel Agents can go to [upstream issues](https://github.com/pixel-agents-hq/pixel-agents/issues).
+
+This project is under the [MIT License](LICENSE), so your contributions are too. No CLA or DCO is necessary.
+
+## File a good issue
+
+Use a form: [bug report](https://github.com/Poxagronka/catavasia/issues/new?template=bug_report.yml), [feature request](https://github.com/Poxagronka/catavasia/issues/new?template=feature_request.yml) or [feedback](https://github.com/Poxagronka/catavasia/issues/new?template=feedback.yml).
+
+- Search the open issues first.
+- Update to the newest version (**Settings → Check for updates**) and check the bug again.
+- Write one problem per issue.
+- Give exact steps from a fresh start of `catavasia`, what you expected and what you saw.
+- Add the version from **Settings**, your OS, `node -v` and `claude --version`.
+- Add a screenshot and the log lines. The bug report form tells you where the logs are.
+- Remove tokens (`?token=...`), user names and private paths first.
+
+## Send a pull request
+
+1. Create a branch from `main` (in your fork, or in this repo if you have write access).
+2. Make the change. Keep it small and about one topic.
+3. Run the gate locally. Each command must pass:
+
+   ```bash
+   npm run lint
+   npm run check-types
+   npm test
+   ```
+
+   For UI changes, also run `npm run e2e`. The full list is in [Submitting a Pull Request](#submitting-a-pull-request).
+
+4. Do not change the version in `package.json`. The maintainer sets the version when a change lands on `main`.
+5. Open the pull request against `main` of `Poxagronka/catavasia`. Use a conventional title (`feat: ...`, `fix: ...`, `docs: ...`). Tell what changed, why, and how you tested it. Add screenshots for UI changes.
 
 ## Getting Started
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (use the version in [`.nvmrc`](.nvmrc), currently v22)
-- [VS Code](https://code.visualstudio.com/) (v1.105.0 or later)
+- git
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code), to run the cat team
+- [VS Code](https://code.visualstudio.com/) (v1.105.0 or later), only for work on the VS Code extension
 
 ### Setup
 
 ```bash
-git clone https://github.com/pixel-agents-hq/pixel-agents.git
-cd pixel-agents
+git clone https://github.com/Poxagronka/catavasia.git
+cd catavasia
 npm install
 npm run build
+node dist/cli.js
 ```
 
-Then press **F5** in VS Code to launch the Extension Development Host.
+To try your build without a risk to your own office, start it with a temporary home folder and a free port: `HOME=$(mktemp -d) node dist/cli.js --port 3299`. For the VS Code extension, press **F5** in VS Code to launch the Extension Development Host.
 
 ### Build and install the packaged extension locally
 
@@ -244,8 +278,8 @@ The auto-generated test inventory in `e2e/README.md` groups tests by `@area:` ta
 
 ## Submitting a Pull Request
 
-1. Fork the repo and create a feature branch from `main`
-2. Make your changes
+1. Create a feature branch from `main` of [Poxagronka/catavasia](https://github.com/Poxagronka/catavasia)
+2. Make your changes. Do not bump the version in `package.json`.
 3. Verify everything passes locally:
    ```bash
    npm run lint                         # core + server + adapters + webview lint
@@ -268,11 +302,11 @@ The auto-generated test inventory in `e2e/README.md` groups tests by `@area:` ta
 
 ## Reporting Bugs
 
-[Open a bug report](https://github.com/pixel-agents-hq/pixel-agents/issues/new?template=bug_report.yml) — the form will guide you through providing the details we need.
+[Open a bug report](https://github.com/Poxagronka/catavasia/issues/new?template=bug_report.yml). The form asks for the details we need. See also [File a good issue](#file-a-good-issue).
 
 ## Feature Requests
 
-Have an idea? [Open a feature request](https://github.com/pixel-agents-hq/pixel-agents/issues/new?template=feature_request.yml) — the form will guide you through describing the problem and your proposed solution. You can also browse and join ongoing conversations in [Discussions](https://github.com/pixel-agents-hq/pixel-agents/discussions).
+Have an idea? [Open a feature request](https://github.com/Poxagronka/catavasia/issues/new?template=feature_request.yml). General impressions go to the [feedback form](https://github.com/Poxagronka/catavasia/issues/new?template=feedback.yml).
 
 ## Security Issues
 
