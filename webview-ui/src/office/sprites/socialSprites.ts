@@ -8,7 +8,7 @@
  * the two fighting cats' fur colours.
  */
 import { adjustSprite } from '../colorize.js';
-import type { Direction, SocialIcon, SpriteData } from '../types.js';
+import type { Character, Direction, SocialIcon, SpriteData } from '../types.js';
 import { Direction as Dir } from '../types.js';
 import sheetJson from './cat-social.json';
 
@@ -109,12 +109,39 @@ export function getSocialPoseSprite(
 }
 
 /**
+ * Talk / angry frame of a cat: the frames of its custom coat (generated at
+ * runtime, see appearanceSprites.ts), else the breed art of its palette.
+ */
+export function socialPoseOf(
+  ch: Pick<Character, 'palette' | 'hueShift' | 'dir' | 'customSprites'>,
+  pose: 'talk' | 'angry',
+  frame: number,
+): SpriteData | null {
+  const custom = ch.customSprites?.social?.[pose][ch.dir];
+  if (custom?.length) return custom[frame % custom.length];
+  return getSocialPoseSprite(ch.palette, ch.hueShift, pose, ch.dir, frame);
+}
+
+/** A cat's main fur colour (fight cloud paws, house peek): its custom coat, else its breed. */
+export function furColorOf(ch: Pick<Character, 'palette' | 'hueShift' | 'customSprites'>): string {
+  const talk = ch.customSprites?.social?.talk[Dir.DOWN][0];
+  return talk ? mainFur(talk) : getFurColor(ch.palette, ch.hueShift);
+}
+
+/**
  * The cat's main fur colour: the most common pixel of its front talk frame,
  * ignoring the outline (the first opaque pixel, top of an ear).
  */
 export function getFurColor(palette: number, hueShift: number): string {
   const sprite = getSocialPoseSprite(palette, hueShift, 'talk', Dir.DOWN, 0);
-  if (!sprite) return '';
+  return sprite ? mainFur(sprite) : '';
+}
+
+/** Most common pixel of a cat frame, ignoring the outline (cached per frame). */
+const furCache = new WeakMap<SpriteData, string>();
+function mainFur(sprite: SpriteData): string {
+  const hit = furCache.get(sprite);
+  if (hit !== undefined) return hit;
   const counts = new Map<string, number>();
   let outline: string | null = null;
   for (const row of sprite)
@@ -130,5 +157,6 @@ export function getFurColor(palette: number, hueShift: number): string {
       best = px;
       max = n;
     }
+  furCache.set(sprite, best);
   return best;
 }

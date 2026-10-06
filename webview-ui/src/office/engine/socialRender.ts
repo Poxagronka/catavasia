@@ -10,11 +10,11 @@ import {
   SOCIAL_BUBBLE_OFFSET_PX,
 } from '../../constants.js';
 import {
+  furColorOf,
   getAngerSprite,
   getCloudSprite,
-  getFurColor,
   getSocialBubbleSprite,
-  getSocialPoseSprite,
+  socialPoseOf,
 } from '../sprites/socialSprites.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
 import type {
@@ -25,22 +25,13 @@ import type {
 } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
 import { socialBubbleVisible } from './catSocial.js';
-import { dominantFur } from './housePeek.js';
 
 /** The sprite to draw for a cat: its social pose, the base sprite, or null when hidden in the cloud. */
 export function socialSpriteFor(ch: Character, base: SpriteData): SpriteData | null {
   const v = ch.social;
   if (!v || v.pose === null) return base;
   if (v.pose === 'hidden') return null;
-  const custom = ch.customSprites?.social?.[v.pose][ch.dir];
-  if (custom?.length) return custom[v.frame % custom.length];
-  return getSocialPoseSprite(ch.palette, ch.hueShift, v.pose, ch.dir, v.frame) ?? base;
-}
-
-/** A cat's main fur colour (fight cloud paws, house peek): its custom coat, else its breed. */
-export function furColorOf(ch: Pick<Character, 'palette' | 'hueShift' | 'customSprites'>): string {
-  const talk = ch.customSprites?.social?.talk[Direction.DOWN][0];
-  return talk ? dominantFur(talk) : getFurColor(ch.palette, ch.hueShift);
+  return socialPoseOf(ch, v.pose, v.frame) ?? base;
 }
 
 /** Anything that carries a social view: an agent cat, or a pet (mirrored from its actor). */

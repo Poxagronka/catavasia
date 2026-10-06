@@ -53,6 +53,7 @@ import {
   hasCarpetSprites,
 } from '../sprites/carpetTiles.js';
 import { getPetSpritesFor } from '../sprites/petSpriteData.js';
+import { furColorOf } from '../sprites/socialSprites.js';
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js';
 import {
   BUBBLE_HEART_SPRITE,
@@ -82,12 +83,7 @@ import { dominantFur, peekDrawable } from './housePeek.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
-import {
-  furColorOf,
-  renderSocialBubbles,
-  socialCloudDrawable,
-  socialSpriteFor,
-} from './socialRender.js';
+import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
 import { renderPetZzz, renderZzz } from './zzzOverlay.js';
 
 // ── Settings ────────────────────────────────────────────────────
