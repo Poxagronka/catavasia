@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import { toMajorMinor } from '../changelogData.ts';
-
 interface VersionIndicatorProps {
   currentVersion: string;
   onOpenChangelog: () => void;
@@ -31,7 +29,7 @@ export function VersionIndicator({ currentVersion, onOpenChangelog }: VersionInd
         className="absolute bottom-8 right-28 z-20 text-lg cursor-pointer select-none pr-2 transition-opacity duration-200"
         style={{ opacity: labelHovered ? 0.8 : 0.4 }}
       >
-        v{toMajorMinor(currentVersion)}
+        v{currentVersion}
       </div>
     </>
   );

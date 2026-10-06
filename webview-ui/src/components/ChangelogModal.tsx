@@ -48,7 +48,7 @@ export function ChangelogModal({ isOpen, onClose, currentVersion }: ChangelogMod
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={<span className="text-4xl">What's New in v{entry.version}</span>}
+      title={<span className="text-4xl">What's New in v{currentVersion || entry.version}</span>}
       zIndex={51}
       className="min-w-sm!"
     >
