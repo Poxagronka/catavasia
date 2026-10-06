@@ -37,6 +37,7 @@ import {
   buildUserToolResultBatchRecord,
   buildUserToolResultRecord,
   seedTeamConfig,
+  requireSubagentCharacters,
 } from '../../../helpers/team';
 import {
   getPixelAgentsFrame,
@@ -410,6 +411,7 @@ test.describe('Hooks OFF / lifecycle', () => {
   test('three parallel Task subagents in one turn render distinct sub-characters via polling @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     narrator.step('hooks OFF — three parallel Task subagents detected by JSONL polling alone');
@@ -478,6 +480,7 @@ test.describe('Hooks OFF / lifecycle', () => {
   test('inline teammate removed from team config disappears within one second via polling @area:lifecycle', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('teammate-removal-hooks-off');
     narrator.step('seeding a team config: lead + one inline teammate');
@@ -879,6 +882,7 @@ test.describe('Hooks OFF / lifecycle', () => {
   test('sub-agent permission bubble fires on stalled non-exempt sub-tool via heuristic timer @area:cross-cutting', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
 
     narrator.step('hooks OFF — sub-agent permission handled by the heuristic timer');

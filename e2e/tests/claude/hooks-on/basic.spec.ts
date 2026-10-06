@@ -31,7 +31,7 @@ import {
 import { getPixelAgentsFrame, openPixelAgentsPanel, setSettings } from '../../../helpers/webview';
 
 test.describe('Hooks ON / spawn paths', () => {
-  test('internal terminal spawns agent and Task subagent appears then despawns @area:spawn', async ({
+  test('internal terminal spawns agent and a Task subagent runs on its character @area:spawn', async ({
     pixelAgents,
   }) => {
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
@@ -42,7 +42,7 @@ test.describe('Hooks ON / spawn paths', () => {
     narrator.step('enabling "Display Headless as Ghosts" so the opacity cue is live');
     await setSettings(frame, { ghostHeadlessAgents: true });
 
-    // Sub-character appears on Task tool_use and despawns on tool_result.
+    // The Task status appears on the lead's own character at tool_use.
     // Task subagent lifecycle is JSONL-driven even in hooks-on mode
     // (transcriptParser routes Task/Agent tool events through JSONL
     // regardless of hookDelivered). Both records are appended by the mock's
@@ -87,10 +87,11 @@ test.describe('Hooks ON / spawn paths', () => {
     // session in the next test).
     await expectCharacterGhosted(panelFrame, false);
 
-    narrator.step('waiting for the t+5s Task tool_use to spawn a "Subtask" character');
-    await expectOverlayCount(panelFrame, 2);
+    // One character per session: the Task shows on the lead, no sub-character.
+    narrator.step('waiting for the t+5s Task tool_use to show "Subtask" on the lead');
     await expectOverlayVisible(panelFrame, 'Subtask: spawned subtask');
-    narrator.check('"Subtask: spawned subtask" overlay up — count 1 → 2');
+    await expectOverlayCount(panelFrame, 1);
+    narrator.check('"Subtask: spawned subtask" shows on the lead — count stays 1');
 
     // The agent is on no team, so this also pins that the context gauge is not
     // a teams feature. 90k of an Opus 5 window is 9%; reading 45% would mean
@@ -98,11 +99,7 @@ test.describe('Hooks ON / spawn paths', () => {
     narrator.step("waiting for the t+7s usage record to fill the agent's context gauge");
     await expectContextGauge(panelFrame, 9);
     await expect(getContextGauges(panelFrame)).toHaveCount(1);
-    narrator.check('the agent shows a 9% context gauge; the subtask has none');
-
-    narrator.step('waiting for the t+13s tool_result — the subtask should despawn');
-    await expectOverlayCount(panelFrame, 1);
-    narrator.check('count back to 1 after the tool_result');
+    narrator.check('the agent shows a 9% context gauge — one session, one gauge');
   });
 
   // External hook-driven session adoption, driven by the mock's own scheduler

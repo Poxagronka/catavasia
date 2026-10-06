@@ -20,6 +20,7 @@ import {
   buildTurnDurationRecord,
   buildUserToolResultRecord,
   seedTeamConfig,
+  requireSubagentCharacters,
 } from '../../../helpers/team';
 import {
   INLINE_TEAMMATE_ALIAS,
@@ -87,6 +88,7 @@ test.describe('Hooks OFF / matrix', () => {
   test('internal inline teammate adopted via JSONL polling @area:matrix', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('hooks-off-internal-inline');
 
@@ -141,6 +143,7 @@ test.describe('Hooks OFF / matrix', () => {
   });
 
   test('internal tmux teammate adopted via JSONL polling @area:matrix', async ({ pixelAgents }) => {
+    requireSubagentCharacters();
     const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('hooks-off-internal-tmux');
 
@@ -206,6 +209,7 @@ test.describe('Hooks OFF / matrix', () => {
   });
 
   test('external basic spawn adopted via JSONL polling @area:matrix', async ({ pixelAgents }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
     const sessionId = 'hooks-off-external-basic-session';
 
@@ -253,6 +257,7 @@ test.describe('Hooks OFF / matrix', () => {
   test('external inline teammate adopted via JSONL polling @area:matrix', async ({
     pixelAgents,
   }) => {
+    requireSubagentCharacters();
     const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
     const teamName = uniqueTeamName('hooks-off-external-inline');
     const sessionId = 'hooks-off-external-inline-session';
