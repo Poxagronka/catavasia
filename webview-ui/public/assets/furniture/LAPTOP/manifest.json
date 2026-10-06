@@ -1,0 +1,105 @@
+{
+  "id": "LAPTOP",
+  "name": "Laptop",
+  "category": "electronics",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0,
+  "type": "group",
+  "groupType": "rotation",
+  "rotationScheme": "3-way-mirror",
+  "members": [
+    {
+      "type": "group",
+      "groupType": "state",
+      "orientation": "front",
+      "members": [
+        {
+          "type": "group",
+          "groupType": "animation",
+          "state": "on",
+          "members": [
+            {
+              "type": "asset",
+              "id": "LAPTOP_FRONT_ON_1",
+              "file": "LAPTOP_FRONT_ON_1.png",
+              "width": 16,
+              "height": 16,
+              "footprintW": 1,
+              "footprintH": 1,
+              "frame": 0
+            },
+            {
+              "type": "asset",
+              "id": "LAPTOP_FRONT_ON_2",
+              "file": "LAPTOP_FRONT_ON_2.png",
+              "width": 16,
+              "height": 16,
+              "footprintW": 1,
+              "footprintH": 1,
+              "frame": 1
+            },
+            {
+              "type": "asset",
+              "id": "LAPTOP_FRONT_ON_3",
+              "file": "LAPTOP_FRONT_ON_3.png",
+              "width": 16,
+              "height": 16,
+              "footprintW": 1,
+              "footprintH": 1,
+              "frame": 2
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "id": "LAPTOP_FRONT_OFF",
+          "file": "LAPTOP_FRONT_OFF.png",
+          "width": 16,
+          "height": 16,
+          "footprintW": 1,
+          "footprintH": 1,
+          "state": "off"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "groupType": "state",
+      "orientation": "back",
+      "members": [
+        {
+          "type": "asset",
+          "id": "LAPTOP_BACK_ON",
+          "file": "LAPTOP_BACK_ON.png",
+          "width": 16,
+          "height": 16,
+          "footprintW": 1,
+          "footprintH": 1,
+          "state": "on"
+        },
+        {
+          "type": "asset",
+          "id": "LAPTOP_BACK_OFF",
+          "file": "LAPTOP_BACK_OFF.png",
+          "width": 16,
+          "height": 16,
+          "footprintW": 1,
+          "footprintH": 1,
+          "state": "off"
+        }
+      ]
+    },
+    {
+      "type": "asset",
+      "id": "LAPTOP_SIDE",
+      "file": "LAPTOP_SIDE.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "orientation": "side",
+      "mirrorSide": true
+    }
+  ]
+}
