@@ -207,17 +207,28 @@ function TabButton({
 export function CatsModal({
   isOpen,
   onClose,
+  focusCatId = null,
   getOfficeState,
   onCommitPets,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  /** Show this agent cat (set by the Hierarchy chart). */
+  focusCatId?: string | null;
   getOfficeState: () => OfficeState;
   onCommitPets: () => void;
 }) {
   const { cats } = useCats();
   const [tab, setTab] = useState<Tab>('agents');
-  const [catId, setCatId] = useState<string | null>(null);
+  const [catId, setCatId] = useState<string | null>(focusCatId);
+  const [seenFocus, setSeenFocus] = useState(focusCatId);
+  if (focusCatId !== seenFocus) {
+    setSeenFocus(focusCatId);
+    if (focusCatId) {
+      setTab('agents');
+      setCatId(focusCatId);
+    }
+  }
   const cat = cats.find((c) => c.id === catId) ?? cats[0];
   const roster = usePetRoster(getOfficeState, isOpen);
 

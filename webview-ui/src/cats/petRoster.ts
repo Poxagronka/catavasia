@@ -47,7 +47,7 @@ export function catTemplateType(): number | null {
 }
 
 /** Furniture pets use: new pets appear next to it (the lounge / playroom). */
-const PET_FURNITURE = /PET|LITTER|SCRATCH|CAT_|YARN|TOY|TUNNEL|CUSHION|BED|HOUSE/;
+const PET_FURNITURE = /PET|LITTER|SCRATCH|CAT_|YARN|TOY|TUNNEL|BED|HOUSE/;
 
 /** A free walkable tile closest to pet furniture; a random free tile when there is none. */
 export function petSpawnTile(

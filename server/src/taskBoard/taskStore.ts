@@ -18,6 +18,10 @@ export interface StoredTask extends TaskDetail {
   repoRoot?: string;
   baseCommit?: string;
   worktreePath?: string;
+  /** Claude session id of the run: follow-up turns and the wheel resume it. */
+  sessionId?: string;
+  /** Folder the session runs in (inside the worktree when there is one). */
+  agentCwd?: string;
 }
 
 interface TasksFile {

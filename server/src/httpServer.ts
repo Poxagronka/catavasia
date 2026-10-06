@@ -8,6 +8,9 @@ import * as fs from 'fs';
 
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
+import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
+import { registerCatTerminalRoutes } from './catTerminal/catTerminalRoutes.js';
+import { ptyModule } from './catTerminal/ptyModule.js';
 import type {
   AssetCache,
   ReloadAssetsSideEffect,
@@ -21,6 +24,7 @@ import {
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import type { Narrator } from './narrator/narrator.js';
 import { TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
 
@@ -50,6 +54,8 @@ export interface HttpServerOptions {
   onReloadAssets?: ReloadAssetsSideEffect;
   /** Task board runtime (standalone only). Enables the /api/tasks routes. */
   tasks?: TaskManager;
+  /** Narrator (standalone only). Sends its state to each new client. */
+  narrator?: Narrator;
 }
 
 /** Result of createHttpServer(). */
@@ -93,6 +99,16 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
   if (options.tasks) registerTaskRoutes(app, options.tasks, options.token);
+  if (options.tasks) {
+    registerCatTerminalRoutes(app, {
+      source: new TaskBoardCatSource(options.tasks),
+      isPrivileged: (req) =>
+        timingSafeStringEqual(req.headers.authorization ?? '', `Bearer ${options.token}`) ||
+        standaloneTokenValid(req.url, options.token),
+      isSameOrigin: (req) => isAllowedWebSocketOrigin(req.headers.origin, req.headers.host),
+      pty: ptyModule,
+    });
+  }
 
   // ── Listen ──────────────────────────────────────────────────
 
@@ -282,6 +298,7 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
           onSetHooksEnabled: options.onSetHooksEnabled,
           onReloadAssets: options.onReloadAssets,
           privileged,
+          narrator: options.narrator,
         });
       } catch {
         // Malformed JSON, ignore

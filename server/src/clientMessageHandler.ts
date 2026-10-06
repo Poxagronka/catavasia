@@ -13,6 +13,7 @@ import {
 } from './configPersistence.js';
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT } from './constants.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
+import type { Narrator } from './narrator/narrator.js';
 import { readPetCareState, writePetCareState } from './petCarePersistence.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
 import { applyConsentChoice } from './providers/hook/consentExecutor.js';
@@ -61,6 +62,8 @@ export interface ClientMessageContext {
    * to false so a caller that forgets to pass it gets the safe answer.
    */
   privileged?: boolean;
+  /** Narrator (standalone only): settings + current lines on connect. */
+  narrator?: Narrator;
 }
 
 // ── Setting key constants (mirror adapters/vscode/constants.ts) ──
@@ -71,6 +74,17 @@ const KEY_GHOST_HEADLESS_AGENTS = 'pixel-agents.ghostHeadlessAgents';
 const KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
 const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
+export const KEY_NARRATOR_AI_SUMMARIES = 'pixel-agents.narratorAiSummaries';
+const KEY_NARRATOR_RAW_TOOL_STATUS = 'pixel-agents.narratorRawToolStatus';
+
+/** Narrator settings message (outside asyncapi.yaml, see core/src/narrator.ts). */
+function narratorSettingsMessage(adapter: ReturnType<AgentStateStore['getAdapter']>) {
+  return {
+    type: 'narratorSettings',
+    aiSummaries: adapter?.getSetting(KEY_NARRATOR_AI_SUMMARIES, true) ?? true,
+    rawToolStatus: adapter?.getSetting(KEY_NARRATOR_RAW_TOOL_STATUS, false) ?? false,
+  };
+}
 
 /**
  * Handle incoming ClientMessage from a WebSocket client.
@@ -279,6 +293,17 @@ export function handleClientMessage(
     case 'setShowAreas': {
       const enabled = msg.enabled as boolean;
       adapter?.setSetting(KEY_SHOW_AREAS, enabled);
+      break;
+    }
+
+    case 'setNarratorSettings': {
+      if (typeof msg.aiSummaries === 'boolean') {
+        adapter?.setSetting(KEY_NARRATOR_AI_SUMMARIES, msg.aiSummaries);
+      }
+      if (typeof msg.rawToolStatus === 'boolean') {
+        adapter?.setSetting(KEY_NARRATOR_RAW_TOOL_STATUS, msg.rawToolStatus);
+      }
+      store.broadcast(narratorSettingsMessage(adapter));
       break;
     }
 
@@ -530,4 +555,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // exist once the layout flush creates them. Without this a reconnecting
   // client shows bare characters until each agent takes another turn.
   resendAgentActivity(send, store);
+
+  // 9. Narrator settings and current status lines.
+  if (ctx.narrator) {
+    send(narratorSettingsMessage(adapter));
+    for (const m of ctx.narrator.snapshot()) send(m as unknown as Record<string, unknown>);
+  }
 }

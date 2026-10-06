@@ -1,7 +1,7 @@
 // Pure hierarchy operations over the cat list. The boss is the one cat with
 // parentId === null. Every function returns a new array and keeps that rule.
 
-import type { CatProfile } from './catsApi.js';
+import type { CatProfile, EngineOptions } from './catsApi.js';
 
 export interface TreeNode {
   cat: CatProfile;
@@ -92,4 +92,34 @@ export function buildTree(cats: readonly CatProfile[]): TreeNode | null {
     return { cat, children };
   };
   return build(boss, new Set());
+}
+
+/**
+ * A new direct report of `parentId`: the first free name of `names` (else
+ * "Cat N"), role "Worker", sonnet / medium when offered. The breed follows
+ * the name when a breed of that name exists.
+ */
+export function draftReport(
+  cats: readonly CatProfile[],
+  parentId: string,
+  id: string,
+  names: readonly string[],
+  breeds: readonly string[],
+  options: EngineOptions,
+): CatProfile {
+  const taken = new Set(cats.map((c) => c.name));
+  let name = names.find((n) => !taken.has(n));
+  for (let n = cats.length + 1; !name; n++) if (!taken.has(`Cat ${n}`)) name = `Cat ${n}`;
+  const breed = name.toLowerCase();
+  return {
+    id,
+    name,
+    appearance: { breed: breeds.includes(breed) ? breed : breeds[0] },
+    role: 'Worker',
+    systemPrompt: '',
+    engine: 'claude',
+    model: options.models.includes('sonnet') ? 'sonnet' : options.models[0],
+    effort: options.efforts.includes('medium') ? 'medium' : options.efforts[0],
+    parentId,
+  };
 }

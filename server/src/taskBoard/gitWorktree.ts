@@ -63,6 +63,18 @@ export async function createWorktree(
   await git(repo.root, ['worktree', 'add', '-b', branch, worktreePath, repo.head]);
 }
 
+/** Check the kept task branch out again at its old path (a follow-up turn or
+ *  the wheel resumes the session there: Claude keys transcripts by cwd). */
+export async function reopenWorktree(
+  repoRoot: string,
+  worktreePath: string,
+  branch: string,
+): Promise<void> {
+  if (fs.existsSync(worktreePath)) return;
+  await git(repoRoot, ['worktree', 'prune']);
+  await git(repoRoot, ['worktree', 'add', worktreePath, branch]);
+}
+
 export interface WorktreeOutcome {
   changedFiles: TaskChangedFile[];
   diff: string;

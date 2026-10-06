@@ -20,7 +20,11 @@ import {
   loadAllFurniture,
   loadAllPets,
 } from './assetReload.js';
-import type { AssetCache, ReloadAssetsSideEffect } from './clientMessageHandler.js';
+import {
+  type AssetCache,
+  KEY_NARRATOR_AI_SUMMARIES,
+  type ReloadAssetsSideEffect,
+} from './clientMessageHandler.js';
 import {
   getHooksConsent,
   getHooksEnabled,
@@ -30,6 +34,7 @@ import {
 import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
+import { Narrator } from './narrator/narrator.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
 import { TaskManager } from './taskBoard/taskManager.js';
@@ -155,11 +160,20 @@ async function main(): Promise<void> {
     // Create runtime first (before server.start, so we can pass it in)
     const runtime = new AgentRuntime(store, claudeProvider);
 
+    // Narrator: English status lines (templates) + batched Haiku summaries.
+    const narrator = new Narrator({
+      broadcast: (m) => store.broadcast(m as unknown as Record<string, unknown>),
+      aiSummariesEnabled: () => adapter.getSetting(KEY_NARRATOR_AI_SUMMARIES, true),
+    });
+    store.on('broadcast', (m: Record<string, unknown>) => narrator.observeBroadcast(m));
+    store.on('agentRemoved', (id: number) => narrator.forget(id));
+
     // Task board: each task runs as a headless agent of this runtime.
     const tasks = new TaskManager({
       host: runtime,
       stateDir: path.join(os.homedir(), LAYOUT_FILE_DIR),
       defaultCwd: process.cwd(),
+      narrate: (input) => narrator.push(input),
     });
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
@@ -256,6 +270,7 @@ async function main(): Promise<void> {
       onSetHooksEnabled,
       onReloadAssets,
       tasks,
+      narrator,
     });
     currentConfig = { port: config.port, token: config.token };
 
@@ -329,6 +344,7 @@ async function main(): Promise<void> {
     function shutdown(): void {
       console.log('\nShutting down...');
       tasks.dispose();
+      narrator.dispose();
       runtime.dispose();
       server.stop();
       process.exit(0);

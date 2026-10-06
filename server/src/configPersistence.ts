@@ -13,6 +13,10 @@ export interface AdapterSettings {
   hooksInfoShown: boolean;
   showAreas: boolean;
   areaMappings: Record<string, string[]>;
+  /** Narrator: batched Haiku conversation summaries. */
+  narratorAiSummaries: boolean;
+  /** Narrator: show the raw tool status instead of the narrator line (debug). */
+  narratorRawToolStatus: boolean;
 }
 
 /** All keys in AdapterSettings. Used by adapters to map `pixel-agents.foo` → `foo`.
@@ -28,6 +32,8 @@ export const ADAPTER_SETTING_KEYS = [
   'hooksInfoShown',
   'showAreas',
   'areaMappings',
+  'narratorAiSummaries',
+  'narratorRawToolStatus',
 ] as const;
 
 export type AdapterSettingKey = (typeof ADAPTER_SETTING_KEYS)[number];
@@ -64,6 +70,8 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   hooksInfoShown: false,
   showAreas: false,
   areaMappings: {},
+  narratorAiSummaries: true,
+  narratorRawToolStatus: false,
 };
 
 function getConfigFilePath(): string {
@@ -145,6 +153,14 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
     showAreas:
       typeof obj.showAreas === 'boolean' ? obj.showAreas : DEFAULT_ADAPTER_SETTINGS.showAreas,
     areaMappings: parseAreaMappings(obj.areaMappings),
+    narratorAiSummaries:
+      typeof obj.narratorAiSummaries === 'boolean'
+        ? obj.narratorAiSummaries
+        : DEFAULT_ADAPTER_SETTINGS.narratorAiSummaries,
+    narratorRawToolStatus:
+      typeof obj.narratorRawToolStatus === 'boolean'
+        ? obj.narratorRawToolStatus
+        : DEFAULT_ADAPTER_SETTINGS.narratorRawToolStatus,
   };
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CatTerminalPanel } from './catTerminal/CatTerminalPanel.js';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { CatsModal } from './components/cats/CatsModal.js';
@@ -23,6 +24,7 @@ import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
 import { useIntroTour } from './hooks/useIntroTour.js';
 import { OfficeCanvas } from './office/components/OfficeCanvas.js';
+import { SceneBubbleOverlay } from './office/components/SceneBubbleOverlay.js';
 import { ToolOverlay } from './office/components/ToolOverlay.js';
 import { EditorState } from './office/editor/editorState.js';
 import { EditorToolbar } from './office/editor/EditorToolbar.js';
@@ -32,6 +34,7 @@ import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
 import { getPetCount } from './office/sprites/petSpriteData.js';
 import { EditTool, type OfficeLayout } from './office/types.js';
+import { orchestratorEvents } from './orchestratorEvents.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
 import { installTestHooks } from './testHooks.js';
 import { transport } from './transport/index.js';
@@ -39,6 +42,9 @@ import { transport } from './transport/index.js';
 // Game state lives outside React — updated imperatively by message handlers
 const officeStateRef = { current: null as OfficeState | null };
 const editorState = new EditorState();
+
+// Orchestrator events (work talks, briefings) drive the office scenes.
+orchestratorEvents.on((e) => officeStateRef.current?.scenes.handle(e));
 
 // Test-only observability hooks (message/sound logs, addAgent wrapper, selectAgent).
 // Installed only under the e2e harness so they never patch prototypes or grow
@@ -115,6 +121,8 @@ function App() {
   const [isTasksOpen, setIsTasksOpen] = useState(false);
   const [isCatsOpen, setIsCatsOpen] = useState(false);
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
+  /** The cat the Hierarchy chart asked the Cats menu to open on. */
+  const [catsFocusId, setCatsFocusId] = useState<string | null>(null);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -245,6 +253,9 @@ function App() {
 
   // A cat whose task-board run finished opens that task instead of a terminal.
   const [clickedTaskId, setClickedTaskId] = useState<string | null>(null);
+
+  // The cat terminal panel (standalone only): opened from the selected cat's label.
+  const [terminalCatId, setTerminalCatId] = useState<number | null>(null);
 
   const handleClick = useCallback((agentId: number) => {
     const os = getOfficeState();
@@ -451,7 +462,15 @@ function App() {
             zoom={editor.zoom}
             panRef={editor.panRef}
             onCloseAgent={handleCloseAgent}
+            onOpenTerminal={isBrowserRuntime ? setTerminalCatId : undefined}
             alwaysShowOverlay={alwaysShowOverlay}
+          />
+
+          <SceneBubbleOverlay
+            officeState={officeState}
+            containerRef={containerRef}
+            zoom={editor.zoom}
+            panRef={editor.panRef}
           />
 
           <PetRadialMenu
@@ -552,13 +571,33 @@ function App() {
       <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
       <CatsModal
         isOpen={isCatsOpen}
-        onClose={() => setIsCatsOpen(false)}
+        focusCatId={catsFocusId}
+        onClose={() => {
+          setIsCatsOpen(false);
+          setCatsFocusId(null);
+        }}
         getOfficeState={getOfficeState}
         onCommitPets={editor.commitPets}
       />
-      <HierarchyModal isOpen={isHierarchyOpen} onClose={() => setIsHierarchyOpen(false)} />
+      <HierarchyModal
+        isOpen={isHierarchyOpen}
+        onClose={() => setIsHierarchyOpen(false)}
+        onEditCat={(id) => {
+          setIsHierarchyOpen(false);
+          setCatsFocusId(id);
+          setIsCatsOpen(true);
+        }}
+      />
       {clickedTaskId && (
         <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />
+      )}
+      {terminalCatId !== null && (
+        <CatTerminalPanel
+          key={terminalCatId}
+          catId={String(terminalCatId)}
+          catLabel={officeState.characters.get(terminalCatId)?.folderName ?? 'Cat'}
+          onClose={() => setTerminalCatId(null)}
+        />
       )}
 
       <VersionIndicator

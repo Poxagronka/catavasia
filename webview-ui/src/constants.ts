@@ -397,6 +397,37 @@ export const SOCIAL_BUBBLE_OFFSET_PX = 30;
 export const SOCIAL_ANGER_HEAD_OFFSET_X_PX = 6;
 export const SOCIAL_ANGER_HEAD_OFFSET_Y_PX = 27;
 
+// ── Office scenes (work conversations, briefing meeting) ─────
+/** Characters per line of a work-conversation bubble. */
+export const SCENE_BUBBLE_LINE_CHARS = 20;
+/** Lines per bubble: longer text ends with "…" (the tooltip has it all). */
+export const SCENE_BUBBLE_MAX_LINES = 2;
+/** Tooltip text cap. */
+export const SCENE_TOOLTIP_MAX_CHARS = 400;
+/** How long a speaker's bubble shows before the listener may answer. */
+export const SCENE_SPEAK_SEC = 4;
+/** How long the sender waits next to the receiver for a reply. */
+export const SCENE_REPLY_WAIT_SEC = 6;
+/** A walk-up that takes longer than this talks from where the sender stands. */
+export const SCENE_APPROACH_TIMEOUT_SEC = 20;
+/** Pause before a released cat goes back to its idle life. */
+export const SCENE_RELEASE_PAUSE_SEC = 2;
+/** Bubble text shown by the boss in a briefing before a brief message arrives. */
+export const SCENE_BRIEFING_TEXT = 'Briefing the team';
+/** Work-conversation bubble paper and ink. */
+export const SCENE_BUBBLE_BG = '#f6f1e3';
+export const SCENE_BUBBLE_INK = '#1e1e2e';
+/** Corner badge colour per message kind. */
+export const SCENE_KIND_COLORS = {
+  brief: '#6030ff',
+  delegate: '#2f7fd8',
+  ask: '#b8860b',
+  reply: '#3f8f3a',
+  report: '#c8640c',
+} as const;
+/** Badge glyph colour. */
+export const SCENE_BADGE_GLYPH_COLOR = '#ffffff';
+
 // ── Task Board ───────────────────────────────────────────────
 /** How often the open board re-reads GET /api/tasks. */
 export const TASK_POLL_INTERVAL_MS = 1500;
@@ -555,3 +586,36 @@ export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;
 export const PET_HEAD_ABOVE_ANCHOR_PX = 12;
 /** Outline for the ears / tail of a near-black cat, so they read against a dark doorway. */
 export const HOUSE_PEEK_RIM_COLOR = '#9A8AA0';
+
+// ── Cat terminal ("take the wheel" PTY, ported from upstream PR #347) ──
+/** Monospace stack: Claude Code is a full-screen TUI and needs aligned columns. */
+export const TERMINAL_FONT_FAMILY =
+  'ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace';
+export const TERMINAL_FONT_SIZE_PX = 13;
+export const TERMINAL_SCROLLBACK_LINES = 5_000;
+/** Debounce for propagating a resize to the PTY (fit on every frame thrashes it). */
+export const TERMINAL_RESIZE_DEBOUNCE_MS = 100;
+/** xterm theme, matched to the office palette (index.css :root). */
+export const TERMINAL_THEME = {
+  background: '#181828',
+  foreground: 'rgba(255, 255, 255, 0.9)',
+  cursor: '#6030ff',
+  cursorAccent: '#181828',
+  selectionBackground: 'rgba(96, 48, 255, 0.4)',
+  black: '#1e1e2e',
+  red: '#d14249',
+  green: '#89d185',
+  yellow: '#cca700',
+  blue: '#3794ff',
+  magenta: '#746fff',
+  cyan: '#4ad9d9',
+  white: 'rgba(255, 255, 255, 0.9)',
+  brightBlack: '#4a4a6a',
+  brightRed: '#ff6b72',
+  brightGreen: '#a8e5a4',
+  brightYellow: '#ffd700',
+  brightBlue: '#66aaff',
+  brightMagenta: '#a29bff',
+  brightCyan: '#7fe8e8',
+  brightWhite: '#ffffff',
+} as const;

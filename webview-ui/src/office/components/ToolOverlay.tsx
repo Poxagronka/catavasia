@@ -18,6 +18,7 @@ import {
   TOOL_OVERLAY_VERTICAL_OFFSET,
 } from '../../constants.js';
 import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
+import { narratorHover } from '../../narratorStore.js';
 import { activityHeadDropY, characterDrawOffsetX } from '../engine/characters.js';
 import type { OfficeState } from '../engine/officeState.js';
 import { overlayProjection } from '../projection.js';
@@ -40,6 +41,8 @@ interface ToolOverlayProps {
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
   onCloseAgent: (id: number) => void;
+  /** Open the cat terminal (standalone only; absent hides the button). */
+  onOpenTerminal?: (id: number) => void;
   alwaysShowOverlay: boolean;
 }
 
@@ -92,6 +95,7 @@ export function ToolOverlay({
   zoom,
   panRef,
   onCloseAgent,
+  onOpenTerminal,
   alwaysShowOverlay,
 }: ToolOverlayProps) {
   const [, setTick] = useState(0);
@@ -162,8 +166,13 @@ export function ToolOverlay({
         // Get activity text
         const hasWaitingBubble = ch.bubbleType === 'waiting';
         const subHasPermission = isSub && ch.bubbleType === 'permission';
+        // The narrator's line wins over the raw tool status (unless the
+        // "raw tool status" debug setting is on). Sub-agents keep their own text.
+        const narrated = isSub ? undefined : narratorHover(id);
         let activityText: string;
-        if (hasWaitingBubble && ch.waitingAwaitingInput) {
+        if (narrated) {
+          activityText = narrated.line;
+        } else if (hasWaitingBubble && ch.waitingAwaitingInput) {
           // Idle, waiting on the user -> dedicated label. A finished turn (Stop)
           // shows only the checkmark and falls through to the normal idle text.
           activityText = WAITING_INPUT_ACTIVITY_TEXT;
@@ -256,12 +265,35 @@ export function ToolOverlay({
                 >
                   {activityText}
                 </span>
+                {narrated?.summary && (
+                  <span
+                    className="text-2xs leading-none overflow-hidden text-ellipsis block"
+                    data-testid="narrator-summary"
+                  >
+                    {narrated.summary}
+                  </span>
+                )}
                 {ch.folderName && (
                   <span className="text-2xs leading-none overflow-hidden text-ellipsis block">
                     {ch.folderName}
                   </span>
                 )}
               </div>
+              {isSelected && !isSub && onOpenTerminal && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenTerminal(id);
+                  }}
+                  title="Open terminal"
+                  className="ml-2 shrink-0 leading-none w-auto! px-2"
+                  data-testid="open-cat-terminal"
+                >
+                  {'>_'}
+                </Button>
+              )}
               {isSelected && !isSub && (
                 <Button
                   variant="ghost"
