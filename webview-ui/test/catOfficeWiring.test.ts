@@ -92,9 +92,9 @@ function feed() {
   send({
     type: 'catCharacters',
     characters: [
-      { catId: 'boss', id: 11, name: 'Barsik', appearance: { breed: 'marmalade' }, working: false },
-      { catId: 'murka', id: 12, name: 'Murka', appearance: { breed: 'smokey' }, working: true },
-      { catId: 'pushok', id: 13, name: 'Pushok', appearance: {}, working: false },
+      { catId: 'boss', id: 11, name: 'Oliver', appearance: { breed: 'marmalade' }, working: false },
+      { catId: 'murka', id: 12, name: 'Luna', appearance: { breed: 'smokey' }, working: true },
+      { catId: 'pushok', id: 13, name: 'Milo', appearance: {}, working: false },
     ],
   });
   return { f, send, calls, events };
@@ -105,9 +105,9 @@ test('feed: resident cats reach the office with names, coats and the working fla
   assert.deepEqual(
     calls.residents[0].map((r) => [r.id, r.name, r.working]),
     [
-      [11, 'Barsik', false],
-      [12, 'Murka', true],
-      [13, 'Pushok', false],
+      [11, 'Oliver', false],
+      [12, 'Luna', true],
+      [13, 'Milo', false],
     ],
   );
 });
@@ -187,20 +187,20 @@ test('feed: the queue holds cats waiting for a slot, not the ones running a turn
 test('resident cats: name label, custom coat sprites, idle between turns, working in a turn', () => {
   const os = office();
   os.setResidentCats([
-    resident(1, 'Barsik'),
-    { ...resident(2, 'Murka'), appearance: { breed: 'smokey', pattern: 'calico' } },
+    resident(1, 'Oliver'),
+    { ...resident(2, 'Luna'), appearance: { breed: 'smokey', pattern: 'calico' } },
   ]);
   os.addAgent(1, 0, 0, 'desk0', true);
   os.addAgent(2, 1, 0, 'desk1', true);
   const a = os.characters.get(1)!;
   const b = os.characters.get(2)!;
-  assert.equal(a.agentName, 'Barsik');
+  assert.equal(a.agentName, 'Oliver');
   assert.equal(a.isActive, false, 'a resident idles between turns');
   assert.equal(a.customSprites, undefined, 'a plain breed uses its palette sheet');
   assert.ok(b.customSprites, 'a custom coat gets runtime sprites');
   assert.ok(b.customSprites.idle[0].length > 0, 'with the idle-activity poses');
 
-  os.setResidentCats([resident(1, 'Barsik', true), resident(2, 'Murka')]);
+  os.setResidentCats([resident(1, 'Oliver', true), resident(2, 'Luna')]);
   assert.equal(a.isActive, true, 'its turn: it works at its desk');
   runFor(os, 6);
   assert.equal(a.state, CharacterState.TYPE);
@@ -253,8 +253,8 @@ test('task form: a new task goes to the team when there are cats', () => {
   assert.equal(defaultTarget([]), '');
   assert.equal(
     defaultTarget([
-      { id: 'team', label: 'Team: Barsik leads' },
-      { id: 'boss', label: 'Barsik' },
+      { id: 'team', label: 'Team: Oliver leads' },
+      { id: 'boss', label: 'Oliver' },
     ]),
     'team',
   );

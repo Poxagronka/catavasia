@@ -96,7 +96,7 @@ describe('prompt files', () => {
     expect(store.saveCat({ ...store.get('murka'), systemPrompt: 'Write more tests.' }).ok).toBe(
       true,
     );
-    expect(store.saveCat({ ...store.get('murka'), name: 'Murka' }).ok).toBe(true);
+    expect(store.saveCat({ ...store.get('murka'), name: 'Luna' }).ok).toBe(true);
     expect(subjects()[0]).toBe('user(murka): edit Role & conduct');
     expect(subjects()).toHaveLength(4);
     expect(repo.read('murka').file).toEqual({

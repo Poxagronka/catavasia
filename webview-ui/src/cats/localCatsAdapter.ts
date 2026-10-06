@@ -70,7 +70,12 @@ function browserStore(): Store | null {
   }
 }
 
-export function createLocalCatsAdapter(store: Store | null = browserStore()): CatsApi {
+/** The local CatsApi, plus "Reset everything" (back to the seed). */
+export interface LocalCatsApi extends CatsApi {
+  resetToSeed(): void;
+}
+
+export function createLocalCatsAdapter(store: Store | null = browserStore()): LocalCatsApi {
   let state = load();
   const listeners = new Set<() => void>();
 
@@ -131,5 +136,6 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
       commit({ ...state, cats: promoteToBoss(state.cats, id) });
     },
     engineOptions: (engine) => ENGINE_OPTIONS[engine],
+    resetToSeed: () => commit(localSeed()),
   };
 }

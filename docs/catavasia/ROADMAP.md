@@ -276,3 +276,16 @@ User request: "the game should check for new versions on the main branch of my g
 - Reload: the tab shows "Restarting…", polls `/api/health` (now with `version`) until another pid or version answers, then reloads. After 2 min it shows a manual start hint and the log path.
 - Test knob: `CATAVASIA_UPDATE_BRANCH` follows another branch of the SAME fixed repo (used for the sandbox run, since main had no updater yet). `CATAVASIA_COMMIT` at build time overrides the stamped commit.
 - Known limits: macOS/Linux only (`npm`/`git` without `.cmd`); a new version that fails to start leaves no server running (start it by hand, see `restart.log`); the server started by `pa` in a terminal moves to a detached process after an update, so its logs no longer show in that terminal; raw.githubusercontent.com caches up to 5 min, so a fresh merge shows up a little later.
+
+## English default names and "Reset everything" (feat/reset-all, agent-made 2026-10-06)
+
+User requests: no Russian default cat names; a Settings button that resets cats and layout at once.
+
+- Names: the default team is Oliver (boss), Luna (`murka`), Milo (`pushok`), Pepper (`ryzhik`). Breed preset Nikolai is now Biscuit. The ids stay (`murka`, `nikolai`...): prompt files, task branches and saved coats are keyed by them.
+- One-time rename on load: a cat whose id is a default id and whose name is still the old default (`boss` Barsik, `murka` Murka, `pushok` Pushok, `ryzhik` Ryzhik) gets the English name, and cats.json is saved. A cat the user renamed keeps its name. Pets had no Russian names (Kitten, Puppy, Gitcat, Claudio): no pet migration.
+- "Reset everything" (Settings, `resetAllToDefault`): two steps, the second needs the typed word RESET. The answer `resetAllResult` shows the backup folder or the refusal under the button.
+- Backup first: cats.json, layout.json, pets-state.json, tasks.json and a copy of `prompts/` (with its `.git`) go to `~/.pixel-agents/backups/<ISO timestamp>/`. A failed backup resets nothing. Undo = copy the files back while the server is stopped.
+- Then: the default team and hierarchy, fresh prompt files for every cat and the Cat CEO (one prompt commit `user(all): reset to defaults`, the history stays), the bundled default layout (pets live in the layout: a fresh office has none), no pet-care state. Every open tab gets layoutLoaded, petCareLoaded (null) and the cat profiles. The browser-local cats (localStorage) go back to their seed.
+- Kept: settings (config, Cat CEO settings, narrator, seats), running agents, the task history (tasks.json, flows, worktrees) and the Cat CEO reviews. They are not "cats and layout", and the task history points at branches the user may still need.
+- Refusal, not cancel: while a task is active, a turn runs or waits, or a Cat CEO review runs, the reset is refused with a message. Cancelling half-way would leave worktrees and reviews of cats that no longer exist. The cat part needs the server token, like editing cats; an untokened client is refused before anything changes.
+- VS Code has no cat office: the reset there backs up the same files and resets the layout, pet care and the local cats only.

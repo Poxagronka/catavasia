@@ -157,6 +157,8 @@ export const FLOW_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const CAT_AUTO_COMPACT_WINDOW = 200_000;
 /** ~/.pixel-agents/<dir>/<catId>.md: one prompt file per cat, in a local git repo. */
 export const PROMPTS_DIR = 'prompts';
+/** ~/.pixel-agents/<dir>/<timestamp>/: the files "Reset everything" replaced. */
+export const BACKUPS_DIR = 'backups';
 export const PROMPT_RULES_MAX = 12;
 export const PROMPT_LESSONS_MAX = 20;
 export const PROMPT_ITEM_MAX_CHARS = 280;

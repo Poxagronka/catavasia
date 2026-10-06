@@ -96,8 +96,8 @@ export function buildTree(cats: readonly CatProfile[]): TreeNode | null {
 
 /**
  * A new direct report of `parentId`: the first free name of `names` (else
- * "Cat N"), role "Worker", sonnet / medium when offered. The breed follows
- * the name when a breed of that name exists.
+ * "Cat N"), role "Worker", sonnet / medium when offered. `breeds` is parallel
+ * to `names` (char_N order): the breed follows the name ("Biscuit" -> nikolai).
  */
 export function draftReport(
   cats: readonly CatProfile[],
@@ -110,11 +110,10 @@ export function draftReport(
   const taken = new Set(cats.map((c) => c.name));
   let name = names.find((n) => !taken.has(n));
   for (let n = cats.length + 1; !name; n++) if (!taken.has(`Cat ${n}`)) name = `Cat ${n}`;
-  const breed = name.toLowerCase();
   return {
     id,
     name,
-    appearance: { breed: breeds.includes(breed) ? breed : breeds[0] },
+    appearance: { breed: breeds[names.indexOf(name)] ?? breeds[0] },
     role: 'Worker',
     systemPrompt: '',
     engine: 'claude',
