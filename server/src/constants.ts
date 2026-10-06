@@ -201,5 +201,13 @@ export const CAT_CEO_TIDY_MAX_CHANGES = 8;
 export const CAT_CEO_TIDY_SUMMARIES = 5;
 /** Prompt commits read for the item history of a tidy (newest). */
 export const CAT_CEO_TIDY_LOG_MAX = 200;
+/** Chat (cat-ceo-judge.md §15): messages kept in cat-ceo/chat.json (newest). */
+export const CAT_CEO_CHAT_HISTORY_MAX = 200;
+/** Earlier user/Cat CEO messages in a chat run's input (about 10 exchanges). */
+export const CAT_CEO_CHAT_CONTEXT_MESSAGES = 20;
+/** Chat commits of the Cat CEO per cat per rolling 24 h (apart from the review limit). */
+export const CAT_CEO_CHAT_EDITS_PER_DAY = 10;
+/** Longest reply the chat keeps. */
+export const CAT_CEO_CHAT_REPLY_MAX_CHARS = 4000;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;
