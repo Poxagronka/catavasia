@@ -12,6 +12,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { PromptHistory, ServerMessage } from '../../core/src/messages.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import type { JudgeRequest, JudgeResult } from '../src/catCeo/judgeRunner.js';
@@ -321,6 +322,7 @@ describe('Cat CEO review', () => {
       ctx,
     );
     expect(sent.map((m) => m.type)).toEqual(['catProfileRejected', 'catProfileRejected']);
+    expect(sent.map((m) => m.error)).toEqual([EDIT_RIGHTS_HINT, EDIT_RIGHTS_HINT]);
     handleClientMessage({ type: 'getPromptHistory', catId: 'murka' }, (m) => sent.push(m), {
       ...ctx,
       privileged: true,

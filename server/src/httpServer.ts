@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
 import * as fs from 'fs';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
@@ -204,7 +205,7 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
   const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
     const bearer = timingSafeStringEqual(request.headers.authorization ?? '', `Bearer ${token}`);
     if (!bearer && !standaloneTokenValid(request.url, token)) {
-      return reply.code(401).send({ error: 'A valid session token is required' });
+      return reply.code(401).send({ error: EDIT_RIGHTS_HINT });
     }
   };
 

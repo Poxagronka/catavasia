@@ -11,6 +11,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { PromptHistory, ServerMessage } from '../../core/src/messages.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { CEO_DEFAULTS, type CeoSettings } from '../src/catCeo/ceoSettings.js';
@@ -319,9 +320,7 @@ describe('Tidy now in the office', () => {
       privileged: false,
     };
     handleClientMessage({ type: 'tidyPrompt', catId: 'murka' }, (m) => sent.push(m), ctx);
-    expect(sent).toMatchObject([
-      { type: 'catProfileRejected', error: expect.stringContaining('token') },
-    ]);
+    expect(sent).toMatchObject([{ type: 'catProfileRejected', error: EDIT_RIGHTS_HINT }]);
     handleClientMessage({ type: 'tidyPrompt', catId: 'murka' }, (m) => sent.push(m), {
       ...ctx,
       privileged: true,

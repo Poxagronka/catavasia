@@ -22,6 +22,7 @@ import {
   type WheelClientFrame,
   type WheelServerFrame,
 } from '../../../core/src/catSession.js';
+import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import { claudeProvider } from '../providers/index.js';
 import { CatSessionError, type CatSessionSource } from './catSessionSource.js';
 import type { PtyModuleResolution } from './ptyModule.js';
@@ -106,7 +107,7 @@ export function registerCatTerminalRoutes(
       // Before body validation: an untokened caller learns nothing about the payload rules.
       onRequest: async (request, reply) => {
         if (!options.isPrivileged(request)) {
-          return reply.code(401).send({ error: 'A valid session token is required' });
+          return reply.code(401).send({ error: EDIT_RIGHTS_HINT });
         }
       },
       schema: {

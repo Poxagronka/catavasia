@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
 import type { TaskSummary } from '../../../../core/src/tasks.js';
+import { sessionToken } from '../../sessionToken.js';
 import { Button } from '../ui/Button.js';
 import { type TaskAction, taskActions } from './taskActions.js';
-import { sessionToken, taskAction } from './taskApi.js';
+import { taskAction } from './taskApi.js';
 
 const LABEL: Record<TaskAction, string> = { resume: 'Resume', cancel: 'Cancel task' };
 

@@ -1,3 +1,4 @@
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { HookProvider } from '../../core/src/provider.js';
 import { resendAgentActivity } from './agentActivityResend.js';
 import { buildAgentDiagnostics } from './agentDiagnostics.js';
@@ -286,7 +287,7 @@ export function handleClientMessage(
       const id = typeof msg.catId === 'string' ? msg.catId : undefined;
       // Prompt history shows and changes what the cats run with: the operator's token.
       if (!ctx.privileged) {
-        send({ type: 'catProfileRejected', id, error: 'Prompt history needs the server token.' });
+        send({ type: 'catProfileRejected', id, error: EDIT_RIGHTS_HINT });
         break;
       }
       const { error, reply } = office.promptRequest(msg);
@@ -305,9 +306,7 @@ export function handleClientMessage(
       const id = typeof msg.id === 'string' ? msg.id : undefined;
       // A cat runs with no permission prompts, so its prompt and model are the
       // operator's decision: the same out-of-band token as setHooksEnabled.
-      const error = ctx.privileged
-        ? office.editProfiles(msg)
-        : 'Editing cats needs the server token (open the tokened URL the CLI printed).';
+      const error = ctx.privileged ? office.editProfiles(msg) : EDIT_RIGHTS_HINT;
       if (error) send({ type: 'catProfileRejected', id, error });
       break;
     }

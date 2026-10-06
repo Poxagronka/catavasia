@@ -1,9 +1,10 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import type { CatSessionEntry } from '../../../core/src/catSession.js';
+import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import { Markdown } from '../components/taskBoard/Markdown.js';
-import { sessionToken } from '../components/taskBoard/taskApi.js';
 import { Button } from '../components/ui/Button.js';
+import { sessionToken } from '../sessionToken.js';
 import { type CatConsoleState, toRows } from './consoleState.js';
 
 type ToolEntry = Extract<CatSessionEntry, { kind: 'tool' }>;
@@ -70,7 +71,7 @@ export function ChatConsole({ state, onSend }: ChatConsoleProps) {
   }, [state.entries.length, busy]);
 
   const blocked = !sessionToken
-    ? 'Open the page from the tokened URL the CLI printed to talk to cats.'
+    ? EDIT_RIGHTS_HINT
     : wheelHeld
       ? 'You hold the wheel: type in the Terminal tab.'
       : null;
