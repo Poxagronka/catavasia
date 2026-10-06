@@ -47,9 +47,9 @@ afterEach(() => {
 });
 
 describe('default layout upgrade', () => {
-  it('the newest bundled default has two litter boxes; revisions 1 to 6 are previous', () => {
+  it('the newest bundled default has the CEO laptop; revisions 1 to 7 are previous', () => {
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
-    expect(latest.layoutRevision).toBe(7);
+    expect(latest.layoutRevision).toBe(8);
     const count = (type: string) =>
       (latest.furniture as Array<{ type: string }>).filter((f) => f.type === type).length;
     // The calm playroom of revision 4 stays.
@@ -70,12 +70,61 @@ describe('default layout upgrade', () => {
     expect(count('EXECUTIVE_DESK')).toBe(1);
     expect(count('EXECUTIVE_CHAIR_FRONT')).toBe(1);
     expect(count('CEO_PLAQUE')).toBe(1);
-    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 6.
+    // Revision 8: a laptop on the executive desk where the PC stood.
+    expect(count('LAPTOP_BACK_OFF')).toBe(1);
+    expect(count('PC_BACK')).toBe(0);
+    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 7.
     const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
-    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4, 5, 6]);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4, 5, 6, 7]);
   });
 
-  it("upgrades an untouched revision 6 default (the user's office) to the two-box one", () => {
+  it('revision 8 only swaps the PC on the executive desk for the laptop', () => {
+    const strip = (l: Record<string, unknown>) => {
+      const { layoutRevision: _rev, furniture, ...rest } = l;
+      const items = furniture as Array<{ uid: string }>;
+      return {
+        rest,
+        furniture: items.filter((f) => f.uid !== 'f-ceo-pc' && f.uid !== 'f-ceo-laptop'),
+      };
+    };
+    const [rev7, rev8] = [bundled(7), bundled(8)];
+    expect(strip(rev8)).toEqual(strip(rev7));
+    const find = (l: Record<string, unknown>, uid: string) =>
+      (l.furniture as Array<{ uid: string }>).find((f) => f.uid === uid);
+    expect(find(rev7, 'f-ceo-pc')).toEqual({ uid: 'f-ceo-pc', type: 'PC_BACK', col: 34, row: 13 });
+    expect(find(rev8, 'f-ceo-laptop')).toEqual({
+      uid: 'f-ceo-laptop',
+      type: 'LAPTOP_BACK_OFF',
+      col: 34,
+      row: 13,
+    });
+  });
+
+  it("upgrades an untouched revision 7 default (the user's office) to the laptop one", () => {
+    saveLayout(bundled(7));
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+
+    expect(result).toEqual({ layout: latest, wasReset: true });
+    expect(readLayoutFromFile()).toEqual(latest);
+  });
+
+  it('keeps an edited revision 7 office (its PC stays)', () => {
+    const custom = bundled(7);
+    (custom.furniture as unknown[]).pop();
+    saveLayout(custom);
+
+    const result = loadLayout(
+      loadDefaultLayout(ASSETS_ROOT),
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(result).toEqual({ layout: custom, wasReset: false });
+    expect(readLayoutFromFile()).toEqual(custom);
+  });
+
+  it("upgrades an untouched revision 6 default (the user's office) to the newest", () => {
     saveLayout(bundled(6));
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
 
@@ -108,14 +157,14 @@ describe('default layout upgrade', () => {
     expect(result).toEqual({ layout: custom, wasReset: false });
   });
 
-  it('upgrades an untouched revision 5 default straight to revision 7', () => {
+  it('upgrades an untouched revision 5 default straight to revision 8', () => {
     saveLayout(bundled(5));
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
 
     const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
 
     expect(result).toEqual({ layout: latest, wasReset: true });
-    expect(latest.layoutRevision).toBe(7);
+    expect(latest.layoutRevision).toBe(8);
   });
 
   it("upgrades an untouched revision 5 default (the user's office) to the Cat CEO one", () => {

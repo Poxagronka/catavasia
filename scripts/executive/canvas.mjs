@@ -28,6 +28,19 @@ export const PALETTE = {
   K: [44, 40, 48, 255], // chair base steel
   k: [92, 88, 100, 255], // steel highlight
   s: [0, 0, 0, 64], // soft shadow
+  // Laptop (laptopArt.mjs): brushed aluminum, hinge, screen and its glow.
+  i: [246, 248, 252, 255], // aluminum top edge
+  A: [226, 230, 236, 255], // aluminum highlight
+  u: [208, 213, 222, 255], // aluminum mid tone
+  a: [190, 196, 206, 255], // aluminum
+  S: [148, 154, 168, 255], // aluminum shade
+  n: [52, 54, 64, 255], // laptop outline, hinge
+  z: [34, 38, 50, 255], // screen off
+  Z: [58, 104, 168, 255], // screen on
+  c: [150, 214, 255, 255], // screen text
+  C: [248, 250, 255, 255], // lid logo
+  x: [170, 220, 255, 110], // soft screen glow
+  X: [200, 232, 255, 210], // screen glow near the lid
 };
 
 /** A blank w x h grid of '.' with drawing helpers. */
