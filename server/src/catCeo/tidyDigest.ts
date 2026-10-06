@@ -106,6 +106,8 @@ export function buildTidyDigest(input: {
   file: PromptFile;
   meta: Map<string, ItemMeta>;
   reviews: readonly ReviewRecord[];
+  /** First line; a chat run reuses the digest per cat. */
+  heading?: string;
 }): string {
   const { catId, file, meta } = input;
   const reviews = input.reviews.filter((r) => r.scores.some((s) => s.catId === catId));
@@ -143,7 +145,7 @@ export function buildTidyDigest(input: {
       }`;
     });
   const text = [
-    `# Tidy of cat ${catId}`,
+    input.heading ?? `# Tidy of cat ${catId}`,
     '',
     '## Role & conduct (read-only context: never edit)',
     cut(file.role, 1000),
