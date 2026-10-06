@@ -29,6 +29,8 @@ export interface PatchContext {
   commitsLeft(catId: string): number;
   /** Exact strings that must never enter a prompt (e.g. live tokens). */
   secrets?: string[];
+  /** Item suffix other than `(task <id>, <date>)` (a chat's). */
+  suffix?: string;
 }
 
 export interface AppliedChange {
@@ -54,7 +56,7 @@ export interface RejectedEdit {
 /** Lower case, punctuation dropped, spaces collapsed; the task or tidy suffix is not part of the idea. */
 export function normalizeItem(text: string): string {
   return text
-    .replace(/\s*\((?:task|tidy) [^,()]+, \d{4}-\d{2}-\d{2}\)\s*$/, '')
+    .replace(/\s*\((?:task|tidy|chat) [^,()]+, \d{4}-\d{2}-\d{2}\)\s*$/, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
@@ -159,7 +161,7 @@ export function planEdits(
   edits: JudgeEdit[],
   ctx: PatchContext,
 ): { patches: CatPatch[]; rejected: RejectedEdit[] } {
-  const suffix = `(task ${ctx.taskId}, ${ctx.date})`;
+  const suffix = ctx.suffix ?? `(task ${ctx.taskId}, ${ctx.date})`;
   const work = new Map<string, CatPatch>();
   const rejected: RejectedEdit[] = [];
   const refuse = (edit: JudgeEdit, reason: string) =>

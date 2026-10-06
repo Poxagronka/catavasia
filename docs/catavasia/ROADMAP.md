@@ -144,6 +144,14 @@ Spec: [cat-ceo-judge.md](cat-ceo-judge.md). Code: `server/src/catCeo/` (judge sc
 - **Real run (2026-10-06, port 6200, real HOME, Cat CEO on Sonnet / medium; state files, hook script and the prompts repo restored byte for byte, prompts log compared):** a temporary cat with 8 Rules and 4 Lessons (duplicates, a stale yarn rule, a stale Jest lesson, a user rule that overlaps a judge rule). "Tidy now" committed `cat-ceo(tidytest): tidy — merged 3, rewrote 0, removed 2` (R2+R6, R3+R7, L2+L4 merged; R4 and L3 removed) and marked the merge of the user's R1 with R8 instead of applying it. Prompt history showed the per-item table; "Revert this change" committed `user(tidytest): revert fd0f840`. The first summary came back in Russian (fixed by the language flag); the second run answered in English with the same changes, and the Cat CEO walked to the cat. Cost: $0.030 and $0.018 per tidy.
 - **Known limits:** "cited" counts later anomaly evidence that names the item id; the judge rarely names ids, so it is a weak signal. The item history reads the newest 200 commits; an older item counts as the user's.
 
+#### Chat with the Cat CEO (feat/ceo-chat, 1.4.1-cats.21, agent-made 2026-10-06)
+
+- **Bug:** a Chat message to the Cat CEO with no live task showed "Unknown target: cat-ceo": the console made a one-cat board task, and the Cat CEO is not a team target. Fixed in `officeCatSource.ts`: the Cat CEO's messages go to its chat, and any other non-team resident gets a clear message.
+- **User decision:** "CEO answers". A message starts a one-off judge run in the `cat-ceo` slot with the roster, prompt files, scores, review summaries and the last ~10 exchanges; it returns a reply and, only when the user asks, review-format edits.
+- **Decided here (spec: [cat-ceo-judge.md](cat-ceo-judge.md) §15, C1-C12):** one message at a time; edits pass the review checks and commit as `cat-ceo(<cat>): chat — …` with `Prompt-Chat`; items the user dictated get `Prompt-User-Items` (the user's, protected from tidies); 10 chat commits per cat per day apart from the 2 review edits; the guard block does not stop chat edits but the guard tracks them; history in `cat-ceo/chat.json` (200 messages); "thinking…" status, an edit row with Prompt history links; Cat CEO off says so.
+- **Check:** no Claude login under a temp HOME, so a fake CLI answered (screenshots of a question, an answer and a dictated edit). Not measured: the real cost per chat message.
+- **Known limits:** the input reads each cat's item history from git (as a tidy does), so a large prompts repo makes the start slower. The Prompt history link opens the history only when the Cats menu mounts that cat fresh.
+
 ## Resource budget (RAM) — plan to reach the goal cheaper
 
 Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB peak RSS, 15.6 s wall time incl. the model reply. The research measured 300–850 MB per long-lived session.
