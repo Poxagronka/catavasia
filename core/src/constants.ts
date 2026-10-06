@@ -17,8 +17,8 @@ export const HOOK_SCRIPTS_DIR = '.pixel-agents/hooks';
 
 /** The one hint shown wherever the server refuses an edit for a missing or
  *  wrong token (HTTP 401, a rejected WebSocket edit, a disabled control).
- *  `pa` opens the office with the token in the URL. */
-export const EDIT_RIGHTS_HINT = 'Open the office with `pa` to get edit rights';
+ *  `catavasia` prints the office URL with the token in it. */
+export const EDIT_RIGHTS_HINT = 'Open the office with `catavasia` to get edit rights';
 
 // ── Display ──────────────────────────────────────────────────
 

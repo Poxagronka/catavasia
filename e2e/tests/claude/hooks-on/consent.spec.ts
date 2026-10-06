@@ -5,16 +5,21 @@ import type { Frame, Locator } from '@playwright/test';
 
 import { expect, test } from '../../../fixtures/pixel-agents';
 import { ourHookEvents } from '../../../helpers/hooks';
-import { advanceIntroToConsentStep, finishIntro } from '../../../helpers/intro';
+import {
+  advanceIntroToClosingStep,
+  advanceIntroToConsentStep,
+  backIntroToConsentStep,
+  finishIntro,
+} from '../../../helpers/intro';
 import { getSettingChecked, setSettings } from '../../../helpers/webview';
 
 /**
- * The Intro — the four-step first-run tour — and, inside it, the consent gate for modifying ~/.claude/settings.json.
+ * The Intro — the first-run tour — and, inside it, the consent gate for modifying ~/.claude/settings.json.
  * Every other spec seeds a granted Claude consent so hooks flow silently; these opt OUT via `seedConfig`, which is
  * what a real first run looks like. The tour is diegetic: a greeter stands near the office's bottom-left corner and
- * the IntroBubble is its speech bubble, driven by the server's `hooksConsentRequest`, paging welcome → Claude Code →
- * consent → all set. A choice sends immediately and moves to the closing step, from which Back allows a genuine
- * change of mind. Both surfaces render this component off the same message (standalone: standalone/hooks.spec.ts).
+ * the IntroBubble is its speech bubble, driven by the server's `hooksConsentRequest`, paging welcome → engines →
+ * consent → four feature steps → all set. A choice sends immediately and moves on to the feature steps; Back to the
+ * consent step allows a genuine change of mind. Both surfaces render this component off the same message (standalone: standalone/hooks.spec.ts).
  * The gate answers a 1-star review — a settings.json replaced with no prompt, backup or disclosure — so these assert
  * the ON-DISK consequence of each choice, not just that a prompt appeared.
  */
@@ -197,7 +202,8 @@ test.describe('Hooks consent gate', () => {
 
     // The install broadcast a hooksStatus installed:true — which moots an
     // UNANSWERED ask, but must not yank the tour away from the person who just
-    // answered it. The closing step is still up, after the install landed.
+    // answered it. The tour pages on to its closing step after the install landed.
+    await advanceIntroToClosingStep(dialog);
     await expect(dialog).toContainText("You're all set!");
     narrator.check('the closing step survived its own install broadcast');
 
@@ -274,7 +280,7 @@ test.describe('Hooks consent gate', () => {
     const dialog = await openConsentDialog(frame);
     // The x is on every step — here, mid-tour, one step before the disclosure.
     await dialog.getByRole('button', { name: 'Continue' }).click();
-    await expect(dialog).toContainText('Claude Code');
+    await expect(dialog).toContainText('Codex');
 
     narrator.step('aborting the tour with the x — no choice made');
     await dialog.getByRole('button', { name: 'Close' }).click();
@@ -309,9 +315,9 @@ test.describe('Hooks consent gate', () => {
     expect(readConsent(tmpHome)).toBe(true);
     narrator.check('the install landed');
 
+    await advanceIntroToClosingStep(dialog);
     await expect(dialog).toContainText("You're all set!");
-    await dialog.getByRole('button', { name: 'Back' }).click();
-    await expect(dialog.getByRole('button', { name: 'Install Hooks' })).toBeVisible();
+    await backIntroToConsentStep(dialog);
 
     narrator.step("revising to Don't Ask Again");
     await dialog.getByRole('button', { name: "Don't Ask Again" }).click();
@@ -344,9 +350,9 @@ test.describe('Hooks consent gate', () => {
     await expect.poll(() => readHooksEnabled(tmpHome), { timeout: 15_000 }).toBe(false);
     narrator.check('the decline persisted hooks-off');
 
+    await advanceIntroToClosingStep(dialog);
     await expect(dialog).toContainText("You're all set!");
-    await dialog.getByRole('button', { name: 'Back' }).click();
-    await expect(dialog.getByRole('button', { name: 'Install Hooks' })).toBeVisible();
+    await backIntroToConsentStep(dialog);
 
     narrator.step('revising to Not Now');
     await dialog.getByRole('button', { name: 'Not Now' }).click();
@@ -392,7 +398,8 @@ test.describe('Hooks consent gate', () => {
       // The installer refuses to rewrite a shape it cannot read, so nothing of
       // ours reaches the file — and the closing step says so rather than
       // claiming success.
-      await expect(dialog).toContainText("Hooks couldn't be installed", { timeout: 15_000 });
+      await advanceIntroToClosingStep(dialog);
+      await expect(dialog).toContainText("Hooks couldn't be installed");
       await expect(dialog).not.toContainText("You're all set!");
       expect(ourHookEvents(tmpHome)).toEqual([]);
       narrator.check('the closing step reports the failure instead of congratulating');
@@ -404,8 +411,7 @@ test.describe('Hooks consent gate', () => {
       narrator.check('the unparseable file was left byte-for-byte alone');
 
       narrator.step('walking back and revising to Not Now');
-      await dialog.getByRole('button', { name: 'Back' }).click();
-      await expect(dialog.getByRole('button', { name: 'Install Hooks' })).toBeVisible();
+      await backIntroToConsentStep(dialog);
       await dialog.getByRole('button', { name: 'Not Now' }).click();
       await finishIntro(dialog);
 

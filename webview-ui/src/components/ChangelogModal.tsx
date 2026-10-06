@@ -19,7 +19,7 @@ function GitHubIcon() {
   );
 }
 
-export function DiscordIcon() {
+function DiscordIcon() {
   return (
     <svg
       viewBox="0 0 127.14 96.36"

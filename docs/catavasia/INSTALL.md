@@ -181,7 +181,7 @@ All files are in `~/.pixel-agents/`:
 
 **`EADDRINUSE` (the port is busy).** Another program uses the port that you gave with `--port`. Start `catavasia` without `--port` to get a free port, or pick another port. To see which program holds the port, run `lsof -iTCP:<port> -sTCP:LISTEN`.
 
-**"Open the office with `pa` to get edit rights".** The tab has no valid token, so it can only watch. `pa` is the author's own shortcut. For you, the fix is: open the full URL that `catavasia` prints, with its `?token=` part. After that, the tab keeps the token after a reload. The browser saves the token per port, so use a fixed `--port` to keep it across server restarts.
+**"Open the office with `catavasia` to get edit rights".** The tab has no valid token, so it can only watch. The fix is: open the full URL that `catavasia` prints, with its `?token=` part. After that, the tab keeps the token after a reload. The browser saves the token per port, so use a fixed `--port` to keep it across server restarts.
 
 **I want a new token.** Stop the server, delete `~/.pixel-agents/auth-token` and start `catavasia` again. Open the new URL.
 
