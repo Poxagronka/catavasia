@@ -28,10 +28,11 @@ function saveLayout(layout: unknown): void {
   fs.writeFileSync(layoutFile(), JSON.stringify(layout, null, 2));
 }
 
-const oldDefault = () =>
+const bundled = (rev: number) =>
   JSON.parse(
-    fs.readFileSync(path.join(ASSETS_ROOT, 'assets', 'default-layout-1.json'), 'utf-8'),
+    fs.readFileSync(path.join(ASSETS_ROOT, 'assets', `default-layout-${rev}.json`), 'utf-8'),
   ) as Record<string, unknown>;
+const oldDefault = () => bundled(1);
 
 beforeEach(() => {
   tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pa-layout-'));
@@ -46,16 +47,40 @@ afterEach(() => {
 });
 
 describe('default layout upgrade', () => {
-  it('the newest bundled default has the playroom; revision 1 is the previous one', () => {
+  it('the newest bundled default has the furnished playroom; revisions 1 and 2 are previous', () => {
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
-    expect(latest.layoutRevision).toBe(2);
+    expect(latest.layoutRevision).toBe(3);
     const furniture = latest.furniture as Array<{ type: string }>;
     expect(furniture.filter((f) => f.type === 'SCRATCHING_POST')).toHaveLength(1);
+    expect(furniture.filter((f) => f.type === 'CAT_TREE')).toHaveLength(1);
     expect(furniture.filter((f) => f.type === 'PET_BOWL')).toHaveLength(1);
     expect(furniture.filter((f) => f.type === 'LITTER_BOX')).toHaveLength(1);
-    // Revision 1 with the pet-care items, and as it shipped before them.
+    // Revision 1 with the pet-care items, as it shipped before them, then revision 2.
     const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
-    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1]);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2]);
+  });
+
+  it('upgrades an untouched revision 2 default (the empty playroom) to revision 3', () => {
+    saveLayout(bundled(2));
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+
+    expect(result).toEqual({ layout: latest, wasReset: true });
+    expect(readLayoutFromFile()).toEqual(latest);
+  });
+
+  it('keeps an edited revision 2 office', () => {
+    const custom = bundled(2);
+    (custom.furniture as unknown[]).pop();
+    saveLayout(custom);
+
+    const result = loadLayout(
+      loadDefaultLayout(ASSETS_ROOT),
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(result).toEqual({ layout: custom, wasReset: false });
   });
 
   it('upgrades an untouched revision 1 default saved before the pet-care items', () => {
