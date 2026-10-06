@@ -4,7 +4,7 @@ import { expect } from '@playwright/test';
 /**
  * Drivers for the Intro — the first-run tour the greeter speaks
  * (webview-ui/src/components/IntroBubble.tsx, steps in introSteps.ts):
- * welcome → engines → consent → CEO → lead → tasks → office → all set.
+ * welcome → engines → consent → CEO → lead → office → all set.
  * Locator-based so the same helpers drive both surfaces: the VS Code webview
  * frame and the standalone browser page.
  *
@@ -14,7 +14,7 @@ import { expect } from '@playwright/test';
  */
 
 /** The feature steps between the consent step and the closing step. */
-const FEATURE_TITLES = ['The Cat CEO', 'The team lead and the Cats menu', 'Tasks', 'Your office'];
+const FEATURE_TITLES = ['The Cat CEO', 'The team lead and the Cats menu', 'Your office'];
 const CLOSING_TITLES = ["You're all set!", "Hooks couldn't be installed"];
 
 /**

@@ -92,6 +92,8 @@ export interface CeoMessageRequest {
 /** POST /api/ceo/stop: the user messages that were still queued, for the draft. */
 export interface CeoStopResponse {
   draft: string;
+  /** Files of the queued messages, still stored: the dock puts them back in the composer. */
+  attachments?: CeoAttachment[];
 }
 
 /** PUT /api/ceo/folder: an absolute project folder, or null for the sandbox. */

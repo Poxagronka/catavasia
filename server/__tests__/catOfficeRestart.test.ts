@@ -58,7 +58,7 @@ async function boot(): Promise<void> {
     emit: (m) => emitted.push(m),
     turnConcurrency: 6,
   });
-  tasks = new TaskManager({ host, stateDir, defaultCwd: tmp, flows: office });
+  tasks = new TaskManager({ host, stateDir, flows: office });
   server = await createHttpServer({
     embedded: true,
     token: 'tok',

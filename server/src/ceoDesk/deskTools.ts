@@ -13,6 +13,7 @@ import { type McpTool, type OfficeToolResult, str } from '../orchestrator/office
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { TaskBusyError, TaskInputError, type TaskManager } from '../taskBoard/taskManager.js';
 import { jobNotice } from './deskPrompt.js';
+import { promptItems } from './promptEditTool.js';
 import { checkWorkFolder } from './workFolder.js';
 
 const GOAL_MAX_CHARS = 120;
@@ -26,6 +27,8 @@ export interface DeskToolResult extends OfficeToolResult {
   row?: string;
   /** start_job: the new job, whose card follows the row. */
   jobId?: string;
+  /** edit_prompts: the edit row, with a Prompt history link per cat. */
+  edits?: { text: string; catIds: string[] };
 }
 
 export const DESK_TOOLS: McpTool[] = [
@@ -74,8 +77,29 @@ export const DESK_TOOLS: McpTool[] = [
   },
   {
     name: 'list_team',
-    description: 'List the cats: the lead and who reports to whom.',
-    inputSchema: { type: 'object', properties: {} },
+    description:
+      "List the cats: the lead and who reports to whom. With catId: that cat's Rules and Lessons with their ids.",
+    inputSchema: { type: 'object', properties: { catId: str('A cat id: show its prompt items.') } },
+  },
+  {
+    name: 'edit_prompts',
+    description:
+      "Change one Rules or Lessons item of a cat, only when the user asks for it. Call list_team with catId first for the item ids. Never Role & conduct, never the CEO's own prompt.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        catId: str('The cat id (list_team).'),
+        op: { enum: ['add', 'replace', 'remove'] },
+        section: { enum: ['Rules', 'Lessons'] },
+        itemId: str('R1, L3, ...: the item to replace or remove.'),
+        text: str('add, replace: one line, at most 240 characters, no markdown heading.'),
+        dictated: {
+          type: 'boolean',
+          description: 'true when the user gave this exact text (or named the item to remove).',
+        },
+      },
+      required: ['catId', 'op', 'section', 'dictated'],
+    },
   },
 ];
 
@@ -97,6 +121,8 @@ export interface DeskToolHost {
   reworks(): number;
   /** `chatId`: the chat that called start_job (a New chat may have come since). */
   jobStarted(task: TaskSummary, rework: boolean, chatId: string): void;
+  /** The user's messages that this turn answers (edit_prompts checks `dictated` in them). */
+  request(): string;
 }
 
 const ok = (text: string, row?: string): DeskToolResult => ({ text, ...(row ? { row } : {}) });
@@ -151,8 +177,15 @@ export async function callDeskTool(
         `Work folder → ${checked.path}`,
       );
     }
-    case 'list_team':
-      return ok(teamList(host.office.cats.list()), 'Looked at the team');
+    case 'list_team': {
+      const catId = arg(args, 'catId');
+      if (!catId) return ok(teamList(host.office.cats.list()), 'Looked at the team');
+      const cat = host.office.cats.get(catId);
+      if (!cat) return fail(`Unknown cat: ${catId}. Call list_team for the ids.`);
+      return ok(promptItems(host.office.cats.prompts, cat), `Read the prompt of ${cat.name}`);
+    }
+    case 'edit_prompts':
+      return editPrompts(host, args);
     default:
       return fail(`Unknown tool: ${name}`);
   }
@@ -219,6 +252,34 @@ async function startJob(
     if (err instanceof TaskInputError) return fail(err.message);
     throw err;
   }
+}
+
+function editPrompts(host: DeskToolHost, args: Record<string, unknown>): DeskToolResult {
+  const { op, section } = args;
+  if (op !== 'add' && op !== 'replace' && op !== 'remove')
+    return fail('op: add, replace or remove');
+  if (section !== 'Rules' && section !== 'Lessons') return fail('section: Rules or Lessons');
+  const catId = arg(args, 'catId') ?? '';
+  const itemId = arg(args, 'itemId');
+  const text = typeof args.text === 'string' ? args.text : undefined;
+  const edit = {
+    catId,
+    op,
+    section,
+    ...(itemId ? { itemId } : {}),
+    ...(text !== undefined ? { text } : {}),
+    dictated: args.dictated === true,
+  } as const;
+  const result = host.office.ceo.editPrompt(edit, host.chatId(), host.request());
+  if (!result.ok) return fail(`Not applied: ${result.error}`);
+  const change = result.patch.changes[0];
+  const line = `${catId}: ${change.op} ${change.section} ${change.itemId}${
+    change.text ? ` "${change.text}"` : ''
+  }`;
+  return {
+    text: `Applied. ${result.subject}`,
+    edits: { text: `Prompt edit applied:\n- ${line}`, catIds: [catId] },
+  };
 }
 
 function chatTask(host: DeskToolHost, jobId: string | undefined): TaskDetail | string {

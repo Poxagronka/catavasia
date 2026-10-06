@@ -65,7 +65,7 @@ async function startOffice(mode: string): Promise<void> {
     orchestrator: office,
   });
   office.setServerUrl(`http://127.0.0.1:${server.port}`);
-  tasks = new TaskManager({ host, stateDir, defaultCwd: tmp, flows: office });
+  tasks = new TaskManager({ host, stateDir, flows: office });
   await office.checkEngines();
 }
 

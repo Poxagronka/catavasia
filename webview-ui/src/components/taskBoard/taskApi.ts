@@ -1,9 +1,4 @@
-import type {
-  CreateTaskRequest,
-  TaskDetail,
-  TaskListResponse,
-  TaskSummary,
-} from '../../../../core/src/tasks.js';
+import type { TaskDetail, TaskSummary } from '../../../../core/src/tasks.js';
 import { sessionToken } from '../../sessionToken.js';
 
 async function readJson<T>(res: Response): Promise<T> {
@@ -19,10 +14,6 @@ async function readJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function fetchTasks(): Promise<TaskListResponse> {
-  return readJson(await fetch('/api/tasks'));
-}
-
 export async function fetchTask(id: string): Promise<TaskDetail> {
   return readJson(await fetch(`/api/tasks/${encodeURIComponent(id)}`));
 }
@@ -33,15 +24,4 @@ const tokenQuery = () => (sessionToken ? `?token=${encodeURIComponent(sessionTok
 export async function taskAction(id: string, action: 'resume' | 'cancel'): Promise<TaskSummary> {
   const url = `/api/tasks/${encodeURIComponent(id)}/${action}${tokenQuery()}`;
   return readJson(await fetch(url, { method: 'POST' }));
-}
-
-export async function createTask(body: CreateTaskRequest): Promise<TaskSummary> {
-  const query = tokenQuery();
-  return readJson(
-    await fetch(`/api/tasks${query}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-  );
 }

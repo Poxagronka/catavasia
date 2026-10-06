@@ -6,6 +6,7 @@
 
 import {
   CEO_API_PREFIX,
+  type CeoAttachment,
   type CeoAttachmentUpload,
   type CeoFoldersResponse,
   type CeoStopResponse,
@@ -47,4 +48,12 @@ export const ceoDeskApi = {
   /** An absolute project folder, or null for the sandbox. */
   setFolder: (path: string | null) => call<{ folder: string | null }>('PUT', 'folder', { path }),
   folders: () => call<CeoFoldersResponse>('GET', 'folders'),
+  /** A stored file back as a File: Stop returns the queued files to the composer. */
+  fetchAttachment: async (file: CeoAttachment): Promise<File> => {
+    const query = sessionToken ? `?token=${encodeURIComponent(sessionToken)}` : '';
+    const res = await fetch(`${file.url}${query}`);
+    if (!res.ok) throw new Error(`${file.name}: ${res.status} ${res.statusText}`);
+    const blob = await res.blob();
+    return new File([blob], file.name, { type: blob.type });
+  },
 };

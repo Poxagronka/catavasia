@@ -9,6 +9,8 @@ import { TASK_LOG_TEXT_MAX_CHARS } from '../constants.js';
 
 export interface StreamResult {
   isError: boolean;
+  /** The CLI stopped at --max-budget-usd (`subtype: error_max_budget_usd`). */
+  budgetHit?: boolean;
   text?: string;
   costUsd?: number;
   durationMs?: number;
@@ -83,6 +85,7 @@ export function parseStreamLine(line: string): ParsedStreamLine {
       log: [],
       result: {
         isError: rec.is_error === true || rec.subtype !== 'success',
+        ...(rec.subtype === 'error_max_budget_usd' ? { budgetHit: true } : {}),
         text: typeof rec.result === 'string' ? rec.result : undefined,
         costUsd: num(rec.total_cost_usd),
         durationMs: num(rec.duration_ms),

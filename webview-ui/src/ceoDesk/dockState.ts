@@ -4,8 +4,10 @@
  * expanded, and the unread badge. No DOM, so the node-side tests import it.
  *
  * Unread while collapsed = CEO text rows and new job cards after the last seen
- * row, plus job card state changes. The collapsed flag and the seen row count
- * persist in localStorage (try/catch: private windows have no storage).
+ * row, plus job card state changes. The last seen row is marked by its `at`
+ * (unique and rising in a chat), so the 500-row cap does not shift it. The
+ * collapsed flag and that mark persist in localStorage (try/catch: private
+ * windows have no storage).
  */
 
 import type { CatSessionEntry, CatSessionFrame } from '../../../core/src/catSession.js';
@@ -15,15 +17,15 @@ import { applyFrame, type CatConsoleState, EMPTY_CONSOLE } from '../catTerminal/
 export interface DockState {
   chat: CatConsoleState;
   collapsed: boolean;
-  /** Rows the user has seen (the chat was open while they arrived). */
-  seen: number;
+  /** `at` of the newest row the user has seen (the chat was open); 0 = none. */
+  seenAt: number;
   /** Job card state changes while collapsed. */
   jobChanges: number;
 }
 
 export interface SavedDock {
   collapsed: boolean;
-  seen: number;
+  seenAt: number;
 }
 
 export const DOCK_STORAGE_KEY = 'catavasia.ceoDock';
@@ -36,52 +38,72 @@ export function initialDock(saved: SavedDock | null): DockState {
   return {
     chat: EMPTY_CONSOLE,
     collapsed: saved?.collapsed ?? false,
-    seen: saved?.seen ?? 0,
+    seenAt: saved?.seenAt ?? 0,
     jobChanges: 0,
   };
 }
 
-/** Parse the saved dock; anything malformed is a first run. */
-export function parseSavedDock(raw: string | null): SavedDock | null {
+/**
+ * Parse the saved dock; anything malformed is a first run. An older dock saved
+ * a row count (`seen`): it becomes "seen up to `now`".
+ */
+export function parseSavedDock(raw: string | null, now = Date.now()): SavedDock | null {
   if (!raw) return null;
   try {
-    const value = JSON.parse(raw) as Partial<SavedDock>;
-    if (typeof value.collapsed !== 'boolean' || typeof value.seen !== 'number') return null;
-    return { collapsed: value.collapsed, seen: value.seen };
+    const value = JSON.parse(raw) as Partial<SavedDock> & { seen?: unknown };
+    if (typeof value.collapsed !== 'boolean') return null;
+    if (typeof value.seenAt === 'number')
+      return { collapsed: value.collapsed, seenAt: value.seenAt };
+    return typeof value.seen === 'number' ? { collapsed: value.collapsed, seenAt: now } : null;
   } catch {
     return null;
   }
 }
 
+/** `at` of the newest row (0 when no row has one). */
+function newestAt(entries: CatSessionEntry[]): number {
+  return entries.reduce((max, e) => Math.max(max, e.at ?? 0), 0);
+}
+
 /** Fold one frame of the `cat-ceo` session into the dock. */
 export function dockFrame(state: DockState, frame: CatSessionFrame): DockState {
   const chat = applyFrame(state.chat, frame);
-  let { seen, jobChanges } = state;
-  if (frame.type === 'snapshot') {
-    // A New chat (or a history the server cut) has fewer rows: clamp the count.
-    seen = Math.min(seen, chat.entries.length);
-    jobChanges = 0;
-  }
+  let { seenAt, jobChanges } = state;
+  if (frame.type === 'snapshot') jobChanges = 0;
   if (state.collapsed && frame.type === 'job') {
     const before = jobOf(state.chat.entries, frame.job.jobId);
     if (before && before.state !== frame.job.state) jobChanges++;
   }
-  if (!state.collapsed) seen = chat.entries.length;
-  return { chat, collapsed: state.collapsed, seen, jobChanges };
+  if (!state.collapsed) seenAt = Math.max(seenAt, newestAt(chat.entries));
+  return { chat, collapsed: state.collapsed, seenAt, jobChanges };
 }
 
 export function setCollapsed(state: DockState, collapsed: boolean): DockState {
   if (collapsed === state.collapsed) return state;
   // Opening the dock marks every row seen; closing it starts counting from here.
-  return { ...state, collapsed, seen: state.chat.entries.length, jobChanges: 0 };
+  return {
+    ...state,
+    collapsed,
+    seenAt: Math.max(state.seenAt, newestAt(state.chat.entries)),
+    jobChanges: 0,
+  };
 }
 
 /** The badge of the collapsed tab. */
 export function unreadCount(state: DockState): number {
   if (!state.collapsed || !state.chat.loaded) return 0;
-  const fresh = state.chat.entries
-    .slice(state.seen)
-    .filter((e) => e.kind === 'text' || e.kind === 'job').length;
+  const { entries } = state.chat;
+  // After the seen row when it is still there; else every row newer than it
+  // (a row with no `at` yet is new).
+  let seenRow = -1;
+  entries.forEach((e, i) => {
+    if (e.at === state.seenAt) seenRow = i;
+  });
+  const after =
+    seenRow >= 0
+      ? entries.slice(seenRow + 1)
+      : entries.filter((e) => (e.at ?? Infinity) > state.seenAt);
+  const fresh = after.filter((e) => e.kind === 'text' || e.kind === 'job').length;
   return fresh + state.jobChanges;
 }
 

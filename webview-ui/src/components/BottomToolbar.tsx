@@ -12,8 +12,6 @@ interface BottomToolbarProps {
   onToggleEditMode: () => void;
   isSettingsOpen: boolean;
   onToggleSettings: () => void;
-  isTasksOpen: boolean;
-  onToggleTasks: () => void;
   isCatsOpen: boolean;
   onToggleCats: () => void;
   isHierarchyOpen: boolean;
@@ -27,8 +25,6 @@ export function BottomToolbar({
   onToggleEditMode,
   isSettingsOpen,
   onToggleSettings,
-  isTasksOpen,
-  onToggleTasks,
   isCatsOpen,
   onToggleCats,
   isHierarchyOpen,
@@ -131,16 +127,6 @@ export function BottomToolbar({
             ))}
           </Dropdown>
         </div>
-      )}
-      {/* The task board runs agents through the standalone server's /api/tasks. */}
-      {isBrowserRuntime && (
-        <Button
-          variant={isTasksOpen ? 'active' : 'default'}
-          onClick={onToggleTasks}
-          title="Task board"
-        >
-          Tasks
-        </Button>
       )}
       <Button
         variant={isCatsOpen ? 'active' : 'default'}

@@ -106,7 +106,7 @@ async function startOffice(catCeo?: unknown): Promise<void> {
     orchestrator: office,
   });
   office.setServerUrl(`http://127.0.0.1:${server.port}`);
-  tasks = new TaskManager({ host, stateDir, defaultCwd: tmp, flows: office });
+  tasks = new TaskManager({ host, stateDir, flows: office });
 }
 
 function makeRepo(): string {

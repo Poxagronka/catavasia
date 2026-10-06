@@ -9,6 +9,7 @@ import {
   ZOOM_SCROLL_THRESHOLD,
 } from '../../constants.js';
 import { unlockAudio } from '../../notificationSound.js';
+import { isE2E } from '../../runtime.js';
 import { transport } from '../../transport/index.js';
 import { getColorizedSprite } from '../colorize.js';
 import { canPlaceFurniture, getWallPlacementRow } from '../editor/editorActions.js';
@@ -22,7 +23,6 @@ import type {
   SelectionRenderState,
 } from '../engine/renderer.js';
 import { renderFrame } from '../engine/renderer.js';
-import { whiteboardAt } from '../engine/whiteboardNotes.js';
 import { getCatalogEntry, isRotatable } from '../layout/furnitureCatalog.js';
 import { furnitureSpriteTop } from '../layout/layoutSerializer.js';
 import { hitTestCare } from '../petCare/petCareNav.js';
@@ -35,8 +35,6 @@ import { computeNormalModeCursor } from './officeCanvasCursor.js';
 interface OfficeCanvasProps {
   officeState: OfficeState;
   onClick: (agentId: number) => void;
-  /** A click on a whiteboard opens the Tasks panel. Unset: boards are plain decor. */
-  onOpenTasks?: () => void;
   isEditMode: boolean;
   editorState: EditorState;
   onEditorTileAction: (col: number, row: number) => void;
@@ -57,7 +55,6 @@ interface OfficeCanvasProps {
 export function OfficeCanvas({
   officeState,
   onClick,
-  onOpenTasks,
   isEditMode,
   editorState,
   onEditorTileAction,
@@ -360,6 +357,23 @@ export function OfficeCanvas({
     [zoom],
   );
 
+  // e2e: a world point (sprite px) in client coordinates, so a test clicks an
+  // item or a cat without pixel hunting. The inverse of screenToWorld.
+  useEffect(() => {
+    if (!isE2E) return;
+    const hooks = (window.__pixelAgentsTestHooks ??= {});
+    hooks.worldToClient = (worldX, worldY) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      return {
+        x: rect.left + (offsetRef.current.x + worldX * zoom) / dpr,
+        y: rect.top + (offsetRef.current.y + worldY * zoom) / dpr,
+      };
+    };
+  }, [zoom]);
+
   const screenToTile = useCallback(
     (clientX: number, clientY: number): { col: number; row: number } | null => {
       const pos = screenToWorld(clientX, clientY);
@@ -526,24 +540,17 @@ export function OfficeCanvas({
       const petId = hitId === null ? officeState.getPetAt(pos.worldX, pos.worldY) : null;
       const tile = screenToTile(e.clientX, e.clientY);
       officeState.hoveredTile = tile;
-      const board =
-        onOpenTasks && hitId === null && petId === null
-          ? whiteboardAt(pos.worldX, pos.worldY, officeState.getLayout().furniture)
-          : undefined;
-      officeState.hoveredWhiteboardUid = board?.uid ?? null;
       const canvas = canvasRef.current;
       if (canvas) {
-        canvas.style.cursor = board
-          ? 'pointer'
-          : computeNormalModeCursor({
-              hitId,
-              petId,
-              selectedAgentId: officeState.selectedAgentId,
-              tile,
-              getSeatAtTile: (col, row) => officeState.getSeatAtTile(col, row),
-              getSeat: (seatId) => officeState.seats.get(seatId),
-              getCharacter: (id) => officeState.characters.get(id),
-            });
+        canvas.style.cursor = computeNormalModeCursor({
+          hitId,
+          petId,
+          selectedAgentId: officeState.selectedAgentId,
+          tile,
+          getSeatAtTile: (col, row) => officeState.getSeatAtTile(col, row),
+          getSeat: (seatId) => officeState.seats.get(seatId),
+          getCharacter: (id) => officeState.characters.get(id),
+        });
       }
       officeState.hoveredAgentId = hitId;
     },
@@ -559,7 +566,6 @@ export function OfficeCanvas({
       hitTestDeleteButton,
       hitTestRotateButton,
       clampPan,
-      onOpenTasks,
     ],
   );
 
@@ -747,10 +753,7 @@ export function OfficeCanvas({
 
   // The care menu belongs to play mode: entering the editor closes it.
   useEffect(() => {
-    if (isEditMode) {
-      officeState.petCare.closeMenu();
-      officeState.hoveredWhiteboardUid = null;
-    }
+    if (isEditMode) officeState.petCare.closeMenu();
   }, [isEditMode, officeState]);
 
   const handleClick = useCallback(
@@ -788,12 +791,6 @@ export function OfficeCanvas({
         } else {
           officeState.showPetBubble(petId);
         }
-        return;
-      }
-
-      // A whiteboard opens the Tasks panel, like the Tasks button.
-      if (onOpenTasks && whiteboardAt(pos.worldX, pos.worldY, officeState.getLayout().furniture)) {
-        onOpenTasks();
         return;
       }
 
@@ -862,7 +859,7 @@ export function OfficeCanvas({
         officeState.cameraFollowId = null;
       }
     },
-    [officeState, onClick, onOpenTasks, screenToWorld, screenToTile, isEditMode],
+    [officeState, onClick, screenToWorld, screenToTile, isEditMode],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -878,7 +875,6 @@ export function OfficeCanvas({
     editorState.ghostRow = -1;
     officeState.hoveredAgentId = null;
     officeState.hoveredTile = null;
-    officeState.hoveredWhiteboardUid = null;
 
     // Reset cursor in non-edit mode so pointer doesn't get stuck after hovering a pet.
     if (!isEditMode) {

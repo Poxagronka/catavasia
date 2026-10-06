@@ -8,7 +8,8 @@ import { engineProblem, engineStatusLine } from '../engines/engineReadiness.js';
 import type { IntroStepId } from './introSteps.js';
 import { CODEX_INSTALL_COMMAND, ISSUES_URL } from './introSteps.js';
 
-const P = 'text-sm m-0 mb-8';
+// Body text uses the reading font (index.css prose tokens); the title keeps the pixel font.
+const P = 'prose-body m-0 mb-8';
 const LINK = 'text-accent-bright hover:text-accent no-underline';
 
 /**
@@ -48,22 +49,16 @@ export function IntroStepBody({
     case 'ceo':
       return (
         <p className={P}>
-          This is the CEO's desk. Click a cat, then its chat icon to open Chat (the Terminal tab is
-          next to it). Ask the CEO anything.
+          Talk to the CEO in the chat on the right. Paste screenshots, files and links like in a
+          terminal. It hands the work to the team and brings back the result.
         </p>
       );
     case 'lead':
       return (
         <p className={P}>
-          The lead sits here: it is the boss of your team. Click Cats to edit each cat's role,
-          engine, model and rules. Hierarchy shows who reports to whom.
-        </p>
-      );
-    case 'tasks':
-      return (
-        <p className={P}>
-          Click the whiteboard (or Tasks) to give the team a task. The boss splits it and delegates
-          the parts. Each cat works in its own git worktree.
+          The lead sits here: it is the boss of your team. The CEO hands work to the lead, who
+          splits it for the team. Click Cats to edit each cat's role, engine, model and rules.
+          Hierarchy shows who reports to whom.
         </p>
       );
     case 'office':
@@ -120,17 +115,20 @@ function EnginesBody() {
             <div className="text-sm mb-2">
               {label}
               {status ? (
-                <span className={problem ? 'text-warning' : 'text-status-success'}>
+                <span
+                  className={`prose-body prose-small ${problem ? 'text-warning' : 'text-status-success'}`}
+                >
                   {` - ${status}`}
                 </span>
               ) : unavailable ? (
-                <span className="text-warning">{` - ${unavailable}`}</span>
+                <span className="prose-body prose-small text-warning">{` - ${unavailable}`}</span>
               ) : null}
             </div>
             {problem?.needsLogin ? (
-              <EngineNotice engine={engine} />
+              // The status line above already says "not logged in": no second reason line.
+              <EngineNotice engine={engine} showReason={false} />
             ) : (
-              <div className="text-sm bg-btn-bg border-2 border-border py-4 px-8 select-all">
+              <div className="prose-code bg-btn-bg border-2 border-border py-4 px-8 select-all">
                 {command}
               </div>
             )}

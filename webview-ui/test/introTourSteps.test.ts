@@ -59,11 +59,11 @@ function walkUntilStill(os: OfficeState): void {
 
 const visitOf = (id: string) => INTRO_STEPS.find((s) => s.id === id)!.visit;
 
-test('eight steps; consent is third and a choice lands on the step after it', () => {
-  assert.equal(INTRO_STEP_COUNT, 8);
+test('seven steps; consent is third and a choice lands on the step after it', () => {
+  assert.equal(INTRO_STEP_COUNT, 7);
   assert.deepEqual(
     INTRO_STEPS.map((s) => s.id),
-    ['welcome', 'engines', 'consent', 'ceo', 'lead', 'tasks', 'office', 'closing'],
+    ['welcome', 'engines', 'consent', 'ceo', 'lead', 'office', 'closing'],
   );
   assert.equal(CONSENT_STEP, 2);
   assert.equal(AFTER_CONSENT_STEP, 3);
@@ -73,7 +73,7 @@ test('eight steps; consent is third and a choice lands on the step after it', ()
 
 test('every feature step finds its item in the default office', () => {
   const kinds = new Set(defaultLayout().furniture.map((f) => furnitureKind(f.type)));
-  for (const id of ['ceo', 'lead', 'tasks', 'office']) {
+  for (const id of ['ceo', 'lead', 'office']) {
     assert.ok(
       visitOf(id).some((k) => kinds.has(k)),
       `${id}: one of ${visitOf(id).join(', ')} is in the office`,
@@ -81,26 +81,26 @@ test('every feature step finds its item in the default office', () => {
   }
 });
 
-test('the greeter walks next to the whiteboard and stops facing it', () => {
+test('the greeter walks next to the lead desk and stops there', () => {
   const layout = defaultLayout();
-  const board = layout.furniture.find((f) => furnitureKind(f.type) === 'WHITEBOARD')!;
+  const desk = layout.furniture.find((f) => furnitureKind(f.type) === 'LEAD_DESK')!;
   const os = greeterIn(layout);
-  assert.equal(os.greeterVisit(visitOf('tasks')), true);
+  assert.equal(os.greeterVisit(visitOf('lead')), true);
   assert.equal(os.greeter!.state, CharacterState.WALK);
   walkUntilStill(os);
   const g = os.greeter!;
   assert.equal(g.state, CharacterState.IDLE);
-  // Right of (or at) the board's right edge and close below it.
-  assert.ok(g.tileCol >= board.col, `col ${g.tileCol} is not left of the board`);
-  assert.ok(Math.abs(g.tileCol - board.col) <= 4 && Math.abs(g.tileRow - board.row) <= 4);
+  assert.ok(Math.abs(g.tileCol - desk.col) <= 4 && Math.abs(g.tileRow - desk.row) <= 4);
 });
 
 test('an office without the item keeps the greeter in place (same tour, no walk)', () => {
   const layout = defaultLayout();
-  layout.furniture = layout.furniture.filter((f) => furnitureKind(f.type) !== 'WHITEBOARD');
+  layout.furniture = layout.furniture.filter(
+    (f) => !visitOf('lead').includes(furnitureKind(f.type)),
+  );
   const os = greeterIn(layout);
   const before = { col: os.greeter!.tileCol, row: os.greeter!.tileRow };
-  assert.equal(os.greeterVisit(visitOf('tasks')), false);
+  assert.equal(os.greeterVisit(visitOf('lead')), false);
   for (let t = 0; t < 5; t += 0.05) os.update(0.05);
   assert.deepEqual({ col: os.greeter!.tileCol, row: os.greeter!.tileRow }, before);
   assert.equal(os.greeter!.state, CharacterState.IDLE);

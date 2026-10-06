@@ -42,7 +42,7 @@ The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): req
 | Install            | VS Code Marketplace, Open VSX, `npx pixel-agents` | `npm install -g catavasia`, or `install.sh` builds from GitHub `main`                                          |
 | Updates            | Marketplace or npm                                | In-game update from GitHub `main`, one click, or `npm install -g catavasia@latest`                             |
 | Agents             | Watches the Claude sessions that you start        | Also has its own cat team: a team lead, workers and a Cat CEO, each a Claude Code session that the server runs |
-| Tasks              | None                                              | Tasks panel and a whiteboard in the office. The team lead splits a task and delegates it down the hierarchy.   |
+| CEO chat           | None                                              | A CEO chat on the right edge. The CEO hands work to the team lead, who splits it down the hierarchy.           |
 | Talk to an agent   | Through your own terminal                         | A chat and a terminal panel for each cat in the browser                                                        |
 | Default office     | One shared work space                             | Four rooms: CEO office, work room with a lead desk, lounge with a coffee corner, playroom                      |
 | Life between tasks | Agents wander                                     | Coffee, naps, toys, beds, houses, litter boxes, talks and fights                                               |
@@ -52,7 +52,7 @@ The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): req
 
 ## Features
 
-**The office.** The default office has four rooms. The Cat CEO sits at a mahogany desk in its own office. The team lead sits at the lead desk under the Tasks whiteboard. Workers sit at the desks and the pod table.
+**The office.** The default office has four rooms. The Cat CEO sits at a mahogany desk in its own office. The team lead sits at the lead desk under the whiteboard. Workers sit at the desks and the pod table.
 
 | CEO office                                                                                                                  | Work room                                                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,13 +66,9 @@ The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): req
 
 ![The Hierarchy editor: the Cat CEO above, Oliver the boss, three developer cats below](docs/catavasia/screenshots/hierarchy.png)
 
-**CEO desk.** The CEO's chat sits on the right edge. Ask it a question, give it a link, or ask for work in a project folder. It answers itself, or hands the work to the team, checks the result and tells you the branch. A job card shows each job live. Collapse the chat to a tab; a badge counts new answers. Click the CEO cat to open it again.
+**CEO desk.** The CEO's chat sits on the right edge. Ask it a question, give it a link, or ask for work in a project folder. It answers itself, or hands the work to the team, checks the result and tells you the branch. Paste screenshots, files and links like in a terminal. Each job runs in a git worktree on a branch `task/<id>`, and a job card shows it live with Details, Resume and Cancel. Collapse the chat to a tab; a badge counts new answers. Click the CEO cat to open it again. Ask the CEO to change a cat's rules or lessons, and it commits the edit to that cat's prompt.
 
 ![The CEO desk: the CEO's chat with a finished job card and the final answer](docs/catavasia/screenshots/ceo-dock.png)
-
-**Tasks.** Click **Tasks** or the whiteboard in the work room. Write what to do, pick a folder and pick one cat or the whole team. Each task runs in a git worktree on a branch `task/<id>`.
-
-![The Tasks panel with a new task for the team](docs/catavasia/screenshots/tasks.png)
 
 **Chat and terminal for each cat.** Click a cat, then click the chat icon on its label. The **Chat** tab sends a message to the cat. The **Terminal** tab opens the cat's real Claude Code session when the cat is idle.
 

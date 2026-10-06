@@ -35,6 +35,8 @@ declare global {
       forcePetActivity?: (petId: string, activityId: string, spotKey?: string) => boolean;
       /** The live office (scene setup for screenshots: cat life, pets, needs). */
       getOffice?: () => OfficeState | null;
+      /** A world point (sprite px) in client coordinates (set by OfficeCanvas). */
+      worldToClient?: (worldX: number, worldY: number) => { x: number; y: number } | null;
       /** Emit an orchestrator event (catMessage, flowStateChanged) as the server feed will. */
       emitOrchestratorEvent?: (event: OrchestratorEvent) => void;
       /** Effective "Display headless as ghosts" setting the renderer is using. */

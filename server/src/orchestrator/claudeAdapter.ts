@@ -226,6 +226,7 @@ export class ClaudeAdapter implements EngineAdapter {
           sessionCostUsd: result?.costUsd,
           usage: result?.usage,
           sessionStarted,
+          ...(result?.budgetHit ? { budgetHit: true } : {}),
           error: ok
             ? undefined
             : result?.isError

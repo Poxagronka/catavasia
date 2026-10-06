@@ -10,10 +10,8 @@
  */
 
 import { CAT_CEO_CHAIR, CAT_LEAD_CHAIR } from '../constants.js';
-import { WHITEBOARD_TYPE } from '../office/engine/whiteboardNotes.js';
 
-export type IntroStepId =
-  'welcome' | 'engines' | 'consent' | 'ceo' | 'lead' | 'tasks' | 'office' | 'closing';
+export type IntroStepId = 'welcome' | 'engines' | 'consent' | 'ceo' | 'lead' | 'office' | 'closing';
 
 export interface IntroStep {
   id: IntroStepId;
@@ -28,7 +26,6 @@ export const INTRO_STEPS: readonly IntroStep[] = [
   { id: 'consent', visit: [] },
   { id: 'ceo', visit: ['EXECUTIVE_DESK', CAT_CEO_CHAIR] },
   { id: 'lead', visit: ['LEAD_DESK', CAT_LEAD_CHAIR] },
-  { id: 'tasks', visit: [WHITEBOARD_TYPE] },
   { id: 'office', visit: ['SCRATCHING_POST', 'CAT_TREE', 'YARN_BALL', 'SOFA', 'COFFEE'] },
   { id: 'closing', visit: [] },
 ];
@@ -59,8 +56,6 @@ export function introStepTitle(id: IntroStepId, headline: string, installFailed:
       return 'The Cat CEO';
     case 'lead':
       return 'The team lead and the Cats menu';
-    case 'tasks':
-      return 'Tasks';
     case 'office':
       return 'Your office';
     case 'closing':

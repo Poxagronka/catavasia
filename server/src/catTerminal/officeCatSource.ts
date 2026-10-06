@@ -11,9 +11,8 @@
  *
  * The Cat CEO is not a team cat and has no wheel. The literal id `cat-ceo`
  * is the CEO desk (server/src/ceoDesk/); reading it needs the server token.
- * The webview opens the desk dock for the CEO character. Its agent id still
- * reaches the judge chat (server/src/catCeo/ceoChat.ts) until phase 4 removes
- * it (docs/catavasia/ROADMAP.md, "CEO desk replaces the task board").
+ * The webview opens the desk dock for the CEO character. Its agent id shows
+ * the review and tidy log, and a message there points to the desk chat.
  *
  * Any other cat id falls through to the task-board source.
  */
@@ -39,13 +38,12 @@ import { acquireSessionLock, sessionLockHolder } from './sessionLocks.js';
 const NO_LIVE_SESSION = 'The wheel needs a live task session: give the cat a task first';
 const CEO_NO_WHEEL = 'The Cat CEO has no terminal session: talk to it in the chat';
 const NO_FOLDER = 'Ask the CEO in the chat to give this cat work';
+const CEO_USE_DESK = 'Talk to the CEO in the CEO chat on the right';
 
 export class OfficeCatSource implements CatSessionSource {
   private readonly board: TaskBoardCatSource;
   /** Release functions of held wheels, by cat id (profile id). */
   private readonly wheels = new Map<string, () => void>();
-  /** The office agent id of the Cat CEO last seen (its character goes when it is turned off). */
-  private ceoAgent: string | undefined;
 
   constructor(
     private readonly office: Orchestrator,
@@ -96,11 +94,7 @@ export class OfficeCatSource implements CatSessionSource {
     }
     const cat = this.catOf(agentId);
     if (!cat) return this.board.send(agentId, text);
-    if (cat === CAT_CEO_ID) {
-      const busy = this.office.ceo.chat.send(text);
-      if (busy) throw new CatSessionError(409, busy);
-      return;
-    }
+    if (cat === CAT_CEO_ID) throw new CatSessionError(400, CEO_USE_DESK);
     if (this.wheels.has(cat)) throw new CatSessionError(409, 'You hold the wheel of this cat');
     if (this.office.sendUserMessage(cat, text)) return;
     // Only team cats take tasks: never answer with the board's "Unknown target".
@@ -162,10 +156,7 @@ export class OfficeCatSource implements CatSessionSource {
   }
 
   private catOf(agentId: string): string | undefined {
-    const cat = /^\d+$/.test(agentId) ? this.office.residents.catOf(Number(agentId)) : undefined;
-    if (cat === CAT_CEO_ID) this.ceoAgent = agentId;
-    // An open chat of a Cat CEO that was turned off still reaches it (it says it is off).
-    return cat ?? (agentId === this.ceoAgent ? CAT_CEO_ID : undefined);
+    return /^\d+$/.test(agentId) ? this.office.residents.catOf(Number(agentId)) : undefined;
   }
 
   /** The live task session of a cat that the wheel can resume. */
@@ -178,12 +169,7 @@ export class OfficeCatSource implements CatSessionSource {
 
   private status(cat: string): CatSessionStatus {
     if (cat === CAT_CEO_ID) {
-      return {
-        busy: this.office.ceo.chat.busy,
-        wheelHeld: false,
-        wheelUnavailable: CEO_NO_WHEEL,
-        busyText: 'The Cat CEO is thinking…',
-      };
+      return { busy: false, wheelHeld: false, wheelUnavailable: CEO_NO_WHEEL };
     }
     const session = this.liveSession(cat);
     return {

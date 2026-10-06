@@ -80,7 +80,6 @@ import { petToyMotion } from './petPlayAnims.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
 import { DESK_READ_SEC, SKILL_READ, SKILL_TOOL } from './skillReading.js';
-import type { TaskCounts } from './whiteboardNotes.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
 function seatFacingOffset(direction: Direction): { dCol: number; dRow: number } {
@@ -139,10 +138,6 @@ export class OfficeState {
   private nextSubagentId = -1;
   /** Resident cats of the cat office by agent id (setResidentCats). */
   private residents = new Map<number, ResidentCat>();
-  /** Live task counts the whiteboard tooltip shows; null = unknown (title only). */
-  taskCounts: TaskCounts | null = null;
-  /** The whiteboard under the mouse (its "Tasks" tooltip), or null. */
-  hoveredWhiteboardUid: string | null = null;
 
   /**
    * folderName → list of Area labels that workspace folder belongs to.

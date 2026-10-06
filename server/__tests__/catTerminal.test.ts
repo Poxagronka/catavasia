@@ -108,6 +108,8 @@ let host: FakeHost;
 let ptys: FakePty[];
 let base: string;
 let loginEnded: string[];
+/** The work folder of the tasks (a git repo). */
+let repo: string;
 
 beforeEach(async () => {
   tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-cat-')));
@@ -117,7 +119,8 @@ beforeEach(async () => {
   fs.writeFileSync(fakeBin, FAKE_CLAUDE, { mode: 0o755 });
   process.env.ARGV_LOG = argvLog;
   host = new FakeHost();
-  manager = new TaskManager({ host, stateDir, defaultCwd: makeRepo(), claudeBin: fakeBin });
+  repo = makeRepo();
+  manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
   ptys = [];
   loginEnded = [];
   const ptyModule: PtyModule = {
@@ -167,7 +170,7 @@ function collect(socket: WebSocket): CatSessionFrame[] {
 
 describe('console event mapping', () => {
   it('maps task log rows and the prompt into console entries', async () => {
-    await manager.create('fix the bug', manager.defaultCwd);
+    await manager.create('fix the bug', repo);
     await settled();
     const snap = new TaskBoardCatSource(manager).snapshot('7')!;
     expect(snap.title).toBe('fix the bug');
@@ -186,7 +189,7 @@ describe('console event mapping', () => {
 
     // After a restart agent ids start at 1 again: a task from an earlier
     // server process never maps to a live cat.
-    const restarted = new TaskManager({ host, stateDir, defaultCwd: tmp, claudeBin: fakeBin });
+    const restarted = new TaskManager({ host, stateDir, claudeBin: fakeBin });
     const file = path.join(stateDir, 'tasks.json');
     const stored = JSON.parse(fs.readFileSync(file, 'utf-8'));
     for (const t of Object.values(stored.tasks) as Array<{ ownerPid: number }>) t.ownerPid = 1;
@@ -195,7 +198,7 @@ describe('console event mapping', () => {
   });
 
   it('streams a snapshot, then live entries and status frames', async () => {
-    await manager.create('first', manager.defaultCwd);
+    await manager.create('first', repo);
     await settled();
     const socket = new WebSocket(`ws://${base}/events`);
     const frames = collect(socket);
@@ -218,7 +221,7 @@ describe('console event mapping', () => {
 
 describe('send path', () => {
   it('resumes the same session in the reopened worktree and commits again', async () => {
-    const created = await manager.create('first', manager.defaultCwd);
+    const created = await manager.create('first', repo);
     await settled();
     expect((await post(`?token=${TOKEN}`, 'second')).status).toBe(202);
     await settled();
@@ -232,7 +235,6 @@ describe('send path', () => {
     expect(runs[1]).toContain('--resume');
     expect(runs[1][runs[1].indexOf('--resume') + 1]).toBe(sessionId);
     expect(host.resumed).toEqual([7]);
-    const repo = path.join(tmp, 'repo');
     expect(git(repo, 'show', `task/${created.id}:meow.txt`)).toBe('first\nsecond\n');
     expect(manager.get(created.id)).toMatchObject({ status: 'done' });
     expect(manager.get(created.id)!.log.filter((e) => e.kind === 'user')).toHaveLength(1);
@@ -240,7 +242,7 @@ describe('send path', () => {
 
   it('answers 404 for a cat with no session and 400 for an empty message', async () => {
     expect((await post(`?token=${TOKEN}`, 'hi')).status).toBe(404);
-    await manager.create('first', manager.defaultCwd);
+    await manager.create('first', repo);
     await settled();
     expect((await post(`?token=${TOKEN}`, '   ')).status).toBe(400);
   });
@@ -248,7 +250,7 @@ describe('send path', () => {
 
 describe('session lock', () => {
   it('refuses a message and the wheel while a turn runs', async () => {
-    await manager.create('SLOW first', manager.defaultCwd);
+    await manager.create('SLOW first', repo);
     const task = manager.findByAgent(7)!;
     expect(manager.isRunning(task.id)).toBe(true);
     expect((await post(`?token=${TOKEN}`, 'again')).status).toBe(409);
@@ -261,7 +263,7 @@ describe('session lock', () => {
   });
 
   it('takes the wheel when idle, blocks turns while held, releases on exit', async () => {
-    const created = await manager.create('first', manager.defaultCwd);
+    const created = await manager.create('first', repo);
     await settled();
     const sessionId = JSON.parse(fs.readFileSync(argvLog, 'utf-8').split('\n')[0])[1] as string;
 
@@ -327,7 +329,7 @@ describe('engine login terminal', () => {
 
 describe('token gating', () => {
   it('needs the token to send a message or take the wheel', async () => {
-    await manager.create('first', manager.defaultCwd);
+    await manager.create('first', repo);
     await settled();
     expect((await post('', 'hi')).status).toBe(401);
     const wrong = await post('?token=wrong', 'hi');

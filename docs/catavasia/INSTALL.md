@@ -173,7 +173,7 @@ All files are in `~/.pixel-agents/`:
 | `layout.json`                    | The office layout and the pet cats                      |
 | `cats.json`                      | The agent cats and the hierarchy                        |
 | `prompts/`                       | One prompt file per cat, in a local git repository      |
-| `tasks.json`, `flows/<task id>/` | The task board and the event log of each team task      |
+| `tasks.json`, `flows/<task id>/` | The CEO's jobs and the event log of each team task      |
 | `worktrees/<task id>/`           | The git worktree of each task                           |
 | `auth-token`                     | The server token (mode 0600)                            |
 | `update/`                        | The update logs                                         |
@@ -205,7 +205,7 @@ All files are in `~/.pixel-agents/`:
 
 **I want a new token.** Stop the server, delete `~/.pixel-agents/auth-token` and start `catavasia` again. Open the new URL.
 
-**The cats do not do my tasks.** Check that `claude --version` works in the same terminal, and that you are logged in to Claude Code. The cats run `claude` in the folder that you give the task.
+**The cats do not do my tasks.** Check that `claude --version` works in the same terminal, and that you are logged in to Claude Code. The cats run `claude` in the work folder of the CEO chat.
 
 **My Claude sessions do not show as cats.** By default the office shows only your own cats. Turn on **Settings → Show Guests** to show other Claude sessions of this project. **Settings → Watch All Sessions** adds the sessions of all projects. **Settings → Debug View** shows the connection state.
 

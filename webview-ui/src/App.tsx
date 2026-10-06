@@ -17,14 +17,12 @@ import { IntroBubble } from './components/IntroBubble.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { PetRadialMenu } from './components/PetRadialMenu.js';
 import { SettingsModal } from './components/SettingsModal.js';
-import { fetchTasks } from './components/taskBoard/taskApi.js';
-import { TaskBoard } from './components/taskBoard/TaskBoard.js';
 import { TaskDetailModal } from './components/taskBoard/TaskDetailModal.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
-import { CAT_CEO_ID, TASK_POLL_INTERVAL_MS } from './constants.js';
+import { CAT_CEO_ID } from './constants.js';
 import { EngineLoginPanel } from './engines/EngineLoginPanel.js';
 import { EngineBanner } from './engines/EngineNotice.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
@@ -37,7 +35,6 @@ import { ToolOverlay } from './office/components/ToolOverlay.js';
 import { EditorState } from './office/editor/editorState.js';
 import { EditorToolbar } from './office/editor/EditorToolbar.js';
 import { OfficeState } from './office/engine/officeState.js';
-import { countTasks } from './office/engine/whiteboardNotes.js';
 import { exportLayoutToFile } from './office/layout/exportLayout.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
@@ -137,28 +134,6 @@ function App() {
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isTasksOpen, setIsTasksOpen] = useState(false);
-  const openTasks = useCallback(() => setIsTasksOpen(true), []);
-
-  // The whiteboard tooltip shows the live task counts (standalone only: VS Code has no task board).
-  useEffect(() => {
-    if (!isBrowserRuntime) return;
-    let alive = true;
-    const poll = async () => {
-      try {
-        const { tasks } = await fetchTasks();
-        if (alive) getOfficeState().taskCounts = countTasks(tasks);
-      } catch {
-        /* server gone: keep the last counts */
-      }
-    };
-    void poll();
-    const timer = setInterval(() => void poll(), TASK_POLL_INTERVAL_MS);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, []);
   const [isCatsOpen, setIsCatsOpen] = useState(false);
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   /** The cat the Hierarchy chart asked the Cats menu to open on. */
@@ -292,6 +267,13 @@ function App() {
   const [terminalCatId, setTerminalCatId] = useState<number | null>(null);
   // The CEO desk dock (standalone only): the CEO cat opens it, not a cat terminal.
   const [dockExpandKey, setDockExpandKey] = useState(0);
+  // A Cat CEO edit row links the cat's Prompt history in the Cats menu.
+  const openPromptHistory = (catId: string) => {
+    setCatsFocusId(catId);
+    setCatsFocusHistory(true);
+    setIsCatsOpen(true);
+  };
+  const expandDock = useCallback(() => setDockExpandKey((k) => k + 1), []);
   const openCatChat = (agentId: number) => {
     if (isCeoAgent(agentId)) setDockExpandKey((k) => k + 1);
     else setTerminalCatId(agentId);
@@ -415,7 +397,6 @@ function App() {
       <OfficeCanvas
         officeState={officeState}
         onClick={handleClick}
-        onOpenTasks={isBrowserRuntime ? openTasks : undefined}
         isEditMode={editor.isEditMode}
         editorState={editorState}
         onEditorTileAction={editor.handleEditorTileAction}
@@ -612,8 +593,6 @@ function App() {
         onToggleEditMode={editor.handleToggleEditMode}
         isSettingsOpen={isSettingsOpen}
         onToggleSettings={() => setIsSettingsOpen((v) => !v)}
-        isTasksOpen={isTasksOpen}
-        onToggleTasks={() => setIsTasksOpen((v) => !v)}
         isCatsOpen={isCatsOpen}
         onToggleCats={() => setIsCatsOpen((v) => !v)}
         isHierarchyOpen={isHierarchyOpen}
@@ -621,8 +600,21 @@ function App() {
         workspaceFolders={workspaceFolders}
       />
 
-      <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
-      <EngineBanner />
+      {/* Top banners, stacked so they never cover each other: the update offer,
+          then the engine notice. Centred in the room the open CEO dock leaves:
+          the office already narrows by --dock-space; an overlaying dock covers
+          the rest of --dock-width. */}
+      <div
+        className="absolute top-8 -translate-x-1/2 z-40 flex flex-col items-center gap-8"
+        style={{
+          left: 'calc((100% - var(--dock-width, 0px) + var(--dock-space, 0px)) / 2)',
+          width: 'min(560px, calc(100% - 32px - var(--dock-width, 0px) + var(--dock-space, 0px)))',
+        }}
+      >
+        {isBrowserRuntime && <UpdateBanner />}
+        {/* The tour has its own engines step: the banner would sit under the bubble. */}
+        {!intro && <EngineBanner />}
+      </div>
       <EngineLoginPanel />
       <CatsModal
         isOpen={isCatsOpen}
@@ -656,6 +648,7 @@ function App() {
             const agentId = catOfficeFeed.agentIdOf(catId);
             if (agentId !== undefined) setTerminalCatId(agentId);
           }}
+          onOpenPromptHistory={openPromptHistory}
         />
       )}
       {terminalCatId !== null && !isCeoAgent(terminalCatId) && (
@@ -664,19 +657,13 @@ function App() {
           catId={String(terminalCatId)}
           catLabel={officeState.characters.get(terminalCatId)?.folderName ?? 'Cat'}
           onClose={() => setTerminalCatId(null)}
-          onOpenPromptHistory={(catId) => {
-            setCatsFocusId(catId);
-            setCatsFocusHistory(true);
-            setIsCatsOpen(true);
-          }}
+          onOpenPromptHistory={openPromptHistory}
         />
       )}
 
       <VersionIndicator currentVersion={extensionVersion} onOpenChangelog={handleOpenChangelog} />
 
       <ConnectionIndicator />
-
-      {isBrowserRuntime && <UpdateBanner />}
 
       <ChangelogModal
         isOpen={isChangelogOpen}
@@ -752,9 +739,9 @@ function App() {
           installPending={installPending}
           onChoice={handleConsentChoice}
           onClose={handleIntroClose}
+          onShowCeo={isBrowserRuntime ? expandDock : undefined}
           escapeSuppressed={
             isSettingsOpen ||
-            isTasksOpen ||
             isCatsOpen ||
             isHierarchyOpen ||
             isChangelogOpen ||

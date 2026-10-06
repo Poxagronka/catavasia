@@ -8,7 +8,7 @@ import { CatAvatar } from './CatAvatar.js';
 import { Markdown } from './Markdown.js';
 import { fetchTask } from './taskApi.js';
 import { TaskControls } from './TaskControls.js';
-import { formatElapsed, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
+import { formatElapsed, reviewBadge, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -41,6 +41,10 @@ function Meta({ task }: { task: TaskDetail }) {
   if (task.costUsd !== undefined) facts.push(['Cost', `$${task.costUsd.toFixed(4)}`]);
   if (task.durationMs !== undefined) facts.push(['Run time', formatElapsed(task.durationMs)]);
   if (task.numTurns !== undefined) facts.push(['Turns', String(task.numTurns)]);
+  // The Cat CEO judge review (the task board's badge before the CEO desk).
+  const review = reviewBadge(task.review);
+  if (review)
+    facts.push(['Review', review.title ? `${review.text}: ${review.title}` : review.text]);
   return (
     <div className="flex gap-12 items-start">
       <CatAvatar palette={task.palette} hueShift={task.hueShift} />

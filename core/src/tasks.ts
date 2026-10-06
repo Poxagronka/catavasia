@@ -111,18 +111,3 @@ export interface TaskDetail extends TaskSummary {
   diffTruncated?: boolean;
   log: TaskLogEntry[];
 }
-
-export interface TaskListResponse {
-  tasks: TaskSummary[];
-  /** Folder the server was started in: the form's default target. */
-  defaultCwd: string;
-  /** Team and cats a task can go to (empty when the cat office is off). */
-  targets: TaskTarget[];
-}
-
-export interface CreateTaskRequest {
-  prompt: string;
-  cwd?: string;
-  /** `team`, a cat id, or absent for one plain run. */
-  target?: string;
-}
