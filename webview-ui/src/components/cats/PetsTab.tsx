@@ -31,12 +31,12 @@ function PetEditor({
   const [name, setName] = useState(pet.name);
   const [confirming, setConfirming] = useState(false);
   const error = nameErrors(name)[0] ?? null;
-  const preview: PreviewFn = (a, size) => (
+  const preview: PreviewFn = (a, size, dir) => (
     <PetSprite
       petType={pet.petType}
       appearance={a}
       zoom={size === 'big' ? PET_EDITOR_ZOOM : PET_PRESET_ZOOM}
-      mode={size === 'big' ? 'tour' : 'walk'}
+      dir={dir}
     />
   );
   return (
