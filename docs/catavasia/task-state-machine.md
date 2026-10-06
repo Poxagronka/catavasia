@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Status: design, not built. Base: phase 1 code on `main` (`server/src/orchestrator/`).
 User request: "make the task execution structure with delegation/orchestration by the canons of a state machine".
-Related specs: [context-policy.md](context-policy.md) (sessions and prompts), [head-cat-judge.md](head-cat-judge.md) (post-done review).
+Related specs: [context-policy.md](context-policy.md) (sessions and prompts), [cat-ceo-judge.md](cat-ceo-judge.md) (post-done review).
 
 ## 1. Decisions in short
 
@@ -10,7 +10,7 @@ Related specs: [context-policy.md](context-policy.md) (sessions and prompts), [h
 - Three machines: the **task** machine, one **assignment** machine per delegation, and one **turn** region per cat in the task. Hierarchy and parallel regions are plain nested data, not a library.
 - Hand-written typed reducer. No XState (section 7).
 - Persistence = append-only event log + snapshot per task. A restart replays the log and resumes deterministically. The task stops in `interrupted` until the user presses Resume.
-- New behaviour on top of phase 1: turn timeout, one retry for infrastructure failures, user cancel, resume after restart, explicit rework (`delegate` with `rework: true`), Head Cat review region after `done`.
+- New behaviour on top of phase 1: turn timeout, one retry for infrastructure failures, user cancel, resume after restart, explicit rework (`delegate` with `rework: true`), Cat CEO review region after `done`.
 
 ## 2. Vocabulary
 
@@ -89,7 +89,7 @@ stateDiagram-v2
   state done {
     [*] --> review_pending
     review_pending --> reviewing: slot granted
-    review_pending --> review_skipped: Head Cat off
+    review_pending --> review_skipped: Cat CEO off
     reviewing --> reviewed: ReviewFinished
     reviewing --> review_failed: ReviewFailed
   }
@@ -102,12 +102,12 @@ stateDiagram-v2
 
 ### 3.4 Review region (post-done)
 
-`done` and `error` have one inner region for the Head Cat review ([head-cat-judge.md](head-cat-judge.md)). The user gets the result at `done`. The review never blocks or changes the result.
+`done` and `error` have one inner region for the Cat CEO review ([cat-ceo-judge.md](cat-ceo-judge.md)). The user gets the result at `done`. The review never blocks or changes the result.
 
 | From | Event | Guard | To | Actions |
 | :- | :- | :- | :- | :- |
-| (entry) | enter `done` / `error` | Head Cat on, task had ≥ 1 cat turn | `review_pending` | `RequestReview(taskId)` |
-| (entry) | enter `done` / `error` | Head Cat off | `review_skipped` | none |
+| (entry) | enter `done` / `error` | Cat CEO on, task had ≥ 1 cat turn | `review_pending` | `RequestReview(taskId)` |
+| (entry) | enter `done` / `error` | Cat CEO off | `review_skipped` | none |
 | `review_pending` | `ReviewStarted` | (none) | `reviewing` | `Emit(reviewStarted)` |
 | `reviewing` | `ReviewFinished{verdict, scores, edits}` | (none) | `reviewed` | store scores per assignment, `Emit(reviewFinished)`, `SaveTask` |
 | `reviewing` | `ReviewFailed{error}` | (none) | `review_failed` | log, `SaveTask` |
@@ -201,7 +201,7 @@ stateDiagram-v2
 
 Retry rule (A14): a failure with no `result` event (spawn error, crash, non-zero exit) or a `result` with `is_error` gets one retry after 10 s. A timeout gets no retry. Constants: `TURN_RETRY_MAX = 1`, `TURN_RETRY_DELAY_MS = 10_000`, `TURN_TIMEOUT_MS = 1_800_000` (30 min).
 
-The global cap (Settings → Cats Working at Once) stays in `TurnScheduler`, outside the reducer. It is a shared resource for all tasks and the Head Cat. `TurnGranted` is the scheduler's answer to `RequestTurn`.
+The global cap (Settings → Cats Working at Once) stays in `TurnScheduler`, outside the reducer. It is a shared resource for all tasks and the Cat CEO. `TurnGranted` is the scheduler's answer to `RequestTurn`.
 
 ## 6. Invariants
 
@@ -254,9 +254,9 @@ function reduce(state: TaskState, event: TaskEvent): Step;
 | `SaveTask` | task board sink | none |
 | `FinalizeWorkspaces{mode}` | `endFlowWorkspaces`, remove token files | `FinalizeFinished` |
 | `ReleaseCharacters` | `finishHeadlessAgent` per member | none |
-| `RequestReview{taskId}` | Head Cat queue | `ReviewStarted`, `ReviewFinished` / `ReviewFailed` |
+| `RequestReview{taskId}` | Cat CEO queue | `ReviewStarted`, `ReviewFinished` / `ReviewFailed` |
 
-Log-only events change no state but go into the log for the Head Cat digest: `ToolActivity{catId, tool, isError}` (from stream-json) and `CompactHappened{catId, trigger, preTokens, postTokens}` ([context-policy.md](context-policy.md) §4).
+Log-only events change no state but go into the log for the Cat CEO digest: `ToolActivity{catId, tool, isError}` (from stream-json) and `CompactHappened{catId, trigger, preTokens, postTokens}` ([context-policy.md](context-policy.md) §4).
 
 The interpreter runs effects in order. Each task has one event queue, so events of one task never interleave. Office tool calls arrive over MCP as `ToolCalled{callId, catId, name, args}`. The interpreter appends the event, reduces it, runs the effects, and returns `reply` as the MCP tool result.
 
@@ -267,7 +267,7 @@ The interpreter runs effects in order. Each task has one event queue, so events 
 - `snapshot.json`: `{seq, state}`, written atomically (tmp + rename) after every `TurnFinished` and every terminal state.
 - Load: read the snapshot, replay the events with `seq` above it, then reduce `ServerRestarted` for each task in an active state (T13).
 - Determinism: the reducer reads time only from `event.at` and ids only from events. A replay of the same log gives the same state. A test replays every recorded log and compares with the snapshot.
-- Retention: logs of finished tasks stay. The Head Cat reads them ([head-cat-judge.md](head-cat-judge.md) §5.1). Logs older than 30 days are deleted at server start.
+- Retention: logs of finished tasks stay. The Cat CEO reads them ([cat-ceo-judge.md](cat-ceo-judge.md) §5.1). Logs older than 30 days are deleted at server start.
 
 ## 10. Phase 1 behaviour and game events on the machine
 
@@ -306,9 +306,9 @@ Each step ends with green `npm test` in `server/` and the existing `__tests__/ca
 4. `machine/interpreter.ts`: runs effects with the existing helpers (`gitWorktree.ts`, `TurnScheduler`, `sessionLocks.ts`, adapters). Test: the phase 1 e2e scenario of `catOfficeFlow.test.ts` with a fake adapter emits the same `flowStateChanged` and `catMessage` sequence as today (golden list captured from `main` before the switch).
 5. `machine/eventLog.ts`: append + fsync, snapshot, replay. Test: kill the interpreter mid-task, reload, assert `interrupted`, Resume, assert the task ends `done` with both branches merged.
 6. Switch `orchestrator.ts` to the interpreter. Delete `flowTurns.ts` turn logic (keep `prepareWorkspace` and `endFlowWorkspaces` as effect helpers). Test: full suite + a real CLI e2e run (ROADMAP phase 1 task).
-7. Wire: add `cancelled` to `FlowState`, `cancelTask` / `resumeTask` client messages to `core/asyncapi.yaml` (the review messages come with head-cat-judge.md step 1). Add `rework` to the `delegate` tool schema in `officeMcp.ts`. Test: asyncapi contract test.
+7. Wire: add `cancelled` to `FlowState`, `cancelTask` / `resumeTask` client messages to `core/asyncapi.yaml` (the review messages come with cat-ceo-judge.md step 1). Add `rework` to the `delegate` tool schema in `officeMcp.ts`. Test: asyncapi contract test.
 8. Task card: Cancel and Resume buttons (webview). Test: webview unit test of the buttons and the token check.
 
 ## 12. Open questions
 
-None blocking. Decided here: the review region does not block `done` (§3.4); restart pauses in `interrupted` instead of auto-resume, so a crash loop cannot burn turns; rework is an explicit `delegate` flag, so the Head Cat can count rejections.
+None blocking. Decided here: the review region does not block `done` (§3.4); restart pauses in `interrupted` instead of auto-resume, so a crash loop cannot burn turns; rework is an explicit `delegate` flag, so the Cat CEO can count rejections.
