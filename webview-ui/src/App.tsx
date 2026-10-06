@@ -135,7 +135,7 @@ function App() {
   const [isTasksOpen, setIsTasksOpen] = useState(false);
   const openTasks = useCallback(() => setIsTasksOpen(true), []);
 
-  // The whiteboards show the live task counts (standalone only: VS Code has no task board).
+  // The whiteboard tooltip shows the live task counts (standalone only: VS Code has no task board).
   useEffect(() => {
     if (!isBrowserRuntime) return;
     let alive = true;

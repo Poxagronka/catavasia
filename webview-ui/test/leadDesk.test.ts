@@ -2,7 +2,7 @@
  * The team lead desk and the Tasks whiteboard of default revision 9: the lead
  * chair reserved for the root of the cat tree (the desk follows a new root),
  * the old behavior in an office with no lead chair, the whiteboard hit test
- * and its live sticky notes, and the Hierarchy hint.
+ * and its plain board art, and the Hierarchy hint.
  *
  * Run with: npm test
  */
@@ -18,14 +18,12 @@ import { buildFurnitureCatalog } from '../../core/src/assets/build.ts';
 import { CatOfficeFeed } from '../src/catOfficeFeed.js';
 import type { CatProfile } from '../src/cats/catsApi.js';
 import { leadHint } from '../src/cats/hierarchy.js';
-import { WHITEBOARD_INK, WHITEBOARD_NOTE_COLORS } from '../src/constants.js';
 import type { ResidentCat } from '../src/office/engine/officeState.js';
 import { OfficeState } from '../src/office/engine/officeState.js';
 import { mulberry32 } from '../src/office/engine/socialMoves.js';
 import {
   countTasks,
   whiteboardAt,
-  whiteboardSprite,
   whiteboardTooltip,
 } from '../src/office/engine/whiteboardNotes.js';
 import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
@@ -236,32 +234,13 @@ test('the board counts running, waiting and done tasks', () => {
   assert.deepEqual(whiteboardTooltip(null), ['Tasks']);
 });
 
-test('the board shows one sticky note per status and updates with the counts', () => {
+test('the board stays a plain drawing whatever the counts', () => {
   const os = new OfficeState(layout());
   const base = () => os.furniture.find((f) => f.uid === BOARD)!.sprite;
   const drawn = () => os.getFurnitureForRender().find((f) => f.uid === BOARD)!.sprite;
   assert.equal(drawn(), base(), 'no counts yet: the plain board');
-
-  const plain: string[][] = Array.from({ length: 32 }, () => Array(32).fill('board'));
-  const one = whiteboardSprite(plain, { running: 1, waiting: 0, done: 12 });
-  // Note papers: yellow (running), pink (waiting), green (done).
-  assert.equal(one[13][3], WHITEBOARD_NOTE_COLORS.running.paper);
-  assert.equal(one[13][12], WHITEBOARD_NOTE_COLORS.waiting.paper);
-  assert.equal(one[13][21], WHITEBOARD_NOTE_COLORS.done.paper);
-  const ink = (s: string[][], x0: number) =>
-    s
-      .slice(14, 19)
-      .map((row) => row.slice(x0, x0 + 7).map((c) => (c === WHITEBOARD_INK ? '#' : '.')));
-  assert.deepEqual(
-    ink(one, 21).map((r) => r.join('')),
-    ['.#..###', '##....#', '.#..###', '.#..#..', '###.###'],
-    'the done note reads 12',
-  );
-  assert.equal(whiteboardSprite(plain, { running: 1, waiting: 0, done: 12 }), one, 'cached');
-  assert.notEqual(whiteboardSprite(plain, { running: 2, waiting: 0, done: 12 }), one);
-
   os.taskCounts = { running: 1, waiting: 2, done: 3 };
-  assert.notEqual(drawn(), base(), 'the counts arrive: notes drawn on the board');
+  assert.equal(drawn(), base(), 'the counts arrive: still the plain board');
 });
 
 test('the Hierarchy hint: a lead role off the top, or a root that is no lead', () => {
