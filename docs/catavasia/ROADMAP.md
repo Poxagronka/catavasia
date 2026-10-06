@@ -329,3 +329,15 @@ User (2026-10-06): "All furniture objects must be rotatable, and the cats must h
 - **Item-local spots** resolved by `itemFrame`: teaser uses the item's left (flips when mirrored), on-item poses (`OnItemPose` per art view) flip x, house and hood peeks flip x and draw mirrored, the open litter dig faces the item's right, a mirrored item swaps the LEFT/RIGHT of explicit step directions, the shelf book column flips, the tunnel runs along its long axis (until vertical art exists the tunnel is mirror-only). Coffee keeps its PR #45 logic.
 - **Previews**: `scripts/preview-furniture.ts` (GIF per view × activity with three coats, frame strips, the orientation sheet), dependency-free GIF writer in `scripts/preview/`.
 - **Known limits**: a mirror image moves the upper-left highlight to the right on mirrored items; items that need real side/back art (executive desk, table front, benches, play tunnel, hammock, PC on-state side/back) follow in feat/rotate-art.
+
+## Drawn views (feat/rotate-art, agent-made 2026-10-06)
+
+Follow-up of "Every furniture item turns": real side/back art where a mirror image is not enough, made with the `add-furniture` skill.
+
+- **Executive desk** (3-way-mirror): side 2x3 with the nameplate toward the visitor (right), back 3x2 showing the CEO side (drawers, open knee hole). **Lead desk** (#51, was 2-way): a back view (lit screens toward the lead and the room, knee hole) and the mirrored left side, now 3-way-mirror. The lead chair already had every view.
+- **Table** (2-way): side view 64x48 on 4x3, stretched from the upstream front art (`scripts/generate-table-sprites.mjs`): the art is a plain top with apron and legs, so stretching keeps it pixel-identical in style.
+- **Play tunnel** (2-way): a vertical side view (far mouth a slit at the top, near mouth at the bottom); the cat runs through it up and down. **Radiator hammock** (3-way-mirror, no back: a back view would hide the cat): the radiator edge-on with the sling lengthwise; the nap pose has side numbers.
+- **PC**: on-state frames for the side and back (`scripts/generate-pc-sprites.mjs`, derived from the upstream off art: screen light and lit keys at the side, a glow round the monitor and an LED at the back). The mirrored left side switches on too: the catalog pairs `:left` on/off states, the renderer mirrors any `:left` type of a `mirrorSide` asset, auto-on keeps the suffix.
+- **Benches stay symmetric**: both are 1x1 stools with no back or long axis; every turn is the same pixels, so drawn views would add files and no change.
+- **Saved mirror views**: a `<ID>:left` saved while an item was mirror-only (PR A) loads as the front once the item has drawn views (`migrateFurnitureTypes`).
+- **Previews**: `--work` (a cat typing at a desk or table in every view; the executive and lead chairs are held for the Cat CEO and the lead, so the previews use the cushioned chair) and `--states` (a view's off sprite and its on animation).

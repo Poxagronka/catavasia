@@ -18,6 +18,7 @@ import {
   leadChairBack,
   leadChairFront,
   leadChairSide,
+  leadDeskBack,
   leadDeskFront,
   leadDeskSide,
 } from './leadArt.mjs';
@@ -80,10 +81,11 @@ export const EXECUTIVE_ITEMS = [
     name: 'Team Lead Desk',
     category: 'desks',
     backgroundTiles: 1,
-    rotationScheme: '2-way',
+    rotationScheme: '3-way-mirror',
     members: [
       { orientation: 'front', rows: leadDeskFront() },
-      { orientation: 'side', rows: leadDeskSide() },
+      { orientation: 'side', rows: leadDeskSide(), mirrorSide: true },
+      { orientation: 'back', rows: leadDeskBack() },
     ],
   },
   {

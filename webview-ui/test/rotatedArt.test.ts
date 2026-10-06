@@ -1,5 +1,5 @@
 /**
- * Drawn views (feat/rotate-art): the executive desk, the table, the tunnel
+ * Drawn views (feat/rotate-art): the executive and lead desks, the table, the tunnel
  * and the hammock have real side (and back) art, the PC switches on in every
  * view, and a mirror view saved before an item got drawn views still loads.
  * The guard (furnitureRotation.test.ts) covers spots and rendering for every
@@ -66,6 +66,12 @@ test('drawn views turn the footprint a quarter', () => {
   ]);
   assert.deepEqual(size('EXECUTIVE_DESK_SIDE'), [2, 3]);
   assert.deepEqual(size('EXECUTIVE_DESK_BACK'), [3, 2]);
+  assert.deepEqual(views('LEAD_DESK_FRONT'), [
+    'LEAD_DESK_FRONT',
+    'LEAD_DESK_SIDE',
+    'LEAD_DESK_BACK',
+    'LEAD_DESK_SIDE:left',
+  ]);
   assert.deepEqual(views('TABLE_FRONT'), ['TABLE_FRONT', 'TABLE_FRONT_SIDE']);
   assert.deepEqual(size('TABLE_FRONT_SIDE'), [4, 3]);
   assert.deepEqual(views('PLAY_TUNNEL'), ['PLAY_TUNNEL', 'PLAY_TUNNEL_SIDE']);
