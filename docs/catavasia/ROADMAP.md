@@ -187,7 +187,7 @@ Verify before building the Codex adapter (from the installed `codex --help` and 
 - Meeting: participants sit on the room's chairs (own seat if it is there, else a chair no agent owns). Chairs taken for the meeting go into the reconcile as `seat` reservations, so they outrank a napping cat. Cats without a chair stand next to the table. The boss stands at the head and shows a bubble ("Briefing the team", replaced by the boss's latest `brief` message). Messages between two meeting cats play in place, one talk per cat at a time; messages for a meeting cat from outside wait. When the task leaves `briefing`, everyone walks back to its desk. A new briefing of another task ends the current meeting.
 - Known limits: fake hook sessions stay pending (external sessions need confirmation), so the screenshots added agents with the test hooks. A user command (seat / walk) on a cat in a scene is overridden by the scene. A new agent may get a free chair that a meeting holds. A meeting ends only on a non-briefing `flowStateChanged` of the same task (or a new briefing): phase 1 must always send it, also on abort.
 
-## Cute animations, coffee corner, skill reading (feat/cute-animations, agent-made 2026-10-06)
+## Cute animations, coffee corner, skill reading (feat/cute-animations, 1.4.1-cats.15, agent-made 2026-10-06)
 
 User (2026-10-06): a unique animation per cat activity and per toy, polished until cute; coffee machines the cats walk to and make coffee at; a cat that uses a skill reads a book from the shelf.
 
