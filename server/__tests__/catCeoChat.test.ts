@@ -229,6 +229,75 @@ describe('Cat CEO chat', () => {
     });
   });
 
+  it('stops when the Cat CEO is turned off while the judge runs', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    answer = async () => {
+      await gate;
+      return {
+        ok: true,
+        output: {
+          reply: 'Too late.',
+          edits: [
+            {
+              catId: 'dev',
+              section: 'Rules',
+              op: 'add',
+              text: 'Late rule.',
+              reason: 'r',
+              dictated: true,
+            },
+          ],
+        },
+      };
+    };
+    const agent = ceoAgent();
+    await source.send(agent, 'Add to dev\'s rules: "Late rule."');
+    expect(office.editProfiles({ type: 'setCatCeoSettings', enabled: false })).toBeUndefined();
+    release();
+    await idle();
+    expect(source.snapshot(agent)!.entries.at(-1)).toEqual({ kind: 'error', text: CEO_OFF_TEXT });
+    expect(office.cats.prompts.read('dev').file.rules).toHaveLength(0);
+  });
+
+  it('counts an item as dictated only when the message holds it', async () => {
+    answer = () => ({
+      ok: true,
+      output: {
+        reply: 'Added.',
+        edits: [
+          {
+            catId: 'dev',
+            section: 'Rules',
+            op: 'add',
+            text: 'Lint before you push.',
+            reason: 'r',
+            dictated: true,
+          },
+        ],
+      },
+    });
+    await source.send(ceoAgent(), 'Please make dev more careful.');
+    await idle();
+    const [commit] = office.cats.prompts.log('dev');
+    expect(commit.body).not.toContain('Prompt-User-Items');
+    expect(itemHistory('dev', office.cats.prompts).get('R1')?.owner).toBe('cat-ceo');
+  });
+
+  it('drops broken rows of the saved history', () => {
+    const file = path.join(stateDir, 'cat-ceo', 'chat.json');
+    const rows = [
+      null,
+      { kind: 'user' },
+      { kind: 'edits', text: 'x' },
+      { kind: 'user', text: 'ok', at: 1 },
+    ];
+    fs.writeFileSync(file, JSON.stringify({ version: 1, messages: rows }));
+    office.dispose();
+    startOffice();
+    expect(entries()).toEqual([{ kind: 'user', text: 'ok' }]);
+  });
+
   it('shows a readable error when the run fails, and takes the next message', async () => {
     answer = () => ({ ok: false, error: 'exit code 1: boom', costUsd: 0.01 });
     await source.send(ceoAgent(), 'Hello?');

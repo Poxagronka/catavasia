@@ -33,7 +33,7 @@ import {
 import type { CeoSettings } from './ceoSettings.js';
 import type { JudgeResult } from './judgeRunner.js';
 import type { JudgeAnomaly, JudgeEdit } from './judgeSchema.js';
-import { type CatPatch, planEdits, type RejectedEdit } from './promptPatch.js';
+import { type CatPatch, normalizeItem, planEdits, type RejectedEdit } from './promptPatch.js';
 import { authorOf } from './regressionGuard.js';
 import type { ReviewStore } from './reviewStore.js';
 import { redact } from './secretScan.js';
@@ -156,6 +156,11 @@ export class CeoChat {
         message: text,
       });
       const result = await host.judge(CHAT_RULES, digest, CHAT_SCHEMA);
+      // Turned off while the judge ran: no reply, no edits.
+      if (!host.settings().enabled) {
+        this.add({ kind: 'error', text: CEO_OFF_TEXT });
+        return;
+      }
       if (!result.ok) throw new Error(`${result.error}${cost(result.costUsd)}`);
       const parsed = parseChatOutput(result.output);
       if (!parsed.ok) throw new Error(`bad chat output: ${parsed.error}${cost(result.costUsd)}`);
@@ -189,7 +194,7 @@ export class CeoChat {
     const date = new Date(this.host.now()).toISOString().slice(0, 10);
     const asReview: JudgeEdit[] = edits.map(({ dictated, ...e }) => ({
       ...e,
-      anomalyIds: [dictated ? USER_ITEM : CEO_ITEM],
+      anomalyIds: [dictated && inRequest(e, request) ? USER_ITEM : CEO_ITEM],
     }));
     const team = this.host
       .roster()
@@ -238,7 +243,15 @@ export class CeoChat {
   private read(): ChatEntry[] {
     try {
       const data = JSON.parse(fs.readFileSync(this.file, 'utf-8')) as { messages?: unknown };
-      return Array.isArray(data.messages) ? (data.messages as ChatEntry[]) : [];
+      if (!Array.isArray(data.messages)) return [];
+      // A hand-edited or broken row would break every later run: drop it.
+      return (data.messages as Array<Partial<ChatEntry> | null>).filter(
+        (m): m is ChatEntry =>
+          !!m &&
+          typeof m.text === 'string' &&
+          ['user', 'text', 'error', 'edits'].includes(m.kind ?? '') &&
+          (m.kind !== 'edits' || Array.isArray(m.catIds)),
+      );
     } catch {
       return [];
     }
@@ -254,6 +267,17 @@ export class CeoChat {
       console.error(`[Pixel Agents] Cat CEO chat: could not save the history: ${String(err)}`);
     }
   }
+}
+
+/**
+ * The model's `dictated` holds only when the user's message really holds the
+ * item: its text (normalized), or for a remove its id.
+ */
+function inRequest(edit: Omit<ChatEdit, 'dictated'>, request: string): boolean {
+  if (edit.op === 'remove')
+    return !!edit.itemId && new RegExp(`\\b${edit.itemId}\\b`).test(request);
+  const text = normalizeItem(edit.text ?? '');
+  return !!text && normalizeItem(request).includes(text);
 }
 
 const cut = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 1)}…` : text);
