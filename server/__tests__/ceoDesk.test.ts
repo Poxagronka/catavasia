@@ -371,10 +371,12 @@ describe('board migration', () => {
       { kind: 'job', job: { jobId: board.id, state: 'interrupted' } },
     ]);
     expect(env.tasks.chatJobs(saved.chatId).map((t) => t.id)).toEqual([board.id]);
-    // The next start adds nothing.
+    // A New chat keeps the flag: the next start adds nothing either way.
+    env.desk.newChat();
+    expect(JSON.parse(fs.readFileSync(deskFile, 'utf-8')).boardAdopted).toBe(true);
     await env.close();
     env = await startDeskOffice(() => ({ text: 'ok' }), { tmp });
-    expect(env.desk.snapshot().entries.filter((r) => r.kind === 'job')).toHaveLength(1);
+    expect(env.desk.snapshot().entries.filter((r) => r.kind === 'job')).toHaveLength(0);
   });
 });
 

@@ -174,7 +174,13 @@ export class DeskStore {
       const paths = [path.join(this.chatsDir, `${id}.json`), this.chatDir(id)];
       const touched = Math.max(...paths.map(mtimeOf));
       if (now - touched <= ARCHIVE_KEEP_MS) continue;
-      for (const p of paths) fs.rmSync(p, { recursive: true, force: true });
+      for (const p of paths) {
+        try {
+          fs.rmSync(p, { recursive: true, force: true });
+        } catch {
+          // A locked or read-only file: the next start tries again.
+        }
+      }
     }
   }
 }

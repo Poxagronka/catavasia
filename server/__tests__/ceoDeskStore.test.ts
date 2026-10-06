@@ -81,6 +81,25 @@ describe('CEO desk store', () => {
     expect(fs.existsSync(store.chatDir(state.chatId))).toBe(true);
   });
 
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'a chat it cannot remove does not stop the start',
+    () => {
+      const store = new DeskStore(dir);
+      store.load(Date.now());
+      const old = path.join(store.chatsDir, 'c-locked');
+      fs.mkdirSync(path.join(old, 'work'), { recursive: true });
+      fs.writeFileSync(path.join(old, 'work', 'f.txt'), 'x');
+      const past = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+      fs.utimesSync(old, past, past);
+      fs.chmodSync(path.join(old, 'work'), 0o500);
+      try {
+        expect(() => new DeskStore(dir).load(Date.now())).not.toThrow();
+      } finally {
+        fs.chmodSync(path.join(old, 'work'), 0o700);
+      }
+    },
+  );
+
   it('removes an archived chat folder with its attachments together with its history', () => {
     const store = new DeskStore(dir);
     store.load(Date.now());

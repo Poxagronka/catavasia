@@ -98,6 +98,11 @@ describe('edit_prompts', () => {
       add('murka', 'Lessons', 'two\nlines', false),
       add('pushok', 'Lessons', 'Use token ghp_abcdefghijklmnopqrstuvwxyz0123456789 now.', false),
       ['edit_prompts', { catId: 'murka', op: 'rename', section: 'Rules', dictated: false }],
+      // A malformed id must not break the dictated check (it builds a pattern from the id).
+      [
+        'edit_prompts',
+        { catId: 'murka', op: 'remove', section: 'Rules', itemId: 'R1(', dictated: true },
+      ],
     ]);
     expect(replies.every((r) => r.isError)).toBe(true);
     expect(replies.map((r) => r.text)).toEqual([
@@ -107,6 +112,7 @@ describe('edit_prompts', () => {
       'Not applied: text is more than one line',
       'Not applied: text looks like a secret or a private path',
       'op: add, replace or remove',
+      'Not applied: R1( does not exist',
     ]);
     const { prompts } = env!.office.cats;
     expect(prompts.log('murka').filter((c) => isChatCommit(c.subject))).toEqual([]);

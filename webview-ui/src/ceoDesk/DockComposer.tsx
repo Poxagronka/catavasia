@@ -25,6 +25,8 @@ interface DockComposerProps {
   notice?: ReactNode;
   /** Files that come back to the box (Stop returns the queued messages). */
   restored?: File[];
+  /** The restored files are in the box: the dock forgets them (no second add on a remount). */
+  onRestored?(): void;
 }
 
 let nextId = 1;
@@ -42,6 +44,7 @@ export function DockComposer({
   blocked,
   notice,
   restored,
+  onRestored,
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
@@ -79,7 +82,9 @@ export function DockComposer({
   };
 
   useEffect(() => {
-    if (restored?.length) void addFiles(restored);
+    if (!restored?.length) return;
+    void addFiles(restored);
+    onRestored?.();
     // addFiles reads the newest files through filesRef: only a new list matters.
   }, [restored]);
 

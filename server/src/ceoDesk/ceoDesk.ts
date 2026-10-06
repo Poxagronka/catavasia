@@ -167,7 +167,8 @@ export class CeoDesk implements OfficeToolHandler {
     this.stop();
     for (const timer of this.cardTimers.values()) clearTimeout(timer);
     this.cardTimers.clear();
-    this.state = freshDesk();
+    // The board's tasks were adopted once; a New chat never adopts them again.
+    this.state = { ...freshDesk(), boardAdopted: true };
     this.rows = [];
     this.reworkCount = 0;
     this.store.save(this.state);

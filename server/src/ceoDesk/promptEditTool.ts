@@ -129,7 +129,12 @@ export function promptItems(prompts: PromptRepo, cat: CatProfile): string {
  */
 function inRequest(edit: PromptEdit, request: string): boolean {
   if (edit.op === 'remove')
-    return !!edit.itemId && new RegExp(`\\b${edit.itemId}\\b`).test(request);
+    // Only a well-formed id (R1, L3) goes into the pattern: the model sends it.
+    return (
+      !!edit.itemId &&
+      /^[RL]\d+$/.test(edit.itemId) &&
+      new RegExp(`\\b${edit.itemId}\\b`).test(request)
+    );
   const text = normalizeItem(edit.text ?? '');
   return !!text && normalizeItem(request).includes(text);
 }

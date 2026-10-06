@@ -239,6 +239,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}
+          onRestored={() => setRestored(undefined)}
         />
       )}
     </div>
