@@ -96,6 +96,8 @@ export type SceneEndReason = 'done' | 'interrupted';
 export interface CatSocialOptions {
   rng?: () => number;
   onSceneEnd?: (catId: number, kind: SocialKind, reason: SceneEndReason) => void;
+  /** A cat another system moves on purpose (office scenes): never in a scene. */
+  isHeld?: (catId: number) => boolean;
 }
 
 /**
@@ -133,6 +135,7 @@ const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 export class CatSocial {
   rng: () => number;
   private readonly onSceneEnd?: CatSocialOptions['onSceneEnd'];
+  private readonly isHeld?: CatSocialOptions['isHeld'];
   private readonly scenes = new Set<Scene>();
   private readonly sceneOf = new Map<number, Scene>();
   private readonly catCooldownUntil = new Map<number, number>();
@@ -144,10 +147,11 @@ export class CatSocial {
   constructor(opts: CatSocialOptions = {}) {
     this.rng = opts.rng ?? Math.random;
     this.onSceneEnd = opts.onSceneEnd;
+    this.isHeld = opts.isHeld;
   }
 
   canSocialize(ch: Character, inActivity = false): boolean {
-    return canSocialize(ch, inActivity) && !this.sceneOf.has(ch.id);
+    return canSocialize(ch, inActivity) && !this.sceneOf.has(ch.id) && !this.isHeld?.(ch.id);
   }
 
   isInScene(id: number): boolean {

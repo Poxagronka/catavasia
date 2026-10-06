@@ -138,7 +138,15 @@ async function buildCli() {
     sourcemap: !production,
     platform: 'node',
     outfile: 'dist/cli.js',
-    external: ['fastify', '@fastify/websocket', '@fastify/static', '@fastify/cors'],
+    // Native PTY modules are optional and cannot be bundled (catTerminal/ptyModule.ts).
+    external: [
+      'fastify',
+      '@fastify/websocket',
+      '@fastify/static',
+      '@fastify/cors',
+      '@lydell/node-pty',
+      'node-pty',
+    ],
     define: versionDefine,
     logLevel: 'silent',
   });
