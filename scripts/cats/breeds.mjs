@@ -274,7 +274,9 @@ export const BREEDS = [
     collar: [150, 90, 206],
   },
   {
-    name: 'Nikolai',
+    name: 'Biscuit',
+    // The persisted breed id predates the rename: saved cats keep their coat.
+    id: 'nikolai',
     breed: 'russian blue',
     fur: [124, 138, 160],
     shade: [98, 110, 132],

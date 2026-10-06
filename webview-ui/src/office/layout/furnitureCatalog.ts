@@ -137,6 +137,8 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
     if (asset.groupId && asset.orientation) {
       // For rotation groups, only use the "off" or stateless variant
       if (asset.state && asset.state !== 'off') continue;
+      // ...and only the first frame of an animation (a coffee machine's idle look)
+      if (asset.frame) continue;
       let orientMap = groupMap.get(asset.groupId);
       if (!orientMap) {
         orientMap = new Map();
@@ -282,7 +284,7 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
   // Track "on" variant IDs and animation frame IDs (non-first) to exclude from visible catalog
   const onStateIds = new Set<string>();
   for (const asset of assets.catalog) {
-    if (asset.state === 'on') onStateIds.add(asset.id);
+    if (asset.state === 'on' || asset.frame) onStateIds.add(asset.id);
   }
 
   // Store full internal catalog (all variants — for getCatalogEntry lookups)

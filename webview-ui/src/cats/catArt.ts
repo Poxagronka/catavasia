@@ -22,14 +22,14 @@ export interface Preset {
   appearance: Appearance;
 }
 
-const presetId = (name: string) => name.toLowerCase();
+const presetId = (b: { name: string; id?: string }) => b.id ?? b.name.toLowerCase();
 
 /** The 13 office breeds, in char_N order. */
 export const BREED_PRESETS: Preset[] = BREEDS.map((b) => ({
-  id: presetId(b.name),
+  id: presetId(b),
   name: b.name,
   label: b.breed,
-  appearance: { breed: presetId(b.name) },
+  appearance: { breed: presetId(b) },
 }));
 export const BREED_IDS = BREED_PRESETS.map((p) => p.id);
 
@@ -44,8 +44,7 @@ const PATTERN_SOURCE: Record<Exclude<PatternId, 'solid'>, string> = {
   sweater: 'dobby',
 };
 
-const breedById = (id: string | undefined) =>
-  BREEDS.find((b) => presetId(b.name) === id) ?? BREEDS[0];
+const breedById = (id: string | undefined) => BREEDS.find((b) => presetId(b) === id) ?? BREEDS[0];
 
 /** The pattern a breed draws by default. */
 export function breedPattern(id: string | undefined): PatternId {
@@ -246,7 +245,7 @@ const COATS: CoatSpec[] = [
 
 /** Extra coat colours, offered next to the breeds (pets use them most). */
 export const COAT_PRESETS: Preset[] = COATS.map(([name, breed, pattern, colors, eyes]) => ({
-  id: 'coat-' + presetId(name).replace(/[^a-z]+/g, '-'),
+  id: 'coat-' + presetId({ name }).replace(/[^a-z]+/g, '-'),
   name,
   label: pattern === 'solid' ? 'solid' : pattern,
   appearance: {

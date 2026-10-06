@@ -37,14 +37,14 @@ export const PALETTE = {
 };
 
 /** rows with cells (x, y) set to ch; out-of-range cells are ignored. */
-function put(rows, cells) {
+export function put(rows, cells) {
   const out = rows.map((r) => [...r]);
   for (const [x, y, ch] of cells) if (out[y]?.[x] !== undefined) out[y][x] = ch;
   return out.map((r) => r.join(''));
 }
 
 /** 7 frames from a base and a per-frame list of cell edits. */
-function frames(base, edits) {
+export function frames(base, edits) {
   return edits.map((cells) => put(base, cells));
 }
 

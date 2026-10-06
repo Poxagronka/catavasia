@@ -40,6 +40,7 @@ import { orchestratorEvents } from './orchestratorEvents.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
 import { installTestHooks } from './testHooks.js';
 import { transport } from './transport/index.js';
+import { UpdateBanner } from './update/UpdateBanner.js';
 
 // Game state lives outside React — updated imperatively by message handlers
 const officeStateRef = { current: null as OfficeState | null };
@@ -133,6 +134,8 @@ function App() {
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   /** The cat the Hierarchy chart asked the Cats menu to open on. */
   const [catsFocusId, setCatsFocusId] = useState<string | null>(null);
+  /** The Cats menu opens on the focused cat's Prompt history (a Cat CEO chat edit link). */
+  const [catsFocusHistory, setCatsFocusHistory] = useState(false);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -581,9 +584,11 @@ function App() {
       <CatsModal
         isOpen={isCatsOpen}
         focusCatId={catsFocusId}
+        focusHistory={catsFocusHistory}
         onClose={() => {
           setIsCatsOpen(false);
           setCatsFocusId(null);
+          setCatsFocusHistory(false);
         }}
         getOfficeState={getOfficeState}
         onCommitPets={editor.commitPets}
@@ -606,6 +611,11 @@ function App() {
           catId={String(terminalCatId)}
           catLabel={officeState.characters.get(terminalCatId)?.folderName ?? 'Cat'}
           onClose={() => setTerminalCatId(null)}
+          onOpenPromptHistory={(catId) => {
+            setCatsFocusId(catId);
+            setCatsFocusHistory(true);
+            setIsCatsOpen(true);
+          }}
         />
       )}
 
@@ -618,6 +628,8 @@ function App() {
 
       <ConnectionIndicator />
 
+      {isBrowserRuntime && <UpdateBanner />}
+
       <ChangelogModal
         isOpen={isChangelogOpen}
         onClose={() => setIsChangelogOpen(false)}
@@ -629,7 +641,8 @@ function App() {
         onClose={() => setIsSettingsOpen(false)}
         isDebugMode={isDebugMode}
         onToggleDebugMode={handleToggleDebugMode}
-        onResetLayoutToDefault={editor.handleResetToDefault}
+        onResetLayoutToDefault={() => editor.handleResetToDefault()}
+        onResetAll={() => editor.handleResetToDefault('resetAllToDefault')}
         alwaysShowOverlay={alwaysShowOverlay}
         onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
         ghostHeadlessAgents={ghostHeadlessAgents}

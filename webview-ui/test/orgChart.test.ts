@@ -134,6 +134,14 @@ describe('chart edits', () => {
     expect(api.getSnapshot().cats).toHaveLength(before.length + 1);
   });
 
+  it('takes the breed parallel to the name (a renamed breed keeps its id)', () => {
+    const fresh = draftReport([], 'a', 'x', ['Biscuit'], ['nikolai'], {
+      models: ['opus'],
+      efforts: ['low'],
+    });
+    expect(fresh.appearance).toEqual({ breed: 'nikolai' });
+  });
+
   it('falls back to "Cat N" when every listed name is taken', () => {
     const fresh = draftReport(team9(), 'a', 'x', ['a'], ['nikolai'], {
       models: ['opus'],
