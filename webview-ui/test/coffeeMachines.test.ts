@@ -211,7 +211,11 @@ test('brewing at a rotated machine plays its own frames and shows the cup out', 
   const ch = os.characters.get(1)!;
   ch.state = CharacterState.IDLE;
   const spot = os.activitySpots.get('brew')!.spots.find((s) => s.itemUid === espresso.uid)!;
-  assert.deepEqual({ key: spot.key, facing: spot.facing }, { key: '2,19', facing: Direction.LEFT });
+  // The turned machine faces right: the cat stands on the tile right of it, facing left.
+  assert.deepEqual(
+    { key: spot.key, facing: spot.facing },
+    { key: `${espresso.col + 1},${espresso.row}`, facing: Direction.LEFT },
+  );
   assert.ok(os.forceIdleActivity(1, 'brew', spot.key));
   const sprite = () => os.getFurnitureForRender().find((f) => f.uid === espresso.uid)!.sprite;
   const frames = getAnimationFrames('ESPRESSO_MACHINE_SIDE')!.map(

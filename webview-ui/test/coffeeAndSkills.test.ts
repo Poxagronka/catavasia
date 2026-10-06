@@ -94,6 +94,16 @@ test('revision 5 has a coffee station on the main-room counter, and the cats can
   );
 });
 
+test('revision 10: the brew spots follow the machines to their new columns', () => {
+  const os = office(10);
+  const keys = os.activitySpots.get('brew')!.spots.map((s) => s.key);
+  for (const uid of ['f-coffee-espresso', 'f-coffee-pour-over']) {
+    const m = os.layout.furniture.find((f) => f.uid === uid)!;
+    assert.ok(keys.includes(`${m.col + 1},${m.row}`), `beside ${uid}`);
+  }
+  assert.ok(os.queueTiles(1)[0], 'the turn queue has a line');
+});
+
 test('making coffee: brew at the machine, carry the cup to a seat and sip, bring it back', () => {
   const os = office();
   const ch = cat(os, 1);

@@ -26,7 +26,7 @@ import {
   whiteboardAt,
   whiteboardTooltip,
 } from '../src/office/engine/whiteboardNotes.js';
-import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
+import { buildDynamicCatalog, getCatalogEntry } from '../src/office/layout/furnitureCatalog.js';
 import { findPath } from '../src/office/layout/tileMap.js';
 import type { OfficeLayout } from '../src/office/types.js';
 import { CharacterState, Direction } from '../src/office/types.js';
@@ -217,6 +217,35 @@ test('the whiteboard hangs where the clock was and takes the click', () => {
   const clock = l.furniture.find((f) => f.type === 'CLOCK')!;
   assert.equal(whiteboardAt(clock.col * 16 + 8, clock.row * 16 + 18, l.furniture), undefined);
   assert.equal(whiteboardAt(5 * 16, 15 * 16, l.furniture), undefined);
+});
+
+test('revision 10: the whiteboard hangs over the lead desk, framed alike on both sides', () => {
+  const l = layout(10);
+  const board = l.furniture.find((f) => f.uid === BOARD)!;
+  const desk = l.furniture.find((f) => f.uid === 'f-lead-desk')!;
+  // The board is as wide as the desk and hangs right over it: the centres match.
+  const boardW = getCatalogEntry(board.type)!.footprintW;
+  assert.equal(boardW, getCatalogEntry(desk.type)!.footprintW);
+  assert.deepEqual([board.col, board.row], [desk.col, 9]);
+  assert.equal(whiteboardAt(board.col * 16 + 24, board.row * 16 + 18, l.furniture)?.uid, BOARD);
+  // The other items on the work-room top wall mirror each other around the board.
+  const centre2 = 2 * board.col + boardW;
+  const wall = l.furniture
+    .filter((f) => f.row === 9 && f.uid !== BOARD && Math.abs(f.col - board.col) <= 5)
+    .map((f) => ({ type: f.type, col: f.col, w: getCatalogEntry(f.type)!.footprintW }));
+  assert.equal(wall.length, 4);
+  for (const f of wall) {
+    const mirror = centre2 - f.col - f.w;
+    assert.ok(
+      wall.some((g) => g.type === f.type && g.col === mirror),
+      `${f.type} at ${f.col} has a twin at ${mirror}`,
+    );
+  }
+  assert.equal(
+    l.furniture.some((f) => f.type === 'CLOCK' && Math.abs(f.col - board.col) <= 5),
+    false,
+    'no clock on this wall',
+  );
 });
 
 test('the board counts running, waiting and done tasks', () => {
