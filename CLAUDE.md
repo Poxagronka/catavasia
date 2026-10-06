@@ -325,7 +325,7 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
 
 **Tripwire**: `.gitignore` ignores every `tasks/` directory — a folder named `tasks` is silently untracked AND skipped by Tailwind's class scan. That is why the folders are named `taskBoard`.
 
-**Narrator** (`server/src/narrator/`, contract `core/src/narrator.ts`): task board events → Russian hover lines (templates) + batched one-shot Haiku summaries every 10 s. Tripwire: its WS messages are NOT in `core/asyncapi.yaml` yet; every Haiku sentence must pass the server-side evidence check. Decisions: docs/catavasia/ROADMAP.md, "Narrator decisions".
+**Narrator** (`server/src/narrator/`, contract `core/src/narrator.ts`): task board events → English hover lines (templates) + batched one-shot Haiku summaries every 10 s. Tripwire: its WS messages are NOT in `core/asyncapi.yaml` yet; every Haiku sentence must pass the server-side evidence check. Decisions: docs/catavasia/ROADMAP.md, "Narrator decisions".
 
 ## Persistence
 

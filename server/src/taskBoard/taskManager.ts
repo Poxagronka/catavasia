@@ -58,7 +58,7 @@ export interface TaskManagerOptions {
   defaultCwd: string;
   /** CLI binary override (tests). Default: the provider's launch command. */
   claudeBin?: string;
-  /** Receives the run's events as narrator input (Russian status lines). */
+  /** Receives the run's events as narrator input (English status lines). */
   narrate?: (input: NarratorInput) => void;
 }
 

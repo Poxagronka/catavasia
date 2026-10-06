@@ -15,7 +15,7 @@ export interface AdapterSettings {
   areaMappings: Record<string, string[]>;
   /** Narrator: batched Haiku conversation summaries. */
   narratorAiSummaries: boolean;
-  /** Narrator: show the raw tool status instead of the Russian line (debug). */
+  /** Narrator: show the raw tool status instead of the narrator line (debug). */
   narratorRawToolStatus: boolean;
 }
 

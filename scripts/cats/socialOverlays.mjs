@@ -35,22 +35,28 @@ const ICONS = {
   heart: ['.rr.rr.', 'rsrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'],
   question: ['.kkkk.', 'kk..kk', '...kk.', '..kk..', '..kk..', '......', '..kk..'],
   exclaim: ['RR', 'RR', 'RR', 'RR', '..', 'RR'],
-  // "мяу" in a 3-px lowercase pixel font (у has a descender).
-  meow: ['k...k.kkk.k.k', 'kk.kk.k.k.k.k', 'k.k.k..kk..kk', 'k...k.k.k...k', '..........kk.'],
+  // "meow" in a 4-px-high lowercase pixel font.
+  meow: [
+    'kkkk...kk..k..k.k.k',
+    'k.k.k.kkk.k.k.k.k.k',
+    'k.k.k.k...k.k.k.k.k',
+    'k.k.k..kk..k...k.k.',
+  ],
   mouse: ['...gg....', '..gpg....', '.gkgggg..', 'pggggggg.', '.GGGGGGGp', '..k..k.p.'],
 };
 
 const BUBBLE_W = 17;
 const BUBBLE_INNER_H = 8;
 
-/** A speech bubble (17x12) with the pictogram centred inside. */
+/** A speech bubble (17x12, wider for a wide pictogram) with the pictogram centred inside. */
 function bubble(icon) {
+  const w = Math.max(BUBBLE_W, icon[0].length + 4);
   const rows = [];
-  rows.push('.' + 'o'.repeat(BUBBLE_W - 2) + '.');
+  rows.push('.' + 'o'.repeat(w - 2) + '.');
   const top = 1 + Math.floor((BUBBLE_INNER_H - icon.length) / 2);
-  const left = 1 + Math.floor((BUBBLE_W - 2 - icon[0].length) / 2);
+  const left = 1 + Math.floor((w - 2 - icon[0].length) / 2);
   for (let y = 0; y < BUBBLE_INNER_H; y++) {
-    const line = ['o', ...'w'.repeat(BUBBLE_W - 2), 'o'];
+    const line = ['o', ...'w'.repeat(w - 2), 'o'];
     const iy = y + 1 - top;
     if (iy >= 0 && iy < icon.length)
       [...icon[iy]].forEach((k, ix) => {
@@ -58,10 +64,10 @@ function bubble(icon) {
       });
     rows.push(line.join(''));
   }
-  rows.push('.' + 'o'.repeat(BUBBLE_W - 2) + '.');
-  const mid = Math.floor(BUBBLE_W / 2);
-  rows.push('.'.repeat(mid - 1) + 'owo' + '.'.repeat(BUBBLE_W - mid - 2));
-  rows.push('.'.repeat(mid) + 'o' + '.'.repeat(BUBBLE_W - mid - 1));
+  rows.push('.' + 'o'.repeat(w - 2) + '.');
+  const mid = Math.floor(w / 2);
+  rows.push('.'.repeat(mid - 1) + 'owo' + '.'.repeat(w - mid - 2));
+  rows.push('.'.repeat(mid) + 'o' + '.'.repeat(w - mid - 1));
   return rows;
 }
 

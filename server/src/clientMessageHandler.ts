@@ -556,7 +556,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // client shows bare characters until each agent takes another turn.
   resendAgentActivity(send, store);
 
-  // 9. Narrator settings and current Russian status lines.
+  // 9. Narrator settings and current status lines.
   if (ctx.narrator) {
     send(narratorSettingsMessage(adapter));
     for (const m of ctx.narrator.snapshot()) send(m as unknown as Record<string, unknown>);

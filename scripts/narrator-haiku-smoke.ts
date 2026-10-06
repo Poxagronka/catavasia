@@ -34,17 +34,15 @@ const batcher = new HaikuBatcher({
 });
 
 batcher.enqueue(
-  'chat:Барсик|Мурка',
+  'chat:Leo|Mochi',
   [1, 2],
   [
-    'Барсик → Мурка: посмотри, почему падают тесты в server/__tests__/taskBoard.test.ts',
-    'Мурка → Барсик: падает проверка worktree, починю и напишу',
+    'Leo → Mochi: please find out why server/__tests__/taskBoard.test.ts fails',
+    'Mochi → Leo: the worktree check fails, I will fix it and report back',
   ],
 );
 batcher.enqueue(
   'result:3',
   [3],
-  [
-    'Итог работы: Fixed the flaky worktree cleanup; all 42 server tests pass. Changed gitWorktree.ts.',
-  ],
+  ['Result: Fixed the flaky worktree cleanup; all 42 server tests pass. Changed gitWorktree.ts.'],
 );

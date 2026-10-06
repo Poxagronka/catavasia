@@ -160,7 +160,7 @@ async function main(): Promise<void> {
     // Create runtime first (before server.start, so we can pass it in)
     const runtime = new AgentRuntime(store, claudeProvider);
 
-    // Narrator: Russian status lines (templates) + batched Haiku summaries.
+    // Narrator: English status lines (templates) + batched Haiku summaries.
     const narrator = new Narrator({
       broadcast: (m) => store.broadcast(m as unknown as Record<string, unknown>),
       aiSummariesEnabled: () => adapter.getSetting(KEY_NARRATOR_AI_SUMMARIES, true),
