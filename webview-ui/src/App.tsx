@@ -32,7 +32,6 @@ import { OfficeState } from './office/engine/officeState.js';
 import { exportLayoutToFile } from './office/layout/exportLayout.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
-import { getPetCount } from './office/sprites/petSpriteData.js';
 import { EditTool, type OfficeLayout } from './office/types.js';
 import { orchestratorEvents } from './orchestratorEvents.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
@@ -428,9 +427,6 @@ function App() {
                   onPickedFurnitureColorChange={editor.handlePickedFurnitureColorChange}
                   onFurnitureTypeChange={editor.handleFurnitureTypeChange}
                   loadedAssets={loadedAssets}
-                  activePetTypes={officeState.getActivePetTypes()}
-                  petCount={getPetCount()}
-                  onPetToggle={editor.handlePetToggle}
                   carpetVariant={editor.carpetVariant}
                   carpetColor={editor.carpetColor}
                   carpetAccentColor={editor.carpetAccentColor}

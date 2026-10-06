@@ -323,12 +323,6 @@ export const PET_FOLLOW_DURATION_MAX_SEC = 15.0;
 export const PET_HIT_HALF_WIDTH = 8;
 /** Hit-box height (world px) measured upward from the bottom-center anchor. */
 export const PET_HIT_HEIGHT = 16;
-/** Zoom factor used to draw pet thumbnails in the EditorToolbar Pets tab. */
-export const PET_THUMB_ZOOM = 2;
-/** Scale margin so the pet thumbnail fills the ItemSelect cell without touching the edges. */
-export const PET_THUMB_SCALE_MARGIN = 0.85;
-/** Fallback background fill for sprite-less thumbnail (used while pet sprites are loading). */
-export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
 

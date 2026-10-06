@@ -10,7 +10,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { decodePetPng } from '../../core/src/assets/pngDecoder.js';
 import { BREED_PRESETS, COAT_PRESETS, toHex } from '../src/cats/catArt.js';
-import { addPetCat, deletePet, otherPetNames, petRows } from '../src/cats/petRoster.js';
+import { addPet, deletePet, petRows } from '../src/cats/petRoster.js';
 import { OfficeState } from '../src/office/engine/officeState.js';
 import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
 import { renderPetAppearance, templateRoles } from '../src/office/sprites/petAppearance.js';
@@ -133,18 +133,31 @@ describe('pet coats (repainted Gitcat sheet)', () => {
 });
 
 describe('pets tab on the layout pets', () => {
-  it('lists the cat pets of the layout, not the dogs', () => {
+  it('lists every pet of the layout, cats and dogs', () => {
     const os = office([
       { id: 'g', petType: GITCAT },
       { id: 'd', petType: CLAUDIO },
     ]);
-    expect(petRows(os).map((r) => [r.id, r.name, r.kind])).toEqual([['g', 'Gitcat', 'Gitcat']]);
-    expect(otherPetNames(os)).toEqual(['Claudio']);
+    expect(petRows(os).map((r) => [r.id, r.name, r.kind])).toEqual([
+      ['g', 'Gitcat', 'Gitcat'],
+      ['d', 'Claudio', 'Claudio'],
+    ]);
+  });
+
+  it('adds a pet dog with a name and no coat', () => {
+    const os = office([{ id: 'd', petType: CLAUDIO }]);
+    const id = addPet(os, 'dog', () => 0)!;
+    expect(os.getLayout().pets!.find((p) => p.id === id)).toEqual({
+      id,
+      petType: CLAUDIO,
+      name: 'Puppy',
+    });
+    expect(petRows(os).map((r) => r.name)).toEqual(['Claudio', 'Puppy']);
   });
 
   it('adds a pet cat next to pet furniture, with a name and a new coat', () => {
     const os = office([{ id: 'g', petType: GITCAT }]);
-    const id = addPetCat(os, () => 0)!;
+    const id = addPet(os, 'cat', () => 0)!;
     const pet = os.pets.find((p) => p.id === id)!;
     expect(Math.max(Math.abs(pet.tileCol - 10), Math.abs(pet.tileRow - 6))).toBe(1);
     const entry = os.getLayout().pets!.find((p) => p.id === id)!;
@@ -184,7 +197,7 @@ describe('pets tab on the layout pets', () => {
   it('survives a save and reload of the layout', () => {
     const os = office([{ id: 'g', petType: GITCAT }]);
     os.updatePetProfile('g', { name: 'Pixel', appearance: { breed: 'tux', eyes: EYES } });
-    const id = addPetCat(os)!;
+    const id = addPet(os, 'cat')!;
     const saved = JSON.parse(JSON.stringify(os.getLayout())) as OfficeLayout;
     const reloaded = office(saved.pets);
     expect(reloaded.pets.map((p) => [p.id, p.name, p.appearance])).toEqual(

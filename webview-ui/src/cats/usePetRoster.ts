@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react';
 
 import type { OfficeState } from '../office/engine/officeState.js';
-import { otherPetNames, type PetRow, petRows } from './petRoster.js';
+import { type PetRow, petRows } from './petRoster.js';
 
-/** How often the tab re-reads the office (pets also change in Layout > Pets). */
+/** How often the tab re-reads the office (another window can save the layout). */
 const POLL_MS = 500;
 
 interface Roster {
   rows: PetRow[];
-  others: string[];
 }
 
 function readRoster(os: OfficeState): Roster {
-  return { rows: petRows(os), others: otherPetNames(os) };
+  return { rows: petRows(os) };
 }
 
 /** Live pet roster of the office while `active`: polled, and re-read right after our own edits. */
