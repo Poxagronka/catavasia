@@ -115,6 +115,8 @@ function App() {
   const [isTasksOpen, setIsTasksOpen] = useState(false);
   const [isCatsOpen, setIsCatsOpen] = useState(false);
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
+  /** The cat the Hierarchy chart asked the Cats menu to open on. */
+  const [catsFocusId, setCatsFocusId] = useState<string | null>(null);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -550,8 +552,23 @@ function App() {
       />
 
       <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
-      <CatsModal isOpen={isCatsOpen} onClose={() => setIsCatsOpen(false)} />
-      <HierarchyModal isOpen={isHierarchyOpen} onClose={() => setIsHierarchyOpen(false)} />
+      <CatsModal
+        isOpen={isCatsOpen}
+        focusCatId={catsFocusId}
+        onClose={() => {
+          setIsCatsOpen(false);
+          setCatsFocusId(null);
+        }}
+      />
+      <HierarchyModal
+        isOpen={isHierarchyOpen}
+        onClose={() => setIsHierarchyOpen(false)}
+        onEditCat={(id) => {
+          setIsHierarchyOpen(false);
+          setCatsFocusId(id);
+          setIsCatsOpen(true);
+        }}
+      />
       {clickedTaskId && (
         <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />
       )}

@@ -232,10 +232,27 @@ function TabButton({
 }
 
 /** Cats menu: agent and pet profiles (look, role, prompt, engine). */
-export function CatsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function CatsModal({
+  isOpen,
+  onClose,
+  focusCatId = null,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  /** Show this agent cat (set by the Hierarchy chart). */
+  focusCatId?: string | null;
+}) {
   const { cats, pets } = useCats();
   const [tab, setTab] = useState<Tab>('agents');
-  const [catId, setCatId] = useState<string | null>(null);
+  const [catId, setCatId] = useState<string | null>(focusCatId);
+  const [seenFocus, setSeenFocus] = useState(focusCatId);
+  if (focusCatId !== seenFocus) {
+    setSeenFocus(focusCatId);
+    if (focusCatId) {
+      setTab('agents');
+      setCatId(focusCatId);
+    }
+  }
   const [petId, setPetId] = useState<string | null>(null);
   const cat = cats.find((c) => c.id === catId) ?? cats[0];
   const pet = pets.find((p) => p.id === petId) ?? pets[0];
