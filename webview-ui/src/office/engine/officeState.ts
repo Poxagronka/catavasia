@@ -374,7 +374,7 @@ export class OfficeState {
 
   /** Where a briefing meeting happens now (see meetingRoom.ts). */
   planMeeting(): MeetingPlan | null {
-    return planMeetingRoom({
+    const plan = planMeetingRoom({
       cols: this.layout.cols,
       areaTiles: this.layout.areaTiles,
       furniture: this.layout.furniture,
@@ -382,11 +382,14 @@ export class OfficeState {
         const e = getCatalogEntry(type);
         return e?.isDesk ? { w: e.footprintW, h: e.footprintH } : undefined;
       },
-      // The Cat CEO's chair is never a meeting chair.
-      seats: new Map([...this.seats].filter(([uid]) => !this.reservedFor(uid))),
+      // Every seat, so no one stands on a seat tile (the Cat CEO's chair too).
+      seats: this.seats,
       tileMap: this.tileMap,
       blockedTiles: this.blockedTiles,
     });
+    // The Cat CEO's chair is never a meeting chair.
+    if (plan) plan.seats = plan.seats.filter((s) => !this.reservedFor(s.uid));
+    return plan;
   }
 
   /** Meeting chairs, reserved like assigned seats (CatLifeWorld). */

@@ -129,8 +129,30 @@ test('the Cat CEO takes the executive chair; no other cat sits there', () => {
   assert.notEqual(os.characters.get(1)!.seatId, CHAIR);
   os.addAgent(50, 0, 0, CHAIR, true);
   assert.notEqual(os.characters.get(50)!.seatId, CHAIR);
-  // A briefing never seats a cat on it.
-  assert.ok(!os.planMeeting()?.seats.some((s) => s.uid === CHAIR));
+});
+
+test('a meeting room over the CEO office never uses the executive chair', () => {
+  // The user labels the CEO office a meeting room and adds a visitor chair.
+  const l = layout();
+  l.furniture.push({ uid: 'visitor', type: 'WOODEN_CHAIR_BACK', col: 32, row: 15 });
+  l.areas = [{ label: 'Meeting', color: 'gray' }];
+  l.areaTiles = l.tiles.map((_, i) => {
+    const col = i % l.cols;
+    const row = Math.floor(i / l.cols);
+    return col >= 30 && col <= 36 && row >= 11 && row <= 17 ? 'Meeting' : null;
+  });
+  const os = new OfficeState(l);
+  const plan = os.planMeeting();
+  assert.ok(plan, 'the room has a meeting plan');
+  assert.deepEqual(
+    plan.seats.map((s) => s.uid),
+    ['visitor'],
+  );
+  const chair = os.seats.get(CHAIR)!;
+  const onChair = (t: { col: number; row: number } | null) =>
+    t !== null && t.col === chair.seatCol && t.row === chair.seatRow;
+  assert.ok(!onChair(plan.head), 'the boss never stands on the chair');
+  assert.ok(!plan.stand.some(onChair), 'no cat stands on the chair');
 });
 
 test('the chair stays free for the Cat CEO when it joins after the other cats', () => {
@@ -182,10 +204,18 @@ test('after the review talk the Cat CEO walks back to its desk', () => {
 test('an office with no executive chair keeps the head-Area desk', () => {
   const l = layout();
   l.furniture = l.furniture.filter((f) => !f.type.startsWith('EXECUTIVE_CHAIR'));
+  // A "Head office" Area over one main-room bench.
+  const bench = l.furniture.find((f) => f.type === 'CUSHIONED_BENCH')!;
+  l.areas = [{ label: 'Head office', color: 'gold' }];
+  l.areaTiles = l.tiles.map((_, i) =>
+    i === bench.row * l.cols + bench.col ? 'Head office' : null,
+  );
   const os = new OfficeState(l);
   assert.equal(os.ceoChairSeat(), null);
   os.addAgent(CEO, 0, 0, undefined, true);
   os.setResidentCats([{ id: CEO, name: 'Cat CEO', appearance: {}, working: false, ceo: true }]);
-  // No head Area either: the Cat CEO keeps an ordinary seat like any cat.
-  assert.ok(os.characters.get(CEO)!.seatId);
+  assert.equal(os.characters.get(CEO)!.seatId, bench.uid);
+  // The chair is not reserved then: any cat may take any seat.
+  os.addAgent(1, 0, 0, undefined, true);
+  assert.ok(os.characters.get(1)!.seatId);
 });
