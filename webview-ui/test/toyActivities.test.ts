@@ -144,20 +144,20 @@ test('tunnel: runs through, hidden inside, and ends back on a floor tile', () =>
   assert.equal(ch.x, ch.tileCol * 16 + 8);
 });
 
-test('a toy in use moves: the yarn rolls while a cat bats it', () => {
+test('a toy in use moves: the yarn rolls away when batted and comes back', () => {
   const os = playroom();
   const ch = idleCat(os, 1);
   assert.ok(os.forceIdleActivity(1, 'yarn'));
   runUntil(os, () => ch.state === CharacterState.ACTIVITY);
   const still = os.furniture.find((f) => f.uid === 'yarn')!;
-  const xs = new Set(
-    [0.3, 0.9, 1.5, 2.1].map((t) => os.getFurnitureForRender(t).find((f) => f.uid === 'yarn')!.x),
-  );
-  assert.ok(xs.size > 1, 'the yarn shifts between frames');
+  const xs = new Set<number>();
+  runFor(os, 5, () => xs.add(os.getFurnitureForRender().find((f) => f.uid === 'yarn')!.x));
+  assert.ok(xs.size > 1, 'the yarn shifts while the cat bats it');
   assert.ok(
-    [...xs].every((x) => Math.abs(x - still.x) <= 2),
-    'only a little',
+    [...xs].every((x) => Math.abs(x - still.x) <= 5),
+    'only a few px',
   );
+  assert.ok(xs.has(still.x), 'and rolls back to its place');
 });
 
 test('toys join the same pool: with every toy free, idle cats end up playing', () => {

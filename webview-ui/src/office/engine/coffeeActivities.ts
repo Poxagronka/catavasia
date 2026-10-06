@@ -13,7 +13,6 @@
  * take part (petActivities.ts names no coffee activity).
  */
 
-import { Direction } from '../types.js';
 import type { AnimParts } from './activityAnim.js';
 import { st } from './activityAnim.js';
 import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
@@ -103,6 +102,3 @@ export const COFFEE_ACTIVITIES: IdleActivityDef[] = [
     carry: true,
   },
 ];
-
-/** Facing used when a cat sips where it stands (no free seat). */
-export const SIP_HERE_FACING = Direction.DOWN;

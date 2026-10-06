@@ -110,8 +110,3 @@ export function advanceAnim(run: IdleActivityRun, anim: AnimParts, dt: number): 
   }
   return false;
 }
-
-/** Total seconds of a list of steps. */
-export function stepsSec(steps: readonly AnimStep[] = []): number {
-  return steps.reduce((s, x) => s + x.sec, 0);
-}

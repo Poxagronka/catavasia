@@ -110,8 +110,8 @@ test('repeats only when nothing else is available', () => {
 
 test('weights decide the pick', () => {
   const defs: IdleActivityDef[] = [
-    { id: 'a', weight: 1, durationSec: [1, 1], frames: [], frameSec: 1 },
-    { id: 'b', weight: 3, durationSec: [1, 1], frames: [], frameSec: 1 },
+    { id: 'a', weight: 1, durationSec: [1, 1], loop: [] },
+    { id: 'b', weight: 3, durationSec: [1, 1], loop: [] },
   ];
   // Rolls below 1/4 land on "a", the rest on "b".
   assert.equal(chooseIdleActivity(null, new Map(), new Set(), () => 0.2, defs)?.def.id, 'a');

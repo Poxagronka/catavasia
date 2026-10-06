@@ -68,6 +68,8 @@ test('every playroom toy and house spot is reachable from the lounge', () => {
   assert.ok(isWalkable(LOUNGE.col, LOUNGE.row, os.tileMap, os.blockedTiles));
   const used = new Map<string, string>();
   for (const [activity, set] of os.activitySpots) {
+    // The bookshelf there serves skill reading (a work activity, not a toy).
+    if (activity === 'skillRead') continue;
     for (const spot of set.spots) {
       if (spot.col < PLAYROOM_FIRST_COL) continue;
       const where = `${activity} at ${spot.key}`;

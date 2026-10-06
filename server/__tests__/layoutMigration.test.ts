@@ -47,23 +47,51 @@ afterEach(() => {
 });
 
 describe('default layout upgrade', () => {
-  it('the newest bundled default has the calm playroom; revisions 1 to 3 are previous', () => {
+  it('the newest bundled default has the coffee station; revisions 1 to 4 are previous', () => {
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
-    expect(latest.layoutRevision).toBe(4);
+    expect(latest.layoutRevision).toBe(5);
     const count = (type: string) =>
       (latest.furniture as Array<{ type: string }>).filter((f) => f.type === type).length;
+    // The calm playroom of revision 4 stays.
     expect(count('SCRATCHING_POST')).toBe(1);
     expect(count('YARN_BALL')).toBe(1);
     expect(count('HOUSE_WOODEN')).toBe(1);
     expect(count('CAT_TREE')).toBe(0);
     expect(count('PET_BOWL')).toBe(1);
     expect(count('LITTER_BOX')).toBe(1);
-    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 and 3.
+    // The coffee station: espresso + pour-over on the main-room counter, a drip maker in the lounge.
+    expect(count('ESPRESSO_MACHINE')).toBe(1);
+    expect(count('POUR_OVER')).toBe(1);
+    expect(count('DRIP_COFFEE_MAKER')).toBe(1);
+    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 4.
     const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
-    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3]);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4]);
   });
 
-  it('upgrades an untouched revision 3 default (the full playroom) to the calm one', () => {
+  it("upgrades an untouched revision 4 default (the user's office) to the coffee one", () => {
+    saveLayout(bundled(4));
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+
+    expect(result).toEqual({ layout: latest, wasReset: true });
+    expect(readLayoutFromFile()).toEqual(latest);
+  });
+
+  it('keeps an edited revision 4 office', () => {
+    const custom = bundled(4);
+    (custom.furniture as unknown[]).pop();
+    saveLayout(custom);
+
+    const result = loadLayout(
+      loadDefaultLayout(ASSETS_ROOT),
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(result).toEqual({ layout: custom, wasReset: false });
+  });
+
+  it('upgrades an untouched revision 3 default (the full playroom) to the newest', () => {
     saveLayout(bundled(3));
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
 
