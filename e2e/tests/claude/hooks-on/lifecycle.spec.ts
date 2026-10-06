@@ -36,7 +36,7 @@ import {
   waitForClaudeHookSetup,
 } from '../../../helpers/mock-claude';
 import {
-  closeAgentFromOverlay,
+  closeAgent,
   expectAgentOverlayGone,
   expectNoOverlay,
   expectNoOverlayWithTexts,
@@ -978,9 +978,9 @@ test.describe('Hooks ON / lifecycle', () => {
     await expectOverlayVisible(frame, 'Running: npm run old-live');
     const oldAgentId = await expectSingleAgentOverlay(frame);
     narrator.check('external agent shows "Running: npm run old-live"');
-    await closeAgentFromOverlay(frame, { agentId: oldAgentId });
+    await closeAgent(frame, { agentId: oldAgentId });
     await expectOverlayCount(frame, 0, 8_000);
-    narrator.check('agent removed after the "×" (count → 0)');
+    narrator.check('agent removed after closeAgent (count → 0)');
 
     await spawnExternalClaudeScenario({
       tmpHome,
