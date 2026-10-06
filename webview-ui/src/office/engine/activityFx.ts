@@ -70,7 +70,9 @@ function grid(rows: string[], colors: Record<string, string>): SpriteData {
 const HEART_S = grid(['.h.h.', 'hHhHh', 'hHHHh', '.hHh.', '..h..'], { h: HEART_DARK, H: HEART });
 const SPARK_S = grid(['.s.', 'sSs', '.s.'], { s: SPARK, S: SPARK_CORE });
 const STAR_S = grid(['.s.', 'sss', '.s.'], { s: STAR });
-const DOT = (c: string) => [[c]];
+const FUR_DOT = [[FUR]];
+const SISAL_DOT = [[SISAL_BIT]];
+const CRUMB_DOT = [[CRUMB]];
 const WISP_A = grid(['.s', 's.', '.s'], { s: STEAM });
 const WISP_B = grid(['s.', '.s', 's.'], { s: STEAM });
 const PUFF_S = grid(['.pp', 'p..', '.pp'], { p: PUFF });
@@ -122,13 +124,13 @@ export function fxDrawables(kind: FxKind, at: FxAnchor, t: number): FxDrawable[]
       add(MARKS_S, 0, 0, 1);
       for (let i = 0; i < 2; i++) {
         const p = cyc(t, 0.7, i * 0.45);
-        add(DOT(i ? FUR : SISAL_BIT), -1 - i * 2, 2 + p * 10, fade(p));
+        add(i ? FUR_DOT : SISAL_DOT, -1 - i * 2, 2 + p * 10, fade(p));
       }
       break;
     case 'fur':
       for (let i = 0; i < 3; i++) {
         const p = cyc(t, 1.2, i * 0.33);
-        add(DOT(FUR), -3 + i * 3 + Math.round(Math.sin(p * 8 + i)), p * 8, fade(p));
+        add(FUR_DOT, -3 + i * 3 + Math.round(Math.sin(p * 8 + i)), p * 8, fade(p));
       }
       break;
     case 'dust':
@@ -165,7 +167,7 @@ export function fxDrawables(kind: FxKind, at: FxAnchor, t: number): FxDrawable[]
     case 'crumbs':
       for (let i = 0; i < 2; i++) {
         const p = cyc(t, 0.6, i * 0.5);
-        add(DOT(CRUMB), i * 3 - 1, -p * 3 + p * p * 5, 1 - p);
+        add(CRUMB_DOT, i * 3 - 1, -p * 3 + p * p * 5, 1 - p);
       }
       break;
   }

@@ -130,12 +130,15 @@ test('a cat reads a skill at the bookshelf: the book comes out, the scene plays 
   const ch = cat(os, 1, true);
   runUntil(os, () => ch.state === CharacterState.TYPE, 30);
   const seat = { col: ch.tileCol, row: ch.tileRow };
+  // The webview does this on every tool start: the tool, then active.
   os.setAgentTool(1, 'Skill');
+  os.setAgentActive(1, true);
   assert.equal(ch.activity?.id, 'skillRead');
   const shelfUid = ch.activity!.spot!.itemUid!;
   const plain = os.furniture.find((f) => f.uid === shelfUid)!.sprite;
   // The agent moves on to other tools at once: the scene still plays out.
   os.setAgentTool(1, 'Read');
+  os.setAgentActive(1, true);
   runUntil(os, () => ch.state === CharacterState.ACTIVITY, 30);
   let gap = false;
   const t = runUntil(
@@ -162,8 +165,22 @@ test('with no bookshelf in reach the cat reads the skill at its desk', () => {
   const ch = cat(os, 1, true);
   runUntil(os, () => ch.state === CharacterState.TYPE, 30);
   os.setAgentTool(1, 'Skill');
+  os.setAgentActive(1, true);
   assert.equal(ch.activity, null);
   assert.ok((ch.deskReadSec ?? 0) > 0);
   assert.equal(ch.state, CharacterState.TYPE);
   assert.deepEqual(getCharacterSprite(ch, ch.customSprites!), ch.customSprites!.reading[ch.dir][0]);
+});
+
+test('a turn that ends while the cat walks to the shelf does not cancel the reading', () => {
+  const os = office();
+  const ch = cat(os, 1, true);
+  runUntil(os, () => ch.state === CharacterState.TYPE, 30);
+  os.setAgentTool(1, 'Skill');
+  os.setAgentActive(1, true);
+  os.update(0.2);
+  assert.equal(ch.state, CharacterState.WALK);
+  os.setAgentActive(1, false);
+  runUntil(os, () => ch.state === CharacterState.ACTIVITY && ch.activity?.id === 'skillRead', 30);
+  runUntil(os, () => ch.lastActivityId === 'skillRead', 30);
 });

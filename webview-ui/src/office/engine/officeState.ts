@@ -54,6 +54,7 @@ import {
   characterDrawOffsetX,
   characterDrawOffsetY,
   createCharacter,
+  isWorkRun,
   snapToTile,
   updateCharacter,
 } from './characters.js';
@@ -972,7 +973,8 @@ export class OfficeState {
     if (ch) {
       ch.isActive = active;
       // Work interrupts any idle activity: the FSM walks the cat to its desk.
-      if (active) ch.activity = null;
+      // A work activity (reading a skill) plays to its end.
+      if (active && !isWorkRun(ch)) ch.activity = null;
       // The user answered: the agent no longer waits for input.
       if (active && ch.bubbleType === 'waiting' && ch.waitingAwaitingInput) {
         ch.bubbleType = null;
@@ -982,8 +984,11 @@ export class OfficeState {
         // Sentinel -1: signals turn just ended, skip next seat rest timer.
         // Prevents the WALK handler from setting a 2-4 min rest on arrival.
         ch.seatTimer = -1;
-        ch.path = [];
-        ch.moveProgress = 0;
+        // A cat walking to a work activity keeps going: the scene must finish.
+        if (!isWorkRun(ch)) {
+          ch.path = [];
+          ch.moveProgress = 0;
+        }
       }
       this.rebuildFurnitureInstances();
     }
@@ -1072,7 +1077,8 @@ export class OfficeState {
    */
   startSkillRead(ch: Character): void {
     if (ch.activity?.id === SKILL_READ.id || this.scenes.owns(ch.id) || ch.matrixEffect) return;
-    const taken = this.life.takenBy(ch);
+    // Fresh claims count as taken too: a work run never contests a spot (no fight).
+    const taken = this.life.claims.spots.heldByOthers(ch.id);
     const spots = (this.activitySpots.get(SKILL_READ.id)?.spots ?? [])
       .filter((s) => !taken.has(s.key))
       .map((s) => ({ s, path: this.pathFor(ch, s.col, s.row) }))
@@ -1086,7 +1092,9 @@ export class OfficeState {
         ch.state = CharacterState.IDLE;
       }
       const choice = { def: SKILL_READ, spot: s };
-      if (this.life.claimIdle(ch, choice) !== 'ok') continue;
+      const outcome = this.life.claimIdle(ch, choice);
+      if (outcome === 'fight') return;
+      if (outcome !== 'ok') continue;
       if (
         this.withOwnSeatUnblocked(ch, () =>
           beginIdleActivity(ch, choice, this.tileMap, this.blockedTiles),
@@ -1144,7 +1152,7 @@ export class OfficeState {
     // No seat for the cup: sip right here, facing the room.
     const here = { key: `${ch.tileCol},${ch.tileRow}`, col: ch.tileCol, row: ch.tileRow };
     const spot = { ...here, facing: Direction.DOWN, onFurniture: false, offsetX: 0, offsetY: 0 };
-    ch.activity = { id, spot, phase: 'going', timer: 0, cupFrom: from };
+    if (this.life.claimIdle(ch, { def, spot }) !== 'ok') return false;
     beginIdleActivity(ch, { def, spot }, this.tileMap, this.blockedTiles);
     if (ch.activity) ch.activity.cupFrom = from;
     return true;
@@ -1436,12 +1444,15 @@ export class OfficeState {
       if (claim?.spot?.itemUid && prop) moving.set(claim.spot.itemUid, prop);
     }
     if (moving.size === 0 && frames.size === 0) return this.furniture;
+    const typeOf = new Map(
+      this.layout.furniture.filter((p) => frames.has(p.uid)).map((p) => [p.uid, p.type]),
+    );
     return this.furniture.map((f) => {
       const motion = f.uid ? moving.get(f.uid) : undefined;
       const frame = f.uid ? frames.get(f.uid) : undefined;
       let out = f;
       if (frame !== undefined) {
-        const type = this.layout.furniture.find((p) => p.uid === f.uid)?.type;
+        const type = typeOf.get(f.uid!);
         const sprite = type ? itemFrameSprite(type, frame) : undefined;
         if (sprite) out = { ...out, sprite };
       }
