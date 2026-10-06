@@ -14,11 +14,13 @@ Node.js 20 or later:
 npm install -g catavasia
 ```
 
-Then start it in your project folder and open the URL that it prints:
+The install puts a **catavasia** launcher on your Desktop. Double-click it, or run `catavasia` in a terminal. The office opens in your browser at `http://127.0.0.1:3100`. A second start only opens the tab of the running office.
 
 ```bash
-cd /path/to/your/project
-catavasia
+catavasia                  # start on port 3100 and open the browser
+catavasia --no-open        # only print the URL
+catavasia --port 3200      # another port
+catavasia shortcut         # make the Desktop launcher again (--remove deletes it)
 ```
 
 To try it once without an install, run `npx catavasia` in your project folder.

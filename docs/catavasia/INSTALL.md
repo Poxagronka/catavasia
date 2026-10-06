@@ -27,14 +27,15 @@ Run this line in a terminal (Node.js 20 or later):
 npm install -g catavasia
 ```
 
-Then start the game:
+The install puts a **catavasia** launcher on your Desktop. Double-click it, or run `catavasia` in a terminal. The office opens in your browser at `http://127.0.0.1:3100`.
 
-```bash
-cd /path/to/your/project
-catavasia
-```
+| System  | Launcher                                                                                  |
+| ------- | ----------------------------------------------------------------------------------------- |
+| macOS   | `~/Desktop/catavasia.command`                                                             |
+| Linux   | `~/.local/share/applications/catavasia.desktop` (the app menu), and a copy on `~/Desktop` |
+| Windows | `Desktop\catavasia.cmd`                                                                   |
 
-Open the URL that `catavasia` prints.
+`npm install -g --ignore-scripts` makes no launcher. Run `catavasia shortcut` to make it. The command is safe to run again.
 
 To try catavasia once without an install, run `npx catavasia` in your project folder.
 
@@ -72,7 +73,7 @@ The installer runs the same steps as the in-game update (`server/src/update/upda
 3. It clones the `main` branch into a temporary folder.
 4. It checks the Node.js version against `engines.node` in `package.json`.
 5. It runs `npm ci --include=dev`, `npm run package` and `npm pack --ignore-scripts`.
-6. It runs `npm install -g` with the packed `.tgz` file. This adds the `catavasia` command.
+6. It runs `npm install -g` with the packed `.tgz` file. This adds the `catavasia` command and the Desktop launcher.
 7. It deletes the temporary folder and prints how to start and update.
 
 To install another branch of this repository, set `CATAVASIA_REF`:
@@ -83,23 +84,28 @@ curl -fsSL https://raw.githubusercontent.com/Poxagronka/catavasia/main/install.s
 
 ## First start
 
-1. Go to the project folder that your Claude Code sessions use. Catavasia shows the sessions of this folder.
-2. Run `catavasia`. It prints a line like this one:
+1. Double-click the Desktop launcher. Or go to the project folder that your Claude Code sessions use and run `catavasia`. Catavasia shows the sessions of the folder it starts in. The launcher starts in your home folder.
+2. Catavasia starts on port 3100 and opens the office in your default browser. It also prints the URL:
 
    ```text
-   Pixel Agents server running at http://127.0.0.1:52345/?token=...
+   catavasia server running at http://127.0.0.1:3100/?token=...
    ```
 
-3. Open that URL. The `?token=` part gives this browser tab edit rights. The page saves the token and removes it from the address bar.
+3. The `?token=` part gives this browser tab edit rights. The page saves the token and removes it from the address bar.
 4. The first time, the office asks for approval to add hooks to `~/.claude/settings.json`. Hooks let the cats react at once to your Claude Code sessions. You can say no. Then Catavasia reads the session files instead, with a short delay.
 
 Useful options:
 
 ```bash
-catavasia --port 3100               # a fixed port (default: a free port)
+catavasia --port 3200               # another port (default: 3100)
+catavasia --no-open                 # do not open the browser, only print the URL
 catavasia --host 127.0.0.1          # the bind address (this is the default)
+catavasia shortcut                  # make the Desktop launcher again
+catavasia shortcut --remove         # remove the Desktop launcher
 catavasia --help                    # all options
 ```
+
+When catavasia already runs on the port, a second `catavasia` (or a second double-click) only opens its tab and exits. When another program holds port 3100, catavasia starts on a free port and prints a note. `CATAVASIA_PORT=<n>` changes the default port.
 
 Stop the server with **Ctrl+C**.
 
@@ -140,8 +146,9 @@ The [manual install](#manual-install) commands are plain `git` and `npm` command
 
 1. Remove the Catavasia hooks from `~/.claude/settings.json`. Do one of these:
    - In the game, turn off **Settings → Instant Detection (Hooks)**.
-   - Or run: `node "$(npm root -g)/catavasia/dist/uninstall.js"`
-2. Remove the command:
+   - Or run: `node "$(npm root -g)/catavasia/dist/uninstall.js"`. This command also removes the Desktop launcher.
+   - To remove only the launcher, run `catavasia shortcut --remove`.
+2. Remove the command. npm 7 and later run no uninstall scripts, so do step 1 first:
 
    ```bash
    npm uninstall -g catavasia
@@ -192,7 +199,7 @@ All files are in `~/.pixel-agents/`:
 
 **The build fails.** The installer shows the last 40 lines of the build log. Check the Node.js version first. Then send a [bug report](https://github.com/Poxagronka/catavasia/issues/new?template=bug_report.yml) with those lines.
 
-**"Port N is busy. Use --port <other> or stop the other process."** Another program uses the port that you gave with `--port`. Start `catavasia` without `--port` to get a free port, or pick another port. To see which program holds the port, run `lsof -iTCP:<port> -sTCP:LISTEN`.
+**"Port N is busy. Use --port <other> or stop the other process."** Another program uses the port that you gave with `--port`. Start `catavasia` without `--port` (it uses 3100, or a free port when 3100 is busy), or pick another port. To see which program holds the port, run `lsof -iTCP:<port> -sTCP:LISTEN`.
 
 **"Open the office with `catavasia` to get edit rights".** The tab has no valid token, so it can only watch. The fix is: open the full URL that `catavasia` prints, with its `?token=` part. After that, the tab keeps the token after a reload. The browser saves the token per port, so use a fixed `--port` to keep it across server restarts.
 

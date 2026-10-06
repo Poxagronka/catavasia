@@ -41,6 +41,9 @@ import {
   UPDATE_RESTART_GRACE_MS,
 } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
+import { openBrowser } from './launch/openBrowser.js';
+import { defaultPort, planLaunch, readOwnServers } from './launch/portChoice.js';
+import { createShortcut, removeShortcut } from './launch/shortcut.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
 import { Narrator } from './narrator/narrator.js';
 import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
@@ -57,10 +60,12 @@ import { UpdateRunner } from './update/updateRunner.js';
 // ── Argument parsing ──────────────────────────────────────────
 
 export interface CliArgs {
-  /** Unset -> ephemeral (OS-assigned) port, so multiple standalone instances
-   *  can run at once without a collision. --port picks a fixed one. */
+  /** Unset -> the default port (3100, see launch/portChoice.ts), or an
+   *  OS-assigned one when another program holds it. --port picks a fixed one. */
   port?: number;
   host: string;
+  /** False with --no-open: print the URL, do not open a browser tab. */
+  open: boolean;
 }
 
 /** Thrown by parseArgs on an invalid --port. Kept separate from process.exit so
@@ -69,7 +74,7 @@ export interface CliArgs {
 export class CliArgsError extends Error {}
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { host: '127.0.0.1' };
+  const args: CliArgs = { host: '127.0.0.1', open: true };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--port' || argv[i] === '-p') {
       const raw = argv[i + 1];
@@ -89,13 +94,25 @@ export function parseArgs(argv: string[]): CliArgs {
     } else if (argv[i] === '--host' && argv[i + 1]) {
       args.host = argv[i + 1];
       i++;
+    } else if (argv[i] === '--no-open') {
+      args.open = false;
     } else if (argv[i] === '--help') {
       console.log(`Usage: catavasia [options]
+       catavasia shortcut [--remove]
+
+Starts the office and opens it in the browser. When it already runs on the
+port, it only opens the browser tab.
 
 Options:
-  --port, -p <number>   Port to listen on (default: OS-assigned ephemeral port)
+  --port, -p <number>   Port to listen on (default: 3100; when another program
+                        holds 3100, a free port)
   --host <string>       Host to bind to (default: 127.0.0.1)
-  --help                Show this help message`);
+  --no-open             Do not open the browser, only print the URL
+  --help                Show this help message
+
+Commands:
+  shortcut              Create the desktop launcher (done by npm install -g)
+  shortcut --remove     Remove the desktop launcher`);
       process.exit(0);
     }
   }
@@ -127,7 +144,35 @@ function copyHookScriptOrReport(packageRoot: string, context = ''): boolean {
 
 // ── Main ──────────────────────────────────────────────────────
 
+/** `catavasia shortcut [--remove]`: create or remove the desktop launcher. */
+function runShortcutCommand(argv: string[]): void {
+  const ctx = {
+    platform: process.platform,
+    home: os.homedir(),
+    packageRoot: path.dirname(__dirname),
+  };
+  if (argv.includes('--remove')) {
+    const removed = removeShortcut(ctx);
+    console.log(
+      removed.length > 0 ? `Removed: ${removed.join(', ')}` : 'No catavasia launcher to remove.',
+    );
+    return;
+  }
+  const created = createShortcut(ctx);
+  if (created.length === 0) {
+    console.log(
+      `No Desktop folder (${path.join(os.homedir(), 'Desktop')}). Start catavasia with: catavasia`,
+    );
+    return;
+  }
+  console.log(`Created: ${created.join(', ')}`);
+}
+
 async function main(): Promise<void> {
+  if (process.argv[2] === 'shortcut') {
+    runShortcutCommand(process.argv.slice(3));
+    return;
+  }
   let args: CliArgs;
   try {
     args = parseArgs(process.argv.slice(2));
@@ -143,6 +188,21 @@ async function main(): Promise<void> {
     console.error('[catavasia] The previous server did not exit; not starting.');
     process.exit(1);
   }
+
+  // A self-update restart keeps the open tab: it must not open another one.
+  const openTab = args.open && !inheritedToken && process.env['CATAVASIA_NO_OPEN'] !== '1';
+  const plan = await planLaunch({
+    explicitPort: args.port,
+    defaultPort: defaultPort(),
+    host: args.host,
+    servers: readOwnServers(),
+  });
+  if (plan.kind === 'open') {
+    console.log(`\n  catavasia is already running at ${plan.url}\n`);
+    if (openTab) openBrowser(plan.url);
+    process.exit(0);
+  }
+  if (plan.note) console.log(`[catavasia] ${plan.note}`);
 
   // dist/ contains both the CLI bundle and the assets/ + webview/ directories
   const distRoot = __dirname;
@@ -337,7 +397,7 @@ async function main(): Promise<void> {
       runtime,
       embedded: false,
       host: args.host,
-      port: args.port,
+      port: plan.port,
       staticDir,
       assetCache,
       onSetHooksEnabled,
@@ -415,9 +475,9 @@ async function main(): Promise<void> {
     // address; only the consent-bearing toggle needs the token.
     const displayHost =
       args.host === '0.0.0.0' || args.host === '::' || args.host === '' ? '127.0.0.1' : args.host;
-    console.log(
-      `\n  catavasia server running at http://${displayHost}:${config.port}/?token=${config.token}\n`,
-    );
+    const url = `http://${displayHost}:${config.port}/?token=${config.token}`;
+    console.log(`\n  catavasia server running at ${url}\n`);
+    if (openTab) openBrowser(url);
 
     // ── Graceful shutdown ──
     function shutdown(): void {
@@ -450,7 +510,7 @@ async function main(): Promise<void> {
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
       console.error(
-        `Port ${String(args.port)} is busy. Use --port <other> or stop the other process.`,
+        `Port ${String(plan.port)} is busy. Use --port <other> or stop the other process.`,
       );
       process.exit(1);
     }

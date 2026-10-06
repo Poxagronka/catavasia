@@ -89,11 +89,10 @@ EOF
 
 Catavasia $VERSION is installed.
 
-Start it:
-  cd /path/to/your/project
-  catavasia
-Then open the URL it prints (it has a ?token= that gives you edit rights).
-A fixed port: catavasia --port 3100
+Start it: double-click the catavasia launcher on your Desktop,
+or run: catavasia
+The office opens in your browser at http://127.0.0.1:3100.
+No launcher? Run: catavasia shortcut
 
 Update: click Update when the game shows a new version,
 or run the same install command again.

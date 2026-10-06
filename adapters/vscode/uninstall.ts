@@ -7,9 +7,24 @@
  * uninstalled extension leaves no hooks running behind the user's back. The
  * copied hook script under ~/.pixel-agents/hooks/ is left in place: the
  * standalone CLI shares it and re-adds its own entries on next run.
+ *
+ * The npm uninstall steps (INSTALL.md) run this file too: it also removes the
+ * desktop launcher that `npm install -g` made (only files with our marker).
  */
+import * as os from 'os';
+import * as path from 'path';
+
 import { resetHooksConfig } from '../../server/src/configPersistence.js';
+import { removeShortcut } from '../../server/src/launch/shortcut.js';
 import { uninstallHooks } from '../../server/src/providers/hook/claude/claudeHookInstaller.js';
+
+for (const file of removeShortcut({
+  platform: process.platform,
+  home: os.homedir(),
+  packageRoot: path.dirname(__dirname),
+})) {
+  console.log(`[catavasia] Removed launcher: ${file}`);
+}
 
 // There is no UI to surface errors to after uninstall — log and exit cleanly
 // (an unhandledRejection here would just be noise in VS Code's uninstall flow).
