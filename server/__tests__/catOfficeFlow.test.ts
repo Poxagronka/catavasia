@@ -170,9 +170,14 @@ describe('team task (1 boss + 2 workers)', () => {
     expect(emitted.some((m) => m.type === 'queueChanged')).toBe(true);
     expect(task.costUsd).toBeGreaterThan(0);
 
-    // One character per cat, with its breed; all released at the end.
-    expect(host.launched.map((l) => l.palette).sort()).toEqual([0, 1, 3]);
-    expect(host.finished.map((f) => f.id).sort()).toEqual([1, 2, 3]);
+    // One resident character per cat (spawned at start, breed palette). Each
+    // turn points it at its session; at the end every member links to the task.
+    expect(host.spawned.map((s) => s.palette)).toEqual([0, 1, 3]);
+    expect(new Set(host.turns.map((t) => t.id))).toEqual(new Set([1, 2, 3]));
+    expect(host.ended).toHaveLength(host.turns.length);
+    expect(host.linked.map((l) => l.id).sort()).toEqual([1, 2, 3]);
+    expect(host.linked.every((l) => l.taskId === task.id)).toBe(true);
+    expect(host.removed).toEqual([]);
     expect(task.palette).toBe(0);
 
     // The narrator hears tool calls, office messages and the final result.

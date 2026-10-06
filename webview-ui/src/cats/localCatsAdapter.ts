@@ -1,6 +1,6 @@
 // Local CatsApi: in-memory state mirrored to localStorage. No server round
-// trip. TODO-phase1: replace with a transport adapter that sends the profile
-// messages and applies catProfilesLoaded / catProfileSaved / hierarchy.
+// trip. The fallback of serverCatsAdapter.ts when no server office answers
+// (VS Code, Vite dev); a server office imports these cats once (see there).
 
 import { BREED_IDS } from './catArt.js';
 import {
@@ -14,9 +14,8 @@ import {
 import { moveCat, normalizeHierarchy, promoteToBoss, removeCat } from './hierarchy.js';
 
 /**
- * TODO-phase1: the server reads these from the installed CLIs. Claude values
- * come from `claude --help` (2.1.289): --effort low|medium|high|xhigh|max,
- * --model alias or full name. Codex values are unverified placeholders
+ * Offline lists only: with a server office the values come from the
+ * installed CLI (`claude --help`). Codex values are unverified placeholders
  * (the model is the one in ~/.codex/config.toml on the dev machine).
  */
 const ENGINE_OPTIONS: Record<Engine, EngineOptions> = {
@@ -29,7 +28,8 @@ const ENGINE_OPTIONS: Record<Engine, EngineOptions> = {
 
 export const STORAGE_KEY = 'catavasia.cats.v1';
 
-function seed(): CatsSnapshot {
+/** The cats a fresh browser starts with (exported: the server import skips them). */
+export function localSeed(): CatsSnapshot {
   const worker = (id: string, name: string, breed: string, role: string): CatProfile => ({
     id,
     name,
@@ -89,7 +89,7 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
     } catch {
       // Corrupt or blocked storage: start from the seed.
     }
-    return seed();
+    return localSeed();
   }
 
   function commit(next: CatsSnapshot) {
@@ -133,6 +133,3 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
     engineOptions: (engine) => ENGINE_OPTIONS[engine],
   };
 }
-
-/** The app-wide instance the Cats and Hierarchy modals share. */
-export const catsApi: CatsApi = createLocalCatsAdapter();

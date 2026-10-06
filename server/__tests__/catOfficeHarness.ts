@@ -8,7 +8,7 @@
  * - "[Task from" (a delegation): write <catId>.txt in its cwd, then report.
  * - "[Report from" or "[Office] Your turn ended": the root reports the
  *   final result (the office refuses while workers still work).
- * - FAKE_MODE=hang: never answer (for interrupt tests).
+ * - FAKE_MODE=hang: never answer (for interrupt tests); FAKE_HANG_CAT=<id>: only that cat hangs.
  * Every run appends {cat, args, cwd, message} to $FAKE_LOG.
  */
 
@@ -33,7 +33,7 @@ process.stdin.on('end', async () => {
   const cat = /cat id is "([a-z0-9-]+)"/.exec(persona)[1];
   const sessionId = flag('--session-id') || flag('--resume');
   fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message }) + '\\n');
-  if (process.env.FAKE_MODE === 'hang') return setInterval(() => {}, 1000);
+  if (process.env.FAKE_MODE === 'hang' || process.env.FAKE_HANG_CAT === cat) return setInterval(() => {}, 1000);
   const mcp = JSON.parse(fs.readFileSync(flag('--mcp-config'), 'utf-8')).mcpServers.office;
   let rpcId = 0;
   const rpc = async (method, params) => {
@@ -75,24 +75,39 @@ process.stdin.on('end', async () => {
 `;
 
 export class FakeCatHost implements CatAgentHost {
-  launched: Array<{ id: number; sessionId: string; cwd: string; palette?: number }> = [];
-  finished: Array<{ id: number; taskId: string }> = [];
-  active: Array<{ id: number; active: boolean }> = [];
+  /** Resident characters: one per cat profile, by spawn order (id = index + 1). */
+  spawned: Array<{ id: number; palette?: number }> = [];
+  turns: Array<{ id: number; sessionId: string; cwd: string }> = [];
+  ended: number[] = [];
+  linked: Array<{ id: number; taskId: string }> = [];
   removed: number[] = [];
-  launchHeadlessAgent(sessionId: string, cwd: string, look?: { palette?: number }) {
-    const id = this.launched.length + 1;
-    this.launched.push({ id, sessionId, cwd, palette: look?.palette });
-    return { id, palette: look?.palette, hueShift: 0 };
+  restored: Array<{ sessionId: string; taskId: string }> = [];
+  spawnResidentAgent(look?: { palette?: number }) {
+    const id = this.spawned.length + 1;
+    this.spawned.push({ id, palette: look?.palette });
+    return id;
   }
-  finishHeadlessAgent(id: number, taskId: string) {
-    this.finished.push({ id, taskId });
+  beginResidentTurn(id: number, sessionId: string, cwd: string) {
+    this.turns.push({ id, sessionId, cwd });
   }
-  setHeadlessAgentActive(id: number, active: boolean) {
-    this.active.push({ id, active });
+  endResidentTurn(id: number) {
+    this.ended.push(id);
   }
-  resumeHeadlessAgent() {}
-  removeAgent(id: number) {
+  linkAgentTask(id: number, taskId: string) {
+    this.linked.push({ id, taskId });
+  }
+  removeResidentAgent(id: number) {
     this.removed.push(id);
+  }
+  // Task board host (plain runs).
+  launchHeadlessAgent() {
+    return { id: 99 };
+  }
+  finishHeadlessAgent() {}
+  resumeHeadlessAgent() {}
+  restoreFinishedAgent(sessionId: string, _cwd: string, taskId: string) {
+    this.restored.push({ sessionId, taskId });
+    return { id: 98 };
   }
 }
 

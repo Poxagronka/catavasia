@@ -162,6 +162,8 @@ export class AgentStateStore {
       // them from sidecars after a restore. Persisting them would resurrect
       // immortal characters whose completion signal never comes.
       if (agent.spawnToolUseId) continue;
+      // Resident office cats come back from cats.json, not from here.
+      if (agent.isResident) continue;
       persisted.push({
         id: agent.id,
         sessionId: agent.sessionId,

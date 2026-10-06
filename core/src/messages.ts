@@ -34,6 +34,7 @@ export type ServerMessage =
   | CatMessage
   | FlowStateChanged
   | QueueChanged
+  | CatCharacters
   | NarratorLine
   | NarratorSummary
   | NarratorSettings
@@ -310,6 +311,8 @@ export interface FlowStateChanged {
   type: 'flowStateChanged';
   taskId: string;
   state: FlowState;
+  rootCatId?: string;
+  catIds?: string[];
 }
 
 export type FlowState =
@@ -327,6 +330,19 @@ export interface QueueChanged {
   running: string[];
   queued: string[];
   cap: number;
+}
+
+export interface CatCharacters {
+  type: 'catCharacters';
+  characters: CatCharacter[];
+}
+
+export interface CatCharacter {
+  catId: string;
+  id: number;
+  name: string;
+  appearance: CatAppearance;
+  working: boolean;
 }
 
 export interface NarratorLine {

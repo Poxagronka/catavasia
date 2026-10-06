@@ -10,6 +10,7 @@ import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
 import { registerCatTerminalRoutes } from './catTerminal/catTerminalRoutes.js';
+import { OfficeCatSource } from './catTerminal/officeCatSource.js';
 import { ptyModule } from './catTerminal/ptyModule.js';
 import type {
   AssetCache,
@@ -107,7 +108,10 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   if (options.orchestrator) registerOfficeMcpRoute(app, options.orchestrator);
   if (options.tasks) {
     registerCatTerminalRoutes(app, {
-      source: new TaskBoardCatSource(options.tasks),
+      // Profile cats (cat office) first; task-board cats fall through.
+      source: options.orchestrator
+        ? new OfficeCatSource(options.orchestrator, options.tasks)
+        : new TaskBoardCatSource(options.tasks),
       isPrivileged: (req) =>
         timingSafeStringEqual(req.headers.authorization ?? '', `Bearer ${options.token}`) ||
         standaloneTokenValid(req.url, options.token),

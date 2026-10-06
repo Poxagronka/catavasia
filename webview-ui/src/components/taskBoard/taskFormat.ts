@@ -1,4 +1,4 @@
-import type { TaskStatus } from '../../../../core/src/tasks.js';
+import type { TaskStatus, TaskTarget } from '../../../../core/src/tasks.js';
 import { CAT_NAMES } from '../../constants.js';
 
 export function catName(palette: number | undefined): string {
@@ -17,3 +17,8 @@ export const STATUS_CLASS: Record<TaskStatus, string> = {
   done: 'text-status-success',
   error: 'text-status-error',
 };
+
+/** A new task goes to the team (its boss delegates down the hierarchy) when there are cats. */
+export function defaultTarget(targets: TaskTarget[]): string {
+  return targets.some((t) => t.id === 'team' && !t.disabled) ? 'team' : '';
+}

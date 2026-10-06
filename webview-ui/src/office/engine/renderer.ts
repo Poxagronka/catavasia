@@ -417,7 +417,7 @@ export function renderScene(
       );
       continue;
     }
-    const sprites = getCharacterSprites(ch.palette, ch.hueShift);
+    const sprites = ch.customSprites ?? getCharacterSprites(ch.palette, ch.hueShift);
     const spriteData = socialSpriteFor(ch, getCharacterSprite(ch, sprites));
     if (!spriteData) continue; // hidden inside the fight dust cloud
     const cached = getCachedSprite(spriteData, zoom);

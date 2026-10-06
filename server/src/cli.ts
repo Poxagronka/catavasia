@@ -194,6 +194,8 @@ async function main(): Promise<void> {
       flows: orchestrator,
       narrate: (input) => narrator.push(input),
     });
+    // Finished one-cat runs keep their idle cat across restarts.
+    tasks.restoreFinishedCats();
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents
     server.onHookEvent((providerId, event) => {

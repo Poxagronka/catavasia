@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { TaskTarget } from '../../../../core/src/tasks.js';
 import { Button } from '../ui/Button.js';
 import { createTask } from './taskApi.js';
+import { defaultTarget } from './taskFormat.js';
 
 interface NewTaskFormProps {
   defaultCwd: string;
@@ -17,8 +18,9 @@ const FIELD = 'w-full bg-bg-dark border-2 border-border text-text p-6 rounded-no
 export function NewTaskForm({ defaultCwd, targets, onCreated, onCancel }: NewTaskFormProps) {
   const [prompt, setPrompt] = useState('');
   const [cwd, setCwd] = useState(defaultCwd);
-  /** '' = one plain run (no cat office). */
-  const [target, setTarget] = useState('');
+  /** '' = one plain run (no cat office). With cats, the team (the boss) is the default. */
+  const [picked, setTarget] = useState<string | null>(null);
+  const target = picked ?? defaultTarget(targets);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,14 +70,22 @@ export function NewTaskForm({ defaultCwd, targets, onCreated, onCancel }: NewTas
             className={`${FIELD} text-xs mt-2`}
             value={target}
             onChange={(e) => setTarget(e.target.value)}
+            data-testid="task-target"
           >
-            <option value="">One cat, plain run</option>
             {targets.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
+              <option key={t.id} value={t.id} disabled={!!t.disabled}>
+                {t.disabled ? `${t.label} (${t.disabled})` : t.label}
               </option>
             ))}
+            <option value="">One cat, plain run (no profile)</option>
           </select>
+          <span className="block mt-2 text-2xs">
+            {target === 'team'
+              ? 'The boss splits the task and delegates down the hierarchy.'
+              : target
+                ? 'Only this cat works on it; it may delegate to its own reports.'
+                : 'A plain run outside the hierarchy.'}
+          </span>
         </label>
       )}
       <div className="text-2xs text-warning">

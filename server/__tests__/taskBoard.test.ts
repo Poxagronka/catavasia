@@ -61,6 +61,16 @@ class FakeHost implements TaskAgentHost {
     this.finishedTasks.push(taskId);
   }
   resumeHeadlessAgent() {}
+  restored: Array<{ sessionId: string; taskId: string; palette?: number }> = [];
+  restoreFinishedAgent(
+    sessionId: string,
+    _cwd: string,
+    taskId: string,
+    look?: { palette?: number },
+  ) {
+    this.restored.push({ sessionId, taskId, palette: look?.palette });
+    return { id: 100 + this.restored.length };
+  }
 }
 
 async function waitSettled(manager: TaskManager, id: string) {
@@ -237,6 +247,55 @@ describe('TaskManager', () => {
 
     expect(manager.get('dead0001')).toMatchObject({ status: 'error' });
     expect(manager.get('dead0001')?.error).toContain('Interrupted');
+  });
+
+  it('gives the newest finished one-cat runs their idle cat back after a restart', () => {
+    fs.mkdirSync(stateDir, { recursive: true });
+    const dead = 2 ** 22 + 7;
+    const run = (id: string, finishedAt: number, extra: object = {}) => ({
+      id,
+      title: id,
+      prompt: id,
+      cwd: tmp,
+      status: 'done',
+      createdAt: finishedAt - 1,
+      finishedAt,
+      ownerPid: dead,
+      log: [],
+      sessionId: `s-${id}`,
+      agentCwd: tmp,
+      agentId: 3,
+      palette: 5,
+      hueShift: 0,
+      ...extra,
+    });
+    const list = [
+      ...Array.from({ length: 7 }, (_, i) => run(`old${i}`, 100 + i)),
+      run('team1', 500, { target: 'team' }),
+      run('nosess', 600, { sessionId: undefined }),
+      run('live', 700, { ownerPid: process.ppid }),
+    ];
+    const tasks = Object.fromEntries(list.map((t) => [t.id, t]));
+    fs.writeFileSync(path.join(stateDir, 'tasks.json'), JSON.stringify({ version: 1, tasks }));
+    const host = new FakeHost();
+    const manager = new TaskManager({ host, stateDir, defaultCwd: tmp });
+
+    manager.restoreFinishedCats();
+
+    // Newest first, at most 6; team tasks, runs without a session and tasks a
+    // live server owns are skipped.
+    expect(host.restored.map((r) => r.taskId)).toEqual([
+      'old6',
+      'old5',
+      'old4',
+      'old3',
+      'old2',
+      'old1',
+    ]);
+    expect(host.restored[0]).toEqual({ sessionId: 's-old6', taskId: 'old6', palette: 5 });
+    // Clicking the restored cat (new agent id) opens its task.
+    expect(manager.findByAgent(101)?.id).toBe('old6');
+    expect(manager.resumeBlocker('old6')).toBeUndefined();
   });
 });
 

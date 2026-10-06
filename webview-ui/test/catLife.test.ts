@@ -83,6 +83,11 @@ function office(extra: OfficeLayout['furniture'] = []): OfficeState {
   // No encounters of their own: each test starts the scenes it checks.
   os.social.rng = () => 0.99;
   os.life.activitySocial.rng = () => 0.99;
+  // No contest fights and seeded idle picks: an idle cat that claims a spot
+  // another cat reserved a moment ago re-picks instead of rolling a fight it
+  // may win (that made 'the only bed is held' and 'the nap goes on' flaky).
+  os.life.claims.spots.rng = () => 0.99;
+  os.life.rng = mulberry32(1);
   return os;
 }
 

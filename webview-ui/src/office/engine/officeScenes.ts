@@ -16,6 +16,11 @@
  * When the task leaves 'briefing', everyone walks back to its desk. Talks
  * between two cats in the meeting play in place.
  *
+ * Turn queue (setQueue, from queueChanged): cats whose turn waits for a free
+ * slot stand in a line by the coffee (OfficeState.queueTiles) and show an
+ * "in queue" marker. A talk or a meeting takes a cat out of the line; it
+ * comes back when that ends. The line tiles are reserved like meeting chairs.
+ *
  * OfficeState calls update() once per frame before the social layer, and
  * reads bubbles() for the overlay and meetingSeats() for the reservations.
  */
@@ -38,12 +43,15 @@ import type { PuppetWorld } from './scenePuppets.js';
 import { Puppets, talkSpot } from './scenePuppets.js';
 import type { SceneBubble } from './sceneText.js';
 import { toBubble } from './sceneText.js';
+import type { Tile } from './socialMoves.js';
 import { faceEachOther } from './socialMoves.js';
 
 export interface ScenesWorld extends PuppetWorld {
   seats: Map<string, Seat>;
   /** Where a briefing meets now, or null when the office has no meeting room. */
   planMeeting(): MeetingPlan | null;
+  /** The first `n` tiles of the turn queue line, front first (none: no line). */
+  queueTiles?(n: number): Tile[];
 }
 
 type Line = Omit<CatMessageEvent, 'type'>;
@@ -75,6 +83,10 @@ export class OfficeScenes {
   private meeting: Meeting | null = null;
   /** Cats walking back to their desks; released when they sit down. */
   private readonly returning = new Set<number>();
+  /** Cats whose turn waits for a slot, oldest first. */
+  private queue: number[] = [];
+  /** Cats standing in the queue line, with their tile key. */
+  private readonly inLine = new Map<number, string>();
   private nextTalkId = 1;
 
   constructor(world: ScenesWorld) {
@@ -101,10 +113,27 @@ export class OfficeScenes {
     return this.talkOf(id)?.phase ?? null;
   }
 
-  /** [seat tile key, cat id] of every meeting chair, for the seat reservations. */
+  /** [tile key, cat id] of every meeting chair and queue spot, for the seat reservations. */
   meetingSeats(): Array<[string, number]> {
-    if (!this.meeting) return [];
-    return [...this.meeting.chairs].map(([id, s]) => [`${s.seatCol},${s.seatRow}`, id]);
+    const line = [...this.inLine].map(([id, key]): [string, number] => [key, id]);
+    if (!this.meeting) return line;
+    return [
+      ...[...this.meeting.chairs].map(([id, s]): [string, number] => [
+        `${s.seatCol},${s.seatRow}`,
+        id,
+      ]),
+      ...line,
+    ];
+  }
+
+  /** Cats whose turn waits for a slot (agent ids, oldest first). */
+  setQueue(ids: number[]): void {
+    this.queue = [...ids];
+  }
+
+  /** Cats standing in the queue line, front first (the overlay marks them). */
+  queuedCats(): number[] {
+    return this.queue.filter((id) => this.inLine.has(id));
   }
 
   // ── Events ─────────────────────────────────────────────────────
@@ -364,6 +393,32 @@ export class OfficeScenes {
     }
     for (const t of [...this.talks]) this.stepTalk(t, dt);
     this.startPending();
+    this.updateQueue();
+  }
+
+  /** Walk queued cats into the line by the coffee; release the ones that left it. */
+  private updateQueue(): void {
+    const chars = this.w.characters;
+    const free = (id: number) =>
+      chars.has(id) && !this.busy(id) && !this.returning.has(id) && !chars.get(id)!.isActive;
+    for (const id of [...this.inLine.keys()]) {
+      if (this.queue.includes(id) && free(id)) continue;
+      this.inLine.delete(id);
+      if (!this.busy(id) && !this.returning.has(id)) this.puppets.release(id, this.w);
+    }
+    const line = this.queue.filter(
+      (id) => free(id) && (this.inLine.has(id) || !this.puppets.owns(id)),
+    );
+    const tiles = this.w.queueTiles?.(line.length) ?? [];
+    line.forEach((id, i) => {
+      const tile = tiles[i];
+      if (!tile) return;
+      const key = `${tile.col},${tile.row}`;
+      if (this.inLine.get(id) === key) return;
+      this.puppets.take(chars.get(id)!, this.w);
+      this.puppets.goTo(id, tile);
+      this.inLine.set(id, key);
+    });
   }
 
   /** Text bubbles to draw this frame. */
