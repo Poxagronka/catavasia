@@ -145,10 +145,16 @@ export default async function globalSetup(): Promise<void> {
       }
 
       console.log('[e2e] Ensuring VS Code is downloaded...');
-      const downloadedPath = await downloadAndUnzipVSCode({
+      let downloadedPath = await downloadAndUnzipVSCode({
         version: 'stable',
         cachePath: VSCODE_CACHE_DIR,
       });
+      // VS Code >= 1.140 on macOS ships Contents/MacOS/Code, not the Electron
+      // path @vscode/test-electron returns. Prefer Code when it exists.
+      const macCodePath = path.join(path.dirname(downloadedPath), 'Code');
+      if (process.platform === 'darwin' && fs.existsSync(macCodePath)) {
+        downloadedPath = macCodePath;
+      }
       console.log(`[e2e] VS Code executable: ${downloadedPath}`);
       patchProductJsonForWindows(downloadedPath);
       fs.writeFileSync(VSCODE_PATH_FILE, downloadedPath, 'utf8');

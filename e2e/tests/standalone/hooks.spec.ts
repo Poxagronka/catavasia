@@ -9,7 +9,7 @@ import {
   sessionStartStartup,
 } from '../../helpers/hooks';
 import { advanceIntroToConsentStep, finishIntro } from '../../helpers/intro';
-import { expectOverlayCount, expectOverlayVisible } from '../../helpers/office';
+import { expectOverlayCount, expectOverlayVisible, getAgentOverlays } from '../../helpers/office';
 import type { RecordedServerMessage } from '../../helpers/standalone';
 import { openSettingsModal, setSettings } from '../../helpers/webview';
 
@@ -21,8 +21,12 @@ test.describe('Standalone / hooks', () => {
     await setSettings(page, {
       alwaysShowLabels: true,
       watchAllSessions: true,
+      showGuests: true,
     });
     await standalone.drainMessages();
+    // Resident cats (CEO, lead, ...) show labels too, so count overlays
+    // relative to them: the hook session adds exactly one.
+    const residents = await getAgentOverlays(page).count();
 
     const sessionId = 'standalone-hooks-test-session';
     const filePath = path.join(standalone.workspaceDir, 'demo.ts');
@@ -37,7 +41,7 @@ test.describe('Standalone / hooks', () => {
     // created yet, which would not actually prove SessionStart stays invisible.
     // See e2e/helpers/office.ts wait-strategy conventions (negative assertion).
     await page.waitForTimeout(500);
-    await expectOverlayCount(page, 0);
+    await expectOverlayCount(page, residents);
 
     await sendHookEvent(standalone.hookServerConfig, {
       session_id: sessionId,
@@ -46,7 +50,7 @@ test.describe('Standalone / hooks', () => {
       tool_input: { file_path: filePath },
     });
 
-    await expectOverlayCount(page, 1);
+    await expectOverlayCount(page, residents + 1);
     await expectOverlayVisible(page, 'Reading demo.ts');
     const preToolMessages = await standalone.drainMessages();
     const toolStart = preToolMessages.find(
@@ -99,7 +103,7 @@ test.describe('Standalone / hooks', () => {
     ).toBe(true);
 
     await sendHookEvent(standalone.hookServerConfig, sessionEndExit(sessionId));
-    await expectOverlayCount(page, 0);
+    await expectOverlayCount(page, residents);
     const sessionEndMessages = await standalone.drainMessages();
     expect(sessionEndMessages.some((message) => message.type === 'agentClosed')).toBe(true);
   });
@@ -166,7 +170,10 @@ test.describe('Standalone / hooks consent', () => {
     const bareUrl = new URL(page.url());
     bareUrl.search = '';
 
-    const spectator = await page.context().newPage();
+    // A fresh context: the same context shares localStorage, where the page
+    // saved its token (catavasia.serverToken), so it would be privileged.
+    const spectatorContext = await page.context().browser()!.newContext();
+    const spectator = await spectatorContext.newPage();
     try {
       await spectator.goto(bareUrl.toString());
       await expect(spectator.getByRole('button', { name: 'Settings' })).toBeVisible({
@@ -177,7 +184,7 @@ test.describe('Standalone / hooks consent', () => {
       await spectator.waitForTimeout(2_000);
       await expect(spectator.getByRole('dialog')).toHaveCount(0);
     } finally {
-      await spectator.close();
+      await spectatorContext.close();
     }
   });
 

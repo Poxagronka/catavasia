@@ -8,7 +8,12 @@ import {
   spawnExternalClaudeScenario,
   waitForClaudeHookSetup,
 } from '../../helpers/mock-claude';
-import { expectNoOverlay, expectOverlayCount, expectOverlayVisible } from '../../helpers/office';
+import {
+  expectNoOverlay,
+  expectOverlayCount,
+  expectOverlayVisible,
+  getAgentOverlays,
+} from '../../helpers/office';
 import { launchStandalone } from '../../helpers/standalone';
 import { setSettings } from '../../helpers/webview';
 
@@ -48,8 +53,12 @@ test.describe('Standalone / multi-server hooks', () => {
         hooksEnabled: true,
         watchAllSessions: false,
         debugView: false,
+        // Standalone hides external sessions (guests) unless Show Guests is on.
+        showGuests: true,
       });
       await standalone.drainMessages();
+      // Resident cats show labels too: the hook session adds exactly one.
+      const residents = await getAgentOverlays(page).count();
       await waitForClaudeHookSetup(tmpHome);
 
       const registryDir = path.join(tmpHome, '.pixel-agents', 'servers');
@@ -95,7 +104,7 @@ test.describe('Standalone / multi-server hooks', () => {
       await expectNoOverlay(frame, `Running: ${standaloneCommand}`);
 
       await expectOverlayCount(frame, 1);
-      await expectOverlayCount(page, 1);
+      await expectOverlayCount(page, residents + 1);
     } finally {
       await standalone.cleanup();
     }

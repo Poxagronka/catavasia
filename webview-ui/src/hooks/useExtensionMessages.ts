@@ -94,7 +94,6 @@ interface ExtensionMessageState {
   /** Distinct folderNames seen across agents this session — source for the Areas folder dropdown. */
   agentFolderNames: string[];
   externalAssetDirectories: string[];
-  lastSeenVersion: string;
   extensionVersion: string;
   watchAllSessions: boolean;
   setWatchAllSessions: (v: boolean) => void;
@@ -152,7 +151,6 @@ export function useExtensionMessages(
   const [workspaceFolders, setWorkspaceFolders] = useState<WorkspaceFolder[]>([]);
   const [agentFolderNames, setAgentFolderNames] = useState<string[]>([]);
   const [externalAssetDirectories, setExternalAssetDirectories] = useState<string[]>([]);
-  const [lastSeenVersion, setLastSeenVersion] = useState('');
   const [extensionVersion, setExtensionVersion] = useState('');
   const [watchAllSessions, setWatchAllSessions] = useState(false);
   const [alwaysShowLabels, setAlwaysShowLabels] = useState(false);
@@ -700,9 +698,6 @@ export function useExtensionMessages(
         if (Array.isArray(msg.externalAssetDirectories)) {
           setExternalAssetDirectories(msg.externalAssetDirectories as string[]);
         }
-        if (typeof msg.lastSeenVersion === 'string') {
-          setLastSeenVersion(msg.lastSeenVersion as string);
-        }
         if (typeof msg.extensionVersion === 'string') {
           setExtensionVersion(msg.extensionVersion as string);
         }
@@ -804,7 +799,6 @@ export function useExtensionMessages(
     workspaceFolders,
     agentFolderNames,
     externalAssetDirectories,
-    lastSeenVersion,
     extensionVersion,
     watchAllSessions,
     setWatchAllSessions,
