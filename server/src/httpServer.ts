@@ -76,6 +76,12 @@ export interface HttpServerHandle {
 
 const startTime = Date.now();
 
+/** The request log line, without the token: the token lasts across restarts
+ *  (authToken.ts), so a saved log must not hold a working credential. */
+export function logRequest(req: { method: string; url: string }): { method: string; url: string } {
+  return { method: req.method, url: req.url.replace(/([?&]token=)[^&#]*/g, '$1[redacted]') };
+}
+
 /**
  * Create a Fastify server with hook endpoint, health check, and WebSocket support.
  *
@@ -84,7 +90,7 @@ const startTime = Date.now();
  */
 export async function createHttpServer(options: HttpServerOptions): Promise<HttpServerHandle> {
   const app = Fastify({
-    logger: !options.embedded,
+    logger: !options.embedded && { serializers: { req: logRequest } },
     bodyLimit: MAX_HOOK_BODY_SIZE,
   });
 

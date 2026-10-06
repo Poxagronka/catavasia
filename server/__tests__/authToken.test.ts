@@ -4,6 +4,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadOrCreateAuthToken } from '../src/authToken.js';
+import { logRequest } from '../src/httpServer.js';
 
 const posix = process.platform !== 'win32';
 let dir: string;
@@ -62,5 +63,16 @@ describe('loadOrCreateAuthToken', () => {
     fs.mkdirSync(path.dirname(dir), { recursive: true });
     fs.writeFileSync(dir, 'not a directory');
     expect(loadOrCreateAuthToken(dir).length).toBeGreaterThanOrEqual(16);
+  });
+});
+
+describe('request log', () => {
+  it('never holds the token', () => {
+    const line = logRequest({ method: 'GET', url: '/ws?token=fake-token-0123456789&x=1' });
+    expect(line).toEqual({ method: 'GET', url: '/ws?token=[redacted]&x=1' });
+    expect(
+      logRequest({ method: 'POST', url: '/api/tasks?a=1&token=fake-token-0123456789' }).url,
+    ).toBe('/api/tasks?a=1&token=[redacted]');
+    expect(logRequest({ method: 'GET', url: '/api/health' }).url).toBe('/api/health');
   });
 });
