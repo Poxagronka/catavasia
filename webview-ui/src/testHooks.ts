@@ -31,6 +31,8 @@ declare global {
       }>;
       /** Send an idle cat to an idle activity now (see OfficeState.forceIdleActivity). */
       forceIdleActivity?: (id: number, activityId: string, spotKey?: string) => boolean;
+      /** Send a cat pet to an idle activity now (see OfficeState.forcePetActivity). */
+      forcePetActivity?: (petId: string, activityId: string, spotKey?: string) => boolean;
       /** The live office (scene setup for screenshots: cat life, pets, needs). */
       getOffice?: () => OfficeState | null;
       /** Emit an orchestrator event (catMessage, flowStateChanged) as the server feed will. */
@@ -176,6 +178,8 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
 
   hooks.forceIdleActivity = (id, activityId, spotKey) =>
     officeStateRef.current?.forceIdleActivity(id, activityId, spotKey) ?? false;
+  hooks.forcePetActivity = (petId, activityId, spotKey) =>
+    officeStateRef.current?.forcePetActivity(petId, activityId, spotKey) ?? false;
 
   hooks.getOffice = () => officeStateRef.current;
   hooks.emitOrchestratorEvent = (event) => orchestratorEvents.emit(event);

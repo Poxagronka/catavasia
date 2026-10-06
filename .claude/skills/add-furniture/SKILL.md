@@ -93,7 +93,9 @@ Write every spot for the FRONT view; the builders turn it (furniture.md §4).
   `engine/*Anims.ts`. A step `dir` is front-view relative (it flips at a
   mirrored item).
 - Weight: 1 unless the user asked for more; pets use it only through
-  `engine/petActivities.ts` id lists.
+  `engine/petActivities.ts` id lists. A pet activity also needs its pose in
+  `PET_ANIM_OF` and steps in `engine/petPlayAnims.ts` (poses derived in
+  `sprites/petPlayFrames.ts`); preview with `npx tsx scripts/preview-pets.ts`.
 
 ## 5. GUARD
 

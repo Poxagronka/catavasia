@@ -7,7 +7,7 @@ import {
   PET_SLEEP_MIN_SEC,
   POOP_GRIMACE_SEC,
 } from '../../constants.js';
-import type { ActivitySpot, Pet, PetCareAnim } from '../types.js';
+import type { ActivitySpot, Pet, PetCareAnim, PetPlayAnim } from '../types.js';
 import type { Needs, RequestKind } from './petNeeds.js';
 
 /** Shapes shared by the pet-care runtime (petCareSystem.ts documents the seam). */
@@ -23,12 +23,14 @@ export interface PetActivityClaim {
   gains?: Partial<Needs>;
   /** The spot (draw offsets, a house that hides the cat). Omitted: plain floor tile. */
   spot?: ActivitySpot;
-  /** Pose while there; default: stand and wait. */
-  anim?: 'play' | 'sleep';
+  /** Pose while there (a play pose per toy, see engine/petPlayAnims.ts); default: stand and wait. */
+  anim?: 'play' | 'sleep' | PetPlayAnim;
   /** Spot keys the provider reserved for the pet (kept until the claim ends). */
   keys?: string[];
   /** A nap: energy refills while it lasts, and the cat wakes once it is full. */
   sleep?: boolean;
+  /** A joint-play turn (the scene holds the spot): never resumed after a fight. */
+  joint?: boolean;
 }
 
 export interface PetActivityProvider {
@@ -63,7 +65,7 @@ export interface Seek {
   keys: string[];
 }
 export interface Anim {
-  kind: PetCareAnim | 'wait';
+  kind: PetCareAnim | PetPlayAnim | 'wait';
   t: number;
   dur: number;
   done: () => void;

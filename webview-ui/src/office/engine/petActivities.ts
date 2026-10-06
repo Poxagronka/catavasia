@@ -1,7 +1,9 @@
 /**
  * The office's pet activity provider (the pet-care seam, see
- * petCareSystem.ts): it lets content pet cats join the idle pool — playroom
- * toys, cat beds and houses, sofa naps — and finds a tired cat its nap spot.
+ * petCareSystem.ts): it lets content pet cats join the idle pool — every
+ * playroom toy, cat beds and houses, sofa naps — and finds a tired cat its
+ * nap spot. Each activity has the pet's own pose (PET_ANIM_OF, steps in
+ * petPlayAnims.ts).
  * Pets never drink coffee: no claim here names a coffee item, and pet care
  * refuses one anyway.
  *
@@ -21,14 +23,46 @@ import type { PetActivityClaim, PetActivityProvider } from '../petCare/petCareTy
 import type { Needs } from '../petCare/petNeeds.js';
 import type { ActivitySpot, Pet, PlacedFurniture } from '../types.js';
 import type { ActivitySpotSet } from './idleActivities.js';
+import { isPetPlayAnim, PET_PLAY_ANIMS, petPlaySec } from './petPlayAnims.js';
 import type { ClaimOutcome } from './spotClaims.js';
 import { spotKeys } from './spotClaims.js';
 
-/** Toys a pet plays with (hop pose next to them). The tunnel and box are agent-only poses. */
-export const PET_TOY_IDS = ['yarn', 'mouse', 'teaser', 'scratch'] as const;
+/** Toys a pet plays with: every playroom activity of the agent cats. */
+export const PET_TOY_IDS = [
+  'yarn',
+  'mouse',
+  'teaser',
+  'scratch',
+  'box',
+  'catTree',
+  'tunnel',
+] as const;
 /** Where a pet naps: beds and houses first, then sofa seats, then the floor by a sofa. */
 export const PET_NAP_IDS = ['bed', 'house', 'catBed'] as const;
 const SOFA_NAP_ID = 'sleep';
+
+/**
+ * The pose a pet plays at each activity it claims: a toy's own play pose, a
+ * curl on a bed, the loaf on a sofa and inside a house (only the peek shows).
+ */
+const PET_ANIM_OF: Readonly<Record<string, NonNullable<PetActivityClaim['anim']>>> = {
+  yarn: 'yarn',
+  mouse: 'mouse',
+  teaser: 'teaser',
+  scratch: 'scratch',
+  box: 'box',
+  catTree: 'catTree',
+  tunnel: 'tunnel',
+  bed: 'curl',
+  catBed: 'curl',
+  house: 'sleep',
+  [SOFA_NAP_ID]: 'sleep',
+};
+
+/** The pet's pose for an activity id, or undefined for one pets never do (coffee). */
+export function petAnimFor(id: string): PetActivityClaim['anim'] {
+  return PET_ANIM_OF[id];
+}
 
 export interface PetActivityHost {
   spotSets(): Map<string, ActivitySpotSet>;
@@ -109,17 +143,22 @@ export class PetActivities implements PetActivityProvider {
   ): PetActivityClaim | 'repick' | 'fight' {
     const nap = tired || !PET_TOY_IDS.includes(id as (typeof PET_TOY_IDS)[number]);
     const rng = this.host.rng;
+    const anim = petAnimFor(id) ?? (nap ? 'sleep' : 'play');
+    // A run through the tunnel plays start to end: the claim lasts exactly that long.
+    const fixedSec = isPetPlayAnim(anim) && PET_PLAY_ANIMS[anim].fixed ? petPlaySec(anim) : 0;
     const claim: PetActivityClaim = {
       kind: id,
       col: spot.col,
       row: spot.row,
       furnitureType: this.host.furniture().find((f) => f.uid === spot.itemUid)?.type,
-      durationSec: nap
-        ? PET_SLEEP_MIN_SEC + rng() * (PET_SLEEP_MAX_SEC - PET_SLEEP_MIN_SEC)
-        : PET_TOY_MIN_SEC + rng() * (PET_TOY_MAX_SEC - PET_TOY_MIN_SEC),
+      durationSec:
+        fixedSec ||
+        (nap
+          ? PET_SLEEP_MIN_SEC + rng() * (PET_SLEEP_MAX_SEC - PET_SLEEP_MIN_SEC)
+          : PET_TOY_MIN_SEC + rng() * (PET_TOY_MAX_SEC - PET_TOY_MIN_SEC)),
       gains: nap ? {} : { fun: PET_TOY_FUN_GAIN },
       spot,
-      anim: nap ? 'sleep' : 'play',
+      anim,
       keys: spotKeys(spot),
       sleep: nap,
     };
