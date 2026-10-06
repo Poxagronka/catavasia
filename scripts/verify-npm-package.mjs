@@ -157,7 +157,7 @@ async function verifyInstalledTarball(tarballPath) {
     const port = await getFreePort();
     child = spawn(
       process.execPath,
-      [installedCli, '--port', port.toString(), '--host', '127.0.0.1'],
+      [installedCli, '--port', port.toString(), '--host', '127.0.0.1', '--no-open'],
       {
         cwd: smokeProject,
         env: { ...process.env, HOME: smokeHome, USERPROFILE: smokeHome },

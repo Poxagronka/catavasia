@@ -127,6 +127,7 @@ async function main() {
     buildHooks();
     await buildCli();
     await buildUninstall();
+    await buildPostinstall();
   }
 }
 
@@ -141,6 +142,20 @@ async function buildUninstall() {
     platform: 'node',
     outfile: 'dist/uninstall.js',
     define: versionDefine,
+    logLevel: 'silent',
+  });
+}
+
+/** Bundle the npm postinstall script (creates the desktop launcher on a global install). */
+async function buildPostinstall() {
+  await esbuild.build({
+    entryPoints: ['server/src/launch/postinstall.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: false,
+    platform: 'node',
+    outfile: 'dist/postinstall.js',
     logLevel: 'silent',
   });
 }

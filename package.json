@@ -2,7 +2,7 @@
   "name": "catavasia",
   "displayName": "catavasia",
   "description": "Pixel-art cat office where your Claude Code agents are cats: watch your sessions, or hire a cat team that splits a task and works in git worktrees",
-  "version": "1.4.1-cats.39",
+  "version": "1.4.1-cats.40",
   "publisher": "pablodelucca",
   "author": "Poxagronka",
   "repository": {
@@ -53,6 +53,7 @@
     "dist/extension.js",
     "dist/hooks/claude-hook.js",
     "dist/uninstall.js",
+    "dist/postinstall.js",
     "dist/assets/",
     "dist/webview/",
     "icon.png"
@@ -105,6 +106,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "vscode:uninstall": "node ./dist/uninstall.js",
+    "postinstall": "node -e \"try{require('./dist/postinstall.js').runPostinstall()}catch{}\"",
     "prepack": "npm run package",
     "build:extension": "node esbuild.js --production",
     "build:webview": "cd webview-ui && npm run build",

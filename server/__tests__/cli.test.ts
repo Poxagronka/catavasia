@@ -65,8 +65,8 @@ function runCli(args: string[]): Promise<{ code: number | null; stdout: string; 
 }
 
 describe('parseArgs', () => {
-  // 1. No --port -> ephemeral default (unset), never a hardcoded port
-  it('defaults port to undefined (ephemeral) when --port is omitted', () => {
+  // 1. No --port -> unset: main() picks the default port (launch/portChoice.ts)
+  it('leaves port undefined when --port is omitted', () => {
     const args = parseArgs([]);
     expect(args.port).toBeUndefined();
     expect(args.host).toBe('127.0.0.1');
@@ -118,6 +118,12 @@ describe('parseArgs', () => {
   // 10. --host is parsed independently of --port
   it('parses --host', () => {
     expect(parseArgs(['--host', '0.0.0.0']).host).toBe('0.0.0.0');
+  });
+
+  // 11. The browser opens by default; --no-open turns it off
+  it('parses --no-open', () => {
+    expect(parseArgs([]).open).toBe(true);
+    expect(parseArgs(['--no-open']).open).toBe(false);
   });
 });
 
