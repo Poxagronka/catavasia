@@ -72,13 +72,14 @@ async function poll(): Promise<void> {
   }
 }
 
-/** Wait for the new version to answer /api/health, then reload the page. */
+/** Wait until a different version answers /api/health, then reload the page.
+ *  Any new version counts: the last status may predate the install step. */
 async function pollRestart(): Promise<void> {
   const r = snapshot.restarting!;
-  const target = snapshot.status?.run.installedVersion;
+  const old = snapshot.status?.currentVersion;
   try {
     const health = (await (await fetch('/api/health')).json()) as { version?: string };
-    if (health.version && (!target || health.version === target)) {
+    if (health.version && health.version !== old) {
       window.location.reload();
       return;
     }

@@ -29,7 +29,7 @@ export function UpdateBanner() {
         <span className="text-xs text-text-muted">
           {restarting.timedOut
             ? `The new version did not answer. Start it by hand (catavasia --port ${window.location.port}). Log: ${run.logPath ?? 'see ~/.pixel-agents/update/'}`
-            : `Installed ${run.installedVersion ?? 'the new version'}. The page reloads when it is up.`}
+            : `Installed ${run.installedVersion ?? status.latestVersion ?? 'the new version'}. The page reloads when it is up.`}
         </span>
       </div>
     );
