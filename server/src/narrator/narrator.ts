@@ -32,11 +32,15 @@ export interface NarratorOptions {
 export class Narrator {
   private readonly lines = new Map<number, NarratorLine>();
   private readonly summaries = new Map<string, NarratorSummary>();
+  /** The line a hook-derived wait replaced, restored when the wait clears. */
+  private readonly beforeWait = new Map<number, NarratorLine>();
   private readonly batcher: HaikuBatcher;
 
   constructor(private readonly opts: NarratorOptions) {
     this.batcher = new HaikuBatcher({
       ...opts.batcher,
+      // Turning the setting off drops queued material before the next call.
+      shouldRun: () => opts.aiSummariesEnabled(),
       onSummaries: (list) => {
         for (const s of list) {
           this.summaries.set(s.conversationId, s);
@@ -50,6 +54,7 @@ export class Narrator {
     const t = templateFor(input);
     if (t) {
       const prev = this.lines.get(input.catId);
+      this.beforeWait.delete(input.catId);
       if (prev?.line !== t.line || prev.state !== t.state) {
         const line: NarratorLine = { catId: input.catId, ...t };
         this.lines.set(input.catId, line);
@@ -75,15 +80,34 @@ export class Narrator {
   observeBroadcast(message: Record<string, unknown>): void {
     const id = message.id;
     if (typeof id !== 'number' || !this.lines.has(id)) return;
-    if (message.type === 'agentToolPermission') {
-      this.push({ catId: id, ts: Date.now(), kind: 'state', text: 'permission' });
-    } else if (message.type === 'agentStatus' && message.awaitingInput === true) {
-      this.push({ catId: id, ts: Date.now(), kind: 'state', text: 'input' });
+    const waiting =
+      message.type === 'agentToolPermission'
+        ? 'permission'
+        : message.type === 'agentStatus' && message.awaitingInput === true
+          ? 'input'
+          : undefined;
+    if (waiting) {
+      const prev = this.beforeWait.get(id) ?? this.lines.get(id);
+      this.push({ catId: id, ts: Date.now(), kind: 'state', text: waiting });
+      if (prev) this.beforeWait.set(id, prev);
+      return;
+    }
+    // A cleared permission or a resumed turn restores the line the wait replaced.
+    const cleared =
+      message.type === 'agentToolPermissionClear' ||
+      (message.type === 'agentStatus' && message.status === 'active');
+    const prev = this.beforeWait.get(id);
+    if (cleared && prev) {
+      this.beforeWait.delete(id);
+      this.lines.set(id, prev);
+      this.opts.broadcast({ type: 'narratorLine', ...prev });
     }
   }
 
   forget(catId: number): void {
     this.lines.delete(catId);
+    this.beforeWait.delete(catId);
+    for (const [key, s] of this.summaries) if (s.catIds.includes(catId)) this.summaries.delete(key);
   }
 
   /** Current lines and summaries, for a client that just connected. */

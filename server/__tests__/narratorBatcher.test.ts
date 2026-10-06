@@ -222,4 +222,45 @@ describe('Narrator facade', () => {
     n.forget(9);
     expect(n.snapshot()).toEqual([]);
   });
+
+  it('restores the work line when a hook wait clears', () => {
+    const { n, sent } = make();
+    n.push({ catId: 9, ts: 0, kind: 'tool', tool: 'Bash', text: 'npm test' });
+    n.observeBroadcast({ type: 'agentToolPermission', id: 9 });
+    n.observeBroadcast({ type: 'agentToolPermissionClear', id: 9 });
+    n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'waiting', awaitingInput: true });
+    n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'active' });
+    expect(sent.map((m) => (m.type === 'narratorLine' ? m.line : ''))).toEqual([
+      'гоняет тесты',
+      'ждёт разрешения',
+      'гоняет тесты',
+      'ждёт ответа',
+      'гоняет тесты',
+    ]);
+  });
+
+  it('forget drops the cat summaries too', async () => {
+    const { n, r } = make();
+    n.push({ catId: 4, ts: 0, kind: 'result', text: 'done the task' });
+    await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
+    r.pending[0].resolve(envelope([{ conversationId: 'result:4', summary: 'Задача сделана.' }]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(n.snapshot().some((m) => m.type === 'narratorSummary')).toBe(true);
+    n.forget(4);
+    expect(n.snapshot()).toEqual([]);
+  });
+
+  it('turning AI summaries off drops queued material without a call', async () => {
+    let ai = true;
+    const r = fakeRunner();
+    const n = new Narrator({
+      broadcast: () => {},
+      aiSummariesEnabled: () => ai,
+      batcher: { run: r.run, log: () => {} },
+    });
+    n.push({ catId: 4, ts: 0, kind: 'result', text: 'ok' });
+    ai = false;
+    await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS * 3);
+    expect(r.prompts).toHaveLength(0);
+  });
 });

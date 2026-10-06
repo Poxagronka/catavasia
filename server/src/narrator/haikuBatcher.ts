@@ -45,6 +45,8 @@ const realClock: Clock = {
 
 export interface HaikuBatcherOptions {
   onSummaries: (summaries: ValidSummary[]) => void;
+  /** Checked before each call. False drops the queue without a call. */
+  shouldRun?: () => boolean;
   run?: SummaryRunner;
   clock?: Clock;
   intervalMs?: number;
@@ -112,6 +114,7 @@ export class HaikuBatcher {
     if (this.inFlight || this.disabled || this.queue.size === 0) return;
     const batch = [...this.queue.values()];
     this.queue.clear();
+    if (this.opts.shouldRun && !this.opts.shouldRun()) return;
     this.inFlight = true;
     try {
       const stdout = await this.run(buildSummaryPrompt(batch));

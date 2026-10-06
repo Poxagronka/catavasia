@@ -10,6 +10,7 @@
 
 import { useSyncExternalStore } from 'react';
 
+import { TRANSPORT_STATE_CONNECTED } from '../../core/src/constants.js';
 import type { ClientMessage } from '../../core/src/messages.js';
 import type {
   NarratorLine,
@@ -27,6 +28,15 @@ const listeners = new Set<() => void>();
 function emit(): void {
   for (const l of listeners) l();
 }
+
+// Agent ids restart after a server restart: drop everything on a lost
+// connection. The server resends its lines on the next webviewReady.
+transport.onStateChange((state) => {
+  if (state !== TRANSPORT_STATE_CONNECTED) {
+    lines.clear();
+    summaries.clear();
+  }
+});
 
 transport.onMessage((raw) => {
   const msg = raw as unknown as NarratorServerMessage | { type: string; id?: number };

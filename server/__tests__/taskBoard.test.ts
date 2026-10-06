@@ -122,6 +122,24 @@ describe('parseStreamLine', () => {
     expect(parsed.result).toMatchObject({ isError: true, text: 'Not logged in' });
   });
 
+  it('summarizes a NotebookEdit by its notebook path', () => {
+    const line = JSON.stringify({
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'tool_use',
+            name: 'NotebookEdit',
+            input: { notebook_path: '/r/x.ipynb', new_source: 'a' },
+          },
+        ],
+      },
+    });
+    expect(parseStreamLine(line).log).toEqual([
+      { kind: 'tool', name: 'NotebookEdit', text: '/r/x.ipynb' },
+    ]);
+  });
+
   it('ignores non-JSON lines', () => {
     expect(parseStreamLine('not json')).toEqual({ log: [] });
   });
