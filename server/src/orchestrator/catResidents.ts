@@ -6,7 +6,9 @@
  * its desk. One character per cat across all its tasks and turns.
  *
  * `catCharacters` tells the webview which character is which cat (name,
- * look, working), so it can draw the custom coat and the name label.
+ * look, working), so it can draw the custom coat and the name label. The
+ * team lead (the root of the cat tree) carries `lead: true`: the office
+ * seats it at the lead desk. The flag moves when the root changes.
  */
 
 import type { CatCharacters, CatProfile, ServerMessage } from '../../../core/src/messages.js';
@@ -38,6 +40,8 @@ export class CatResidents {
     private readonly host: ResidentHost,
     private readonly cats: () => CatProfile[],
     private readonly emit: (message: ServerMessage) => void,
+    /** Cat id of the team lead (the tree root), if any. */
+    private readonly leadId: () => string | undefined = () => undefined,
   ) {}
 
   /** Spawn a character for every new profile, remove the ones of deleted profiles. */
@@ -106,11 +110,13 @@ export class CatResidents {
 
   message(): CatCharacters {
     const byId = new Map(this.cats().map((c) => [c.id, c]));
+    const lead = this.leadId();
     const characters = [...this.ids].flatMap(([catId, id]) => {
       const cat = byId.get(catId) ?? this.spawnedFor.get(catId);
       if (!cat) return [];
       const { name, appearance } = cat;
-      return [{ catId, id, name, appearance, working: this.working.has(catId) }];
+      const working = this.working.has(catId);
+      return [{ catId, id, name, appearance, working, ...(catId === lead ? { lead: true } : {}) }];
     });
     return { type: 'catCharacters', characters };
   }

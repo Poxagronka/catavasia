@@ -4,7 +4,7 @@ import { BREED_IDS } from '../../cats/catArt.js';
 import { useCatCeo } from '../../cats/catCeoClient.js';
 import type { Appearance, CatProfile } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
-import { buildTree, draftReport, isInSubtree } from '../../cats/hierarchy.js';
+import { buildTree, draftReport, isInSubtree, leadHint } from '../../cats/hierarchy.js';
 import { layoutOrgChart } from '../../cats/orgLayout.js';
 import { useCats } from '../../cats/useCats.js';
 import { CAT_CEO_ID, CAT_LIST_ZOOM, CAT_NAMES } from '../../constants.js';
@@ -68,6 +68,7 @@ export function HierarchyModal({
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
 
   const byId = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats]);
+  const hint = useMemo(() => leadHint(cats), [cats]);
   const layout = useMemo(() => layoutOrgChart(buildTree(cats)), [cats]);
 
   const run = (action: () => void) => {
@@ -171,6 +172,12 @@ export function HierarchyModal({
         </div>
         {(error ?? rejected?.error) && (
           <div className="text-xs text-status-error">{error ?? rejected?.error}</div>
+        )}
+        {hint && (
+          // Non-blocking: the office seats the root at the lead desk, whatever the roles say.
+          <div className="text-xs text-status-permission" data-testid="lead-hint">
+            Team lead is not at the top. <span className="text-text-muted">{hint}</span>
+          </div>
         )}
         {ceo && (
           // The Cat CEO sits above the boss, pinned: not part of the tree, not draggable.

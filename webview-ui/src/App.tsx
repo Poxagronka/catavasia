@@ -16,12 +16,14 @@ import { IntroBubble } from './components/IntroBubble.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { PetRadialMenu } from './components/PetRadialMenu.js';
 import { SettingsModal } from './components/SettingsModal.js';
+import { fetchTasks } from './components/taskBoard/taskApi.js';
 import { TaskBoard } from './components/taskBoard/TaskBoard.js';
 import { TaskDetailModal } from './components/taskBoard/TaskDetailModal.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
+import { TASK_POLL_INTERVAL_MS } from './constants.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
@@ -32,6 +34,7 @@ import { ToolOverlay } from './office/components/ToolOverlay.js';
 import { EditorState } from './office/editor/editorState.js';
 import { EditorToolbar } from './office/editor/EditorToolbar.js';
 import { OfficeState } from './office/engine/officeState.js';
+import { countTasks } from './office/engine/whiteboardNotes.js';
 import { exportLayoutToFile } from './office/layout/exportLayout.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
@@ -130,6 +133,27 @@ function App() {
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTasksOpen, setIsTasksOpen] = useState(false);
+  const openTasks = useCallback(() => setIsTasksOpen(true), []);
+
+  // The whiteboards show the live task counts (standalone only: VS Code has no task board).
+  useEffect(() => {
+    if (!isBrowserRuntime) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const { tasks } = await fetchTasks();
+        if (alive) getOfficeState().taskCounts = countTasks(tasks);
+      } catch {
+        /* server gone: keep the last counts */
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), TASK_POLL_INTERVAL_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
   const [isCatsOpen, setIsCatsOpen] = useState(false);
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   /** The cat the Hierarchy chart asked the Cats menu to open on. */
@@ -375,6 +399,7 @@ function App() {
       <OfficeCanvas
         officeState={officeState}
         onClick={handleClick}
+        onOpenTasks={isBrowserRuntime ? openTasks : undefined}
         isEditMode={editor.isEditMode}
         editorState={editorState}
         onEditorTileAction={editor.handleEditorTileAction}

@@ -1,0 +1,44 @@
+{
+  "id": "LEAD_CHAIR",
+  "name": "Team Lead Chair",
+  "category": "chairs",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": false,
+  "backgroundTiles": 1,
+  "type": "group",
+  "groupType": "rotation",
+  "rotationScheme": "3-way-mirror",
+  "members": [
+    {
+      "type": "asset",
+      "id": "LEAD_CHAIR_FRONT",
+      "file": "LEAD_CHAIR_FRONT.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "front"
+    },
+    {
+      "type": "asset",
+      "id": "LEAD_CHAIR_BACK",
+      "file": "LEAD_CHAIR_BACK.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "back"
+    },
+    {
+      "type": "asset",
+      "id": "LEAD_CHAIR_SIDE",
+      "file": "LEAD_CHAIR_SIDE.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "side",
+      "mirrorSide": true
+    }
+  ]
+}
