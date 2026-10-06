@@ -92,6 +92,13 @@ export class CatResidents {
     this.emit(this.message());
   }
 
+  /** Working without a turn (the Cat CEO reviews): the character sits at its desk. */
+  setWorking(catId: string, working: boolean): void {
+    if (working) this.working.add(catId);
+    else this.working.delete(catId);
+    this.emit(this.message());
+  }
+
   linkTask(catId: string, taskId: string): void {
     const id = this.ids.get(catId);
     if (id !== undefined) this.host.linkAgentTask(id, taskId);

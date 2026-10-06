@@ -211,6 +211,8 @@ export function defaultTeam(): CatProfile[] {
 interface CatsFile {
   version: 1;
   cats: CatProfile[];
+  /** The Cat CEO settings (server/src/catCeo/ceoSettings.ts reads them). */
+  catCeo?: unknown;
 }
 
 /**
@@ -220,6 +222,8 @@ interface CatsFile {
  */
 export class CatStore {
   private cats: CatProfile[] = [];
+  /** The raw `catCeo` block: kept as is, written back on every save. */
+  private ceoBlock: unknown;
   /** Why a cat's prompt file on disk is not used (it does not parse). */
   private readonly promptErrors = new Map<string, string>();
 
@@ -244,6 +248,27 @@ export class CatStore {
 
   get(catId: string): CatProfile | undefined {
     return this.cats.find((c) => c.id === catId);
+  }
+
+  get catCeo(): unknown {
+    return this.ceoBlock;
+  }
+
+  setCatCeo(block: unknown): void {
+    this.ceoBlock = block;
+    this.write();
+  }
+
+  /**
+   * Re-read a cat's prompt file after a history change (revert, restore, item
+   * edit): the in-memory Role and the parse error follow the file.
+   */
+  reloadPrompt(catId: string): void {
+    const cat = this.get(catId);
+    const { file, error } = this.prompts.read(catId);
+    if (error) this.promptErrors.set(catId, error);
+    else this.promptErrors.delete(catId);
+    if (cat) cat.systemPrompt = file.role;
   }
 
   /** Create or replace a cat; returns the saved cat, or an error. */
@@ -360,6 +385,7 @@ export class CatStore {
       }
       return out;
     };
+    this.ceoBlock = parsed.catCeo;
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e)));
     this.syncPrompts();
     // The prompt text moved to the prompt files: cats.json drops it.
@@ -409,7 +435,11 @@ export class CatStore {
     const cats = this.cats.map(({ systemPrompt, ...rest }) =>
       this.prompts.exists(rest.id) ? rest : { ...rest, systemPrompt },
     );
-    const data = { version: 1, cats };
+    const data = {
+      version: 1,
+      cats,
+      ...(this.ceoBlock === undefined ? {} : { catCeo: this.ceoBlock }),
+    };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });

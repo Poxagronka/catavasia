@@ -1,19 +1,22 @@
 import { type ReactNode, useState } from 'react';
 
+import { useCatCeo } from '../../cats/catCeoClient.js';
 import type { Appearance, CatProfile } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
 import { findBoss } from '../../cats/hierarchy.js';
 import { useCats } from '../../cats/useCats.js';
 import { usePetRoster } from '../../cats/usePetRoster.js';
-import { CAT_LIST_ZOOM } from '../../constants.js';
+import { CAT_CEO_ID, CAT_LIST_ZOOM } from '../../constants.js';
 import type { OfficeState } from '../../office/engine/officeState.js';
 import { Button } from '../ui/Button.js';
 import { Modal } from '../ui/Modal.js';
 import { AgentFields } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
 import { CatSprite } from './CatSprite.js';
+import { CeoEditor } from './CeoEditor.js';
 import { FIELD } from './fields.js';
 import { PetsTab } from './PetsTab.js';
+import { PromptHistory } from './PromptHistory.js';
 
 type Tab = 'agents' | 'pets';
 
@@ -150,6 +153,8 @@ function copyName(name: string, taken: string[]): string {
 
 function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string) => void }) {
   const { cats, rejected } = useCats();
+  const online = useCatCeo().settings !== null;
+  const [showHistory, setShowHistory] = useState(false);
   // The Hierarchy modal owns parentId: never write back a stale one from the draft.
   const { draft, error, update } = useDraft(cat, (v) => {
     const live = catsApi.getSnapshot().cats.find((c) => c.id === v.id);
@@ -182,6 +187,19 @@ function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string
         onDelete={() => catsApi.deleteCat(cat.id)}
       />
       <AgentFields cat={draft} onChange={update} />
+      {online && (
+        <div className="flex flex-col gap-4">
+          <Button
+            size="md"
+            className="self-start"
+            variant={showHistory ? 'active' : 'default'}
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            Prompt history
+          </Button>
+          {showHistory && <PromptHistory catId={cat.id} />}
+        </div>
+      )}
       <AppearanceEditor
         value={draft.appearance}
         onChange={(appearance) => update({ ...draft, appearance })}
@@ -222,6 +240,7 @@ export function CatsModal({
   onCommitPets: () => void;
 }) {
   const { cats } = useCats();
+  const ceo = useCatCeo().settings;
   const [tab, setTab] = useState<Tab>('agents');
   const [catId, setCatId] = useState<string | null>(focusCatId);
   const [seenFocus, setSeenFocus] = useState(focusCatId);
@@ -233,6 +252,18 @@ export function CatsModal({
     }
   }
   const cat = cats.find((c) => c.id === catId) ?? cats[0];
+  const ceoOpen = catId === CAT_CEO_ID && ceo !== null;
+  // The Cat CEO heads the list: it sits above the boss, outside the tree.
+  const ceoItem: ListItem[] = ceo
+    ? [
+        {
+          id: CAT_CEO_ID,
+          name: ceo.name,
+          detail: `Cat CEO · ${ceo.enabled ? ceo.model : 'off'}`,
+          appearance: ceo.appearance as Appearance,
+        },
+      ]
+    : [];
   const roster = usePetRoster(getOfficeState, isOpen);
 
   const createCat = () => {
@@ -271,18 +302,23 @@ export function CatsModal({
           {tab === 'agents' ? (
             <>
               <ProfileList
-                items={cats.map((c) => ({
-                  id: c.id,
-                  name: c.name,
-                  detail: `${c.parentId === null ? 'Boss' : c.role || 'Cat'} · ${c.model}`,
-                  appearance: c.appearance,
-                }))}
-                selectedId={cat?.id ?? null}
+                items={[
+                  ...ceoItem,
+                  ...cats.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    detail: `${c.parentId === null ? 'Boss' : c.role || 'Cat'} · ${c.model}`,
+                    appearance: c.appearance,
+                  })),
+                ]}
+                selectedId={ceoOpen ? CAT_CEO_ID : (cat?.id ?? null)}
                 onSelect={setCatId}
                 onCreate={createCat}
                 createLabel="+ Agent cat"
               />
-              {cat ? (
+              {ceoOpen ? (
+                <CeoEditor settings={ceo} />
+              ) : cat ? (
                 <AgentEditor key={cat.id} cat={cat} onSelect={setCatId} />
               ) : (
                 <div className="text-sm text-text-muted">No agent cats yet.</div>

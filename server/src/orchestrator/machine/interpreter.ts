@@ -50,6 +50,8 @@ export interface RunnerHost {
   setToken(token: string, owner: { runner: TaskRunner; catId: string } | undefined): void;
   /** The task left the machine. */
   finished(runner: TaskRunner): void;
+  /** The Cat CEO queue (cat-ceo-judge.md): review this finished task. */
+  requestReview?(task: StoredTask, state: TaskState, sink: FlowSink): void;
 }
 
 /** Events after which the snapshot is written (§9). */
@@ -217,8 +219,8 @@ export class TaskRunner {
       case 'EndTask':
         return this.end();
       case 'RequestReview':
-        // The Cat CEO queue (docs/catavasia/cat-ceo-judge.md) plugs in here.
-        return;
+        // EndTask ran first: the review lives outside this runner (it is disposed).
+        return this.host.requestReview?.(this.task, this.state, this.sink);
     }
   }
 

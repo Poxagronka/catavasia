@@ -161,5 +161,30 @@ export const PROMPT_RULES_MAX = 12;
 export const PROMPT_LESSONS_MAX = 20;
 export const PROMPT_ITEM_MAX_CHARS = 280;
 export const PROMPT_FILE_MAX_BYTES = 32 * 1024;
+
+// ── Cat CEO (docs/catavasia/cat-ceo-judge.md) ───────────────
+/** Cat id of the judge: its prompt file, its scheduler slot, its resident character. */
+export const CAT_CEO_ID = 'cat-ceo';
+/** ~/.pixel-agents/<dir>/: review records, guard flags, and the judge's empty cwd. */
+export const CAT_CEO_DIR = 'cat-ceo';
+/** Reviews wait FIFO; more than this many waiting reviews are dropped (D9). */
+export const CAT_CEO_QUEUE_MAX = 10;
+/** Hard cost stop of one review (`--max-budget-usd`). */
+export const CAT_CEO_BUDGET_USD = 1;
+/** A review process that runs longer than this is killed. */
+export const CAT_CEO_TIMEOUT_MS = 600_000;
+export const CAT_CEO_DIGEST_MAX_CHARS = 60_000;
+/** Item changes in one Cat CEO commit (D7). */
+export const CAT_CEO_MAX_CHANGES_PER_COMMIT = 3;
+export const CAT_CEO_EDITS_PER_DAY_DEFAULT = 2;
+/** Default look of the Cat CEO: a gold collar on a tuxedo cat. */
+export const CAT_CEO_COLLAR = '#d4af37';
+/** Review records kept in cat-ceo/reviews.json (newest). */
+export const CAT_CEO_RECORDS_MAX = 300;
+/** Regression guard (D8): auto-revert at this mean drop, flag "watch" from WATCH up. */
+export const CAT_CEO_GUARD_REVERT_DROP = 15;
+export const CAT_CEO_GUARD_WATCH_DROP = 8;
+/** After a guard revert, the Cat CEO does not edit that cat for this long. */
+export const CAT_CEO_GUARD_BLOCK_MS = 24 * 60 * 60 * 1000;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;

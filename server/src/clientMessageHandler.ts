@@ -274,6 +274,27 @@ export function handleClientMessage(
       break;
     }
 
+    case 'getPromptHistory':
+    case 'getPromptDiff':
+    case 'revertPromptEdit':
+    case 'restorePromptVersion':
+    case 'removePromptItem':
+    case 'savePromptItem': {
+      const office = ctx.orchestrator;
+      if (!office) break;
+      const id = typeof msg.catId === 'string' ? msg.catId : undefined;
+      // Prompt history shows and changes what the cats run with: the operator's token.
+      if (!ctx.privileged) {
+        send({ type: 'catProfileRejected', id, error: 'Prompt history needs the server token.' });
+        break;
+      }
+      const { error, reply } = office.promptRequest(msg);
+      if (error) send({ type: 'catProfileRejected', id, error });
+      if (reply) send({ ...reply });
+      break;
+    }
+
+    case 'setCatCeoSettings':
     case 'saveCatProfile':
     case 'deleteCatProfile':
     case 'setCatParent':

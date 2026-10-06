@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import { catCeo, useCatCeo } from '../cats/catCeoClient.js';
 import type { CatOfficeSettings } from '../hooks/useExtensionMessages.js';
 import { setNarratorSettings, useNarratorSettings } from '../narratorStore.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
@@ -76,6 +77,7 @@ export function SettingsModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assetDirDraft, setAssetDirDraft] = useState('');
   const narrator = useNarratorSettings();
+  const ceo = useCatCeo().settings;
   const [resetConfirming, setResetConfirming] = useState(false);
 
   return (
@@ -263,6 +265,13 @@ export function SettingsModal({
               ))}
             </select>
           </label>
+          {ceo && (
+            <Checkbox
+              label="Cat CEO Reviews"
+              checked={ceo.enabled}
+              onChange={() => catCeo.setSettings({ enabled: !ceo.enabled })}
+            />
+          )}
         </>
       )}
       {/* The narrator runs in the standalone server only (task board cats). */}

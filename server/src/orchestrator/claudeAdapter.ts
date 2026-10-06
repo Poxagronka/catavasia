@@ -83,7 +83,7 @@ export class ClaudeAdapter implements EngineAdapter {
   readonly engine = 'claude' as const;
   private cachedChoices?: EngineChoices;
 
-  constructor(private readonly bin = 'claude') {}
+  constructor(readonly bin = 'claude') {}
 
   choices(): EngineChoices {
     if (!this.cachedChoices) {

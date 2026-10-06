@@ -18,7 +18,9 @@ import * as path from 'path';
 import type { CatProfile, ServerMessage } from '../../../core/src/messages.js';
 import type { NarratorInput } from '../../../core/src/narrator.js';
 import type { TaskTarget } from '../../../core/src/tasks.js';
-import { CATS_FILE_NAME, OFFICE_MCP_PATH, PROMPTS_DIR } from '../constants.js';
+import { CatCeo } from '../catCeo/catCeo.js';
+import { applyPromptAction, promptDiff, promptHistory } from '../catCeo/promptActions.js';
+import { CAT_CEO_ID, CATS_FILE_NAME, OFFICE_MCP_PATH, PROMPTS_DIR } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
 import { CatConsoles } from './catConsoles.js';
@@ -30,7 +32,7 @@ import { personaText } from './flowPrompts.js';
 import { EventLog, pruneFlowLogs } from './machine/eventLog.js';
 import { isActive } from './machine/helpers.js';
 import { type FlowSink, type RunnerHost, TaskRunner } from './machine/interpreter.js';
-import type { MemberState } from './machine/types.js';
+import type { MemberState, TaskState } from './machine/types.js';
 import type { OfficeToolHandler, OfficeToolResult } from './officeMcp.js';
 import { promptSections } from './promptFile.js';
 import { PromptRepo } from './promptRepo.js';
@@ -49,6 +51,8 @@ export interface OrchestratorOptions {
   turnConcurrency: number;
   /** Narrator input: tool activity, office messages and results of the cats. */
   narrate?: (input: NarratorInput) => void;
+  /** Test seam of the Cat CEO's judge process. */
+  ceoJudge?: ConstructorParameters<typeof CatCeo>[0]['judge'];
 }
 
 export class Orchestrator implements OfficeToolHandler, RunnerHost {
@@ -59,6 +63,8 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   readonly residents: CatResidents;
   /** What the cat console shows for each profile cat. */
   readonly consoles = new CatConsoles();
+  /** The judge above the boss (docs/catavasia/cat-ceo-judge.md). */
+  readonly ceo: CatCeo;
   private readonly runners = new Map<string, TaskRunner>();
   private readonly tokens = new Map<string, { runner: TaskRunner; catId: string }>();
   /** Folder of each cat's newest finished task: a console message to an idle cat starts a task there. */
@@ -77,7 +83,28 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
       opts.emit({ type: 'queueChanged', ...state });
       this.consoles.statusChanged();
     });
-    this.residents = new CatResidents(opts.host, () => this.cats.list(), opts.emit);
+    const claude = opts.adapters.find((a) => a.engine === 'claude') as { bin?: string } | undefined;
+    this.ceo = new CatCeo({
+      stateDir: opts.stateDir,
+      cats: this.cats,
+      scheduler: this.scheduler,
+      residents: () => this.residents,
+      consoles: this.consoles,
+      catalog: () => this.catalog(),
+      emit: opts.emit,
+      promptsChanged: (catIds) => {
+        for (const catId of catIds) this.cats.reloadPrompt(catId);
+        for (const message of this.profileMessages()) opts.emit(message);
+      },
+      ...(claude?.bin ? { claudeBin: claude.bin } : {}),
+      ...(opts.ceoJudge ? { judge: opts.ceoJudge } : {}),
+    });
+    // The Cat CEO is a resident too (while it is on), outside the cat tree.
+    this.residents = new CatResidents(
+      opts.host,
+      () => [...this.cats.list(), ...this.ceo.resident()],
+      opts.emit,
+    );
     this.residents.sync();
     pruneFlowLogs(opts.stateDir, Date.now());
   }
@@ -120,6 +147,11 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     else this.tokens.delete(token);
   }
 
+  /** The review region of a finished task (task-state-machine.md §3.4). */
+  requestReview(task: StoredTask, state: TaskState, sink: FlowSink): void {
+    this.ceo.request(task, state, sink);
+  }
+
   finished(runner: TaskRunner): void {
     this.runners.delete(runner.task.id);
     for (const catId of Object.keys(runner.state.members)) this.lastCwd.set(catId, runner.task.cwd);
@@ -136,6 +168,7 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     return [
       { type: 'catProfilesLoaded', cats, engineOptions },
       { type: 'catHierarchy', ...hierarchyOf(cats) },
+      this.ceo.message(),
       this.residents.message(),
     ];
   }
@@ -147,7 +180,16 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   editProfiles(msg: Record<string, unknown>): string | undefined {
     const catId = String(msg.id ?? '');
     let error: string | undefined;
+    const profileId = (msg.profile as { id?: unknown } | undefined)?.id;
+    if (catId === CAT_CEO_ID || profileId === CAT_CEO_ID) {
+      return this.ceo.settings.enabled
+        ? 'The Cat CEO cannot be deleted or changed as a cat while "Cat CEO reviews" is on'
+        : 'cat-ceo is the id of the Cat CEO';
+    }
     switch (msg.type) {
+      case 'setCatCeoSettings':
+        error = this.ceo.update(msg);
+        break;
       case 'saveCatProfile': {
         const result = this.cats.saveCat(msg.profile);
         if (!result.ok) return result.error;
@@ -171,6 +213,42 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     this.residents.sync();
     for (const message of this.profileMessages()) this.opts.emit(message);
     return undefined;
+  }
+
+  /**
+   * One prompt-history request of the Cats menu. Reads answer the requester;
+   * a change is committed, then every client gets the new profiles.
+   */
+  promptRequest(msg: Record<string, unknown>): { error?: string; reply?: ServerMessage } {
+    const catId = String(msg.catId ?? '');
+    if (catId !== CAT_CEO_ID && !this.cats.get(catId))
+      return { error: `cat ${catId} does not exist` };
+    const prompts = this.cats.prompts;
+    if (msg.type === 'getPromptHistory') {
+      return {
+        reply: {
+          type: 'promptHistory',
+          catId,
+          entries: promptHistory(catId, prompts, this.ceo.store),
+        },
+      };
+    }
+    if (msg.type === 'getPromptDiff') {
+      const diff = promptDiff(prompts, catId, msg.sha);
+      if (diff === undefined) return { error: 'unknown commit' };
+      return { reply: { type: 'promptDiff', catId, sha: String(msg.sha), diff } };
+    }
+    const error = applyPromptAction(prompts, msg);
+    if (error) return { error };
+    this.cats.reloadPrompt(catId);
+    for (const message of this.profileMessages()) this.opts.emit(message);
+    return {
+      reply: {
+        type: 'promptHistory',
+        catId,
+        entries: promptHistory(catId, prompts, this.ceo.store),
+      },
+    };
   }
 
   // ── Task board ──
@@ -210,7 +288,7 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
       cats,
       runnable: cats.filter((c) => this.adapterFor(c)).map((c) => c.id),
       repo,
-      catCeo: false,
+      catCeo: this.ceo.settings.enabled,
       cwd,
       ...(task.worktreePath ? { worktreePath: task.worktreePath } : {}),
       ...(task.branch ? { branch: task.branch } : {}),

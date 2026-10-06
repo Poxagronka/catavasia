@@ -12,7 +12,8 @@
  * DOM-free: no window, no transport.
  */
 
-export type CatMessageKind = 'brief' | 'delegate' | 'ask' | 'reply' | 'report';
+/** `review`: the Cat CEO tells a cat its score (cat-ceo-judge.md §9). */
+export type CatMessageKind = 'brief' | 'delegate' | 'ask' | 'reply' | 'report' | 'review';
 
 /** One cat talks to another (a real agent message, not idle social chat). */
 export interface CatMessageEvent {
@@ -24,6 +25,8 @@ export interface CatMessageEvent {
   text: string;
   /** Short narrator summary. The bubble shows it when present. */
   summary?: string;
+  /** Hover text instead of the summary (a review's anomalies). */
+  tooltip?: string;
 }
 
 export type FlowState =

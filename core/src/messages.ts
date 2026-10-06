@@ -35,6 +35,12 @@ export type ServerMessage =
   | FlowStateChanged
   | QueueChanged
   | CatCharacters
+  | CatCeoSettings
+  | ReviewStarted
+  | ReviewFinished
+  | ReviewFailed
+  | PromptHistory
+  | PromptDiff
   | NarratorLine
   | NarratorSummary
   | NarratorSettings
@@ -86,7 +92,14 @@ export type ClientMessage =
   | PromoteCatToBoss
   | SetTurnConcurrency
   | SetShowGuests
-  | SetNarratorSettings;
+  | SetNarratorSettings
+  | SetCatCeoSettings
+  | GetPromptHistory
+  | GetPromptDiff
+  | RevertPromptEdit
+  | RestorePromptVersion
+  | RemovePromptItem
+  | SavePromptItem;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -352,6 +365,92 @@ export interface CatCharacter {
   name: string;
   appearance: CatAppearance;
   working: boolean;
+}
+
+export interface CatCeoSettings {
+  type: 'catCeoSettings';
+  enabled: boolean;
+  name: string;
+  appearance: CatAppearance;
+  model: string;
+  effort: string;
+  maxEditsPerCatPerDay: number;
+  systemPrompt: string;
+}
+
+export interface ReviewStarted {
+  type: 'reviewStarted';
+  taskId: string;
+  reviewId: string;
+}
+
+export interface ReviewFinished {
+  type: 'reviewFinished';
+  taskId: string;
+  reviewId: string;
+  verdict: ReviewVerdict;
+  summary: string;
+  costUsd?: number;
+  scores: ReviewScore[];
+  edits: ReviewEdit[];
+  rejectedEdits: RejectedEdit[];
+}
+
+export type ReviewVerdict = 'pass' | 'concerns' | 'fail';
+
+export interface ReviewScore {
+  catId: string;
+  assignmentId: string;
+  score: number;
+  bubble: string;
+  anomalies?: string[];
+}
+
+export interface ReviewEdit {
+  catId: string;
+  sha: string;
+  subject: string;
+  items?: string[];
+}
+
+export interface RejectedEdit {
+  catId: string;
+  reason: string;
+}
+
+export interface ReviewFailed {
+  type: 'reviewFailed';
+  taskId: string;
+  reviewId: string;
+  error: string;
+}
+
+export interface PromptHistory {
+  type: 'promptHistory';
+  catId: string;
+  entries: PromptHistoryEntry[];
+}
+
+export interface PromptHistoryEntry {
+  sha: string;
+  at: number;
+  author: PromptAuthor;
+  subject: string;
+  taskId?: string;
+  flag?: PromptFlag;
+  scoreBefore?: number;
+  scoreAfter?: number;
+}
+
+export type PromptAuthor = 'cat-ceo' | 'user' | 'guard';
+
+export type PromptFlag = 'reverted' | 'watch' | 'manual review';
+
+export interface PromptDiff {
+  type: 'promptDiff';
+  catId: string;
+  sha: string;
+  diff: string;
 }
 
 export interface NarratorLine {
@@ -679,3 +778,53 @@ export interface SetNarratorSettings {
   aiSummaries?: boolean;
   rawToolStatus?: boolean;
 }
+
+export interface SetCatCeoSettings {
+  type: 'setCatCeoSettings';
+  enabled?: boolean;
+  name?: string;
+  appearance?: CatAppearance;
+  model?: string;
+  effort?: string;
+  maxEditsPerCatPerDay?: number;
+  systemPrompt?: string;
+}
+
+export interface GetPromptHistory {
+  type: 'getPromptHistory';
+  catId: string;
+}
+
+export interface GetPromptDiff {
+  type: 'getPromptDiff';
+  catId: string;
+  sha: string;
+}
+
+export interface RevertPromptEdit {
+  type: 'revertPromptEdit';
+  catId: string;
+  sha: string;
+}
+
+export interface RestorePromptVersion {
+  type: 'restorePromptVersion';
+  catId: string;
+  sha: string;
+}
+
+export interface RemovePromptItem {
+  type: 'removePromptItem';
+  catId: string;
+  itemId: string;
+}
+
+export interface SavePromptItem {
+  type: 'savePromptItem';
+  catId: string;
+  section: PromptSection;
+  itemId?: string;
+  text: string;
+}
+
+export type PromptSection = 'Rules' | 'Lessons';

@@ -4,6 +4,7 @@ import { type Appearance, appearanceErrors, nameErrors } from '../../cats/catsAp
 import {
   AUTO_ON_FACING_DEPTH,
   AUTO_ON_SIDE_DEPTH,
+  CAT_CEO_AREA_PATTERN,
   CHARACTER_HIT_HALF_WIDTH,
   CHARACTER_HIT_HEIGHT,
   DISMISS_BUBBLE_FAST_FADE_SEC,
@@ -78,6 +79,8 @@ export interface ResidentCat {
   name: string;
   appearance: Appearance;
   working: boolean;
+  /** The Cat CEO: it takes a desk in a "head" Area when the office has one. */
+  ceo?: boolean;
 }
 
 export class OfficeState {
@@ -615,6 +618,12 @@ export class OfficeState {
     const r = this.residents.get(id);
     const ch = this.characters.get(id);
     if (!r || !ch) return;
+    if (r.ceo && !(ch.seatId && CAT_CEO_AREA_PATTERN.test(this.seatZone(ch.seatId) ?? ''))) {
+      const desk = [...this.seats].find(
+        ([uid, seat]) => !seat.assigned && CAT_CEO_AREA_PATTERN.test(this.seatZone(uid) ?? ''),
+      );
+      if (desk) this.reassignSeat(id, desk[0]);
+    }
     ch.agentName = r.name;
     ch.customSprites = appearanceSprites(r.appearance);
     // A resident cat between turns idles (idle activities); in a turn it works.
