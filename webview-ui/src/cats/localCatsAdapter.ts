@@ -83,7 +83,11 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<CatsSnapshot>;
         if (Array.isArray(parsed.cats) && Array.isArray(parsed.pets))
-          return { cats: normalizeHierarchy(parsed.cats), pets: parsed.pets };
+          // Profiles with an engine this build does not know are dropped.
+          return {
+            cats: normalizeHierarchy(parsed.cats.filter((c) => c.engine in ENGINE_OPTIONS)),
+            pets: parsed.pets,
+          };
       }
     } catch {
       // Corrupt or blocked storage: start from the seed.
@@ -112,7 +116,8 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
       return () => listeners.delete(listener);
     },
     saveCat(cat) {
-      fail(validateCatProfile(cat, ENGINE_OPTIONS[cat.engine], BREED_IDS));
+      const options = ENGINE_OPTIONS[cat.engine] ?? { models: [], efforts: [] };
+      fail(validateCatProfile(cat, options, BREED_IDS));
       const exists = state.cats.some((c) => c.id === cat.id);
       const cats = exists
         ? state.cats.map((c) => (c.id === cat.id ? cat : c))

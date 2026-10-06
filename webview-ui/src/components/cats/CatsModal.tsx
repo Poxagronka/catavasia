@@ -159,14 +159,15 @@ function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string
         onRename={(name) => update({ ...draft, name })}
         error={error}
         onDuplicate={() => {
+          // Copy the saved profile: the draft may be invalid or hold a stale parentId.
           const copy = {
-            ...draft,
+            ...cat,
             id: newId('cat'),
             name: copyName(
-              draft.name,
+              cat.name,
               cats.map((c) => c.name),
             ),
-            parentId: draft.parentId ?? draft.id,
+            parentId: cat.parentId ?? cat.id,
             isDefault: false,
           };
           catsApi.saveCat(copy);
@@ -194,10 +195,10 @@ function PetEditor({ pet, onSelect }: { pet: PetProfile; onSelect: (id: string) 
         error={error}
         onDuplicate={() => {
           const copy = {
-            ...draft,
+            ...pet,
             id: newId('pet'),
             name: copyName(
-              draft.name,
+              pet.name,
               pets.map((p) => p.name),
             ),
           };

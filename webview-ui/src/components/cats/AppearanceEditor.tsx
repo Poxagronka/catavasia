@@ -4,6 +4,8 @@ import {
   COAT_PRESETS,
   layerColor,
   type Preset,
+  resolveBreed,
+  toHex,
 } from '../../cats/catArt.js';
 import {
   type Appearance,
@@ -35,6 +37,8 @@ const LAYER_LABEL: Record<keyof ColorLayers, string> = {
   patchB: 'Patch 2',
   point: 'Points',
 };
+
+const DEFAULT_COLLAR: [number, number, number] = [204, 48, 60];
 
 const same = (a: Appearance, b: Appearance) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -123,7 +127,9 @@ export function AppearanceEditor({
     if (hex === undefined) delete colors[layer];
     onChange({ ...value, colors });
   };
-  const collarOff = value.collar === 'none';
+  // Leo, Dobby and Bear wear no collar by default.
+  const collarOff =
+    value.collar === 'none' || (value.collar === undefined && resolveBreed(value).collar === null);
 
   return (
     <div className="flex gap-12">
@@ -180,7 +186,12 @@ export function AppearanceEditor({
                 <input
                   type="checkbox"
                   checked={collarOff}
-                  onChange={() => onChange({ ...value, collar: collarOff ? undefined : 'none' })}
+                  onChange={() => {
+                    if (!collarOff) return onChange({ ...value, collar: 'none' });
+                    // Back to the breed collar, or a red one when the breed has none.
+                    const own = resolveBreed({ ...value, collar: undefined }).collar;
+                    onChange({ ...value, collar: own ? undefined : toHex(DEFAULT_COLLAR) });
+                  }}
                 />
                 no collar
               </label>

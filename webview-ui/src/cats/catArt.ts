@@ -85,6 +85,8 @@ export function resolveBreed(a: Appearance): Breed {
   const base = breedById(a.breed);
   const b: Breed = { ...base };
   if (a.pattern && a.pattern !== breedPattern(a.breed)) {
+    // Paws belong to the old pattern (tuxedo white, siamese dark); the new one re-sets them.
+    delete b.paw;
     if (a.pattern === 'solid') {
       delete b.pattern;
     } else {

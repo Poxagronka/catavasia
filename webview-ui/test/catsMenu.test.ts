@@ -83,6 +83,14 @@ describe('appearance generation', () => {
   it('round-trips hex colours', () => {
     expect(fromHex(toHex([161, 178, 195]))).toEqual([161, 178, 195]);
   });
+
+  it('drops pattern-specific paws when the pattern changes', () => {
+    expect(resolveBreed({ breed: 'tux', pattern: 'solid' }).paw).toBeUndefined();
+    expect(resolveBreed({ breed: 'mochi', pattern: 'tabby' }).paw).toBeUndefined();
+    expect(resolveBreed({ breed: 'nikolai', pattern: 'siamese' }).paw).toEqual(
+      resolveBreed({ breed: 'mochi' }).paw,
+    );
+  });
 });
 
 describe('hierarchy operations', () => {
