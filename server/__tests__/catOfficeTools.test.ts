@@ -16,7 +16,7 @@ import {
 import { wireFlow } from '../src/orchestrator/machine/helpers.js';
 import { reduce, startTask } from '../src/orchestrator/machine/taskReducer.js';
 import type { TaskState } from '../src/orchestrator/machine/types.js';
-import { registerOfficeMcpRoute } from '../src/orchestrator/officeMcp.js';
+import { OFFICE_TOOLS, registerMcpRoute } from '../src/orchestrator/officeMcp.js';
 import type { AgentState } from '../src/types.js';
 
 const profile = (over: Partial<CatProfile>): CatProfile =>
@@ -36,7 +36,7 @@ describe('office MCP protocol', () => {
   it('answers initialize, tools/list and tools/call; notifications get 202', async () => {
     const app = Fastify();
     const calls: unknown[] = [];
-    registerOfficeMcpRoute(app, {
+    registerMcpRoute(app, '/mcp', OFFICE_TOOLS, {
       knowsToken: (t) => t === 'cat-token',
       callTool: (token, name, args) => {
         calls.push({ token, name, args });
@@ -85,6 +85,42 @@ describe('office MCP protocol', () => {
     });
     expect(calls).toEqual([{ token: 'cat-token', name: 'bad', args: { a: 1 } }]);
     expect((await app.inject({ method: 'GET', url: '/mcp' })).statusCode).toBe(405);
+    await app.close();
+  });
+
+  it('serves a second tool set at its own path with its own tokens and an async handler', async () => {
+    const app = Fastify();
+    registerMcpRoute(app, '/mcp', OFFICE_TOOLS, {
+      knowsToken: (t) => t === 'cat-token',
+      callTool: () => ({ text: 'office' }),
+    });
+    const deskTools = [{ name: 'start_job', description: 'x', inputSchema: { type: 'object' } }];
+    registerMcpRoute(app, '/api/ceo-mcp', deskTools, {
+      knowsToken: (t) => t === 'ceo-token',
+      callTool: async (_token, name) => ({ text: `desk ${name}` }),
+    });
+    const post = (url: string, token: string, payload: object) =>
+      app.inject({ method: 'POST', url, headers: { authorization: `Bearer ${token}` }, payload });
+    const list = await post('/api/ceo-mcp', 'ceo-token', {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+    });
+    expect(list.json().result.tools).toEqual(deskTools);
+    const call = await post('/api/ceo-mcp', 'ceo-token', {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'start_job', arguments: {} },
+    });
+    expect(call.json().result.content).toEqual([{ type: 'text', text: 'desk start_job' }]);
+    expect(
+      (await post('/api/ceo-mcp', 'cat-token', { jsonrpc: '2.0', id: 3, method: 'ping' }))
+        .statusCode,
+    ).toBe(401);
+    expect(
+      (await post('/mcp', 'ceo-token', { jsonrpc: '2.0', id: 4, method: 'ping' })).statusCode,
+    ).toBe(401);
     await app.close();
   });
 });

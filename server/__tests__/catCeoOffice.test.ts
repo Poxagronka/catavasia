@@ -175,7 +175,8 @@ describe('Cat CEO review', () => {
     expect(
       office.editProfiles({ type: 'setCatCeoSettings', enabled: false, model: 'sonnet' }),
     ).toBe(undefined);
-    expect(host.removed).toHaveLength(1);
+    // Off turns the reviews off; the CEO stays in the office (it runs the CEO desk).
+    expect(host.removed).toHaveLength(0);
     expect(office.editProfiles({ type: 'deleteCatProfile', id: 'cat-ceo' })).toBe(
       'cat-ceo is the id of the Cat CEO',
     );

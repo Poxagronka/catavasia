@@ -6,6 +6,7 @@ import * as path from 'path';
 
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
+import type { CeoDesk } from './ceoDesk/ceoDesk.js';
 import type {
   AssetCache,
   ReloadAssetsSideEffect,
@@ -75,6 +76,7 @@ export class PixelAgentsServer {
     onReloadAssets?: ReloadAssetsSideEffect;
     tasks?: TaskManager;
     orchestrator?: Orchestrator;
+    ceoDesk?: CeoDesk;
     narrator?: Narrator;
     update?: SelfUpdate;
     /** Reuse this token instead of a new one (a self-update restart, so the
@@ -123,6 +125,7 @@ export class PixelAgentsServer {
       onReloadAssets: options?.onReloadAssets,
       tasks: options?.tasks,
       orchestrator: options?.orchestrator,
+      ceoDesk: options?.ceoDesk,
       narrator: options?.narrator,
       update: options?.update,
     });

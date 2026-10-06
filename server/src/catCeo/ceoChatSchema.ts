@@ -130,7 +130,9 @@ export function buildChatDigest(input: {
   });
   const speaker = (e: CatSessionEntry) =>
     e.kind === 'user' ? 'User' : e.kind === 'text' ? 'Cat CEO' : 'Office';
-  const chat = input.recent.map((e) => `${speaker(e)}: ${cut(e.text, LINE_MAX)}`);
+  const chat = input.recent.map(
+    (e) => `${speaker(e)}: ${cut('text' in e ? e.text : '', LINE_MAX)}`,
+  );
   const head = [
     '# Chat with the user',
     '',
