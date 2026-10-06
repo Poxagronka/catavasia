@@ -109,7 +109,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
       return { engine: a.engine, models, efforts };
     });
     return [
-      { type: 'catProfilesLoaded', cats, pets: this.cats.listPets(), engineOptions },
+      { type: 'catProfilesLoaded', cats, engineOptions },
       { type: 'catHierarchy', ...hierarchyOf(cats) },
     ];
   }
@@ -136,14 +136,6 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
         break;
       case 'promoteCatToBoss':
         error = this.cats.promoteToBoss(catId);
-        break;
-      case 'savePetProfile': {
-        const result = this.cats.savePet(msg.pet);
-        error = result.ok ? undefined : result.error;
-        break;
-      }
-      case 'deletePetProfile':
-        error = this.cats.removePet(catId);
         break;
       default:
         return `unknown change ${String(msg.type)}`;

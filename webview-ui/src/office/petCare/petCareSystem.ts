@@ -187,6 +187,17 @@ export class PetCareSystem {
     if (soon) this.saveTimer = Math.min(this.saveTimer, 1);
   }
 
+  /** Drop a deleted pet's needs and runtime, and save soon (pets-state.json). */
+  forget(petId: string): void {
+    this.world.pets.delete(petId);
+    this.runtime.delete(petId);
+    if (this.menuPetId === petId) {
+      this.menuPetId = null;
+      this.infoOpen = false;
+    }
+    this.touch(true);
+  }
+
   /** Persist if anything changed since the last save (no-op before load). */
   flush(): void {
     this.saveTimer = PET_CARE_SAVE_INTERVAL_SEC;

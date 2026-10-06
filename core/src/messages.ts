@@ -83,8 +83,6 @@ export type ClientMessage =
   | DeleteCatProfile
   | SetCatParent
   | PromoteCatToBoss
-  | SavePetProfile
-  | DeletePetProfile
   | SetTurnConcurrency
   | SetShowGuests
   | SetNarratorSettings;
@@ -215,7 +213,6 @@ export interface AgentTaskFinished {
 export interface CatProfilesLoaded {
   type: 'catProfilesLoaded';
   cats: CatProfile[];
-  pets: PetProfile[];
   engineOptions: EngineOptions[];
 }
 
@@ -253,15 +250,6 @@ export type CatPattern =
   'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie' | 'siamese' | 'bengal' | 'sweater';
 
 export type CatEngine = 'claude' | 'codex';
-
-export interface PetProfile {
-  id: string;
-  name: string;
-  species: PetSpecies;
-  appearance: CatAppearance;
-}
-
-export type PetSpecies = 'cat';
 
 export interface EngineOptions {
   engine: CatEngine;
@@ -648,16 +636,6 @@ export interface SetCatParent {
 
 export interface PromoteCatToBoss {
   type: 'promoteCatToBoss';
-  id: string;
-}
-
-export interface SavePetProfile {
-  type: 'savePetProfile';
-  pet: PetProfile;
-}
-
-export interface DeletePetProfile {
-  type: 'deletePetProfile';
   id: string;
 }
 

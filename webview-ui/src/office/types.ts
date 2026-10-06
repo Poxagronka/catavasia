@@ -24,6 +24,7 @@ export type TileType = (typeof TileType)[keyof typeof TileType];
 
 /** Re-export ColorValue for consumers that import color types from office/types */
 export type { ColorValue } from '../components/ui/types.js';
+import type { Appearance } from '../cats/catsApi.js';
 import type { ColorValue } from '../components/ui/types.js';
 
 export const CharacterState = {
@@ -386,6 +387,10 @@ export interface Pet {
   social?: CharacterSocialView;
   /** Id of that stand-in actor (cat pets only). */
   actorId?: number;
+  /** Name given in the Cats menu (persisted), else absent and `name` is the manifest name. */
+  customName?: string;
+  /** Coat chosen in the Cats menu (cat pets only), else the template sheet as is. */
+  appearance?: Appearance;
 }
 
 export interface PetRest {
@@ -405,4 +410,8 @@ export interface PlacedPet {
   id: string;
   /** Index into the loaded pet sprite array. */
   petType: number;
+  /** Name from the Cats menu. Absent = the manifest name ("Gitcat"). */
+  name?: string;
+  /** Coat from the Cats menu (cat pets only). Absent = the template sheet unchanged. */
+  appearance?: Appearance;
 }

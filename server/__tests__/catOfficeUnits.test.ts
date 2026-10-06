@@ -10,7 +10,6 @@ import {
   CatStore,
   type EngineCatalog,
   validateCat,
-  validatePet,
 } from '../src/orchestrator/catProfiles.js';
 import { parseClaudeHelp } from '../src/orchestrator/claudeAdapter.js';
 import { TurnScheduler } from '../src/orchestrator/turnScheduler.js';
@@ -90,17 +89,6 @@ describe('profile validation', () => {
     /* eslint-enable pixel-agents/no-inline-colors */
   });
 
-  it('validates pets (cats only)', () => {
-    const pet = {
-      id: 'pet-1',
-      name: 'Biscuit',
-      species: 'cat',
-      appearance: { breed: 'butterscotch' },
-    };
-    expect(validatePet(pet).ok).toBe(true);
-    expect(validatePet({ ...pet, species: 'dog' }).ok).toBe(false);
-  });
-
   it('keeps breed ids in char_N order of scripts/cats/breeds.mjs', async () => {
     const { BREEDS } = (await import('../../scripts/cats/breeds.mjs')) as {
       BREEDS: Array<{ name: string }>;
@@ -125,7 +113,6 @@ describe('CatStore', () => {
     for (const cat of cats) expect(validateCat(cat, CATALOG).ok).toBe(true);
     const onDisk = JSON.parse(fs.readFileSync(file(), 'utf-8'));
     expect(onDisk.version).toBe(1);
-    expect(onDisk.pets).toEqual([]);
   });
 
   it('keeps exactly one boss and refuses cycles and unknown parents', () => {
@@ -163,20 +150,6 @@ describe('CatStore', () => {
       ['ryzhik', 'murka'],
     ]);
     expect(tree(new CatStore(file(), () => CATALOG))).toEqual(tree(store));
-  });
-
-  it('stores pets next to the cats', () => {
-    const store = new CatStore(file(), () => CATALOG);
-    const pet = {
-      id: 'pet-1',
-      name: 'Biscuit',
-      species: 'cat',
-      appearance: { breed: 'butterscotch' },
-    };
-    expect(store.savePet(pet).ok).toBe(true);
-    expect(new CatStore(file(), () => CATALOG).listPets()).toEqual([pet]);
-    expect(store.removePet('pet-1')).toBeUndefined();
-    expect(store.removePet('pet-1')).toContain('does not exist');
   });
 
   it('keeps a copy of an unreadable file and starts from the default team', () => {

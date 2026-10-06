@@ -168,8 +168,6 @@ components:
         - $ref: '#/components/schemas/DeleteCatProfile'
         - $ref: '#/components/schemas/SetCatParent'
         - $ref: '#/components/schemas/PromoteCatToBoss'
-        - $ref: '#/components/schemas/SavePetProfile'
-        - $ref: '#/components/schemas/DeletePetProfile'
         - $ref: '#/components/schemas/SetTurnConcurrency'
         - $ref: '#/components/schemas/SetShowGuests'
         - $ref: '#/components/schemas/SetNarratorSettings'
@@ -862,12 +860,12 @@ components:
 
     CatProfilesLoaded:
       description: |
-        Every cat and pet profile, plus per engine the model and effort values
+        Every cat profile, plus per engine the model and effort values
         its installed CLI accepts (read from `claude --help`, not hardcoded).
         Sent on connect and after every profile change.
       type: object
       additionalProperties: false
-      required: [type, cats, pets, engineOptions]
+      required: [type, cats, engineOptions]
       properties:
         type:
           const: catProfilesLoaded
@@ -875,10 +873,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CatProfile'
-        pets:
-          type: array
-          items:
-            $ref: '#/components/schemas/PetProfile'
         engineOptions:
           type: array
           description: One entry per engine with an adapter. A full model name (claude-...) is also accepted.
@@ -897,7 +891,7 @@ components:
           $ref: '#/components/schemas/CatProfile'
 
     CatProfileRejected:
-      description: A cat or pet change failed validation or the hierarchy rules. Sent to the requester only.
+      description: A cat change failed validation or the hierarchy rules. Sent to the requester only.
       type: object
       additionalProperties: false
       required: [type, error]
@@ -1423,28 +1417,6 @@ components:
         id:
           type: string
 
-    SavePetProfile:
-      description: Create or replace one pet profile (needs the server token).
-      type: object
-      additionalProperties: false
-      required: [type, pet]
-      properties:
-        type:
-          const: savePetProfile
-        pet:
-          $ref: '#/components/schemas/PetProfile'
-
-    DeletePetProfile:
-      description: Delete one pet (needs the server token).
-      type: object
-      additionalProperties: false
-      required: [type, id]
-      properties:
-        type:
-          const: deletePetProfile
-        id:
-          type: string
-
     SetTurnConcurrency:
       description: At most this many cat turns run at once (1-12). Others wait in a FIFO queue.
       type: object
@@ -1517,21 +1489,6 @@ components:
           type: boolean
           description: Seeded by the app, not by the user.
 
-    PetProfile:
-      description: One office pet. Only cats have art today.
-      type: object
-      additionalProperties: false
-      required: [id, name, species, appearance]
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        species:
-          $ref: '#/components/schemas/PetSpecies'
-        appearance:
-          $ref: '#/components/schemas/CatAppearance'
-
     EngineOptions:
       type: object
       additionalProperties: false
@@ -1592,10 +1549,6 @@ components:
     CatPattern:
       type: string
       enum: [solid, tabby, tuxedo, calico, tortie, siamese, bengal, sweater]
-
-    PetSpecies:
-      type: string
-      enum: [cat]
 
     NarratorState:
       type: string

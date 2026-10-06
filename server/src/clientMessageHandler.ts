@@ -277,9 +277,7 @@ export function handleClientMessage(
     case 'saveCatProfile':
     case 'deleteCatProfile':
     case 'setCatParent':
-    case 'promoteCatToBoss':
-    case 'savePetProfile':
-    case 'deletePetProfile': {
+    case 'promoteCatToBoss': {
       const office = ctx.orchestrator;
       if (!office) break;
       const id = typeof msg.id === 'string' ? msg.id : undefined;

@@ -1,5 +1,5 @@
 /**
- * Cat and pet profiles, the cat hierarchy, and the ~/.pixel-agents/cats.json
+ * Cat profiles, the cat hierarchy, and the ~/.pixel-agents/cats.json
  * store (versioned, atomic tmp + rename writes).
  *
  * The shapes are the wire types (core/asyncapi.yaml), the same ones the Cats
@@ -12,12 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import type {
-  CatAppearance,
-  CatEngine,
-  CatProfile,
-  PetProfile,
-} from '../../../core/src/messages.js';
+import type { CatAppearance, CatEngine, CatProfile } from '../../../core/src/messages.js';
 import { CAT_NAME_MAX_CHARS, CAT_SYSTEM_PROMPT_MAX_CHARS } from '../constants.js';
 import { bossOf, isInSubtree, normalizeHierarchy } from './catTree.js';
 
@@ -164,20 +159,6 @@ export function validateCat(raw: unknown, catalog?: EngineCatalog): Result<CatPr
   });
 }
 
-export function validatePet(raw: unknown): Result<PetProfile> {
-  return settle(() => {
-    if (!raw || typeof raw !== 'object') throw new ProfileError('pet must be an object');
-    const rec = raw as Record<string, unknown>;
-    if (rec.species !== 'cat') throw new ProfileError(`unknown species "${String(rec.species)}"`);
-    return {
-      id: id(rec.id, 'id'),
-      name: text(rec.name, 'name', CAT_NAME_MAX_CHARS),
-      species: 'cat',
-      appearance: appearance(rec.appearance),
-    };
-  });
-}
-
 // ── Default team ────────────────────────────────────────────
 
 const WORKER_PROMPT =
@@ -224,13 +205,11 @@ export function defaultTeam(): CatProfile[] {
 interface CatsFile {
   version: 1;
   cats: CatProfile[];
-  pets: PetProfile[];
 }
 
 /** cats.json: every mutation validates, keeps the tree rules, and writes atomically. */
 export class CatStore {
   private cats: CatProfile[] = [];
-  private pets: PetProfile[] = [];
 
   constructor(
     private readonly filePath: string,
@@ -241,10 +220,6 @@ export class CatStore {
 
   list(): CatProfile[] {
     return this.cats.map((c) => ({ ...c }));
-  }
-
-  listPets(): PetProfile[] {
-    return this.pets.map((p) => ({ ...p }));
   }
 
   get(catId: string): CatProfile | undefined {
@@ -314,24 +289,6 @@ export class CatStore {
     return undefined;
   }
 
-  savePet(raw: unknown): Result<PetProfile> {
-    const result = validatePet(raw);
-    if (!result.ok) return result;
-    const pet = result.value;
-    this.pets = this.pets.some((p) => p.id === pet.id)
-      ? this.pets.map((p) => (p.id === pet.id ? pet : p))
-      : [...this.pets, pet];
-    this.write();
-    return result;
-  }
-
-  removePet(petId: string): string | undefined {
-    if (!this.pets.some((p) => p.id === petId)) return `pet ${petId} does not exist`;
-    this.pets = this.pets.filter((p) => p.id !== petId);
-    this.write();
-    return undefined;
-  }
-
   private commit(cats: CatProfile[]): void {
     this.cats = normalizeHierarchy(cats);
     this.write();
@@ -375,11 +332,10 @@ export class CatStore {
       return out;
     };
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e)));
-    this.pets = keep(Array.isArray(parsed.pets) ? parsed.pets : [], validatePet);
   }
 
   private write(): void {
-    const data: CatsFile = { version: 1, cats: this.cats, pets: this.pets };
+    const data: CatsFile = { version: 1, cats: this.cats };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });

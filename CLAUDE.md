@@ -341,7 +341,7 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
   layout.json              OfficeLayout (shared across surfaces)
   server.json              { port, pid, authToken }
   tasks.json               Task board tasks (all standalone servers)
-  cats.json                Cat + pet profiles and the hierarchy ({ version: 1, cats, pets })
+  cats.json                Cat profiles and the hierarchy ({ version: 1, cats })
   orchestrator/<taskId>/   Per-cat persona + office MCP config of a running team task
   pets-state.json          Pet care: cat needs, bowl levels, litter boxes, floor poops (both surfaces)
   worktrees/<taskId>/      Git worktree of a running task (removed on finish)
