@@ -104,6 +104,7 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
       opts.host,
       () => [...this.cats.list(), ...this.ceo.resident()],
       opts.emit,
+      () => bossOf(this.cats.list())?.id,
     );
     this.residents.sync();
     pruneFlowLogs(opts.stateDir, Date.now());

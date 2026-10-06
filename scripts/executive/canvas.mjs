@@ -41,6 +41,23 @@ export const PALETTE = {
   C: [248, 250, 255, 255], // lid logo
   x: [170, 220, 255, 110], // soft screen glow
   X: [200, 232, 255, 210], // screen glow near the lid
+  // Team lead desk and chair (leadArt.mjs): warm oak, navy fabric, a plant, a mug.
+  T: [228, 180, 116, 255], // oak highlight
+  O: [200, 144, 84, 255], // oak top
+  P: [170, 114, 62, 255], // oak grain
+  U: [146, 94, 50, 255], // oak front panel
+  D: [104, 62, 32, 255], // oak recess
+  N: [96, 128, 176, 255], // fabric highlight
+  F: [58, 84, 128, 255], // navy fabric
+  f: [36, 54, 86, 255], // fabric shade
+  J: [118, 190, 98, 255], // leaf highlight
+  j: [62, 138, 70, 255], // leaf
+  p: [186, 98, 62, 255], // terracotta pot
+  // Whiteboard (whiteboardArt.mjs): the board and its markers.
+  I: [250, 250, 246, 255], // board white
+  1: [214, 60, 52, 255], // red marker
+  2: [52, 104, 206, 255], // blue marker
+  3: [46, 158, 84, 255], // green marker
 };
 
 /** A blank w x h grid of '.' with drawing helpers. */

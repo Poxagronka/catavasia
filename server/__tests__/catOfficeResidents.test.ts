@@ -150,6 +150,30 @@ describe('resident cats', () => {
     ]);
   });
 
+  it('marks the tree root as the team lead; the flag follows a new root', () => {
+    const leads = () =>
+      office
+        .profileMessages()
+        .filter((m): m is CatCharacters => m.type === 'catCharacters')
+        .at(-1)!
+        .characters.filter((c) => c.lead)
+        .map((c) => c.catId);
+    expect(leads()).toEqual(['boss']);
+
+    expect(office.editProfiles({ type: 'promoteCatToBoss', id: 'pushok' })).toBeUndefined();
+    expect(leads()).toEqual(['pushok']);
+    // The broadcast after the change carries the new lead too.
+    expect(
+      lastCharacters()
+        ?.characters.filter((c) => c.lead)
+        .map((c) => c.catId),
+    ).toEqual(['pushok']);
+
+    // The root is deleted: its first report becomes the root and the lead.
+    expect(office.editProfiles({ type: 'deleteCatProfile', id: 'pushok' })).toBeUndefined();
+    expect(leads()).toEqual(['boss']);
+  });
+
   it('keeps one character per cat across two team tasks and links it to the newest task', async () => {
     const repo = makeRepo();
     const first = await settled((await tasks.create('one', repo, 'team')).id);

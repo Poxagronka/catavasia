@@ -14,6 +14,27 @@ export function findBoss(cats: readonly CatProfile[]): CatProfile | undefined {
   return cats.find((c) => c.parentId === null);
 }
 
+/** A role text that names a lead. */
+const LEAD_ROLE = /lead/i;
+/** A role text that fits the root of the tree (the team lead). */
+const ROOT_ROLE = /lead|boss|head|chief/i;
+
+/**
+ * The hint of the Hierarchy tab when the tree and the roles disagree: a cat
+ * with a lead role is not the root, or the root's role does not look like a
+ * lead. The office seats the root at the lead desk. Null: they agree.
+ */
+export function leadHint(cats: readonly CatProfile[]): string | null {
+  const boss = findBoss(cats);
+  if (!boss) return null;
+  const other = cats.find((c) => c.id !== boss.id && LEAD_ROLE.test(c.role));
+  if (other) return `${other.name} has a lead role, but ${boss.name} is at the top.`;
+  if (!ROOT_ROLE.test(boss.role)) {
+    return `${boss.name} is at the top, but its role "${boss.role}" is not a lead.`;
+  }
+  return null;
+}
+
 /** True when `id` is `ancestorId` or sits anywhere below it. */
 export function isInSubtree(cats: readonly CatProfile[], ancestorId: string, id: string): boolean {
   const byId = new Map(cats.map((c) => [c.id, c]));

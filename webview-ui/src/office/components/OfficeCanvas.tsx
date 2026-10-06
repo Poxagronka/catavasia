@@ -22,6 +22,7 @@ import type {
   SelectionRenderState,
 } from '../engine/renderer.js';
 import { renderFrame } from '../engine/renderer.js';
+import { whiteboardAt } from '../engine/whiteboardNotes.js';
 import { getCatalogEntry, isRotatable } from '../layout/furnitureCatalog.js';
 import { hitTestCare } from '../petCare/petCareNav.js';
 import { decorateFurniture, renderPetCareOverlay } from '../petCare/petCareRender.js';
@@ -33,6 +34,8 @@ import { computeNormalModeCursor } from './officeCanvasCursor.js';
 interface OfficeCanvasProps {
   officeState: OfficeState;
   onClick: (agentId: number) => void;
+  /** A click on a whiteboard opens the Tasks panel. Unset: boards are plain decor. */
+  onOpenTasks?: () => void;
   isEditMode: boolean;
   editorState: EditorState;
   onEditorTileAction: (col: number, row: number) => void;
@@ -53,6 +56,7 @@ interface OfficeCanvasProps {
 export function OfficeCanvas({
   officeState,
   onClick,
+  onOpenTasks,
   isEditMode,
   editorState,
   onEditorTileAction,
@@ -519,17 +523,24 @@ export function OfficeCanvas({
       const petId = hitId === null ? officeState.getPetAt(pos.worldX, pos.worldY) : null;
       const tile = screenToTile(e.clientX, e.clientY);
       officeState.hoveredTile = tile;
+      const board =
+        onOpenTasks && hitId === null && petId === null
+          ? whiteboardAt(pos.worldX, pos.worldY, officeState.getLayout().furniture)
+          : undefined;
+      officeState.hoveredWhiteboardUid = board?.uid ?? null;
       const canvas = canvasRef.current;
       if (canvas) {
-        canvas.style.cursor = computeNormalModeCursor({
-          hitId,
-          petId,
-          selectedAgentId: officeState.selectedAgentId,
-          tile,
-          getSeatAtTile: (col, row) => officeState.getSeatAtTile(col, row),
-          getSeat: (seatId) => officeState.seats.get(seatId),
-          getCharacter: (id) => officeState.characters.get(id),
-        });
+        canvas.style.cursor = board
+          ? 'pointer'
+          : computeNormalModeCursor({
+              hitId,
+              petId,
+              selectedAgentId: officeState.selectedAgentId,
+              tile,
+              getSeatAtTile: (col, row) => officeState.getSeatAtTile(col, row),
+              getSeat: (seatId) => officeState.seats.get(seatId),
+              getCharacter: (id) => officeState.characters.get(id),
+            });
       }
       officeState.hoveredAgentId = hitId;
     },
@@ -545,6 +556,7 @@ export function OfficeCanvas({
       hitTestDeleteButton,
       hitTestRotateButton,
       clampPan,
+      onOpenTasks,
     ],
   );
 
@@ -732,7 +744,10 @@ export function OfficeCanvas({
 
   // The care menu belongs to play mode: entering the editor closes it.
   useEffect(() => {
-    if (isEditMode) officeState.petCare.closeMenu();
+    if (isEditMode) {
+      officeState.petCare.closeMenu();
+      officeState.hoveredWhiteboardUid = null;
+    }
   }, [isEditMode, officeState]);
 
   const handleClick = useCallback(
@@ -770,6 +785,12 @@ export function OfficeCanvas({
         } else {
           officeState.showPetBubble(petId);
         }
+        return;
+      }
+
+      // A whiteboard opens the Tasks panel, like the Tasks button.
+      if (onOpenTasks && whiteboardAt(pos.worldX, pos.worldY, officeState.getLayout().furniture)) {
+        onOpenTasks();
         return;
       }
 
@@ -838,7 +859,7 @@ export function OfficeCanvas({
         officeState.cameraFollowId = null;
       }
     },
-    [officeState, onClick, screenToWorld, screenToTile, isEditMode],
+    [officeState, onClick, onOpenTasks, screenToWorld, screenToTile, isEditMode],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -854,6 +875,7 @@ export function OfficeCanvas({
     editorState.ghostRow = -1;
     officeState.hoveredAgentId = null;
     officeState.hoveredTile = null;
+    officeState.hoveredWhiteboardUid = null;
 
     // Reset cursor in non-edit mode so pointer doesn't get stuck after hovering a pet.
     if (!isEditMode) {

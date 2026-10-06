@@ -1061,6 +1061,11 @@ components:
         working:
           type: boolean
           description: A turn of this cat runs now.
+        lead:
+          type: boolean
+          description: |
+            The team lead: the root of the cat tree (`parentId: null`). Absent
+            for every other cat. The office seats it at the lead desk.
 
     # ── Cat CEO (docs/catavasia/cat-ceo-judge.md) ─────────────────
 

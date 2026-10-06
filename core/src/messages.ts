@@ -367,6 +367,7 @@ export interface CatCharacter {
   name: string;
   appearance: CatAppearance;
   working: boolean;
+  lead?: boolean;
 }
 
 export interface CatCeoSettings {
