@@ -12,9 +12,12 @@ import { useSyncExternalStore } from 'react';
 import { TRANSPORT_STATE_CONNECTED } from '../../core/src/constants.js';
 import type { SetNarratorSettings } from '../../core/src/messages.js';
 import type { NarratorLine, NarratorSettings } from '../../core/src/narrator.js';
+import { idleLine, showsIdleLine } from './narratorIdle.js';
+import type { Character } from './office/types.js';
 import { transport } from './transport/index.js';
 
-const lines = new Map<number, NarratorLine>();
+/** Latest line per cat, with the time it arrived (epoch ms). */
+const lines = new Map<number, NarratorLine & { at: number }>();
 const summaries = new Map<number, string>();
 let settings: NarratorSettings = { aiSummaries: true, rawToolStatus: false };
 const listeners = new Set<() => void>();
@@ -35,7 +38,7 @@ transport.onStateChange((state) => {
 transport.onMessage((msg) => {
   switch (msg.type) {
     case 'narratorLine':
-      lines.set(msg.catId, { catId: msg.catId, state: msg.state, line: msg.line });
+      lines.set(msg.catId, { catId: msg.catId, state: msg.state, line: msg.line, at: Date.now() });
       break;
     case 'narratorSummary':
       for (const id of msg.catIds) summaries.set(id, msg.summary);
@@ -51,11 +54,19 @@ transport.onMessage((msg) => {
   }
 });
 
-/** English hover text for a cat, or undefined to fall back to the raw tool status. */
-export function narratorHover(catId: number): { line: string; summary?: string } | undefined {
+/**
+ * English hover text for a cat, or undefined to fall back to the raw tool
+ * status. A cat between turns shows what it does now (see narratorIdle.ts).
+ */
+export function narratorHover(
+  catId: number,
+  ch: Pick<Character, 'isActive' | 'activity' | 'social'>,
+): { line: string; summary?: string } | undefined {
   if (settings.rawToolStatus) return undefined;
   const line = lines.get(catId);
-  return line ? { line: line.line, summary: summaries.get(catId) } : undefined;
+  if (!line) return undefined;
+  const text = showsIdleLine(line, ch.isActive, Date.now()) ? idleLine(ch) : line.line;
+  return { line: text, summary: summaries.get(catId) };
 }
 
 export function setNarratorSettings(patch: Partial<NarratorSettings>): void {

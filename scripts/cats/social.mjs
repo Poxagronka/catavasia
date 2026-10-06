@@ -4,12 +4,11 @@
 // The per-breed frames are derived from the finished idle frame of
 // renderCatFrames(), so every breed (pattern, ears, tail, ruff) stays in style
 // without a second set of pose templates. Output is one JSON file the webview
-// imports: webview-ui/src/office/sprites/cat-social.json.
+// imports: webview-ui/src/office/sprites/cat-social.json. Pure (no node:fs):
+// the webview also runs renderSocialCatFrames for custom coats (cats/catArt.ts).
 //
 // Encoding: every frame is a list of row strings. Each character indexes the
 // owning palette as (charCode - 48). Palette entry 0 is transparent ('').
-
-import fs from 'node:fs';
 
 import { colorize } from './breeds.mjs';
 import { Frame, FRAME_H, FRAME_W } from './canvas.mjs';
@@ -190,8 +189,4 @@ export function buildSocialSheet(breeds) {
     overlays,
     cats,
   };
-}
-
-export function writeSocialSheet(file, breeds) {
-  fs.writeFileSync(file, JSON.stringify(buildSocialSheet(breeds)) + '\n');
 }

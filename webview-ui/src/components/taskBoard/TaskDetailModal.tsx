@@ -1,12 +1,13 @@
 import { type ReactNode, useEffect, useState } from 'react';
 
 import type { TaskDetail } from '../../../../core/src/tasks.js';
+import { useCats } from '../../cats/useCats.js';
 import { TASK_POLL_INTERVAL_MS } from '../../constants.js';
 import { Modal } from '../ui/Modal.js';
 import { CatAvatar } from './CatAvatar.js';
 import { Markdown } from './Markdown.js';
 import { fetchTask } from './taskApi.js';
-import { catName, formatElapsed, STATUS_CLASS } from './taskFormat.js';
+import { formatElapsed, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -26,9 +27,10 @@ function diffLineClass(line: string): string {
 }
 
 function Meta({ task }: { task: TaskDetail }) {
+  const { cats } = useCats();
   const facts: Array<[string, string]> = [
     ['Status', task.status],
-    ['Cat', catName(task.palette)],
+    ['Cat', taskCatLabel(task, cats)],
     ['Folder', task.cwd],
     ['Branch', task.branch ?? 'none (not a git repo)'],
   ];

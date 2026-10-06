@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { TaskSummary, TaskTarget } from '../../../../core/src/tasks.js';
+import { useCats } from '../../cats/useCats.js';
 import { TASK_POLL_INTERVAL_MS } from '../../constants.js';
 import { Button } from '../ui/Button.js';
 import { CatAvatar } from './CatAvatar.js';
 import { NewTaskForm } from './NewTaskForm.js';
 import { fetchTasks, sessionToken } from './taskApi.js';
 import { TaskDetailModal } from './TaskDetailModal.js';
-import { catName, formatElapsed, STATUS_CLASS } from './taskFormat.js';
+import { formatElapsed, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
 
 interface TaskBoardProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface TaskBoardProps {
 }
 
 function TaskCard({ task, now, onOpen }: { task: TaskSummary; now: number; onOpen: () => void }) {
+  const { cats } = useCats();
   return (
     <button
       onClick={onOpen}
@@ -24,7 +26,7 @@ function TaskCard({ task, now, onOpen }: { task: TaskSummary; now: number; onOpe
       <div className="flex flex-col min-w-0 flex-1 gap-2">
         <span className="text-sm truncate">{task.title}</span>
         <span className="text-2xs text-text-muted truncate">
-          {catName(task.palette)}
+          {taskCatLabel(task, cats)}
           {task.branch ? ` · ${task.branch}` : ''}
         </span>
         <span className="text-xs flex justify-between">

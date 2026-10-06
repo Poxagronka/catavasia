@@ -53,7 +53,6 @@ import {
   hasCarpetSprites,
 } from '../sprites/carpetTiles.js';
 import { getPetSpritesFor } from '../sprites/petSpriteData.js';
-import { getFurColor } from '../sprites/socialSprites.js';
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js';
 import {
   BUBBLE_HEART_SPRITE,
@@ -83,7 +82,12 @@ import { dominantFur, peekDrawable } from './housePeek.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
-import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
+import {
+  furColorOf,
+  renderSocialBubbles,
+  socialCloudDrawable,
+  socialSpriteFor,
+} from './socialRender.js';
 import { renderPetZzz, renderZzz } from './zzzOverlay.js';
 
 // ── Settings ────────────────────────────────────────────────────
@@ -412,9 +416,7 @@ export function renderScene(
     // Asleep inside a cat house: only the ears or the tail show.
     const peek = ch.state === CharacterState.ACTIVITY ? ch.activity?.spot?.peek : undefined;
     if (peek && !ch.matrixEffect) {
-      drawables.push(
-        peekDrawable(peek, getFurColor(ch.palette, ch.hueShift), offsetX, offsetY, zoom),
-      );
+      drawables.push(peekDrawable(peek, furColorOf(ch), offsetX, offsetY, zoom));
       continue;
     }
     const sprites = ch.customSprites ?? getCharacterSprites(ch.palette, ch.hueShift);

@@ -25,13 +25,22 @@ import type {
 } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
 import { socialBubbleVisible } from './catSocial.js';
+import { dominantFur } from './housePeek.js';
 
 /** The sprite to draw for a cat: its social pose, the base sprite, or null when hidden in the cloud. */
 export function socialSpriteFor(ch: Character, base: SpriteData): SpriteData | null {
   const v = ch.social;
   if (!v || v.pose === null) return base;
   if (v.pose === 'hidden') return null;
+  const custom = ch.customSprites?.social?.[v.pose][ch.dir];
+  if (custom?.length) return custom[v.frame % custom.length];
   return getSocialPoseSprite(ch.palette, ch.hueShift, v.pose, ch.dir, v.frame) ?? base;
+}
+
+/** A cat's main fur colour (fight cloud paws, house peek): its custom coat, else its breed. */
+export function furColorOf(ch: Pick<Character, 'palette' | 'hueShift' | 'customSprites'>): string {
+  const talk = ch.customSprites?.social?.talk[Direction.DOWN][0];
+  return talk ? dominantFur(talk) : getFurColor(ch.palette, ch.hueShift);
 }
 
 /** Anything that carries a social view: an agent cat, or a pet (mirrored from its actor). */
@@ -48,7 +57,7 @@ export interface SocialActorView {
  * `fur`: the carrier's fur when it is not an agent (a pet).
  */
 export function socialCloudDrawable(
-  ch: SocialActorView & { palette?: number; hueShift?: number },
+  ch: SocialActorView & Partial<Pick<Character, 'palette' | 'hueShift' | 'customSprites'>>,
   characters: Character[],
   offsetX: number,
   offsetY: number,
@@ -59,10 +68,14 @@ export function socialCloudDrawable(
   const cloud = ch.social?.cloud;
   if (!cloud) return null;
   const other = characters.find((c) => c.id === cloud.otherId);
-  const furA = fur ?? getFurColor(ch.palette ?? 0, ch.hueShift ?? 0);
-  const furB = other
-    ? getFurColor(other.palette, other.hueShift)
-    : (furOf?.(cloud.otherId) ?? furA);
+  const furA =
+    fur ??
+    furColorOf({
+      palette: ch.palette ?? 0,
+      hueShift: ch.hueShift ?? 0,
+      customSprites: ch.customSprites,
+    });
+  const furB = other ? furColorOf(other) : (furOf?.(cloud.otherId) ?? furA);
   const img = getCachedSprite(getCloudSprite(cloud.frame, furA, furB), zoom);
   const x = Math.round(offsetX + cloud.x * zoom - img.width / 2);
   const y = Math.round(offsetY + cloud.y * zoom - img.height);

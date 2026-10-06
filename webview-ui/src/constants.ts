@@ -402,8 +402,10 @@ export const SCENE_TOOLTIP_MAX_CHARS = 400;
 export const SCENE_SPEAK_SEC = 4;
 /** How long the sender waits next to the receiver for a reply. */
 export const SCENE_REPLY_WAIT_SEC = 6;
-/** A walk-up that takes longer than this talks from where the sender stands. */
+/** A walk-up that does not arrive in this time gives up: the talk plays from afar. */
 export const SCENE_APPROACH_TIMEOUT_SEC = 20;
+/** No free reachable tile next to the receiver: the sender may stand this many tiles away. */
+export const SCENE_TALK_FALLBACK_RADIUS = 2;
 /** Pause before a released cat goes back to its idle life. */
 export const SCENE_RELEASE_PAUSE_SEC = 2;
 /** Bubble text shown by the boss in a briefing before a brief message arrives. */
