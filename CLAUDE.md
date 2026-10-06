@@ -450,7 +450,7 @@ Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Er
 
 **Per-furniture manifests**: Each furniture item lives in its own folder under `assets/furniture/` with a `manifest.json` that declares its sprites, rotation groups, state groups (on/off), and animation frames. Floor tiles are individual PNGs in `assets/floors/`; wall tile sets in `assets/walls/`.
 
-**Rotation groups**: `buildDynamicCatalog()` builds `rotationGroups` Map from assets sharing a `groupId`. Supports 2+ orientations (e.g., front/back only). Editor palette shows 1 item per group (front orientation preferred). `getRotatedType()` cycles through available orientations.
+**Furniture rule (user, 2026-10-06)**: every furniture item must rotate, carry its states, and have orientation-safe cat activities. The guard test `webview-ui/test/furnitureRotation.test.ts` enforces it for every catalog item; add an item with the project skill `.claude/skills/add-furniture/SKILL.md`. Tripwires: engine code compares furniture by `furnitureKind(type)`, never by `type` (R changes it: `<ID>:left`, `_SIDE`, `_BACK`); spots are declared in the item's front view and resolved through `itemFrame` (`layout/itemFrame.ts`). Schemes (drawn `views`, default `mirror`, `symmetric`), manifest fields, spot declarations and previews: `docs/catavasia/furniture.md`.
 
 **State groups**: Items with `state: "on"` / `"off"` sharing the same `groupId` + `orientation` form toggle pairs. `stateGroups` Map enables `getToggledType()` lookup. Editor palette hides on-state variants. State groups are mirrored across orientations.
 
