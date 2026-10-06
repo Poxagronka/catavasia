@@ -20,38 +20,74 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const furnitureDir = path.join(root, 'webview-ui', 'public', 'assets', 'furniture');
 const items = [...BEDS, ...HOUSES];
 
+/** Write one view's PNG; returns its size. */
+function writePng(file, rows, id) {
+  const h = rows.length;
+  const w = rows[0].length;
+  const png = new PNG({ width: w, height: h });
+  rows.forEach((row, y) => {
+    if (row.length !== w) throw new Error(`${id}: row ${y} is ${row.length} px, not ${w}`);
+    [...row].forEach((ch, x) => {
+      const rgba = PALETTE[ch];
+      if (!rgba) throw new Error(`${id}: unknown pixel '${ch}' at ${x},${y}`);
+      png.data.set(rgba, (y * w + x) * 4);
+    });
+  });
+  fs.writeFileSync(file, PNG.sync.write(png));
+  return { width: w, height: h };
+}
+
 for (const item of items) {
   const h = item.rows.length;
   const w = item.rows[0].length;
   if (w !== item.fw * 16 || h !== item.fh * 16) {
     throw new Error(`${item.id}: ${w}x${h} does not match footprint ${item.fw}x${item.fh}`);
   }
-  const png = new PNG({ width: w, height: h });
-  item.rows.forEach((row, y) => {
-    if (row.length !== w) throw new Error(`${item.id}: row ${y} is ${row.length} px, not ${w}`);
-    [...row].forEach((ch, x) => {
-      const rgba = PALETTE[ch];
-      if (!rgba) throw new Error(`${item.id}: unknown pixel '${ch}' at ${x},${y}`);
-      png.data.set(rgba, (y * w + x) * 4);
-    });
-  });
   const dir = path.join(furnitureDir, item.id);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, `${item.id}.png`), PNG.sync.write(png));
-  const manifest = {
+  writePng(path.join(dir, `${item.id}.png`), item.rows, item.id);
+  const common = {
     id: item.id,
     name: item.name,
     category: 'beds',
-    type: 'asset',
     canPlaceOnWalls: false,
     canPlaceOnSurfaces: false,
     backgroundTiles: item.bg,
-    width: w,
-    height: h,
-    footprintW: item.fw,
-    footprintH: item.fh,
-    ...(item.rotationScheme ? { rotationScheme: item.rotationScheme } : {}),
   };
+  const size = { width: w, height: h, footprintW: item.fw, footprintH: item.fh };
+  let manifest;
+  if (item.side) {
+    // A drawn side view, mirrored for the left (3-way-mirror without a back).
+    // The front keeps the bed's id: saved layouts still load.
+    const sideId = `${item.id}_SIDE`;
+    writePng(path.join(dir, `${sideId}.png`), item.side.rows, sideId);
+    const view = (id, orientation, extra = {}) => ({
+      type: 'asset',
+      id,
+      file: `${id}.png`,
+      ...size,
+      orientation,
+      ...extra,
+    });
+    manifest = {
+      ...common,
+      type: 'group',
+      groupType: 'rotation',
+      rotationScheme: '3-way-mirror',
+      members: [view(item.id, 'front'), view(sideId, 'side', { mirrorSide: true })],
+    };
+  } else {
+    const { id, name, category, ...placing } = common;
+    manifest = {
+      id,
+      name,
+      category,
+      type: 'asset',
+      ...placing,
+      ...size,
+      ...(item.rotationScheme ? { rotationScheme: item.rotationScheme } : {}),
+    };
+  }
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 }
 

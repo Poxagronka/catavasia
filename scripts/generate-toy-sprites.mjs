@@ -53,7 +53,31 @@ for (const toy of TOYS) {
     footprintH: toy.fh,
   };
   let manifest;
-  if (!toy.frames) {
+  if (toy.side) {
+    // A 2-way rotation group: the front keeps the toy's id (saved layouts load).
+    const sideId = `${toy.id}_SIDE`;
+    writeFrame(path.join(dir, `${toy.id}.png`), toy.rows, toy);
+    writeFrame(path.join(dir, `${sideId}.png`), toy.side.rows, toy.side);
+    const view = (id, t, orientation) => ({
+      type: 'asset',
+      id,
+      file: `${id}.png`,
+      width: t.fw * 16,
+      height: t.fh * 16,
+      footprintW: t.fw,
+      footprintH: t.fh,
+      orientation,
+    });
+    manifest = {
+      id: toy.id,
+      name: toy.name,
+      ...common,
+      type: 'group',
+      groupType: 'rotation',
+      rotationScheme: '2-way',
+      members: [view(toy.id, toy, 'front'), view(sideId, toy.side, 'side')],
+    };
+  } else if (!toy.frames) {
     writeFrame(path.join(dir, `${toy.id}.png`), toy.rows, toy);
     const { category, ...placing } = common;
     manifest = { id: toy.id, name: toy.name, category, type: 'asset', ...placing, ...size };

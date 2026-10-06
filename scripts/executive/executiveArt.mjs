@@ -9,7 +9,7 @@
 // is still one pixel of PALETTE.
 
 import { ceoPlaque, chairBack, chairFront, chairSide } from './chairArt.mjs';
-import { executiveDesk } from './deskArt.mjs';
+import { executiveDesk, executiveDeskBack, executiveDeskSide } from './deskArt.mjs';
 import { LAPTOP_MEMBERS } from './laptopArt.mjs';
 
 export { PALETTE } from './canvas.mjs';
@@ -25,7 +25,13 @@ export const EXECUTIVE_ITEMS = [
     name: 'Executive Desk',
     category: 'desks',
     backgroundTiles: 1,
-    rows: executiveDesk(),
+    rotationScheme: '3-way-mirror',
+    // The front keeps its id: saved layouts still load.
+    members: [
+      { orientation: 'front', id: 'EXECUTIVE_DESK', rows: executiveDesk() },
+      { orientation: 'side', rows: executiveDeskSide(), mirrorSide: true },
+      { orientation: 'back', rows: executiveDeskBack() },
+    ],
   },
   {
     id: 'EXECUTIVE_CHAIR',

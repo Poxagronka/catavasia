@@ -99,6 +99,46 @@ const HAMMOCK = [
   '..ooo......ooo..',
 ];
 
+/**
+ * The hammock turned a quarter: the radiator seen edge-on at the left, the
+ * frame reaching out over the sling, which hangs lengthwise (a side view;
+ * its mirror is the left view).
+ */
+const HAMMOCK_SIDE = [
+  EMPTY,
+  EMPTY,
+  EMPTY,
+  EMPTY,
+  '.oooo...........',
+  '.oEEoooooooooo..',
+  '.oENOOOOOOOOOOo.',
+  '.oENOooooooooOo.',
+  '.oENOo......olo.',
+  '.oENOol.....olo.',
+  '.oENOolo....olo.',
+  '.oENOo.lo...olo.',
+  '.oENOo..lo..olo.',
+  '.oENOo...looolo.',
+  '.oENOooooDDDDDo.',
+  '.oENOlDDDDDDDDo.',
+  '.oENOlDDDDDDDDo.',
+  '.oENOoDDDDDDDDo.',
+  '.oENOo#DDDDDD#o.',
+  '.oENOo##DDDD##o.',
+  '.oENOoo######oo.',
+  '.oENOo.oooooo...',
+  '.oENOo..........',
+  '.oENOo..........',
+  '.oENOo..........',
+  '.oENOo..........',
+  '.oOOOo..........',
+  '.ooooo..........',
+  '.oOo............',
+  '.ooo............',
+  EMPTY,
+  EMPTY,
+];
+
 const DONUT = [
   EMPTY,
   EMPTY,
@@ -153,6 +193,8 @@ export const BEDS = [
     fh: 2,
     bg: 1,
     sleep: { offsetX: 0, offsetY: -3 },
+    // Drawn side view (mirrored for the left view): the sling hangs right of the radiator.
+    side: { rows: HAMMOCK_SIDE, sleep: { offsetX: 2, offsetY: -5 } },
   },
   {
     id: 'BED_DONUT',

@@ -245,6 +245,45 @@ const TUNNEL = [
   '................................',
 ];
 
+/**
+ * The tunnel turned a quarter (1x2): it runs away from the viewer, the far
+ * mouth a dark slit at the top, the near mouth at the bottom.
+ */
+const TUNNEL_SIDE = [
+  '................',
+  '................',
+  '...oooooooooo...',
+  '..oqqqqqqqqqqo..',
+  '.oTqqqqqqqqqqno.',
+  '.oTToooooooonno.',
+  '.ouuuuuuuuuuuuo.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.ouuuuuuuuuuuuo.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTTTTTTnnnno.',
+  '.ouuuuuuuuuuuuo.',
+  '.oTTTTTTTTnnnno.',
+  '.oTTTooooooonno.',
+  '.oToqqqqqqqqono.',
+  '.ooqqqqqqqqqqoo.',
+  '.oqqqqqqqqqqqqo.',
+  '.oqqqqqqqqqqqqo.',
+  '.oqqqqqqqqqqqqo.',
+  '.oqqqqqqqqqqqqo.',
+  '.ooqqqqqqqqqqoo.',
+  '..ooqqqqqqqqoo..',
+  '...oooooooooo...',
+  '................',
+  '................',
+];
+
 const CAT_TREE = [
   '................................',
   '................................',
@@ -300,7 +339,8 @@ const CAT_TREE = [
  * Every toy: one furniture folder with a manifest. footprint and
  * backgroundTiles follow the existing assets (a tall item blocks only its
  * bottom row). `frames`: an animation group (frame 0 = rows), picked by an
- * activity step's `item` (the yarn ball turning as it rolls). `rotationScheme:
+ * activity step's `item` (the yarn ball turning as it rolls). `side`: a drawn
+ * side view (a 2-way rotation group, the front keeps the toy's id). `rotationScheme:
  * 'symmetric'`: R keeps the toy as it is; any other toy turns as a mirror
  * image (docs/catavasia/furniture.md).
  */
@@ -335,7 +375,16 @@ export const TOYS = [
     rotationScheme: 'symmetric',
   },
   { id: 'FEATHER_TEASER', name: 'Feather Teaser', rows: TEASER, fw: 1, fh: 2, bg: 1 },
-  { id: 'PLAY_TUNNEL', name: 'Play Tunnel', rows: TUNNEL, fw: 2, fh: 1, bg: 0 },
+  {
+    id: 'PLAY_TUNNEL',
+    name: 'Play Tunnel',
+    rows: TUNNEL,
+    fw: 2,
+    fh: 1,
+    bg: 0,
+    // R turns it a quarter: the cat runs through it up and down (2-way).
+    side: { rows: TUNNEL_SIDE, fw: 1, fh: 2 },
+  },
   { id: 'CAT_BED', name: 'Cat Bed', rows: BED, fw: 1, fh: 1, bg: 0, rotationScheme: 'symmetric' },
   { id: 'TOY_MOUSE', name: 'Toy Mouse', rows: MOUSE, fw: 1, fh: 1, bg: 0 },
 ];

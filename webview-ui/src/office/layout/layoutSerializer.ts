@@ -8,7 +8,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { DEFAULT_COLS, DEFAULT_ROWS, Direction, TILE_SIZE, TileType } from '../types.js';
-import { getCatalogEntry, getOrientationInGroup } from './furnitureCatalog.js';
+import { getCatalogEntry } from './furnitureCatalog.js';
 
 /** Convert flat tile array from layout into 2D grid */
 export function layoutToTileMap(layout: OfficeLayout): TileTypeVal[][] {
@@ -94,14 +94,8 @@ export function layoutToFurnitureInstances(furniture: PlacedFurniture[]): Furnit
       );
     }
 
-    // Determine if this instance should be mirrored (side asset used in "left" orientation)
-    let mirrored = false;
-    if (entry.mirrorSide) {
-      const orientInGroup = getOrientationInGroup(item.type);
-      if (orientInGroup === 'left') {
-        mirrored = true;
-      }
-    }
+    // A `:left` view of a mirrorSide asset (or of a mirror-scheme item) draws flipped.
+    const mirrored = !!entry.mirrorSide && item.type.endsWith(':left');
 
     instances.push({ sprite, x, y, zY, uid: item.uid, ...(mirrored ? { mirrored: true } : {}) });
   }
@@ -307,8 +301,12 @@ function migrateFurnitureTypes(furniture: PlacedFurniture[]): PlacedFurniture[] 
   for (const item of furniture) {
     const newType = LEGACY_TYPE_MAP[item.type];
     if (newType === undefined) {
-      // Not a legacy type — keep as-is
-      migrated.push(item);
+      // A mirror view saved before its item got drawn views ("PLAY_TUNNEL:left"):
+      // the front, which has the same footprint. Needs the catalog (assets load first).
+      const base = item.type.slice(0, -':left'.length);
+      const stale =
+        item.type.endsWith(':left') && !getCatalogEntry(item.type) && getCatalogEntry(base);
+      migrated.push(stale ? { ...item, type: base } : item);
     } else if (newType !== null) {
       // Migrate to new type
       migrated.push({ ...item, type: newType });
