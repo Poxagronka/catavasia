@@ -147,6 +147,8 @@ export interface TurnResult {
   sessionStarted: boolean;
   /** The engine chose the session id (Codex): the member resumes this one. */
   sessionId?: string;
+  /** The engine is not installed or logged out: no retry, the task fails (A14). */
+  engineDown?: boolean;
 }
 
 export type TaskEvent =

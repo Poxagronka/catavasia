@@ -1,9 +1,13 @@
 import { useState } from 'react';
 
 import type { TaskTarget } from '../../../../core/src/tasks.js';
+import { catsApi } from '../../cats/catsClient.js';
+import { useCats } from '../../cats/useCats.js';
+import { EngineNotice } from '../../engines/EngineNotice.js';
+import { engineProblem } from '../../engines/engineReadiness.js';
 import { Button } from '../ui/Button.js';
 import { createTask } from './taskApi.js';
-import { defaultTarget } from './taskFormat.js';
+import { defaultTarget, startBlocker } from './taskFormat.js';
 
 interface NewTaskFormProps {
   defaultCwd: string;
@@ -23,9 +27,13 @@ export function NewTaskForm({ defaultCwd, targets, onCreated, onCancel }: NewTas
   const target = picked ?? defaultTarget(targets);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useCats(); // re-render when the engine status changes
+  const claudeProblem = engineProblem('claude', catsApi.engineOptions('claude'))?.reason ?? null;
+  const blocker = startBlocker(targets, target, claudeProblem);
+  const canStart = !!prompt.trim() && !busy && !blocker;
 
   const submit = async () => {
-    if (!prompt.trim() || busy) return;
+    if (!canStart) return;
     setBusy(true);
     setError(null);
     try {
@@ -73,7 +81,7 @@ export function NewTaskForm({ defaultCwd, targets, onCreated, onCancel }: NewTas
             data-testid="task-target"
           >
             {targets.map((t) => (
-              <option key={t.id} value={t.id} disabled={!!t.disabled}>
+              <option key={t.id} value={t.id}>
                 {t.disabled ? `${t.label} (${t.disabled})` : t.label}
               </option>
             ))}
@@ -92,14 +100,26 @@ export function NewTaskForm({ defaultCwd, targets, onCreated, onCancel }: NewTas
         Runs claude with no permission prompts, in a git worktree on branch task/&lt;id&gt;.
       </div>
       {error && <div className="text-xs text-status-error">{error}</div>}
+      {blocker && (
+        <div className="flex flex-col gap-4" data-testid="task-start-blocker">
+          {/* The notice names the problem and the fix; without a probe result, the reason alone. */}
+          {engineProblem(blocker.engine, catsApi.engineOptions(blocker.engine)) ? (
+            <EngineNotice engine={blocker.engine} />
+          ) : (
+            <span className="text-xs text-status-error">Cannot start: {blocker.reason}.</span>
+          )}
+        </div>
+      )}
       <div className="flex gap-6 justify-end">
         <Button size="md" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
           size="md"
-          variant={prompt.trim() && !busy ? 'accent' : 'disabled'}
-          disabled={!prompt.trim() || busy}
+          variant={canStart ? 'accent' : 'disabled'}
+          disabled={!canStart}
+          title={blocker ? blocker.reason : undefined}
+          data-testid="task-start"
           onClick={() => void submit()}
         >
           {busy ? 'Starting...' : 'Start'}

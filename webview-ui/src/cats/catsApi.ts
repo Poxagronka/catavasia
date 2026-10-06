@@ -3,6 +3,8 @@
 // (the cat office); `localCatsAdapter.ts` is the in-browser fallback when no
 // server office answers (VS Code, Vite dev). See docs/catavasia/ROADMAP.md.
 
+import type { EngineStatus } from '../../../core/src/messages.js';
+
 export type Engine = 'claude' | 'codex';
 
 /** '#rrggbb' */
@@ -82,6 +84,8 @@ export interface EngineOptions {
   unavailable?: string;
   /** A model's full name the CLI also accepts (`claude-...`). */
   fullModelPattern?: RegExp;
+  /** Installed / logged in, as the server's last probe saw it (engines/engineReadiness.ts). */
+  status?: EngineStatus;
 }
 
 /**

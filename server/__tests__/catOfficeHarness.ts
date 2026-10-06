@@ -26,6 +26,14 @@ if (args[0] === '--help') {
   process.stdout.write("  --effort <level>   Effort level (low, medium, high, xhigh, max)\\n  --model <model>   Model alias (e.g. 'fable', 'opus', or 'sonnet') or a model's full name.\\n  -n, --name <name>  x\\n");
   process.exit(0);
 }
+// The engine status probe (engineStatus.ts): installed and logged in.
+if (args[0] === '--version') { process.stdout.write('2.1.291 (Claude Code)\\n'); process.exit(0); }
+// FAKE_MODE=loggedout: \`claude auth status\` as a fresh machine prints it (exit 1).
+if (args[0] === 'auth') {
+  const out = process.env.FAKE_MODE === 'loggedout';
+  process.stdout.write(out ? '{"loggedIn": false, "authMethod": "none"}\\n' : '{"loggedIn": true, "authMethod": "claude.ai"}\\n');
+  process.exit(out ? 1 : 0);
+}
 let input = '';
 process.stdin.on('data', (d) => (input += d));
 process.stdin.on('end', async () => {
@@ -36,6 +44,13 @@ process.stdin.on('end', async () => {
   const compactWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
   fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message, persona, compactWindow }) + '\\n');
   if (process.env.FAKE_MODE === 'hang' || process.env.FAKE_HANG_CAT === cat) return setInterval(() => {}, 1000);
+  // FAKE_MODE=authfail / loggedout: the headless turn of a logged-out CLI (recorded 2026-10-06).
+  if (process.env.FAKE_MODE === 'authfail' || process.env.FAKE_MODE === 'loggedout') {
+    const nope = 'Not logged in · Please run /login';
+    process.stdout.write(JSON.stringify({ type: 'assistant', session_id: sessionId, error: 'authentication_failed', message: { content: [{ type: 'text', text: nope }] } }) + '\\n');
+    process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', is_error: true, result: nope, session_id: sessionId, total_cost_usd: 0 }) + '\\n');
+    process.exit(1);
+  }
   const mcp = JSON.parse(fs.readFileSync(flag('--mcp-config'), 'utf-8')).mcpServers.office;
   let rpcId = 0;
   const rpc = async (method, params) => {

@@ -107,6 +107,7 @@ let manager: TaskManager;
 let host: FakeHost;
 let ptys: FakePty[];
 let base: string;
+let loginEnded: string[];
 
 beforeEach(async () => {
   tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-cat-')));
@@ -118,6 +119,7 @@ beforeEach(async () => {
   host = new FakeHost();
   manager = new TaskManager({ host, stateDir, defaultCwd: makeRepo(), claudeBin: fakeBin });
   ptys = [];
+  loginEnded = [];
   const ptyModule: PtyModule = {
     spawn: (file, args, opts) => {
       const p = new FakePty(file, args, opts);
@@ -133,6 +135,11 @@ beforeEach(async () => {
     isSameOrigin: () => true,
     pty: () => ({ module: ptyModule, reason: null }),
     claudeBin: 'claude-test',
+    engineLogin: {
+      command: (engine) =>
+        engine === 'claude' ? { command: 'claude', args: ['auth', 'login'] } : undefined,
+      ended: (engine) => loginEnded.push(engine),
+    },
   });
   await app.listen({ host: '127.0.0.1', port: 0 });
   const addr = app.server.address();
@@ -288,6 +295,33 @@ describe('session lock', () => {
     const again = acquireSessionLock('s-1', 'wheel');
     expect(again).not.toBeNull();
     again!();
+  });
+});
+
+describe('engine login terminal', () => {
+  const loginUrl = (engine: string, query: string) =>
+    `ws://${base.replace('/api/cat-sessions/7', '')}/api/engines/${engine}/login${query}`;
+
+  it('runs the engine login command in a PTY and re-probes when it ends', async () => {
+    const socket = new WebSocket(loginUrl('claude', `?token=${TOKEN}&cols=80&rows=24`));
+    const out: string[] = [];
+    socket.on('message', (d: Buffer) => out.push(d.toString()));
+    const pty = await waitFor(() => ptys[0]);
+    expect([pty.file, ...pty.args]).toEqual(['claude', 'auth', 'login']);
+    expect(pty.opts.cwd).toBe(os.homedir());
+    socket.send(JSON.stringify({ type: 'input', data: 'code' }));
+    await waitFor(() => out.some((m) => m.includes('echo:code')));
+    socket.close();
+    await waitFor(() => loginEnded.length === 1);
+    expect(loginEnded).toEqual(['claude']);
+  });
+
+  it('needs the token, and knows only its engines', async () => {
+    const untokened = new WebSocket(loginUrl('claude', ''));
+    expect(await new Promise<number>((r) => untokened.on('close', (c: number) => r(c)))).toBe(4401);
+    const unknown = new WebSocket(loginUrl('gemini', `?token=${TOKEN}`));
+    expect(await new Promise<number>((r) => unknown.on('close', (c: number) => r(c)))).toBe(4404);
+    expect(ptys).toHaveLength(0);
   });
 });
 

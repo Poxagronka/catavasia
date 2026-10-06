@@ -3,6 +3,8 @@ import { ENGINE_LABELS } from '../cats/catsApi.js';
 import { catsApi } from '../cats/catsClient.js';
 import { useCats } from '../cats/useCats.js';
 import { CLAUDE_CODE_INSTALL_COMMAND } from '../constants.js';
+import { EngineNotice } from '../engines/EngineNotice.js';
+import { engineProblem, engineStatusLine } from '../engines/engineReadiness.js';
 import type { IntroStepId } from './introSteps.js';
 import { CODEX_INSTALL_COMMAND, ISSUES_URL } from './introSteps.js';
 
@@ -108,17 +110,30 @@ function EnginesBody() {
       </p>
       {ENGINES.map(({ engine, command }) => {
         const label = ENGINE_LABELS[engine];
+        const options = catsApi.engineOptions(engine);
         // Reasons may repeat the label ("Codex: no adapter ..."): say it once.
-        const unavailable = catsApi.engineOptions(engine).unavailable?.replace(`${label}: `, '');
+        const unavailable = options.unavailable?.replace(`${label}: `, '');
+        const status = engineStatusLine(options);
+        const problem = engineProblem(engine, options);
         return (
           <div key={engine} className="mb-8" data-testid={`intro-engine-${engine}`}>
             <div className="text-sm mb-2">
               {label}
-              {unavailable ? <span className="text-warning">{` - ${unavailable}`}</span> : null}
+              {status ? (
+                <span className={problem ? 'text-warning' : 'text-status-success'}>
+                  {` - ${status}`}
+                </span>
+              ) : unavailable ? (
+                <span className="text-warning">{` - ${unavailable}`}</span>
+              ) : null}
             </div>
-            <div className="text-sm bg-btn-bg border-2 border-border py-4 px-8 select-all">
-              {command}
-            </div>
+            {problem?.needsLogin ? (
+              <EngineNotice engine={engine} />
+            ) : (
+              <div className="text-sm bg-btn-bg border-2 border-border py-4 px-8 select-all">
+                {command}
+              </div>
+            )}
           </div>
         );
       })}

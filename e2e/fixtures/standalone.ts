@@ -50,8 +50,11 @@ export const test = base.extend<{
    *  consent specs opt out via `test.use({ seedHooksConsent: false })` so the
    *  first-run dialog shows — they are the only ones that want it. */
   seedHooksConsent: boolean;
+  /** A folder put first on the host's PATH (fake engine CLIs). */
+  pathPrepend: string | undefined;
 }>({
   seedHooksConsent: [true, { option: true }],
+  pathPrepend: [undefined, { option: true }],
   // Auto-fixture: tag every test with Allure epic + feature derived from its
   // @area: annotation and enclosing describe path. Runs before standalone.
   _allureLabels: [
@@ -61,8 +64,8 @@ export const test = base.extend<{
     },
     { auto: true },
   ],
-  standalone: async ({ page, seedHooksConsent }, use, testInfo) => {
-    const standalone = await launchStandalone(page, { seedHooksConsent });
+  standalone: async ({ page, seedHooksConsent, pathPrepend }, use, testInfo) => {
+    const standalone = await launchStandalone(page, { seedHooksConsent, pathPrepend });
 
     try {
       await use(standalone);

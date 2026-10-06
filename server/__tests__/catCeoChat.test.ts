@@ -365,6 +365,7 @@ describe('Cat CEO chat through the CLI', () => {
       bin,
       `#!/usr/bin/env node
 if (process.argv.includes('--help')) { console.log('--model <model>'); process.exit(0); }
+if (process.argv[2] === '--version' || process.argv[2] === 'auth') process.exit(0);
 let input = '';
 process.stdin.on('data', (d) => (input += d));
 process.stdin.on('end', () => {

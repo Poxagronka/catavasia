@@ -15,6 +15,8 @@ import { catSessionApi } from './catSessionApi.js';
 
 interface WheelTerminalProps {
   catId: string;
+  /** Set: run this engine's login flow instead of the cat's session (engines/EngineLoginPanel.tsx). */
+  engine?: string;
   /** The PTY ended or the server refused: the panel goes back to the CTA. */
   onEnded: (message: string | null) => void;
 }
@@ -24,7 +26,7 @@ interface WheelTerminalProps {
  * Adapted from upstream PR #347 TerminalPane. Mounting takes the wheel,
  * unmounting releases it (the server ends the process and frees the session).
  */
-export function WheelTerminal({ catId, onEnded }: WheelTerminalProps) {
+export function WheelTerminal({ catId, engine, onEnded }: WheelTerminalProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
@@ -51,22 +53,22 @@ export function WheelTerminal({ catId, onEnded }: WheelTerminalProps) {
 
     let error: string | null = null;
     let disposed = false;
-    const wheel = catSessionApi.takeWheel(
-      catId,
-      { cols: term.cols, rows: term.rows },
-      {
-        onOutput: (data) => term.write(data),
-        onExit: (code) => {
-          term.write(`\r\n\x1b[90m[claude exited with code ${String(code)}]\x1b[0m\r\n`);
-        },
-        onError: (message) => {
-          error = message;
-        },
-        onClose: () => {
-          if (!disposed) endedRef.current(error);
-        },
+    const size = { cols: term.cols, rows: term.rows };
+    const handlers = {
+      onOutput: (data: string) => term.write(data),
+      onExit: (code: number) => {
+        const cli = engine ?? 'claude';
+        term.write(`\r\n\x1b[90m[${cli} exited with code ${String(code)}]\x1b[0m\r\n`);
       },
-    );
+      onError: (message: string) => {
+        error = message;
+      },
+      onClose: () => {
+        if (!disposed) endedRef.current(error);
+      },
+    };
+    const login = engine ? catSessionApi.openLogin(engine, size, handlers) : undefined;
+    const wheel = login ?? catSessionApi.takeWheel(catId, size, handlers);
     term.onData((data) => wheel.write(data));
 
     // Debounced: every resize is a PTY syscall plus a full TUI repaint.
@@ -89,10 +91,11 @@ export function WheelTerminal({ catId, onEnded }: WheelTerminalProps) {
       disposed = true;
       if (timer) clearTimeout(timer);
       observer.disconnect();
-      catSessionApi.releaseWheel(catId);
+      if (login) login.close();
+      else catSessionApi.releaseWheel(catId);
       term.dispose();
     };
-  }, [catId]);
+  }, [catId, engine]);
 
   return (
     <div

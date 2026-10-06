@@ -160,8 +160,8 @@ export function afterTurn(
   const { s } = d;
   const cat = catOf(s, m.catId);
   const isRoot = m.catId === s.rootId;
-  // A14: one retry for an infrastructure failure; a timeout gets none.
-  if (!result.ok && !timedOut && m.retries < TURN_RETRY_MAX) {
+  // A14: one retry for an infrastructure failure; a timeout or a down engine gets none.
+  if (!result.ok && !timedOut && !result.engineDown && m.retries < TURN_RETRY_MAX) {
     m.retries++;
     m.inbox.unshift(...inFlight);
     m.outgoingReport = undefined;
@@ -186,7 +186,9 @@ export function afterTurn(
     // A report or result made in a failed turn does not count.
     m.outgoingReport = undefined;
     m.final = undefined;
-    if (isRoot) return enterFinalizing(d, 'fail', `${catLabel(cat)} failed: ${error}`); // T10
+    // T10. A down engine (logged out) fails the whole task: no cat can fix it.
+    if (isRoot || result.engineDown)
+      return enterFinalizing(d, 'fail', `${catLabel(cat)} failed: ${error}`);
     const mine = openAssignmentOf(s, m.catId);
     if (mine) completeReport(d, mine, `The turn failed: ${error}`, true); // A15
     return;
