@@ -71,6 +71,8 @@ export interface TurnHandle {
 export interface OfficeMcpEndpoint {
   url: string;
   token: string;
+  /** The MCP server name the tools appear under (`mcp__<name>__<tool>`). Default: `office`. */
+  name?: string;
 }
 
 export interface EngineAdapter {

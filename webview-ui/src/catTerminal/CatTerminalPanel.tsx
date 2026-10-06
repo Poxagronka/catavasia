@@ -60,8 +60,13 @@ export function CatTerminalPanel({
 
   return (
     <div
-      className="fixed top-8 right-8 bottom-48 w-[min(620px,calc(100vw-16px))] pixel-panel flex flex-col"
-      style={{ zIndex: 45 }}
+      className="fixed top-8 bottom-76 pixel-panel flex flex-col"
+      // Left of the CEO dock when it is open (CeoDock sets --dock-width).
+      style={{
+        zIndex: 45,
+        right: 'calc(8px + var(--dock-width, 0px))',
+        width: 'min(620px, calc(100vw - 16px - var(--dock-width, 0px)))',
+      }}
       data-testid="cat-terminal-panel"
     >
       <div className="flex items-center gap-8 px-10 py-4 border-b-2 border-border">

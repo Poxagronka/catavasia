@@ -33,17 +33,38 @@ export function applyFrame(state: CatConsoleState, frame: CatSessionFrame): CatC
     return { title: frame.title, entries: frame.entries, status: frame.status, loaded: true };
   }
   if (frame.type === 'entries') return { ...state, entries: [...state.entries, ...frame.entries] };
-  // A job card update (CEO desk): its row keeps the one-line text it came with.
-  if (frame.type === 'job') return state;
+  if (frame.type === 'job') return { ...state, entries: upsertJob(state.entries, frame) };
   return { ...state, status: frame.status };
+}
+
+type JobEntry = Extract<CatSessionEntry, { kind: 'job' }>;
+
+/** A job card update (CEO desk): replace the card with this jobId in place, or add it. */
+export function upsertJob(
+  entries: CatSessionEntry[],
+  update: Omit<JobEntry, 'kind'>,
+): CatSessionEntry[] {
+  const row: JobEntry = { kind: 'job', text: update.text, job: update.job };
+  const at = entries.findIndex((e) => e.kind === 'job' && e.job.jobId === update.job.jobId);
+  if (at < 0) return [...entries, row];
+  const next = entries.slice();
+  next[at] = row;
+  return next;
 }
 
 export type ToolEntry = Extract<CatSessionEntry, { kind: 'tool' }>;
 
-/** A console row: one message, or a run of consecutive tool calls folded together. */
+/** Tools of the CEO desk: their rows already read as sentences ("Started job a1b2 → Team (Oliver)"). */
+export const DESK_TOOL_PREFIX = 'mcp__desk__';
+
+/**
+ * A console row: one message, a run of consecutive tool calls folded together,
+ * or one desk action (a desk tool row, shown as is).
+ */
 export type ConsoleRow =
   | { kind: 'message'; entry: Exclude<CatSessionEntry, ToolEntry> }
-  | { kind: 'tools'; tools: ToolEntry[] };
+  | { kind: 'tools'; tools: ToolEntry[] }
+  | { kind: 'action'; tool: ToolEntry };
 
 /** Fold consecutive tool calls into one collapsible row. */
 export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
@@ -51,6 +72,7 @@ export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
   for (const entry of entries) {
     const last = rows[rows.length - 1];
     if (entry.kind !== 'tool') rows.push({ kind: 'message', entry });
+    else if (entry.name.startsWith(DESK_TOOL_PREFIX)) rows.push({ kind: 'action', tool: entry });
     else if (last?.kind === 'tools') last.tools.push(entry);
     else rows.push({ kind: 'tools', tools: [entry] });
   }

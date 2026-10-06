@@ -17,6 +17,17 @@ import { checkWorkFolder } from './workFolder.js';
 
 const GOAL_MAX_CHARS = 120;
 
+/** The CEO's MCP server name: its tool rows read `mcp__desk__start_job`. */
+export const DESK_MCP_NAME = 'desk';
+
+/** A tool reply, plus the chat row that says what happened (on success). */
+export interface DeskToolResult extends OfficeToolResult {
+  /** "Started job a1b2 → Team (Oliver)". */
+  row?: string;
+  /** start_job: the new job, whose card follows the row. */
+  jobId?: string;
+}
+
 export const DESK_TOOLS: McpTool[] = [
   {
     name: 'start_job',
@@ -88,8 +99,8 @@ export interface DeskToolHost {
   jobStarted(task: TaskSummary, rework: boolean, chatId: string): void;
 }
 
-const ok = (text: string): OfficeToolResult => ({ text });
-const fail = (text: string): OfficeToolResult => ({ text, isError: true });
+const ok = (text: string, row?: string): DeskToolResult => ({ text, ...(row ? { row } : {}) });
+const fail = (text: string): DeskToolResult => ({ text, isError: true });
 const arg = (args: Record<string, unknown>, key: string): string | undefined => {
   const v = args[key];
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
@@ -99,12 +110,16 @@ export async function callDeskTool(
   host: DeskToolHost,
   name: string,
   args: Record<string, unknown>,
-): Promise<OfficeToolResult> {
+): Promise<DeskToolResult> {
   switch (name) {
     case 'start_job':
       return startJob(host, args);
-    case 'job_status':
-      return jobStatus(host, arg(args, 'jobId'));
+    case 'job_status': {
+      const jobId = arg(args, 'jobId');
+      const result = jobStatus(host, jobId);
+      if (result.isError) return result;
+      return { ...result, row: jobId ? `Checked job ${jobId}` : 'Checked the jobs' };
+    }
     case 'message_job': {
       const task = chatTask(host, arg(args, 'jobId'));
       if (typeof task === 'string') return fail(task);
@@ -114,14 +129,14 @@ export async function callDeskTool(
       if (task.status !== 'running' || !root || !host.office.sendUserMessage(root, text)) {
         return fail(`Job ${task.id} has no running lead to read the message.`);
       }
-      return ok(`Sent to the lead of job ${task.id}.`);
+      return ok(`Sent to the lead of job ${task.id}.`, `Messaged the lead of job ${task.id}`);
     }
     case 'cancel_job': {
       const task = chatTask(host, arg(args, 'jobId'));
       if (typeof task === 'string') return fail(task);
       try {
         host.tasks.cancel(task.id);
-        return ok(`Job ${task.id} is cancelling. Its branches stay.`);
+        return ok(`Job ${task.id} is cancelling. Its branches stay.`, `Cancelled job ${task.id}`);
       } catch (err) {
         if (err instanceof TaskBusyError || err instanceof TaskInputError) return fail(err.message);
         throw err;
@@ -131,10 +146,13 @@ export async function callDeskTool(
       const checked = checkWorkFolder(arg(args, 'path') ?? '', host.stateDir);
       if (!checked.ok) return fail(checked.error);
       host.setFolder(checked.path);
-      return ok(`The work folder of this chat is now ${checked.path}.`);
+      return ok(
+        `The work folder of this chat is now ${checked.path}.`,
+        `Work folder → ${checked.path}`,
+      );
     }
     case 'list_team':
-      return ok(teamList(host.office.cats.list()));
+      return ok(teamList(host.office.cats.list()), 'Looked at the team');
     default:
       return fail(`Unknown tool: ${name}`);
   }
@@ -143,7 +161,7 @@ export async function callDeskTool(
 async function startJob(
   host: DeskToolHost,
   args: Record<string, unknown>,
-): Promise<OfficeToolResult> {
+): Promise<DeskToolResult> {
   const prompt = arg(args, 'task');
   if (!prompt) return fail('start_job needs a task');
   const to = arg(args, 'to') ?? 'team';
@@ -186,14 +204,17 @@ async function startJob(
     });
     if (task.status === 'error') return fail(`Job ${task.id} could not start: ${task.error}`);
     host.jobStarted(task, !!fromId, chatId);
-    return ok(
-      [
+    const who = to === 'team' ? `Team (${lead.name})` : lead.name;
+    return {
+      jobId: task.id,
+      row: `Started job ${task.id} → ${who}${fromId ? `, reworking job ${fromId}` : ''}`,
+      text: [
         `Job ${task.id} started: ${to === 'team' ? `Team: ${lead.name} leads` : lead.name}.`,
         `Folder: ${folder ?? 'none (sandbox)'}.`,
         ...(task.branch ? [`Branch: ${task.branch}${baseRef ? ` (from ${baseRef})` : ''}.`] : []),
         'A notice with the result arrives when it ends.',
       ].join(' '),
-    );
+    };
   } catch (err) {
     if (err instanceof TaskInputError) return fail(err.message);
     throw err;

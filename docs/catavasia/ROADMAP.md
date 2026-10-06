@@ -457,8 +457,8 @@ User requirement: remove the Tasks board (the whiteboard becomes decor). The CEO
 **Phases** (one PR each, new files under 400 lines):
 
 1. `feat/ceo-desk-core` (this PR, server only): the desk, its store, tools, persona, work folder checks, routes and wire types, `registerMcpRoute`, status events of team tasks, `chatId` and `baseRef` for tasks, `revParse`, and the CEO always resident.
-2. `feat/ceo-dock` (webview): `webview-ui/src/ceoDesk/` (CeoDock, DockHeader, JobCard, ceoDeskApi, dockState), job entries in ChatConsole, Markdown links and italics, the typography spec, e2e `ceoDock.spec.ts` (mock-claude-runner learns `-p --input-format stream-json`).
-3. `feat/ceo-attachments` (after feat/engine-preflight): images and files (content blocks, `codex -i`), `--add-dir`, `--disallowedTools Edit Write NotebookEdit`, `--max-budget-usd`, the user's MCP servers for the CEO, the composer, the preflight notice in the dock.
+2. `feat/ceo-dock` (webview): `webview-ui/src/ceoDesk/` (CeoDock, DockHeader, DockComposer, JobCard, ceoDeskApi, dockState), job entries in ChatConsole, Markdown links and italics, the typography spec, the dock's engine notice, e2e `ceoDock.spec.ts` (mock-claude-runner learns `-p --input-format stream-json`).
+3. `feat/ceo-attachments` (after feat/engine-preflight): images and files (content blocks, `codex -i`), `--add-dir`, `--disallowedTools Edit Write NotebookEdit`, `--max-budget-usd`, the user's MCP servers for the CEO, the attachments in the composer.
 4. `feat/board-to-decor` (after feat/engine-preflight): the deletions, onboarding and docs above.
 
 **Phase 1 decisions** (agent-made, the user was asleep):
@@ -473,6 +473,20 @@ User requirement: remove the Tasks board (the whiteboard becomes decor). The CEO
 - Queued user messages and job notices are saved in `desk.json` (`pending`), so a notice that waits behind a running turn survives a restart. A job ends only in a final flow state (done, error, cancelled): cancelling an interrupted job sends one `cancelled` notice.
 - The cat session socket of `cat-ceo` checks only the origin, like every cat console. It now shows job reports and folders: phase 2 decides whether it needs the token.
 - `message_job` goes to the lead's newest live task (`Orchestrator.sendUserMessage`). When one lead runs two jobs at once, the newest gets the message.
+
+**Phase 2 decisions** (agent-made, the user was asleep):
+
+- The `cat-ceo` session socket needs the server token (`?token=`, like the PTY sockets): it carries job reports and project folders. `CatSessionSource.needsToken` marks such a session; a socket without the token closes with 4401. Every console socket now sends the page's token, other sessions ignore it. A page without the token shows the dock in read-only form: "Open the office with `catavasia` to chat with the CEO."
+- The CEO's MCP server is named `desk` (`OfficeMcpEndpoint.name`, default `office` for cats), so its tool rows read `mcp__desk__start_job`. A desk tool writes its own readable row when it runs ("Started job a1b2 → Team (Oliver)", "Work folder → /path", "Checked job a1b2"), and the raw stream row of a desk tool is dropped. A refused tool shows only the stream's red error row. The job card follows the row that started it.
+- The dock replaces the CEO's chat UI: a click on the CEO cat (or its label's chat button) opens the dock, never the judge chat. The judge chat route stays on the server until phase 4.
+- Layout: the open dock is 460 px wide on the right edge (top 8, bottom 76, clear of the bottom toolbar). When the window leaves the office at least 640 px, the office (canvas, toolbar, banners, onboarding bubble) narrows by the dock (`--dock-space`), so nothing hides under it. A narrower window overlays the dock. A worker's chat panel stands left of the dock (`--dock-width`). The page background is the panel colour, so the space behind the dock is never white.
+- Unread badge: CEO text rows and new job cards after the last seen row, plus job state changes while collapsed. The collapsed flag and the seen row count persist in localStorage. The "done" sound plays when a turn ends with text while the dock is collapsed.
+- "Queued" marks the newest user rows while the CEO works (`status.queued`). A job notice has no row, so a waiting notice can mark one row too many.
+- Preflight in the dock: when Claude Code is missing or logged out, the dock shows the engine notice (Log in / Check again) above the box, and Send is off with "Send is off until Claude Code is ready. Your draft stays."
+- The composer is text only. Its attachment strip and attach button have marked slots for phase 3.
+- Typography tokens live once in `index.css` (`--font-body`, `--font-code`, `--text-body-size` 15 px, `--text-body-small` 14 px, `--text-code-size` 13 px, `--leading-body` 1.55, `--color-text-body` #E6E6EE, `--measure-body` 680 px) with the classes `prose-body`, `prose-small`, `prose-code` and `prose-measure`. They apply to the dock, the cat chats, Markdown, TaskDetailModal, the engine notice, the Reset everything warning and the Instant Detection modal. Headings, labels, buttons and status pills keep the pixel font. The onboarding bubble keeps the pixel font (phase 4 rewrites its steps).
+- Markdown links open in a new tab with `rel="noopener noreferrer"`, only for http(s) URLs; a bare URL loses its trailing punctuation. `*x*` and `_x_` are italics, but not inside snake_case words. Numbered lists render as ordered lists.
+- The old Tasks board keeps working until phase 4.
 
 ## Pet interactions (feat/pet-interactions, agent-made 2026-10-07)
 

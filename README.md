@@ -66,6 +66,10 @@ The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): req
 
 ![The Hierarchy editor: the Cat CEO above, Oliver the boss, three developer cats below](docs/catavasia/screenshots/hierarchy.png)
 
+**CEO desk.** The CEO's chat sits on the right edge. Ask it a question, give it a link, or ask for work in a project folder. It answers itself, or hands the work to the team, checks the result and tells you the branch. A job card shows each job live. Collapse the chat to a tab; a badge counts new answers. Click the CEO cat to open it again.
+
+![The CEO desk: the CEO's chat with a finished job card and the final answer](docs/catavasia/screenshots/ceo-dock.png)
+
 **Tasks.** Click **Tasks** or the whiteboard in the work room. Write what to do, pick a folder and pick one cat or the whole team. Each task runs in a git worktree on a branch `task/<id>`.
 
 ![The Tasks panel with a new task for the team](docs/catavasia/screenshots/tasks.png)

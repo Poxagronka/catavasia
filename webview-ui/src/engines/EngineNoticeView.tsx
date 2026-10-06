@@ -19,19 +19,19 @@ export function EngineNoticeView({
   onCheck,
 }: EngineNoticeViewProps) {
   return (
-    <div className="flex flex-col gap-4 text-xs" data-testid={`engine-notice-${problem.engine}`}>
-      <span className="text-status-permission">{problem.reason}.</span>
+    <div className="flex flex-col gap-6 text-xs" data-testid={`engine-notice-${problem.engine}`}>
+      <span className="prose-body prose-small text-status-permission">{problem.reason}.</span>
       {problem.installCommand && (
         <>
-          <span className="text-text-muted">Install it in a terminal:</span>
-          <span className="bg-btn-bg border-2 border-border py-2 px-6 select-all">
+          <span className="prose-body prose-small text-text-muted">Install it in a terminal:</span>
+          <span className="prose-code bg-btn-bg border-2 border-border py-2 px-6 select-all">
             {problem.installCommand}
           </span>
         </>
       )}
       {problem.needsLogin && !privileged && (
-        <span className="text-text-muted">
-          Run <span className="select-all">{problem.loginCommand}</span> in a terminal.
+        <span className="prose-body prose-small text-text-muted">
+          Run <code className="select-all">{problem.loginCommand}</code> in a terminal.
         </span>
       )}
       <div className="flex gap-6 flex-wrap">

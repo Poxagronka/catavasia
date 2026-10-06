@@ -34,7 +34,13 @@ export function EngineBanner() {
   if (dismissed || broken.length === 0) return null;
   return (
     <div
-      className="absolute top-10 left-1/2 -translate-x-1/2 z-40 pixel-panel py-6 px-10 flex gap-10 items-start max-w-[min(480px,calc(100vw-20px))]"
+      className="absolute top-10 -translate-x-1/2 z-40 pixel-panel py-6 px-10 flex gap-10 items-start"
+      // Centred in the room the open CEO dock leaves: the office already
+      // narrows by --dock-space; an overlaying dock covers the rest of --dock-width.
+      style={{
+        left: 'calc((100% - var(--dock-width, 0px) + var(--dock-space, 0px)) / 2)',
+        maxWidth: 'min(480px, calc(100% - 20px - var(--dock-width, 0px) + var(--dock-space, 0px)))',
+      }}
       data-testid="engine-banner"
     >
       <div className="flex flex-col gap-8 flex-1 min-w-0">

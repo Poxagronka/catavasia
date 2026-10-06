@@ -10,8 +10,9 @@
  *   turn), and the wheel takes the same session lock as every turn.
  *
  * The Cat CEO is not a team cat and has no wheel. The literal id `cat-ceo`
- * is the CEO desk (server/src/ceoDesk/). The CEO character's agent id still
- * opens the judge chat (server/src/catCeo/ceoChat.ts) until the dock replaces
+ * is the CEO desk (server/src/ceoDesk/); reading it needs the server token.
+ * The webview opens the desk dock for the CEO character. Its agent id still
+ * reaches the judge chat (server/src/catCeo/ceoChat.ts) until phase 4 removes
  * it (docs/catavasia/ROADMAP.md, "CEO desk replaces the task board").
  *
  * Any other cat id falls through to the task-board source.
@@ -149,6 +150,10 @@ export class OfficeCatSource implements CatSessionSource {
     this.wheels.get(cat)?.();
     this.wheels.delete(cat);
     this.office.consoles.statusChanged();
+  }
+
+  needsToken(agentId: string): boolean {
+    return this.isDesk(agentId);
   }
 
   /** The literal `cat-ceo` id: the CEO desk chat. */

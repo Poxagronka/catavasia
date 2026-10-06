@@ -32,10 +32,11 @@ import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
 import { deskPersona, jobNotice, turnMessage, userPart } from './deskPrompt.js';
 import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
-import { callDeskTool, cardLine, type DeskToolHost, jobCard } from './deskTools.js';
+import { callDeskTool, cardLine, DESK_MCP_NAME, type DeskToolHost, jobCard } from './deskTools.js';
 import { recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
+const DESK_TOOL_PREFIX = `mcp__${DESK_MCP_NAME}__`;
 export const RESTARTED_TEXT = 'The server restarted during this turn; send again.';
 
 export interface CeoDeskOptions {
@@ -184,8 +185,19 @@ export class CeoDesk implements OfficeToolHandler {
     return token === this.state.mcpToken;
   }
 
-  callTool(_token: string, name: string, args: Record<string, unknown>): Promise<OfficeToolResult> {
-    return callDeskTool(this.toolHost(), name, args);
+  /** Runs the tool; on success the chat gets a readable row ("Started job a1b2 → Team (Oliver)"). */
+  async callTool(
+    _token: string,
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<OfficeToolResult> {
+    const chatId = this.state.chatId;
+    const { row, jobId, ...result } = await callDeskTool(this.toolHost(), name, args);
+    if (chatId !== this.state.chatId) return result;
+    if (row) this.add({ kind: 'tool', name: `mcp__${DESK_MCP_NAME}__${name}`, text: row });
+    // The job's card follows the row that started it.
+    if (jobId) this.updateCard(jobId);
+    return result;
   }
 
   private toolHost(): DeskToolHost {
@@ -207,7 +219,6 @@ export class CeoDesk implements OfficeToolHandler {
         if (rework) this.reworkCount++;
         this.state.liveJobs.push(task.id);
         this.store.save(this.state);
-        this.updateCard(task.id);
       },
     };
   }
@@ -239,7 +250,7 @@ export class CeoDesk implements OfficeToolHandler {
     const { cwd, systemPromptFile, mcpConfigFile } = this.store.writeTurnFiles(
       this.state.chatId,
       deskPersona(settings.name, role),
-      adapter.mcpConfig({ url: this.mcpUrl, token: this.state.mcpToken }),
+      adapter.mcpConfig({ url: this.mcpUrl, token: this.state.mcpToken, name: DESK_MCP_NAME }),
     );
     const handle = adapter.spawnTurn({
       sessionId: this.state.sessionId,
@@ -274,6 +285,13 @@ export class CeoDesk implements OfficeToolHandler {
       return;
     }
     if (entry.kind !== 'tool' && entry.kind !== 'error') return;
+    // Desk tools get a readable row when they run (callTool), not the raw input.
+    if (entry.kind === 'tool' && entry.name?.startsWith(DESK_TOOL_PREFIX)) {
+      // The text before the call explains it: write it before the tool's row.
+      if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
+      turn.held = undefined;
+      return;
+    }
     if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
     turn.held = undefined;
     this.add(toConsoleEntry(entry));

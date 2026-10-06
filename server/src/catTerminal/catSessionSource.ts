@@ -48,6 +48,8 @@ export interface CatSessionSource {
   beginWheel(catId: string): Promise<WheelSession>;
   /** The PTY ended: release the lock. */
   endWheel(catId: string): Promise<void>;
+  /** Reading this session needs the server token too (the CEO desk: job reports, folders). */
+  needsToken?(catId: string): boolean;
 }
 
 /** Task log row -> console row. Exported for tests. */
