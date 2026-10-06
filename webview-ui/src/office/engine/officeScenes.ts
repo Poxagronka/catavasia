@@ -49,7 +49,7 @@ import { Puppets, talkSpot } from './scenePuppets.js';
 import type { SceneBubble } from './sceneText.js';
 import { toBubble } from './sceneText.js';
 import type { Tile } from './socialMoves.js';
-import { faceEachOther, tileDistance, tileOf } from './socialMoves.js';
+import { faceEachOther, stopAfterStep, tileDistance, tileOf } from './socialMoves.js';
 
 export interface ScenesWorld extends PuppetWorld {
   seats: Map<string, Seat>;
@@ -321,6 +321,9 @@ export class OfficeScenes {
   /** No walk-up: the sender stays where it is (seated at its desk if it sits there). */
   private goRemote(t: Talk, sender: Character): void {
     t.remote = true;
+    // A sender still walking stops after its current step.
+    stopAfterStep(sender);
+    if (sender.moveProgress === 0) sender.path = [];
     const seat = sender.seatId ? this.w.seats.get(sender.seatId) : undefined;
     const onSeat = seat && seat.seatCol === sender.tileCol && seat.seatRow === sender.tileRow;
     this.puppets.goTo(sender.id, null, onSeat ? seat : null);
