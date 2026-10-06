@@ -254,7 +254,7 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 ### `@area:standalone` (13 tests)
 
 - `e2e/standalone/ceoDock.spec.ts:27` — the CEO answers in the dock with markdown; the dock collapses to a tab (Standalone / CEO dock)
-- `e2e/standalone/engines.spec.ts:43` — a logged-out Claude Code: notice, blocked Start, and Log in in the terminal (Standalone / engines)
+- `e2e/standalone/engines.spec.ts:44` — a logged-out Claude Code: notice, blocked Start, and Log in in the terminal (Standalone / engines)
 - `e2e/standalone/hooks.spec.ts:17` — propagates hook-driven lifecycle into the browser UI (Standalone / hooks)
 - `e2e/standalone/hooks.spec.ts:138` — the tokened page shows the Intro and Install writes the hooks (Standalone / hooks consent)
 - `e2e/standalone/hooks.spec.ts:165` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)

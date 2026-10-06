@@ -38,6 +38,7 @@ fs.writeFileSync(path.join(BIN, 'codex'), FAKE_CODEX, { mode: 0o755 });
 const PROBE_TIMEOUT_MS = 20_000;
 
 test.describe('Standalone / engines', () => {
+  test.skip(process.platform === 'win32', 'the fake engine CLIs are POSIX sh scripts');
   test.use({ pathPrepend: BIN });
 
   test('a logged-out Claude Code: notice, blocked Start, and Log in in the terminal @area:standalone', async ({
