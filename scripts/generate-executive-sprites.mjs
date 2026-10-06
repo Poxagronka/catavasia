@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Generates the Cat CEO office furniture (assets/furniture/<ID>/ + manifest.json):
-// the executive desk, the executive chair (front, back, side) and the CEO plaque.
+// the executive desk, the executive chair (front, back, side), the CEO plaque
+// and the laptop (front, back, side, on/off).
 //
 //   node scripts/generate-executive-sprites.mjs
 //
 // The art is drawn in scripts/executive/executiveArt.mjs and is MIT like the
 // rest of the repo. The desk lands in the "desks" tab, the chair in "chairs",
-// the plaque in "wall".
+// the plaque in "wall", the laptop in "electronics" (with the PC).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,13 +48,40 @@ for (const item of EXECUTIVE_ITEMS) {
     name: item.name,
     category: item.category,
     canPlaceOnWalls: item.canPlaceOnWalls ?? false,
-    canPlaceOnSurfaces: false,
+    canPlaceOnSurfaces: item.canPlaceOnSurfaces ?? false,
     backgroundTiles: item.backgroundTiles,
   };
   let manifest;
   if (item.members) {
+    const asset = (id, rows) => ({
+      type: 'asset',
+      id,
+      file: `${id}.png`,
+      ...writePng(path.join(dir, `${id}.png`), rows, id),
+    });
     const members = item.members.map((m) => {
       const id = `${item.id}_${m.orientation.toUpperCase()}`;
+      if (m.on) {
+        // On/off state group; several "on" frames animate (the PC manifest pattern).
+        const on =
+          m.on.length === 1
+            ? { ...asset(`${id}_ON`, m.on[0]), state: 'on' }
+            : {
+                type: 'group',
+                groupType: 'animation',
+                state: 'on',
+                members: m.on.map((rows, frame) => ({
+                  ...asset(`${id}_ON_${frame + 1}`, rows),
+                  frame,
+                })),
+              };
+        return {
+          type: 'group',
+          groupType: 'state',
+          orientation: m.orientation,
+          members: [on, { ...asset(`${id}_OFF`, m.off), state: 'off' }],
+        };
+      }
       const size = writePng(path.join(dir, `${id}.png`), m.rows, id);
       return {
         type: 'asset',
