@@ -44,7 +44,8 @@ export const JUDGE_RULES = `# Judge rules (fixed by the office)
 - Rules hold behaviour ("Run the tests before you report"). Lessons hold facts about the repo or tools.
 - Prefer "replace" of a weak item over "add". At most 3 edits per cat. Item text: one line, at most 240 characters, no markdown headings, no code fences.
 - Never edit "Role & conduct". Never edit the Cat CEO. Never add praise, names of people, secrets, tokens, or paths outside the repo.
-- When the work is fine, return no edits.`;
+- When the work is fine, return no edits.
+- Write summary, bubble, evidence and item text in English, whatever the language of the digest.`;
 
 /** The settings in cats.json, with defaults for absent or bad fields (old files have none). */
 export function readCeoSettings(raw: unknown): CeoSettings {
