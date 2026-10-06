@@ -24,6 +24,7 @@ afterEach(async () => {
   if (env) fs.rmSync(env.tmp, { recursive: true, force: true });
   env = undefined;
   delete process.env.FAKE_MODE;
+  delete process.env.FAKE_HANG_CAT;
 });
 
 const texts = (entries: CatSessionEntry[]) =>
@@ -244,6 +245,56 @@ describe('CEO desk jobs', () => {
     // The cut first turn may have made the session: the next one starts a fresh id.
     expect(env.ceo.turns[0].resume).toBe(false);
     expect(env.ceo.turns[0].sessionId).not.toBe(state.sessionId);
+  });
+});
+
+describe('CEO desk jobs across a restart', () => {
+  it('keeps a queued notice across a restart', async () => {
+    let jobId = '';
+    env = await startDeskOffice(async ({ req, call }) => {
+      if (!req.message.includes('[Message from the user]')) return HANG;
+      jobId = /Job ([0-9a-f]+) started/.exec(
+        (await call('start_job', { task: 'make files' })).text,
+      )![1];
+      return HANG;
+    });
+    const { tmp } = env;
+    env.desk.setFolder(makeRepo(path.join(tmp, 'repo')));
+    env.desk.send('go');
+    // The job ends while the CEO turn still runs: its notice waits in the queue.
+    await waitFor(() => (env!.desk.snapshot().status.queued === 1 ? true : undefined), 30_000);
+    await env.close();
+    env = await startDeskOffice(() => ({ text: 'ok' }), { tmp });
+    await waitFor(() =>
+      env!.ceo.turns.some((t) => t.message.includes(`[Job ${jobId} done]`)) ? true : undefined,
+    );
+  });
+
+  it('cancelling an interrupted job sends one cancelled notice, not an early error', async () => {
+    process.env.FAKE_HANG_CAT = 'murka';
+    let jobId = '';
+    const script = async ({ req, call }: CeoTurn) => {
+      if (req.message.includes('please cancel')) await call('cancel_job', { jobId });
+      else if (req.message.includes('[Message from the user]')) {
+        jobId = /Job ([0-9a-f]+) started/.exec((await call('start_job', { task: 'x' })).text)![1];
+      }
+      return { text: 'ok' };
+    };
+    env = await startDeskOffice(script);
+    const { tmp } = env;
+    env.desk.setFolder(makeRepo(path.join(tmp, 'repo')));
+    env.desk.send('go');
+    await waitFor(() => (env!.office.hasPendingTurn('murka') ? true : undefined), 30_000);
+    await deskIdle(env.desk);
+    await env.close();
+    delete process.env.FAKE_HANG_CAT;
+    env = await startDeskOffice(script, { tmp });
+    expect(env.tasks.get(jobId)?.flow?.state).toBe('interrupted');
+    env.desk.send('please cancel');
+    await waitFor(() =>
+      env!.ceo.turns.some((t) => t.message.includes(`[Job ${jobId} cancelled]`)) ? true : undefined,
+    );
+    expect(env.ceo.turns.filter((t) => t.message.includes(`[Job ${jobId} `))).toHaveLength(1);
   });
 });
 

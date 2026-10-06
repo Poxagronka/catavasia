@@ -5,10 +5,8 @@
  * answers itself or starts jobs (team tasks) with its desk tools; when a job
  * ends, a job notice with the full result becomes the CEO's next turn.
  *
- * One turn at a time: user messages and job notices wait in `pending` and the
- * next turn reads them all. The desk does not use the TurnScheduler or the
- * Cat CEO review slot. The chat travels over the cat session socket of the
- * literal id `cat-ceo` (officeCatSource.ts).
+ * One turn at a time: messages and notices wait in `pending` for the next
+ * turn (not the TurnScheduler). The chat uses the `cat-ceo` session socket.
  */
 
 import { EventEmitter } from 'events';
@@ -62,7 +60,6 @@ export class CeoDesk implements OfficeToolHandler {
   private readonly store: DeskStore;
   private state: DeskState;
   private rows: DeskRow[];
-  private pending: Array<{ kind: 'user' | 'notice'; text: string }> = [];
   private turn: Turn | undefined;
   private reworkCount = 0;
   private mcpUrl = '';
@@ -128,20 +125,22 @@ export class CeoDesk implements OfficeToolHandler {
   /** A user message. Returns how many messages and notices wait for the next turn. */
   send(text: string): number {
     this.add({ kind: 'user', text });
-    this.pending.push({ kind: 'user', text });
+    this.state.pending.push({ kind: 'user', text });
+    this.store.save(this.state);
     this.statusChanged();
     this.pump();
-    return this.pending.length;
+    return this.state.pending.length;
   }
 
   /** Kill the turn, drop queued notices; queued user messages go back to the draft. */
   stop(): string {
-    const draft = this.pending
+    const draft = this.state.pending
       .filter((p) => p.kind === 'user')
       .map((p) => p.text)
       .join('\n\n');
-    const had = !!this.turn || this.pending.length > 0;
-    this.pending = [];
+    const had = !!this.turn || this.state.pending.length > 0;
+    this.state.pending = [];
+    this.store.save(this.state);
     if (this.turn) {
       this.turn.stopped = true;
       this.turn.handle.kill();
@@ -154,6 +153,8 @@ export class CeoDesk implements OfficeToolHandler {
   /** Archive this chat and start a new one. Live jobs go on; their notices are dropped. */
   newChat(): string {
     this.stop();
+    for (const timer of this.cardTimers.values()) clearTimeout(timer);
+    this.cardTimers.clear();
     this.state = freshDesk();
     this.rows = [];
     this.reworkCount = 0;
@@ -200,7 +201,9 @@ export class CeoDesk implements OfficeToolHandler {
       setFolder: (folder) => this.setFolder(folder),
       liveJobs: () => this.state.liveJobs,
       reworks: () => this.reworkCount,
-      jobStarted: (task, rework) => {
+      jobStarted: (task, rework, chatId) => {
+        // New chat while start_job waited: the job stays with the old chat.
+        if (chatId !== this.state.chatId) return;
         if (rework) this.reworkCount++;
         this.state.liveJobs.push(task.id);
         this.store.save(this.state);
@@ -212,17 +215,18 @@ export class CeoDesk implements OfficeToolHandler {
   // ── Turns ──
 
   private pump(): void {
-    if (this.turn || !this.pending.length || !this.mcpUrl) return;
+    if (this.turn || !this.state.pending.length || !this.mcpUrl) return;
     const { adapter, office } = this.opts;
     const unavailable = adapter.choices().unavailable;
     if (unavailable) {
       // TODO(preflight): show the engine's notReadyReason / actionableMessage.
-      this.pending = [];
+      this.state.pending = [];
+      this.store.save(this.state);
       this.add({ kind: 'error', text: `The CEO cannot answer: ${unavailable}.` });
       this.statusChanged();
       return;
     }
-    const parts = this.pending.splice(0);
+    const parts = this.state.pending.splice(0);
     if (parts.some((p) => p.kind === 'user')) this.reworkCount = 0;
     const message = turnMessage(
       this.state.folder,
@@ -310,7 +314,11 @@ export class CeoDesk implements OfficeToolHandler {
       this.store.save(this.state);
       return;
     }
-    const ended = task.status !== 'running' && task.flow?.state !== 'interrupted';
+    // A team job ends only in a final flow state: an interrupted job that is
+    // being cancelled still has status `error` from the restart.
+    const ended = task.flow
+      ? ['done', 'error', 'cancelled'].includes(task.flow.state)
+      : task.status !== 'running';
     if (ended || now) {
       clearTimeout(this.cardTimers.get(id));
       this.cardTimers.delete(id);
@@ -326,8 +334,8 @@ export class CeoDesk implements OfficeToolHandler {
     }
     if (!ended) return;
     this.state.liveJobs = this.state.liveJobs.filter((j) => j !== id);
+    this.state.pending.push({ kind: 'notice', text: jobNotice(task, this.folderOf(task.cwd)) });
     this.store.save(this.state);
-    this.pending.push({ kind: 'notice', text: jobNotice(task, this.folderOf(task.cwd)) });
     this.statusChanged();
     this.pump();
   }
@@ -366,7 +374,7 @@ export class CeoDesk implements OfficeToolHandler {
       wheelHeld: false,
       wheelUnavailable: CEO_NO_WHEEL,
       busyText: `${this.opts.office.ceo.settings.name} is thinking…`,
-      queued: this.pending.length,
+      queued: this.state.pending.length,
       folder: this.state.folder,
       costUsd: this.state.costUsd,
     };

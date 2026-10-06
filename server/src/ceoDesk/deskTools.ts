@@ -84,7 +84,8 @@ export interface DeskToolHost {
   liveJobs(): string[];
   /** Rework jobs started since the last user message. */
   reworks(): number;
-  jobStarted(task: TaskSummary, rework: boolean): void;
+  /** `chatId`: the chat that called start_job (a New chat may have come since). */
+  jobStarted(task: TaskSummary, rework: boolean, chatId: string): void;
 }
 
 const ok = (text: string): OfficeToolResult => ({ text });
@@ -177,12 +178,13 @@ async function startJob(
     folder = checked.path;
   }
   try {
+    const chatId = host.chatId();
     const task = await host.tasks.create(prompt, folder ?? host.sandbox(), to, {
-      chatId: host.chatId(),
+      chatId,
       ...(baseRef ? { baseRef } : {}),
     });
     if (task.status === 'error') return fail(`Job ${task.id} could not start: ${task.error}`);
-    host.jobStarted(task, !!fromId);
+    host.jobStarted(task, !!fromId, chatId);
     return ok(
       [
         `Job ${task.id} started: ${to === 'team' ? `Team: ${lead.name} leads` : lead.name}.`,

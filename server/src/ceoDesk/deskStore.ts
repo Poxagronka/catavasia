@@ -39,6 +39,8 @@ export interface DeskState {
   liveJobs: string[];
   /** A turn was running when the state was saved (a restart cut it). */
   turnRunning: boolean;
+  /** User messages and job notices that wait for the next turn (they survive a restart). */
+  pending: Array<{ kind: 'user' | 'notice'; text: string }>;
 }
 
 export type DeskRow = CatSessionEntry & { at: number };
@@ -56,6 +58,7 @@ export function freshDesk(): DeskState {
     costUsd: 0,
     liveJobs: [],
     turnRunning: false,
+    pending: [],
   };
 }
 

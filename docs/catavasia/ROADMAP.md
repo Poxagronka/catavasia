@@ -456,4 +456,6 @@ User requirement: remove the Tasks board (the whiteboard becomes decor). The CEO
 - `attachments` on user entries and the `CEO_DESK_TURN_BUDGET_USD` cap come in phase 3 with the adapter change (`extraArgs`). Phase 1 has no per-turn budget, only the 10-minute timeout.
 - Engine readiness: until feat/engine-preflight lands, `start_job` refuses when the lead's engine has no adapter (CLI missing) and the desk refuses a turn when the Claude CLI is missing. A `TODO(preflight)` in `deskTools.ts` and `ceoDesk.ts` marks where `notReadyReason` / `actionableMessage` plug in.
 - A cut first turn (server restart) starts a fresh session id, because the cut turn may have created the session already.
+- Queued user messages and job notices are saved in `desk.json` (`pending`), so a notice that waits behind a running turn survives a restart. A job ends only in a final flow state (done, error, cancelled): cancelling an interrupted job sends one `cancelled` notice.
+- The cat session socket of `cat-ceo` checks only the origin, like every cat console. It now shows job reports and folders: phase 2 decides whether it needs the token.
 - `message_job` goes to the lead's newest live task (`Orchestrator.sendUserMessage`). When one lead runs two jobs at once, the newest gets the message.
