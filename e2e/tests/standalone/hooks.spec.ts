@@ -170,7 +170,10 @@ test.describe('Standalone / hooks consent', () => {
     const bareUrl = new URL(page.url());
     bareUrl.search = '';
 
-    const spectator = await page.context().newPage();
+    // A fresh context: the same context shares localStorage, where the page
+    // saved its token (catavasia.serverToken), so it would be privileged.
+    const spectatorContext = await page.context().browser()!.newContext();
+    const spectator = await spectatorContext.newPage();
     try {
       await spectator.goto(bareUrl.toString());
       await expect(spectator.getByRole('button', { name: 'Settings' })).toBeVisible({
@@ -181,7 +184,7 @@ test.describe('Standalone / hooks consent', () => {
       await spectator.waitForTimeout(2_000);
       await expect(spectator.getByRole('dialog')).toHaveCount(0);
     } finally {
-      await spectator.close();
+      await spectatorContext.close();
     }
   });
 
