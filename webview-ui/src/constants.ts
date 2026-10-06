@@ -434,6 +434,14 @@ export const TASK_POLL_INTERVAL_MS = 1500;
 /** Pixel scale of the cat avatar on a task card. */
 export const TASK_AVATAR_ZOOM = 2;
 
+// ── Cats menu (profile editor) ───────────────────────────────
+/** Frame time of the animated cat preview in the Cats menu. */
+export const CAT_PREVIEW_FRAME_MS = 180;
+/** Pixel scale of cats in the Cats menu list and the hierarchy tree. */
+export const CAT_LIST_ZOOM = 2;
+/** Pixel scale of the big preview in the appearance editor. */
+export const CAT_EDITOR_ZOOM = 5;
+
 // ── Idle activities ──────────────────────────────────────────
 /** Floating "Zzz" over a napping cat. */
 export const ZZZ_FILL_COLOR = '#F4F1FF';
