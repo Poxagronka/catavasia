@@ -166,15 +166,23 @@ export function registerCatTerminalRoutes(
       });
 
       void source.beginWheel(catId).then(
-        ({ sessionId, cwd }) => {
+        ({ sessionId, cwd, launch: engineLaunch }) => {
           let pty;
           try {
-            const launch = claudeProvider.buildLaunchCommand!(sessionId, cwd);
-            const args = launch.args.map((a) => (a === '--session-id' ? '--resume' : a));
             const env: Record<string, string> = {};
             for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-            Object.assign(env, launch.env, { TERM: TERM_NAME });
-            pty = module.spawn(options.claudeBin ?? launch.command, args, {
+            let command: string;
+            let args: string[];
+            if (engineLaunch) {
+              ({ command, args } = engineLaunch);
+            } else {
+              const launch = claudeProvider.buildLaunchCommand!(sessionId, cwd);
+              args = launch.args.map((a) => (a === '--session-id' ? '--resume' : a));
+              command = options.claudeBin ?? launch.command;
+              Object.assign(env, launch.env);
+            }
+            env.TERM = TERM_NAME;
+            pty = module.spawn(command, args, {
               name: TERM_NAME,
               cols,
               rows,
@@ -182,7 +190,7 @@ export function registerCatTerminalRoutes(
               env,
             });
           } catch (err) {
-            sendJson(socket, { type: 'error', message: `Could not start claude: ${String(err)}` });
+            sendJson(socket, { type: 'error', message: `Could not start the CLI: ${String(err)}` });
             socket.close(CAT_WS_CLOSE_BUSY, 'spawn failed');
             void source.endWheel(catId);
             return;

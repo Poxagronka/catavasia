@@ -15,6 +15,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import type { ToolActivity } from '../src/orchestrator/engineAdapter.js';
 import type { CatAgentHost } from '../src/orchestrator/orchestrator.js';
 
 export const FAKE_CAT_CLAUDE = `#!/usr/bin/env node
@@ -80,6 +81,7 @@ export class FakeCatHost implements CatAgentHost {
   spawned: Array<{ id: number; palette?: number }> = [];
   turns: Array<{ id: number; sessionId: string; cwd: string }> = [];
   ended: number[] = [];
+  activity: Array<{ id: number; activity: ToolActivity }> = [];
   linked: Array<{ id: number; taskId: string }> = [];
   removed: number[] = [];
   restored: Array<{ sessionId: string; taskId: string }> = [];
@@ -93,6 +95,9 @@ export class FakeCatHost implements CatAgentHost {
   }
   endResidentTurn(id: number) {
     this.ended.push(id);
+  }
+  residentToolActivity(id: number, activity: ToolActivity) {
+    this.activity.push({ id, activity });
   }
   linkAgentTask(id: number, taskId: string) {
     this.linked.push({ id, taskId });

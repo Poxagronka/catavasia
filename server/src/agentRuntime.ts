@@ -38,6 +38,7 @@ import {
 } from './fileWatcher.js';
 import type { HookEvent } from './hookEventHandler.js';
 import { HookEventHandler } from './hookEventHandler.js';
+import type { ToolActivity } from './orchestrator/engineAdapter.js';
 import { assignPaletteIfNeeded } from './paletteAssigner.js';
 import { PathSet, pathsMatch } from './pathKey.js';
 import { SessionRouter } from './sessionRouter.js';
@@ -408,6 +409,27 @@ export class AgentRuntime {
     agent.isWaiting = true;
     this.store.broadcast({ type: 'agentToolsClear', id });
     this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
+  }
+
+  /**
+   * A tool of a resident turn started or ended, from the engine's own stream
+   * (Codex: no transcript or hooks reach the office). Tracked like a hook
+   * tool, so a reconnecting webview gets it again; endResidentTurn clears it.
+   */
+  residentToolActivity(id: number, activity: ToolActivity): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    if ('done' in activity) {
+      agent.activeToolIds.delete(activity.toolId);
+      agent.activeToolStatuses.delete(activity.toolId);
+      agent.activeToolNames.delete(activity.toolId);
+      this.store.broadcast({ type: 'agentToolDone', id, toolId: activity.toolId });
+      return;
+    }
+    agent.activeToolIds.add(activity.toolId);
+    agent.activeToolStatuses.set(activity.toolId, activity.status);
+    agent.activeToolNames.set(activity.toolId, activity.toolName);
+    this.store.broadcast({ type: 'agentToolStart', id, ...activity });
   }
 
   /** The profile was deleted: forget its session too, so late hooks make no guest. */

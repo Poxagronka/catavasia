@@ -30,6 +30,13 @@ export class CatSessionError extends Error {
   }
 }
 
+/** The session the wheel resumes; `launch` = the engine's resume command (default: Claude). */
+export interface WheelSession {
+  sessionId: string;
+  cwd: string;
+  launch?: { command: string; args: string[] };
+}
+
 export interface CatSessionSource {
   /** The cat's session so far, or undefined when this source does not know the cat. */
   snapshot(catId: string): CatSessionSnapshot | undefined;
@@ -38,7 +45,7 @@ export interface CatSessionSource {
   /** Deliver a user message (a new turn). Throws CatSessionError. */
   send(catId: string, text: string): Promise<void>;
   /** Take the session lock for an interactive PTY. Throws CatSessionError. */
-  beginWheel(catId: string): Promise<{ sessionId: string; cwd: string }>;
+  beginWheel(catId: string): Promise<WheelSession>;
   /** The PTY ended: release the lock. */
   endWheel(catId: string): Promise<void>;
 }
@@ -88,7 +95,7 @@ export class TaskBoardCatSource implements CatSessionSource {
     await this.call(catId, (id) => this.tasks.followUp(id, text));
   }
 
-  beginWheel(catId: string): Promise<{ sessionId: string; cwd: string }> {
+  beginWheel(catId: string): Promise<WheelSession> {
     return this.call(catId, (id) => this.tasks.beginWheel(id));
   }
 

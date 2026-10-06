@@ -85,6 +85,7 @@ export function spawnTurn(
           ctx.dispatch({ type: 'ToolActivity', catId: fx.catId, tool: entry.name });
         }
       },
+      onActivity: (activity) => residents.toolActivity(fx.catId, activity),
       onCompact: (info) => {
         appendTaskLog(task, { kind: 'text', name: cat.name, text: compactText(info) });
         ctx.dispatch({ type: 'CompactHappened', catId: fx.catId, ...info });

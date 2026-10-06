@@ -75,11 +75,12 @@ export function createServerCatsAdapter(
       return {
         models: [],
         efforts: [],
-        unavailable: `${ENGINE_LABELS[engine]}: adapter not ready`,
+        unavailable: `${ENGINE_LABELS[engine]}: no adapter on this server`,
       };
     }
     const full = engine === 'claude' ? { fullModelPattern: CLAUDE_FULL_MODEL } : {};
-    return { models: found.models, efforts: found.efforts, ...full };
+    const unavailable = found.unavailable ? { unavailable: found.unavailable } : {};
+    return { models: found.models, efforts: found.efforts, ...full, ...unavailable };
   };
 
   const apply = (cats: CatProfile[], msg: ClientMessage) => {
@@ -143,8 +144,8 @@ export function createServerCatsAdapter(
 /**
  * Import this browser's local cats into the server once: only when the
  * server still holds its seeded default team and the local list is not the
- * untouched local seed. Codex cats are skipped (no adapter yet; their reports
- * move up). A model the server does not accept becomes `haiku` -> its full
+ * untouched local seed. Cats of an engine the server cannot run (its CLI is
+ * missing) are skipped; their reports move up. A model the server does not accept becomes `haiku` -> its full
  * name, else the first offered model.
  */
 export function migrateLocalCats(
@@ -168,7 +169,7 @@ export function migrateLocalCats(
   const byId = new Map(local.map((c) => [c.id, c]));
   const keep = local.filter((c) => !options(c.engine).unavailable);
   const kept = new Set(keep.map((c) => c.id));
-  /** The nearest kept ancestor: a skipped Codex cat's reports move up. */
+  /** The nearest kept ancestor: a skipped cat's reports move up. */
   const parentOf = (c: CatProfile): string | null => {
     let p = c.parentId;
     while (p !== null && !kept.has(p)) p = byId.get(p)?.parentId ?? null;

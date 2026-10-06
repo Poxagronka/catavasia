@@ -281,6 +281,7 @@ export interface EngineOptions {
   engine: CatEngine;
   models: string[];
   efforts: string[];
+  unavailable?: string;
 }
 
 export interface CatProfileSaved {

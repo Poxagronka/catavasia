@@ -28,6 +28,7 @@ import {
   type CatSessionSnapshot,
   type CatSessionSource,
   TaskBoardCatSource,
+  type WheelSession,
 } from './catSessionSource.js';
 import { acquireSessionLock, sessionLockHolder } from './sessionLocks.js';
 
@@ -103,7 +104,7 @@ export class OfficeCatSource implements CatSessionSource {
     }
   }
 
-  async beginWheel(agentId: string): Promise<{ sessionId: string; cwd: string }> {
+  async beginWheel(agentId: string): Promise<WheelSession> {
     const cat = this.catOf(agentId);
     if (!cat) return this.board.beginWheel(agentId);
     if (cat === CAT_CEO_ID) throw new CatSessionError(400, CEO_NO_WHEEL);
@@ -116,7 +117,13 @@ export class OfficeCatSource implements CatSessionSource {
     if (!release) throw new CatSessionError(409, 'The session is in use');
     this.wheels.set(cat, release);
     this.office.consoles.statusChanged();
-    return { sessionId: member.sessionId, cwd: member.cwd };
+    // Claude cats keep the route's default (the provider's launch command).
+    const profile = this.office.cats.get(cat);
+    const adapter = profile?.engine !== 'claude' && profile && this.office.adapterFor(profile);
+    return {
+      ...member,
+      ...(adapter ? { launch: adapter.interactiveResumeCommand(member.sessionId) } : {}),
+    };
   }
 
   async endWheel(agentId: string): Promise<void> {

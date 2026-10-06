@@ -115,8 +115,10 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     return Object.fromEntries(this.opts.adapters.map((a) => [a.engine, a.choices()]));
   }
 
+  /** The adapter that runs this cat's engine; none when its CLI is missing here. */
   adapterFor(cat: CatProfile): EngineAdapter | undefined {
-    return this.opts.adapters.find((a) => a.engine === cat.engine);
+    const adapter = this.opts.adapters.find((a) => a.engine === cat.engine);
+    return adapter && !adapter.choices().unavailable ? adapter : undefined;
   }
 
   /** The server is listening: cats reach the office MCP tools here. */
@@ -164,8 +166,8 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   profileMessages(): ServerMessage[] {
     const cats = this.cats.list().map((c) => ({ ...c, ...this.cats.promptView(c.id) }));
     const engineOptions = this.opts.adapters.map((a) => {
-      const { models, efforts } = a.choices();
-      return { engine: a.engine, models, efforts };
+      const { models, efforts, unavailable } = a.choices();
+      return { engine: a.engine, models, efforts, ...(unavailable ? { unavailable } : {}) };
     });
     return [
       { type: 'catProfilesLoaded', cats, engineOptions },
@@ -274,7 +276,9 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     const cats = this.cats.list();
     const boss = bossOf(cats);
     const blocked = (c: CatProfile) =>
-      this.adapterFor(c) ? {} : { disabled: `${c.engine} adapter not ready` };
+      this.adapterFor(c)
+        ? {}
+        : { disabled: this.catalog()[c.engine]?.unavailable ?? `${c.engine} has no adapter` };
     return [
       ...(boss ? [{ id: 'team', label: `Team: ${boss.name} leads`, ...blocked(boss) }] : []),
       ...cats.map((c) => ({

@@ -13,12 +13,15 @@
 
 import type { CatCharacters, CatProfile, ServerMessage } from '../../../core/src/messages.js';
 import { CAT_BREED_IDS } from './catProfiles.js';
+import type { ToolActivity } from './engineAdapter.js';
 
 /** The part of AgentRuntime the resident cats need. */
 export interface ResidentHost {
   spawnResidentAgent(look?: { palette?: number; hueShift?: number }): number;
   beginResidentTurn(id: number, sessionId: string, cwd: string): void;
   endResidentTurn(id: number): void;
+  /** A tool of the turn started or ended (engines without a transcript the office reads). */
+  residentToolActivity(id: number, activity: ToolActivity): void;
   /** Clicking the cat opens this task. */
   linkAgentTask(id: number, taskId: string): void;
   removeResidentAgent(id: number): void;
@@ -87,6 +90,11 @@ export class CatResidents {
     this.host.beginResidentTurn(id, sessionId, cwd);
     this.emit(this.message());
     return id;
+  }
+
+  toolActivity(catId: string, activity: ToolActivity): void {
+    const id = this.ids.get(catId);
+    if (id !== undefined) this.host.residentToolActivity(id, activity);
   }
 
   turnEnded(catId: string): void {

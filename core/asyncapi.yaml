@@ -2063,6 +2063,9 @@ components:
           type: array
           items:
             type: string
+        unavailable:
+          description: Why cats of this engine cannot run on this server (e.g. "Codex CLI not found").
+          type: string
 
     CatAppearance:
       description: |
