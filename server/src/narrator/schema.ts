@@ -13,7 +13,7 @@ import { NARRATOR_SUMMARY_MAX_CHARS } from '../../../core/src/narrator.js';
 export interface SummaryItem {
   conversationId: string;
   catIds: number[];
-  /** Input lines, oldest first ("Мурка → Барсик: проверь тесты"). */
+  /** Input lines, oldest first ("Mochi → Leo: check the tests"). */
   lines: string[];
 }
 
@@ -42,13 +42,13 @@ export const SUMMARY_JSON_SCHEMA = {
  * Never interpolate run data here: data goes into the user prompt.
  */
 export const SUMMARY_SYSTEM_PROMPT = [
-  'Ты рассказчик в игре-офисе, где коты-агенты пишут код.',
-  'На входе: блоки "conversationId=<id>" и под каждым строки событий разговора.',
-  'Для каждого блока дай одно краткое резюме на русском: кто что попросил или ответил.',
-  `Резюме не длиннее ${NARRATOR_SUMMARY_MAX_CHARS} символов, одно-два предложения, настоящее или прошедшее время.`,
-  'Упоминай только факты из строк этого блока. Не придумывай результаты, файлы, числа, сохранения, коммиты или успехи.',
-  'Не пиши команды, пути, флаги и код. Без эмодзи и галочек.',
-  'Верни JSON по схеме: {"summaries":[{"conversationId":"<id>","summary":"<текст>"}]}. Один элемент на каждый conversationId.',
+  'You narrate an office game where cat agents write code.',
+  'Input: blocks "conversationId=<id>", each followed by the event lines of one conversation.',
+  'For each block write one short summary in English: who asked or answered what.',
+  `Each summary is at most ${NARRATOR_SUMMARY_MAX_CHARS} characters, one or two sentences, present or past tense.`,
+  'Mention only facts from the lines of that block. Do not invent results, files, numbers, saves, commits or successes.',
+  'Do not write commands, paths, flags or code. No emoji and no checkmarks.',
+  'Return JSON by the schema: {"summaries":[{"conversationId":"<id>","summary":"<text>"}]}. One item per conversationId.',
 ].join('\n');
 
 /** The per-batch user prompt: compact lines grouped by conversation. */
@@ -65,29 +65,29 @@ export function buildSummaryPrompt(items: SummaryItem[]): string {
  * Stems are lower-case and match anywhere in a word.
  */
 const CLAIMS: Array<{ claim: RegExp; evidence: RegExp }> = [
-  { claim: /сохран|записал|записан/, evidence: /сохран|запис|save|writ/ },
-  { claim: /коммит|закоммит/, evidence: /коммит|commit/ },
-  { claim: /запуш|отправил изменен/, evidence: /пуш|push/ },
-  { claim: /смерж|слил|слия|мерж/, evidence: /мерж|слия|слил|merge/ },
-  { claim: /тест/, evidence: /тест|test|spec/ },
+  { claim: /\bsav(e|ed|es|ing)\b|\bwr(ote|itten)\b/, evidence: /sav|writ|wrote/ },
+  { claim: /commit/, evidence: /commit/ },
+  { claim: /\bpush/, evidence: /push/ },
+  { claim: /merg/, evidence: /merg/ },
+  { claim: /test/, evidence: /test|spec/ },
+  { claim: /\bpass(ed|es|ing)?\b|\bgreen\b|succe/, evidence: /pass|green|succe|\bok\b/ },
+  { claim: /\bfail|\bbr(oke|oken|eak)|\berror|\bcrash/, evidence: /fail|brok|break|error|crash/ },
+  { claim: /\bfix/, evidence: /fix/ },
   {
-    claim: /прош[её]л|прошли|зел[её]н|успешн|удач/,
-    evidence: /прош|pass|green|успеш|success|ok\b|удач/,
+    claim: /\bdone\b|finish|complet|\bready\b/,
+    evidence: /\bdone\b|finish|complet|ready|result/,
   },
-  { claim: /упал|упали|провал|сломал|ошибк/, evidence: /упал|fail|провал|слом|ошиб|error|broke/ },
-  { claim: /исправ|почин|пофикс/, evidence: /исправ|почин|fix/ },
-  {
-    claim: /готов|заверш|закончил|сделал|выполнил/,
-    evidence: /готов|заверш|законч|сдела|выполн|done|finish|complet|result|результ/,
-  },
-  { claim: /удалил|удал[её]н/, evidence: /удал|delet|remov/ },
-  { claim: /созда/, evidence: /созда|creat|add|нов/ },
+  { claim: /delet|remov/, evidence: /delet|remov/ },
+  { claim: /creat|\badd(ed|s)?\b/, evidence: /creat|\badd|\bnew\b/ },
+  { claim: /deploy|releas|\bship(ped|s)?\b/, evidence: /deploy|releas|\bship/ },
 ];
 
 const CHECKMARK_RE = /[✓✔✅☑]/;
 const NUMBER_RE = /\d+(?:[.,]\d+)?/g;
 const FILE_RE = /[\w-]+\.[a-z]{1,5}\b/gi;
-const CYRILLIC_RE = /[а-яё]/i;
+const LATIN_RE = /[a-z]/i;
+/** Any letter outside the Latin script (Cyrillic, CJK, ...). */
+const NON_LATIN_RE = /(?!\p{Script=Latin})\p{L}/u;
 
 /** True when every claim, number and file name in the sentence is in the source. */
 function isSupported(sentence: string, source: string): boolean {
@@ -103,7 +103,7 @@ function isSupported(sentence: string, source: string): boolean {
 
 /**
  * Keep only the supported sentences of a summary. Returns '' when nothing is
- * left. Cuts to NARRATOR_SUMMARY_MAX_CHARS with an ellipsis.
+ * left or the text is not English. Cuts to NARRATOR_SUMMARY_MAX_CHARS with an ellipsis.
  */
 export function filterSummary(summary: string, sourceLines: string[]): string {
   const source = sourceLines.join('\n').toLowerCase();
@@ -112,7 +112,7 @@ export function filterSummary(summary: string, sourceLines: string[]): string {
     .map((x) => x.trim())
     .filter((x) => x && isSupported(x, source))
     .join(' ');
-  if (!kept || !CYRILLIC_RE.test(kept)) return '';
+  if (!kept || !LATIN_RE.test(kept) || NON_LATIN_RE.test(kept)) return '';
   return kept.length > NARRATOR_SUMMARY_MAX_CHARS
     ? `${kept.slice(0, NARRATOR_SUMMARY_MAX_CHARS - 1)}…`
     : kept;

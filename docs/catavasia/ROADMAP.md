@@ -32,7 +32,7 @@ Design research and evidence: [orchestration-spec.md](orchestration-spec.md).
 - Lifecycle: sessions run on demand, sleep after 1 hour of idle, and resume. Rationale (user): by then the prompt cache has expired anyway, so a live process gives no saving. Tie the threshold to the session's real cache TTL: read it from the stream-json usage fields (ephemeral 5m vs 1h cache creation) and verify. Default 1 h as a constant with --resume. The cat stays visible in the game.
 - Defaults I chose: ask goes up/down the tree plus siblings. The narrator batches every 10 s. Permissions are skipped, as for tasks. Reuse upstream PR #347 (PTY + xterm.js) in the fork.
 - Terminal: a chat console by default. "Take the wheel" opens a real `claude --resume` PTY when the cat is idle. A per-cat lock prevents two processes on one session.
-- Narrator: superseded, see the RAM plan item 3 (templates + batched one-shot Haiku calls). Short Russian text. The server validates its output against a schema.
+- Narrator: superseded, see the RAM plan item 3 (templates + batched one-shot Haiku calls). Short English text. The server validates its output against a schema.
 - Office shows ONLY own cats from the Cats menu. External claude sessions appear as guests, behind a Settings toggle that is OFF by default.
 - One session = one cat. Subagents are not shown (fix/one-cat-per-session in progress).
 - The Cats menu: Agents tab (look, name, prompt, role, model, effort: passed as `--model` / `--effort`; list the values the installed `claude --help` accepts, do not hardcode from memory), Hierarchy tab (tree editor), Pets tab (create, name, colour/pattern from the shared editor with more colours).
@@ -67,11 +67,12 @@ Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB pe
 - Output: `narratorLine {catId, state, line ≤60}` at once, on change only. `narratorSummary {conversationId, catIds, summary ≤120}` from Haiku. Conversation ids: `chat:<sorted from|to>` for messages, `result:<catId>` for results.
 - Wire: three WS messages OUTSIDE `core/asyncapi.yaml`: `narratorLine`, `narratorSummary`, `narratorSettings` (server → client), `setNarratorSettings` (client → server). Sent via `store.broadcast` and cast at the webview boundary. **Phase 1 must fold them into asyncapi.yaml** and drop the casts in `narratorStore.ts`.
 - Haiku: one call at a time, every 10 s while material is pending, all pending conversations in one call. A failure re-queues and doubles the wait (cap 5 min). A missing `claude` (ENOENT) turns summaries off until restart. Queue caps: 30 conversations, 12 lines each.
-- Validator: schema check, then every sentence of a summary must be backed by its input lines: claim words (saved, committed, tests passed, fixed, done …), numbers and file names must appear in the input, checkmarks are always dropped, non-Russian output is dropped.
-- Settings (standalone, per-namespace config): `narratorAiSummaries` (default ON), `narratorRawToolStatus` (default OFF, debug: hover shows the raw "Reading foo.ts"). Language is fixed to Russian.
-- Hover: the Russian line replaces the activity text for non-subagent cats. The last summary shows as a small second line.
+- Validator: schema check, then every sentence of a summary must be backed by its input lines: claim words (saved, committed, tests passed, fixed, done …), numbers and file names must appear in the input, checkmarks are always dropped, non-English output (no Latin letters, or any non-Latin letter) is dropped.
+- Settings (standalone, per-namespace config): `narratorAiSummaries` (default ON), `narratorRawToolStatus` (default OFF, debug: hover shows the raw "Reading foo.ts"). Settings have no language option.
+- Hover: the English line replaces the activity text for non-subagent cats. The last summary shows as a small second line.
 - Real call measured 2026-10-06 on this Mac (`npx tsx scripts/narrator-haiku-smoke.ts`, 2 conversations): 4.7 s per call, 1,818 input / 225 output tokens, $0.0029 list price, no cache (the static prompt is below the 4,096-token Haiku cache minimum).
-- Open for the user: the pixel font draws lowercase Cyrillic in italic style (т looks like m, в like 8). Choose a font only with the user's visual approval.
+- English prompt, measured 2026-10-06 the same way: 4.6 s per call, 1,700 input / 178 output tokens, $0.0026 list price, no cache. Both English summaries passed the validator.
+- **UI language: English only (user, 2026-10-06).** This replaces the earlier Russian narrator decision. Templates, the Haiku prompt and the validator are English, and the social "meow" bubble is English. The Cyrillic font question is closed.
 
 ## Team modes — light team is a BACKLOG option (user, 2026-10-05)
 

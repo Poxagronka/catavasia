@@ -163,7 +163,7 @@ export function ToolOverlay({
         // Get activity text
         const hasWaitingBubble = ch.bubbleType === 'waiting';
         const subHasPermission = isSub && ch.bubbleType === 'permission';
-        // The narrator's Russian line wins over the raw tool status (unless the
+        // The narrator's line wins over the raw tool status (unless the
         // "raw tool status" debug setting is on). Sub-agents keep their own text.
         const narrated = isSub ? undefined : narratorHover(id);
         let activityText: string;
