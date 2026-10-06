@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { TaskSummary } from '../../../../core/src/tasks.js';
+import type { TaskSummary, TaskTarget } from '../../../../core/src/tasks.js';
 import { TASK_POLL_INTERVAL_MS } from '../../constants.js';
 import { Button } from '../ui/Button.js';
 import { CatAvatar } from './CatAvatar.js';
@@ -29,7 +29,11 @@ function TaskCard({ task, now, onOpen }: { task: TaskSummary; now: number; onOpe
         </span>
         <span className="text-xs flex justify-between">
           <span className={STATUS_CLASS[task.status]}>
-            {task.status === 'running' ? 'running...' : task.status}
+            {task.flow
+              ? `team: ${task.flow.state}`
+              : task.status === 'running'
+                ? 'running...'
+                : task.status}
           </span>
           <span className="text-text-muted">
             {formatElapsed((task.finishedAt ?? now) - task.createdAt)}
@@ -44,6 +48,7 @@ function TaskCard({ task, now, onOpen }: { task: TaskSummary; now: number; onOpe
 export function TaskBoard({ isOpen, onClose }: TaskBoardProps) {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [defaultCwd, setDefaultCwd] = useState('');
+  const [targets, setTargets] = useState<TaskTarget[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
@@ -55,6 +60,7 @@ export function TaskBoard({ isOpen, onClose }: TaskBoardProps) {
       setTasks(res.tasks);
       setNow(Date.now());
       setDefaultCwd(res.defaultCwd);
+      setTargets(res.targets ?? []);
       setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
@@ -108,6 +114,7 @@ export function TaskBoard({ isOpen, onClose }: TaskBoardProps) {
         {isFormOpen && canCreate && (
           <NewTaskForm
             defaultCwd={defaultCwd}
+            targets={targets}
             onCancel={() => setIsFormOpen(false)}
             onCreated={() => {
               setIsFormOpen(false);

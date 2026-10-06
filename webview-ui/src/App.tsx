@@ -32,7 +32,6 @@ import { OfficeState } from './office/engine/officeState.js';
 import { exportLayoutToFile } from './office/layout/exportLayout.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
-import { getPetCount } from './office/sprites/petSpriteData.js';
 import { EditTool, type OfficeLayout } from './office/types.js';
 import { orchestratorEvents } from './orchestratorEvents.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
@@ -110,6 +109,8 @@ function App() {
     setAreaMappings,
     showAreas,
     setShowAreas,
+    catOffice,
+    setCatOffice,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -428,9 +429,6 @@ function App() {
                   onPickedFurnitureColorChange={editor.handlePickedFurnitureColorChange}
                   onFurnitureTypeChange={editor.handleFurnitureTypeChange}
                   loadedAssets={loadedAssets}
-                  activePetTypes={officeState.getActivePetTypes()}
-                  petCount={getPetCount()}
-                  onPetToggle={editor.handlePetToggle}
                   carpetVariant={editor.carpetVariant}
                   carpetColor={editor.carpetColor}
                   carpetAccentColor={editor.carpetAccentColor}
@@ -653,6 +651,16 @@ function App() {
         onToggleShowAreas={onToggleShowAreas}
         showAreasAvailable={areasAvailable}
         onExportLayout={handleExportLayout}
+        catOffice={catOffice}
+        onChangeCatOffice={(next) => {
+          if (catOffice?.showGuests !== next.showGuests) {
+            transport.send({ type: 'setShowGuests', enabled: next.showGuests });
+          }
+          if (catOffice?.turnConcurrency !== next.turnConcurrency) {
+            transport.send({ type: 'setTurnConcurrency', value: next.turnConcurrency });
+          }
+          setCatOffice(next);
+        }}
         onImportLayout={handleImportLayout}
       />
 

@@ -7,13 +7,7 @@ import { Dropdown, DropdownItem } from '../../components/ui/Dropdown.js';
 import { ItemSelect } from '../../components/ui/ItemSelect.js';
 import type { ColorValue } from '../../components/ui/types.js';
 import { VisualColorPicker } from '../../components/VisualColorPicker.js';
-import {
-  AREA_DEFAULT_COLORS,
-  CANVAS_FALLBACK_TILE_COLOR,
-  EMPTY_SPRITE_THUMBNAIL_BG,
-  PET_THUMB_SCALE_MARGIN,
-  PET_THUMB_ZOOM,
-} from '../../constants.js';
+import { AREA_DEFAULT_COLORS, CANVAS_FALLBACK_TILE_COLOR } from '../../constants.js';
 import { getColorizedSprite } from '../colorize.js';
 import { getColorizedFloorSprite, getFloorPatternCount, hasFloorSprites } from '../floorTiles.js';
 import type { FurnitureCategory, LoadedAssetData } from '../layout/furnitureCatalog.js';
@@ -27,7 +21,6 @@ import {
   getCarpetSetCount,
   hasCarpetSprites,
 } from '../sprites/carpetTiles.js';
-import { getPetName, getPetSprites } from '../sprites/petSpriteData.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
 import type { AreaDefinition, CarpetTile, SpriteData, TileType as TileTypeVal } from '../types.js';
 import { EditTool } from '../types.js';
@@ -58,9 +51,6 @@ interface EditorToolbarProps {
   onPickedFurnitureColorChange: (color: ColorValue | null) => void;
   onFurnitureTypeChange: (type: string) => void;
   loadedAssets?: LoadedAssetData;
-  activePetTypes: number[];
-  petCount: number;
-  onPetToggle: (petType: number, active: boolean) => void;
   // Carpet state + handlers
   carpetVariant: number;
   carpetColor: ColorValue;
@@ -106,9 +96,6 @@ export function EditorToolbar({
   onPickedFurnitureColorChange,
   onFurnitureTypeChange,
   loadedAssets,
-  activePetTypes,
-  petCount,
-  onPetToggle,
   carpetVariant,
   carpetColor,
   carpetAccentColor,
@@ -181,7 +168,6 @@ export function EditorToolbar({
     activeTool === EditTool.FURNITURE_PLACE ||
     activeTool === EditTool.FURNITURE_PICK ||
     isCarpetActive;
-  const isPetsActive = activeTool === EditTool.PETS;
   const carpetVariantCount = getCarpetSetCount();
 
   /**
@@ -258,14 +244,6 @@ export function EditorToolbar({
           title="Paint walls (click to toggle)"
         >
           Walls
-        </Button>
-        <Button
-          variant={isPetsActive ? 'active' : 'default'}
-          size="md"
-          onClick={() => onToolChange(EditTool.PETS)}
-          title="Place pets"
-        >
-          Pets
         </Button>
         {areasAvailable && (
           <Button
@@ -387,42 +365,6 @@ export function EditorToolbar({
 
           {/* Color controls (collapsible) — at the top, above the previews. */}
           {showWallColor && <TileColorBox value={wallColor} onChange={onWallColorChange} />}
-        </div>
-      )}
-
-      {/* Sub-panel: Pets — thumbnail grid above tool row */}
-      {isPetsActive && petCount > 0 && (
-        <div className="flex flex-col-reverse gap-4">
-          <div className="carousel" data-testid="pets-carousel">
-            {Array.from({ length: petCount }, (_, i) => {
-              const sprites = getPetSprites(i);
-              const isActive = activePetTypes.includes(i);
-              return (
-                <ItemSelect
-                  key={i}
-                  width={32}
-                  height={64}
-                  selected={isActive}
-                  onClick={() => onPetToggle(i, !isActive)}
-                  title={getPetName(i)}
-                  deps={[i, isActive]}
-                  draw={(ctx, w, h) => {
-                    if (!sprites) {
-                      ctx.fillStyle = EMPTY_SPRITE_THUMBNAIL_BG;
-                      ctx.fillRect(0, 0, w, h);
-                      return;
-                    }
-                    const cached = getCachedSprite(sprites.idleDown[0], PET_THUMB_ZOOM);
-                    const scale =
-                      Math.min(w / cached.width, h / cached.height) * PET_THUMB_SCALE_MARGIN;
-                    const dw = cached.width * scale;
-                    const dh = cached.height * scale;
-                    ctx.drawImage(cached, (w - dw) / 2, (h - dh) / 2, dw, dh);
-                  }}
-                />
-              );
-            })}
-          </div>
         </div>
       )}
 

@@ -1089,13 +1089,6 @@ export class OfficeState {
     };
   }
 
-  /** Unique petType values currently placed. Used by the Pets toolbar to mark active rows. */
-  getActivePetTypes(): number[] {
-    const seen = new Set<number>();
-    for (const p of this.pets) seen.add(p.petType);
-    return Array.from(seen);
-  }
-
   /**
    * Hit-test pets at a pixel world position. Sorts back-to-front (largest y wins on tie)
    * so the visually-frontmost pet receives the click.
