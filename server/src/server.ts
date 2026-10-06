@@ -23,6 +23,7 @@ import type { Orchestrator } from './orchestrator/orchestrator.js';
 import type { ServerConfig } from './serverConfig.js';
 import { isServerConfig, isServerTarget } from './serverConfig.js';
 import type { TaskManager } from './taskBoard/taskManager.js';
+import type { SelfUpdate } from './update/updateRoutes.js';
 
 export type { ServerConfig } from './serverConfig.js';
 
@@ -75,6 +76,10 @@ export class PixelAgentsServer {
     tasks?: TaskManager;
     orchestrator?: Orchestrator;
     narrator?: Narrator;
+    update?: SelfUpdate;
+    /** Reuse this token instead of a new one (a self-update restart, so the
+     *  open tab's `?token=` URL keeps working). */
+    token?: string;
   }): Promise<ServerConfig> {
     const embedded = options?.embedded ?? true;
     const wantsSpa = !embedded;
@@ -101,7 +106,7 @@ export class PixelAgentsServer {
     }
 
     // Start our own server
-    const token = crypto.randomUUID();
+    const token = options?.token ?? crypto.randomUUID();
     const store = options?.store;
 
     const { app, port } = await createHttpServer({
@@ -119,6 +124,7 @@ export class PixelAgentsServer {
       tasks: options?.tasks,
       orchestrator: options?.orchestrator,
       narrator: options?.narrator,
+      update: options?.update,
     });
 
     this.app = app;

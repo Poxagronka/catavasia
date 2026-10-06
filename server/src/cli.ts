@@ -32,15 +32,25 @@ import {
   parseTurnConcurrency,
   readConfig,
 } from './configPersistence.js';
-import { LAYOUT_FILE_DIR, MAX_PORT, MIN_PORT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
+import {
+  LAYOUT_FILE_DIR,
+  MAX_PORT,
+  MIN_PORT,
+  TURN_CONCURRENCY_DEFAULT,
+  UPDATE_RESTART_GRACE_MS,
+} from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
 import { Narrator } from './narrator/narrator.js';
 import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
 import { Orchestrator } from './orchestrator/orchestrator.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
-import { PixelAgentsServer } from './server.js';
+import { isProcessRunning, PixelAgentsServer } from './server.js';
 import { TaskManager } from './taskBoard/taskManager.js';
+import { spawnReplacement, takeInheritedToken, waitForPreviousServer } from './update/restart.js';
+import { UPDATE_REPO_GIT_URL, updateBranch, UpdateChecker } from './update/updateChecker.js';
+import type { SelfUpdate } from './update/updateRoutes.js';
+import { UpdateRunner } from './update/updateRunner.js';
 
 // ── Argument parsing ──────────────────────────────────────────
 
@@ -121,6 +131,14 @@ async function main(): Promise<void> {
     args = parseArgs(process.argv.slice(2));
   } catch (err) {
     console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+
+  // Started by a self-update: the old server hands over its token (so the open
+  // tab stays privileged) and must be gone before this one takes the port.
+  const inheritedToken = takeInheritedToken();
+  if (!(await waitForPreviousServer(isProcessRunning))) {
+    console.error('[Pixel Agents] The previous server did not exit; not starting.');
     process.exit(1);
   }
 
@@ -280,6 +298,38 @@ async function main(): Promise<void> {
       console.log('[Pixel Agents] Assets reloaded (external directory change)');
     };
 
+    // Self-update: check the fixed repo, install from source only on approval.
+    const updateDir = path.join(stateDir, 'update');
+    const updateBranchName = updateBranch();
+    let restartInto: (cliPath: string) => void = () => {};
+    const update: SelfUpdate = {
+      checker: new UpdateChecker({
+        currentVersion: process.env.PIXEL_AGENTS_VERSION ?? '',
+        currentCommit: process.env.CATAVASIA_COMMIT,
+        branch: updateBranchName,
+        getAutoCheck: () => adapter.getSetting('pixel-agents.autoUpdateCheck', true),
+        setAutoCheck: (enabled) => adapter.setSetting('pixel-agents.autoUpdateCheck', enabled),
+      }),
+      runner: new UpdateRunner({
+        updateDir,
+        repoUrl: UPDATE_REPO_GIT_URL,
+        branch: updateBranchName,
+        busyReason: () => {
+          const running = tasks.list().filter((t) => t.status === 'running');
+          if (running.length > 0) {
+            const titles = running.map((t) => `"${t.title}"`).join(', ');
+            return `Cats are working on ${titles}. Update when the tasks finish.`;
+          }
+          const turns = orchestrator.scheduler.state();
+          if (turns.running.length + turns.queued.length > 0) {
+            return 'A cat is in the middle of a turn. Update when it finishes.';
+          }
+          return undefined;
+        },
+        restart: (cliPath) => restartInto(cliPath),
+      }),
+    };
+
     const config = await server.start({
       store,
       runtime,
@@ -293,6 +343,8 @@ async function main(): Promise<void> {
       tasks,
       orchestrator,
       narrator,
+      update,
+      token: inheritedToken,
     });
     currentConfig = { port: config.port, token: config.token };
     orchestrator.setServerUrl(`http://127.0.0.1:${config.port}`);
@@ -366,6 +418,7 @@ async function main(): Promise<void> {
     // ── Graceful shutdown ──
     function shutdown(): void {
       console.log('\nShutting down...');
+      update.checker.dispose();
       tasks.dispose();
       narrator.dispose();
       runtime.dispose();
@@ -375,6 +428,21 @@ async function main(): Promise<void> {
 
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
+
+    // After an install: start the new version on this port with this token,
+    // then stop like on SIGTERM (tasks become interrupted, Resume continues
+    // them). The grace delay lets the open tab read the `restarting` phase.
+    restartInto = (cliPath) => {
+      spawnReplacement({
+        cliPath,
+        port: config.port,
+        host: args.host,
+        token: config.token,
+        logPath: path.join(updateDir, 'restart.log'),
+      });
+      setTimeout(shutdown, UPDATE_RESTART_GRACE_MS);
+    };
+    update.checker.start();
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);

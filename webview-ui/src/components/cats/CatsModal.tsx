@@ -151,10 +151,18 @@ function copyName(name: string, taken: string[]): string {
   }
 }
 
-function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string) => void }) {
+function AgentEditor({
+  cat,
+  onSelect,
+  historyOpen = false,
+}: {
+  cat: CatProfile;
+  onSelect: (id: string) => void;
+  historyOpen?: boolean;
+}) {
   const { cats, rejected } = useCats();
   const online = useCatCeo().settings !== null;
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(historyOpen);
   // The Hierarchy modal owns parentId: never write back a stale one from the draft.
   const { draft, error, update } = useDraft(cat, (v) => {
     const live = catsApi.getSnapshot().cats.find((c) => c.id === v.id);
@@ -229,6 +237,7 @@ export function CatsModal({
   isOpen,
   onClose,
   focusCatId = null,
+  focusHistory = false,
   getOfficeState,
   onCommitPets,
 }: {
@@ -236,6 +245,8 @@ export function CatsModal({
   onClose: () => void;
   /** Show this agent cat (set by the Hierarchy chart). */
   focusCatId?: string | null;
+  /** Open the focused cat's Prompt history too. */
+  focusHistory?: boolean;
   getOfficeState: () => OfficeState;
   onCommitPets: () => void;
 }) {
@@ -319,7 +330,12 @@ export function CatsModal({
               {ceoOpen ? (
                 <CeoEditor settings={ceo} />
               ) : cat ? (
-                <AgentEditor key={cat.id} cat={cat} onSelect={setCatId} />
+                <AgentEditor
+                  key={cat.id}
+                  cat={cat}
+                  onSelect={setCatId}
+                  historyOpen={focusHistory && cat.id === focusCatId}
+                />
               ) : (
                 <div className="text-sm text-text-muted">No agent cats yet.</div>
               )}

@@ -30,7 +30,7 @@ const CLAUDIO = 1;
 const FUR = toHex([18, 52, 86]);
 const EYES = toHex([0, 255, 0]);
 const COLLAR = toHex([255, 0, 0]);
-/** Nikolai's own collar. */
+/** Biscuit's own collar (breed id `nikolai`). */
 const NIKOLAI_COLLAR = toHex([232, 182, 50]);
 
 beforeAll(() => {

@@ -1635,6 +1635,7 @@ export class OfficeState {
       claim: (ch, choice) => this.life.claimIdle(ch, choice),
       startNext: (ch, id, from) => this.startChained(ch, id, from),
       finished: (ch, run) => this.litter.finished(ch, run),
+      due: (ch) => this.litter.startDue(ch),
     };
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {

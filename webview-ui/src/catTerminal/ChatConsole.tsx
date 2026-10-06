@@ -28,7 +28,32 @@ function ToolRow({ tools }: { tools: ToolEntry[] }) {
   );
 }
 
-function MessageRow({ entry }: { entry: Exclude<CatSessionEntry, ToolEntry> }) {
+function MessageRow({
+  entry,
+  onOpenPromptHistory,
+}: {
+  entry: Exclude<CatSessionEntry, ToolEntry>;
+  onOpenPromptHistory?: (catId: string) => void;
+}) {
+  if (entry.kind === 'edits') {
+    return (
+      <div
+        className="self-start max-w-[92%] border-2 border-status-active px-8 py-4 text-xs flex flex-col gap-4"
+        data-testid="cat-console-edits"
+      >
+        <span className="whitespace-pre-wrap break-words">{entry.text}</span>
+        {onOpenPromptHistory && entry.catIds.length > 0 && (
+          <div className="flex flex-wrap gap-4">
+            {entry.catIds.map((catId) => (
+              <Button key={catId} size="sm" onClick={() => onOpenPromptHistory(catId)}>
+                Prompt history: {catId}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
   if (entry.kind === 'user') {
     return (
       <div className="self-end max-w-[85%] bg-active-bg border-2 border-accent px-8 py-4 shadow-pixel whitespace-pre-wrap break-words text-sm">
@@ -53,15 +78,17 @@ function MessageRow({ entry }: { entry: Exclude<CatSessionEntry, ToolEntry> }) {
 interface ChatConsoleProps {
   state: CatConsoleState;
   onSend: (text: string) => Promise<void>;
+  /** Open the Prompt history of a cat (the link of a prompt edit row). */
+  onOpenPromptHistory?: (catId: string) => void;
 }
 
 /** The default view of a cat: its session as a pixel chat, and a message box. */
-export function ChatConsole({ state, onSend }: ChatConsoleProps) {
+export function ChatConsole({ state, onSend, onOpenPromptHistory }: ChatConsoleProps) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const { busy, wheelHeld } = state.status;
+  const { busy, wheelHeld, busyText } = state.status;
 
   // Keep the newest row in view as the session streams.
   useEffect(() => {
@@ -109,12 +136,12 @@ export function ChatConsole({ state, onSend }: ChatConsoleProps) {
           row.kind === 'tools' ? (
             <ToolRow key={n} tools={row.tools} />
           ) : (
-            <MessageRow key={n} entry={row.entry} />
+            <MessageRow key={n} entry={row.entry} onOpenPromptHistory={onOpenPromptHistory} />
           ),
         )}
         {busy && (
           <span className="self-start text-status-active text-sm pixel-pulse">
-            The cat is working...
+            {busyText ?? 'The cat is working...'}
           </span>
         )}
       </div>

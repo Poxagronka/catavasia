@@ -13,7 +13,9 @@ export type CatSessionEntry =
   | { kind: 'user'; text: string }
   | { kind: 'text'; text: string }
   | { kind: 'tool'; name: string; text: string }
-  | { kind: 'error'; text: string };
+  | { kind: 'error'; text: string }
+  /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */
+  | { kind: 'edits'; text: string; catIds: string[] };
 
 /** Whether a cat can hand its session to an interactive terminal right now. */
 export interface CatSessionStatus {
@@ -23,6 +25,8 @@ export interface CatSessionStatus {
   wheelHeld: boolean;
   /** Why the wheel is not offered at all (no PTY module, no session id...). */
   wheelUnavailable?: string;
+  /** What the console says while busy (default: the cat is working). */
+  busyText?: string;
 }
 
 /** Server -> client frames on `/api/cat-sessions/:catId/events`. */

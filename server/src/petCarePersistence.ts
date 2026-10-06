@@ -48,3 +48,8 @@ export function writePetCareState(state: unknown): boolean {
     return false;
   }
 }
+
+/** "Reset everything": the next load starts with fresh needs, bowls and litter. */
+export function clearPetCareState(): void {
+  fs.rmSync(getPetCareFilePath(), { force: true });
+}

@@ -213,7 +213,7 @@ export const CAT_NAMES = [
   'Patches',
   'Tortie',
   'Mochi',
-  'Nikolai',
+  'Biscuit',
   'Butterscotch',
   'Leo',
   'Dobby',
@@ -684,6 +684,12 @@ export const WHITEBOARD_NOTE_SHADOW = '#c9c9c4';
 // ── Litter boxes and floor poop (all cats, see engine/litterLife.ts) ──
 /** Relative weight of a litter box visit in an agent cat's idle pick (low: a rare need). */
 export const LITTER_ACTIVITY_WEIGHT = 0.2;
+/**
+ * Idle-loop seconds after which an agent cat goes to a box at its next idle
+ * pick, whatever the roll: the rare random visit alone left long droughts.
+ * Each cat starts at a random point of this span, so visits do not bunch up.
+ */
+export const LITTER_DUE_SEC = 30 * 60;
 /** Px a cat in an open box is drawn lower: the front wall hides its paws. */
 export const LITTER_SPOT_OFFSET_Y = 3;
 /** Chance of zoomies after a box visit, the dashes they last, and how far a dash runs (tiles). */

@@ -127,6 +127,7 @@ components:
         - $ref: '#/components/schemas/AgentContextUsage'
         # Layout
         - $ref: '#/components/schemas/LayoutLoaded'
+        - $ref: '#/components/schemas/ResetAllResult'
         # Pet care
         - $ref: '#/components/schemas/PetCareLoaded'
         # Assets
@@ -166,6 +167,7 @@ components:
         - $ref: '#/components/schemas/SetWatchAllSessions'
         - $ref: '#/components/schemas/ExportLayout'
         - $ref: '#/components/schemas/ResetLayoutToDefault'
+        - $ref: '#/components/schemas/ResetAllToDefault'
         - $ref: '#/components/schemas/ImportLayout'
         - $ref: '#/components/schemas/OpenSessionsFolder'
         - $ref: '#/components/schemas/AddExternalAssetDirectory'
@@ -501,6 +503,22 @@ components:
         maxContextTokens:
           type: integer
 
+    ResetAllResult:
+      description: |
+        The answer to resetAllToDefault, sent to the requester only. `backupDir`
+        is where the old files were copied (the reset is done). `error` says
+        why nothing changed.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: resetAllResult
+        backupDir:
+          type: string
+        error:
+          type: string
+
     LayoutLoaded:
       description: |
         Office layout (tiles, furniture, colors). `null` when no layout file or
@@ -526,7 +544,8 @@ components:
     PetCareLoaded:
       description: |
         Persisted pet-care state (needs, bowls, litter, floor poops) from
-        ~/.pixel-agents/pets-state.json, sent once after webviewReady.
+        ~/.pixel-agents/pets-state.json, sent once after webviewReady and again
+        after resetAllToDefault.
         `null` when nothing is saved yet.
       type: object
       additionalProperties: false
@@ -1572,6 +1591,24 @@ components:
       properties:
         type:
           const: resetLayoutToDefault
+
+    ResetAllToDefault:
+      description: |
+        Start from scratch. The host first copies cats.json, layout.json,
+        pets-state.json, tasks.json and the prompts/ folder to
+        ~/.pixel-agents/backups/<timestamp>/. Then the layout goes back to the
+        bundled default and the pet-care state is cleared. A host with a cat
+        office also puts back the default cat team (hierarchy and prompt files,
+        one prompt commit `user(all): reset to defaults`). The office part needs
+        the server token, and the host refuses the whole reset while a task or
+        review runs. Settings, agents and the task history are kept. Answered
+        with resetAllResult; on success also layoutLoaded and petCareLoaded.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: resetAllToDefault
 
     ImportLayout:
       description: Trigger layout import via host-native open dialog.

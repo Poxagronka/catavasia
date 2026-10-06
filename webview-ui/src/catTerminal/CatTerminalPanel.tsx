@@ -14,6 +14,8 @@ interface CatTerminalPanelProps {
   /** Shown in the header when the session has no title yet. */
   catLabel: string;
   onClose: () => void;
+  /** Open the Prompt history of a cat (a prompt edit row of the Cat CEO chat). */
+  onOpenPromptHistory?: (catId: string) => void;
 }
 
 function StatusBadge({ busy, wheelHeld }: { busy: boolean; wheelHeld: boolean }) {
@@ -30,7 +32,12 @@ function StatusBadge({ busy, wheelHeld }: { busy: boolean; wheelHeld: boolean })
  * "take the wheel" tab, which opens a real `claude --resume` PTY while the cat
  * is idle. Docked, not modal, so the office stays visible next to it.
  */
-export function CatTerminalPanel({ catId, catLabel, onClose }: CatTerminalPanelProps) {
+export function CatTerminalPanel({
+  catId,
+  catLabel,
+  onClose,
+  onOpenPromptHistory,
+}: CatTerminalPanelProps) {
   const [state, setState] = useState(EMPTY_CONSOLE);
   const [tab, setTab] = useState<Tab>('chat');
   const [driving, setDriving] = useState(false);
@@ -86,7 +93,11 @@ export function CatTerminalPanel({ catId, catLabel, onClose }: CatTerminalPanelP
         </div>
       )}
       {!gone && tab === 'chat' && (
-        <ChatConsole state={state} onSend={(text) => catSessionApi.send(catId, text)} />
+        <ChatConsole
+          state={state}
+          onSend={(text) => catSessionApi.send(catId, text)}
+          onOpenPromptHistory={onOpenPromptHistory}
+        />
       )}
       {!gone && driving && (
         <div className={`flex-1 min-h-0 flex-col ${tab === 'terminal' ? 'flex' : 'hidden'}`}>

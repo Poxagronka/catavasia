@@ -30,6 +30,7 @@ import { reduce } from '../orchestrator/machine/taskReducer.js';
 import type { TaskEvent, TaskState } from '../orchestrator/machine/types.js';
 import type { TurnScheduler } from '../orchestrator/turnScheduler.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
+import { CeoChat, isChatCommit } from './ceoChat.js';
 import {
   CEO_DEFAULT_ROLE,
   ceoProfile,
@@ -77,6 +78,8 @@ export class CatCeo {
   readonly running = new Set<Promise<void>>();
   /** Prompt hygiene: tidies of the cats' Rules and Lessons (§14). */
   readonly tidy: CatTidy;
+  /** Chat with the user (§15). */
+  readonly chat: CeoChat;
 
   constructor(private readonly opts: CatCeoOptions) {
     this.store = new ReviewStore(path.join(opts.stateDir, CAT_CEO_DIR, 'reviews.json'));
@@ -106,6 +109,23 @@ export class CatCeo {
       now: () => this.now,
     });
     this.tidy.start();
+    this.chat = new CeoChat(
+      {
+        prompts,
+        store: this.store,
+        settings: () => this.settings,
+        roster: () => opts.cats.list(),
+        enqueue: (job) =>
+          this.enqueue(job, (err) => console.error(`[Pixel Agents] Cat CEO: ${errorText(err)}`)),
+        judge: (rules, digest, schema) => this.judge(rules, digest, schema),
+        push: (entries) => opts.consoles.push(CAT_CEO_ID, ...entries),
+        statusChanged: () => opts.consoles.statusChanged(),
+        working: (on) => opts.residents().setWorking(CAT_CEO_ID, on),
+        promptsChanged: opts.promptsChanged,
+        now: () => this.now,
+      },
+      path.join(opts.stateDir, CAT_CEO_DIR, 'chat.json'),
+    );
   }
 
   dispose(): void {
@@ -155,14 +175,18 @@ export class CatCeo {
     return undefined;
   }
 
-  /** Cat CEO commits still allowed for a cat now (D7, and the guard's 24 h block). */
+  /** Review commits still allowed for a cat now (D7, and the guard's 24 h block). */
   commitsLeft(catId: string): number {
     if (this.store.blocked(catId, this.now)) return 0;
     const since = this.now - DAY_MS;
     const made = this.opts.cats.prompts
       .log(catId)
       .filter(
-        (c) => authorOf(c.subject) === 'cat-ceo' && !isTidyCommit(c.subject) && c.at > since,
+        (c) =>
+          authorOf(c.subject) === 'cat-ceo' &&
+          !isTidyCommit(c.subject) &&
+          !isChatCommit(c.subject) &&
+          c.at > since,
       ).length;
     return Math.max(0, this.settings.maxEditsPerCatPerDay - made);
   }

@@ -24,6 +24,7 @@ import type {
 import { renderFrame } from '../engine/renderer.js';
 import { whiteboardAt } from '../engine/whiteboardNotes.js';
 import { getCatalogEntry, isRotatable } from '../layout/furnitureCatalog.js';
+import { furnitureSpriteTop } from '../layout/layoutSerializer.js';
 import { hitTestCare } from '../petCare/petCareNav.js';
 import { decorateFurniture, renderPetCareOverlay } from '../petCare/petCareRender.js';
 import { isCatPet } from '../sprites/petSpriteData.js';
@@ -177,7 +178,8 @@ export function OfficeCanvas({
                     pickedColor,
                   )
                 : entry.sprite;
-              editorRender.ghostRow = placementRow;
+              editorRender.ghostRow =
+                furnitureSpriteTop(placementRow, entry.footprintH, entry.sprite.length) / TILE_SIZE;
               editorRender.ghostMirrored =
                 !!entry.mirrorSide && editorState.selectedFurnitureType.endsWith(':left');
               editorRender.ghostValid = canPlaceFurniture(
@@ -201,7 +203,8 @@ export function OfficeCanvas({
                 const ghostRow = editorState.ghostRow - editorState.dragOffsetRow;
                 editorRender.ghostSprite = entry.sprite;
                 editorRender.ghostCol = ghostCol;
-                editorRender.ghostRow = ghostRow;
+                editorRender.ghostRow =
+                  furnitureSpriteTop(ghostRow, entry.footprintH, entry.sprite.length) / TILE_SIZE;
                 editorRender.ghostMirrored =
                   !!entry.mirrorSide && draggedItem.type.endsWith(':left');
                 editorRender.ghostValid = canPlaceFurniture(

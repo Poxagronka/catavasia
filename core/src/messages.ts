@@ -47,6 +47,7 @@ export type ServerMessage =
   | NarratorSettings
   | AgentContextUsage
   | LayoutLoaded
+  | ResetAllResult
   | PetCareLoaded
   | FurnitureAssetsLoaded
   | CharacterSpritesLoaded
@@ -80,6 +81,7 @@ export type ClientMessage =
   | SetWatchAllSessions
   | ExportLayout
   | ResetLayoutToDefault
+  | ResetAllToDefault
   | ImportLayout
   | OpenSessionsFolder
   | AddExternalAssetDirectory
@@ -531,6 +533,12 @@ export interface LayoutLoaded {
   wasReset?: boolean;
 }
 
+export interface ResetAllResult {
+  type: 'resetAllResult';
+  backupDir?: string;
+  error?: string;
+}
+
 export interface PetCareLoaded {
   type: 'petCareLoaded';
   state: Record<string, any> | null;
@@ -750,6 +758,10 @@ export interface ExportLayout {
 
 export interface ResetLayoutToDefault {
   type: 'resetLayoutToDefault';
+}
+
+export interface ResetAllToDefault {
+  type: 'resetAllToDefault';
 }
 
 export interface ImportLayout {

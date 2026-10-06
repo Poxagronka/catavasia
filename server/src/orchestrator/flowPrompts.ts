@@ -34,6 +34,16 @@ export function personaText(cat: CatProfile, promptFile: string): string {
     .join('\n\n');
 }
 
+const LEAD_STEPS = 'You lead this task. Your direct reports:';
+const SOLO_STEPS =
+  'You have no direct reports: do the task yourself in your folder, then call report with the result.';
+const REWORK = 'Rework: your lead did not accept your last report. Fix the work as asked below.';
+const TEAM_PLAN = '[Team plan]';
+const BRANCH_LINE = 'Your folder is your own git worktree on branch ';
+const MAY_DELEGATE = 'You may delegate parts to your direct reports:';
+const DONE_LINE = 'When you are done, call report with what you changed.';
+const ANSWER_LINE = 'Answer with reply (to: ';
+
 export function rootTaskMessage(
   taskId: string,
   prompt: string,
@@ -43,7 +53,7 @@ export function rootTaskMessage(
   const reports = childrenOf(cats, root.id);
   const steps = reports.length
     ? [
-        'You lead this task. Your direct reports:',
+        LEAD_STEPS,
         ...reports.map(describe),
         'Steps:',
         '1. Call brief with your plan.',
@@ -52,9 +62,7 @@ export function rootTaskMessage(
         '4. Check the merged result in your folder and fix what is missing.',
         '5. Call report with the final answer for the user.',
       ]
-    : [
-        'You have no direct reports: do the task yourself in your folder, then call report with the result.',
-      ];
+    : [SOLO_STEPS];
   return [`[Task from the user, task ${taskId}]`, prompt, ...steps].join('\n');
 }
 
@@ -70,23 +78,19 @@ export function delegateMessage(
   const reports = childrenOf(cats, to.id);
   return [
     `[Task from ${catLabel(from)}]`,
-    rework ? 'Rework: your lead did not accept your last report. Fix the work as asked below.' : '',
+    rework ? REWORK : '',
     task,
-    plan ? `[Team plan]\n${plan}` : '',
-    branch
-      ? `Your folder is your own git worktree on branch ${branch}. Work there; the office commits your changes.`
-      : '',
-    reports.length
-      ? `You may delegate parts to your direct reports:\n${reports.map(describe).join('\n')}`
-      : '',
-    'When you are done, call report with what you changed.',
+    plan ? `${TEAM_PLAN}\n${plan}` : '',
+    branch ? `${BRANCH_LINE}${branch}. Work there; the office commits your changes.` : '',
+    reports.length ? `${MAY_DELEGATE}\n${reports.map(describe).join('\n')}` : '',
+    DONE_LINE,
   ]
     .filter(Boolean)
     .join('\n');
 }
 
 export function askMessage(from: CatProfile, question: string): string {
-  return `[Question from ${catLabel(from)}]\n${question}\nAnswer with reply (to: "${from.id}").`;
+  return `[Question from ${catLabel(from)}]\n${question}\n${ANSWER_LINE}"${from.id}").`;
 }
 
 export function replyMessage(from: CatProfile, answer: string): string {
@@ -139,4 +143,41 @@ export function teamText(cats: readonly CatProfile[], me: CatProfile): string {
     if (rel === 'sibling') lines.push(`Sibling ${describe(cat).slice(2)} (ask, reply)`);
   }
   return lines.join('\n');
+}
+
+/** Joins the messages one turn reads into one engine message. */
+export const TURN_PART_SEPARATOR = '\n\n---\n\n';
+
+/** `text` up to the first marker line found after its start. */
+function cutAt(text: string, markers: string[]): string {
+  const ends = markers.map((m) => text.indexOf(`\n${m}`)).filter((i) => i >= 0);
+  return ends.length ? text.slice(0, Math.min(...ends)) : text;
+}
+
+/** One message as the cat chat shows it: what the sender wrote, no office instructions. */
+function chatText(part: string): string | undefined {
+  const nl = part.indexOf('\n');
+  const head = nl < 0 ? part : part.slice(0, nl);
+  const body = nl < 0 ? '' : part.slice(nl + 1);
+  if (head.startsWith('[Office]')) return undefined;
+  if (head === '[Message from the user]') return body;
+  if (head.startsWith('[Task from the user, task ')) return cutAt(body, [LEAD_STEPS, SOLO_STEPS]);
+  const from = /^\[(Task|Question|Reply|Report|Failure report) from (.+)\]$/.exec(head);
+  if (!from) return part;
+  const [, kind, label] = from;
+  if (kind === 'Question') return `Question from ${label}:\n${cutAt(body, [ANSWER_LINE])}`;
+  if (kind !== 'Task') return `${kind} from ${label}:\n${body}`;
+  const rework = body.startsWith(`${REWORK}\n`);
+  const task = cutAt(rework ? body.slice(REWORK.length + 1) : body, [
+    TEAM_PLAN,
+    BRANCH_LINE,
+    MAY_DELEGATE,
+    DONE_LINE,
+  ]);
+  return `${rework ? 'Rework' : 'Task'} from ${label}:\n${task}`;
+}
+
+/** The chat rows of a turn message: one per message the cat reads, office notes left out. */
+export function chatLines(message: string): string[] {
+  return message.split(TURN_PART_SEPARATOR).flatMap((part) => chatText(part) ?? []);
 }
