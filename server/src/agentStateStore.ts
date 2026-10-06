@@ -119,6 +119,12 @@ export class AgentStateStore {
     return this;
   }
 
+  /** Emit agentAdded again for an existing agent (a hidden guest became visible). */
+  reannounce(id: number): void {
+    const agent = this.agents.get(id);
+    if (agent) this.emitter.emit('agentAdded', id, agent);
+  }
+
   delete(id: number): boolean {
     const existed = this.agents.delete(id);
     if (existed) {

@@ -13,7 +13,7 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 
 import type { NarratorInput } from '../../../core/src/narrator.js';
-import type { TaskDetail, TaskLogEntry, TaskSummary } from '../../../core/src/tasks.js';
+import type { TaskDetail, TaskLogEntry, TaskSummary, TaskTarget } from '../../../core/src/tasks.js';
 import { acquireSessionLock } from '../catTerminal/sessionLocks.js';
 import {
   TASK_LOG_MAX_ENTRIES,
@@ -24,7 +24,13 @@ import {
 import { taskLogInput } from '../narrator/narrator.js';
 import { claudeProvider } from '../providers/index.js';
 import { isProcessRunning } from '../server.js';
-import { createWorktree, finalizeWorktree, inspectRepo, reopenWorktree } from './gitWorktree.js';
+import {
+  createWorktree,
+  finalizeWorktree,
+  inspectRepo,
+  reopenWorktree,
+  type RepoInfo,
+} from './gitWorktree.js';
 import { type ParsedStreamLine, parseStreamLine, type StreamResult } from './streamJson.js';
 import { type StoredTask, TaskStore } from './taskStore.js';
 
@@ -50,6 +56,19 @@ export interface TaskEvents {
   status: [taskId: string];
 }
 
+/** Team tasks: the cat office (server/src/orchestrator/) runs a task that has a target. */
+export interface TaskFlowRunner {
+  targets(): TaskTarget[];
+  resolveTarget(target: string): unknown;
+  start(
+    task: StoredTask,
+    cwd: string,
+    repo: RepoInfo | null,
+    sink: { save(task: StoredTask): void; ended(task: StoredTask): void },
+  ): void;
+  dispose(): void;
+}
+
 export interface TaskManagerOptions {
   host: TaskAgentHost;
   /** ~/.pixel-agents (tasks.json and worktrees/ live here). */
@@ -58,6 +77,8 @@ export interface TaskManagerOptions {
   defaultCwd: string;
   /** CLI binary override (tests). Default: the provider's launch command. */
   claudeBin?: string;
+  /** Runs tasks that target the team or one cat. */
+  flows?: TaskFlowRunner;
   /** Receives the run's events as narrator input (English status lines). */
   narrate?: (input: NarratorInput) => void;
 }
@@ -112,6 +133,8 @@ function toSummary(task: StoredTask): TaskSummary {
 export class TaskManager {
   private readonly store: TaskStore;
   private readonly running = new Map<string, RunningTask>();
+  /** Live team tasks (the orchestrator owns their runs). */
+  private readonly flowTasks = new Map<string, StoredTask>();
   /** Release functions of held wheels, by task id. */
   private readonly wheels = new Map<string, () => void>();
   readonly events = new EventEmitter<TaskEvents>();
@@ -136,8 +159,20 @@ export class TaskManager {
     return task ? toDetail(task) : undefined;
   }
 
-  async create(prompt: string, cwd: string = this.opts.defaultCwd): Promise<TaskSummary> {
+  targets(): TaskTarget[] {
+    return this.opts.flows?.targets() ?? [];
+  }
+
+  async create(
+    prompt: string,
+    cwd: string = this.opts.defaultCwd,
+    target?: string,
+  ): Promise<TaskSummary> {
     if (!path.isAbsolute(cwd)) throw new TaskInputError('Folder must be an absolute path');
+    const flows = this.opts.flows;
+    if (target !== undefined && !flows?.resolveTarget(target)) {
+      throw new TaskInputError(`Unknown target: ${target}`);
+    }
     const id = crypto.randomBytes(4).toString('hex');
     const firstLine = prompt.trim().split('\n')[0].trim();
     const task: StoredTask = {
@@ -164,6 +199,25 @@ export class TaskManager {
         return this.fail(task, `Could not create worktree: ${errorText(err)}`);
       }
       agentCwd = path.join(task.worktreePath, repo.subdir);
+    }
+
+    if (target !== undefined && flows) {
+      task.target = target;
+      this.flowTasks.set(id, task);
+      try {
+        flows.start(task, agentCwd, repo, {
+          save: (t) => this.store.save(t),
+          ended: (t) => {
+            this.flowTasks.delete(t.id);
+            this.store.save(t);
+          },
+        });
+      } catch (err) {
+        this.flowTasks.delete(id);
+        return this.fail(task, `Could not start the team: ${errorText(err)}`);
+      }
+      this.store.save(task);
+      return toSummary(task);
     }
 
     const sessionId = crypto.randomUUID();
@@ -288,11 +342,15 @@ export class TaskManager {
       this.markInterrupted(run.task);
     }
     this.running.clear();
+    this.opts.flows?.dispose();
+    for (const task of this.flowTasks.values()) this.markInterrupted(task);
+    this.flowTasks.clear();
   }
 
   private allTasks(): Record<string, StoredTask> {
     const tasks = this.store.readAll();
     for (const run of this.running.values()) tasks[run.task.id] = run.task;
+    for (const task of this.flowTasks.values()) tasks[task.id] = task;
     return tasks;
   }
 
@@ -423,6 +481,7 @@ export class TaskManager {
     task.error =
       'Interrupted: the server stopped before the task finished.' +
       (task.worktreePath ? ` Worktree kept at ${task.worktreePath}` : '');
+    if (task.flow) task.flow.state = 'interrupted';
     task.finishedAt = Date.now();
     this.store.save(task);
   }

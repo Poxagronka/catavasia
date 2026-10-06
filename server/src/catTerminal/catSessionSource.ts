@@ -46,6 +46,8 @@ export interface CatSessionSource {
 /** Task log row -> console row. Exported for tests. */
 export function toConsoleEntry(entry: TaskLogEntry): CatSessionEntry {
   if (entry.kind === 'tool') return { kind: 'tool', name: entry.name ?? 'Tool', text: entry.text };
+  // An office message (cat office) reads as text: "from -> to (kind): body".
+  if (entry.kind === 'message') return { kind: 'text', text: `${entry.name}: ${entry.text}` };
   return { kind: entry.kind, text: entry.text };
 }
 

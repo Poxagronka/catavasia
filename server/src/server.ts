@@ -19,6 +19,7 @@ import {
 } from './constants.js';
 import { createHttpServer } from './httpServer.js';
 import type { Narrator } from './narrator/narrator.js';
+import type { Orchestrator } from './orchestrator/orchestrator.js';
 import type { ServerConfig } from './serverConfig.js';
 import { isServerConfig, isServerTarget } from './serverConfig.js';
 import type { TaskManager } from './taskBoard/taskManager.js';
@@ -72,6 +73,7 @@ export class PixelAgentsServer {
     onSetHooksEnabled?: SetHooksEnabledSideEffect;
     onReloadAssets?: ReloadAssetsSideEffect;
     tasks?: TaskManager;
+    orchestrator?: Orchestrator;
     narrator?: Narrator;
   }): Promise<ServerConfig> {
     const embedded = options?.embedded ?? true;
@@ -115,6 +117,7 @@ export class PixelAgentsServer {
       onSetHooksEnabled: options?.onSetHooksEnabled,
       onReloadAssets: options?.onReloadAssets,
       tasks: options?.tasks,
+      orchestrator: options?.orchestrator,
       narrator: options?.narrator,
     });
 

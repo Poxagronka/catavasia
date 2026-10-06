@@ -2,22 +2,16 @@
  * Webview side of the narrator (server/src/narrator/): the latest English
  * status line and conversation summary per cat, plus the narrator settings.
  *
- * The narrator messages are not in core/asyncapi.yaml yet (see
- * core/src/narrator.ts), so this module subscribes to the transport itself
- * and casts at the boundary. ToolOverlay re-renders every frame and reads the
- * store directly; React components that need updates use useNarratorSettings.
+ * This module subscribes to the transport itself. ToolOverlay re-renders every
+ * frame and reads the store directly; React components that need updates use
+ * useNarratorSettings.
  */
 
 import { useSyncExternalStore } from 'react';
 
 import { TRANSPORT_STATE_CONNECTED } from '../../core/src/constants.js';
-import type { ClientMessage } from '../../core/src/messages.js';
-import type {
-  NarratorLine,
-  NarratorServerMessage,
-  NarratorSettings,
-  SetNarratorSettings,
-} from '../../core/src/narrator.js';
+import type { SetNarratorSettings } from '../../core/src/messages.js';
+import type { NarratorLine, NarratorSettings } from '../../core/src/narrator.js';
 import { transport } from './transport/index.js';
 
 const lines = new Map<number, NarratorLine>();
@@ -38,33 +32,22 @@ transport.onStateChange((state) => {
   }
 });
 
-transport.onMessage((raw) => {
-  const msg = raw as unknown as NarratorServerMessage | { type: string; id?: number };
+transport.onMessage((msg) => {
   switch (msg.type) {
-    case 'narratorLine': {
-      const m = msg as NarratorServerMessage & { type: 'narratorLine' };
-      lines.set(m.catId, { catId: m.catId, state: m.state, line: m.line });
+    case 'narratorLine':
+      lines.set(msg.catId, { catId: msg.catId, state: msg.state, line: msg.line });
       break;
-    }
-    case 'narratorSummary': {
-      const m = msg as NarratorServerMessage & { type: 'narratorSummary' };
-      for (const id of m.catIds) summaries.set(id, m.summary);
+    case 'narratorSummary':
+      for (const id of msg.catIds) summaries.set(id, msg.summary);
       break;
-    }
-    case 'narratorSettings': {
-      const m = msg as NarratorServerMessage & { type: 'narratorSettings' };
-      settings = { aiSummaries: m.aiSummaries, rawToolStatus: m.rawToolStatus };
+    case 'narratorSettings':
+      settings = { aiSummaries: msg.aiSummaries, rawToolStatus: msg.rawToolStatus };
       emit();
       break;
-    }
-    case 'agentClosed': {
-      const id = (msg as { id?: number }).id;
-      if (id !== undefined) {
-        lines.delete(id);
-        summaries.delete(id);
-      }
+    case 'agentClosed':
+      lines.delete(msg.id);
+      summaries.delete(msg.id);
       break;
-    }
   }
 });
 
@@ -79,7 +62,7 @@ export function setNarratorSettings(patch: Partial<NarratorSettings>): void {
   settings = { ...settings, ...patch };
   emit();
   const msg: SetNarratorSettings = { type: 'setNarratorSettings', ...patch };
-  transport.send(msg as unknown as ClientMessage);
+  transport.send(msg);
 }
 
 function subscribe(listener: () => void): () => void {

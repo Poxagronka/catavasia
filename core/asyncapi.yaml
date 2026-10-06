@@ -100,6 +100,20 @@ components:
         - $ref: '#/components/schemas/AgentTeamInfo'
         # Task board
         - $ref: '#/components/schemas/AgentTaskFinished'
+        # Cat office (orchestrator)
+        - $ref: '#/components/schemas/CatProfilesLoaded'
+        - $ref: '#/components/schemas/CatProfileSaved'
+        - $ref: '#/components/schemas/CatProfileRejected'
+        - $ref: '#/components/schemas/CatHierarchy'
+        - $ref: '#/components/schemas/CatTurnStarted'
+        - $ref: '#/components/schemas/CatTurnFinished'
+        - $ref: '#/components/schemas/CatMessage'
+        - $ref: '#/components/schemas/FlowStateChanged'
+        - $ref: '#/components/schemas/QueueChanged'
+        # Narrator
+        - $ref: '#/components/schemas/NarratorLine'
+        - $ref: '#/components/schemas/NarratorSummary'
+        - $ref: '#/components/schemas/NarratorSettings'
         # Context window
         - $ref: '#/components/schemas/AgentContextUsage'
         # Layout
@@ -150,6 +164,13 @@ components:
         - $ref: '#/components/schemas/SaveAreaMappings'
         - $ref: '#/components/schemas/SetShowAreas'
         - $ref: '#/components/schemas/RequestDiagnostics'
+        - $ref: '#/components/schemas/SaveCatProfile'
+        - $ref: '#/components/schemas/DeleteCatProfile'
+        - $ref: '#/components/schemas/SetCatParent'
+        - $ref: '#/components/schemas/PromoteCatToBoss'
+        - $ref: '#/components/schemas/SetTurnConcurrency'
+        - $ref: '#/components/schemas/SetShowGuests'
+        - $ref: '#/components/schemas/SetNarratorSettings'
       discriminator: type
 
     # ── Server message variants ────────────────────────────────────
@@ -712,6 +733,12 @@ components:
             type: string
         showAreas:
           type: boolean
+        showGuests:
+          type: boolean
+          description: Standalone only. External Claude sessions show as translucent guests.
+        turnConcurrency:
+          type: integer
+          description: Standalone only. Cap on cat turns that run at once.
 
     HooksStatus:
       description: |
@@ -828,6 +855,220 @@ components:
           description: Per-agent diagnostic info; shape opaque to the protocol.
           items:
             type: object
+
+    # ── Cat office (orchestrator) server messages ─────────────────
+
+    CatProfilesLoaded:
+      description: |
+        Every cat profile, plus per engine the model and effort values
+        its installed CLI accepts (read from `claude --help`, not hardcoded).
+        Sent on connect and after every profile change.
+      type: object
+      additionalProperties: false
+      required: [type, cats, engineOptions]
+      properties:
+        type:
+          const: catProfilesLoaded
+        cats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatProfile'
+        engineOptions:
+          type: array
+          description: One entry per engine with an adapter. A full model name (claude-...) is also accepted.
+          items:
+            $ref: '#/components/schemas/EngineOptions'
+
+    CatProfileSaved:
+      description: One cat profile was created or changed.
+      type: object
+      additionalProperties: false
+      required: [type, profile]
+      properties:
+        type:
+          const: catProfileSaved
+        profile:
+          $ref: '#/components/schemas/CatProfile'
+
+    CatProfileRejected:
+      description: A cat change failed validation or the hierarchy rules. Sent to the requester only.
+      type: object
+      additionalProperties: false
+      required: [type, error]
+      properties:
+        type:
+          const: catProfileRejected
+        id:
+          type: string
+        error:
+          type: string
+
+    CatHierarchy:
+      description: |
+        The cat tree. `bossId` is the one cat with no parent (absent when there
+        are no cats); `children` maps a cat id to its direct reports in list
+        order. Sent on connect and after every change.
+      type: object
+      additionalProperties: false
+      required: [type, children]
+      properties:
+        type:
+          const: catHierarchy
+        bossId:
+          type: string
+        children:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    CatTurnStarted:
+      description: A cat started one turn (one CLI process) of a task. `id` is the office character that shows it.
+      type: object
+      additionalProperties: false
+      required: [type, catId, taskId, id]
+      properties:
+        type:
+          const: catTurnStarted
+        catId:
+          type: string
+        taskId:
+          type: string
+        id:
+          type: integer
+
+    CatTurnFinished:
+      description: |
+        A cat turn ended. `costUsd` is the cost of this turn alone. The token
+        counts come from the turn's stream-json `result` usage.
+      type: object
+      additionalProperties: false
+      required: [type, catId, taskId, id, ok]
+      properties:
+        type:
+          const: catTurnFinished
+        catId:
+          type: string
+        taskId:
+          type: string
+        id:
+          type: integer
+        ok:
+          type: boolean
+        costUsd:
+          type: number
+        inputTokens:
+          type: integer
+        cacheReadTokens:
+          type: integer
+        cacheCreationTokens:
+          type: integer
+        outputTokens:
+          type: integer
+
+    CatMessage:
+      description: |
+        One office message between cats (or the user), sent before delivery.
+        `from`/`to` are cat ids, `user`, or `team` (a brief to all reports).
+      type: object
+      additionalProperties: false
+      required: [type, taskId, from, to, kind, text]
+      properties:
+        type:
+          const: catMessage
+        taskId:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        kind:
+          $ref: '#/components/schemas/CatMessageKind'
+        text:
+          type: string
+
+    FlowStateChanged:
+      description: The state of a team task changed.
+      type: object
+      additionalProperties: false
+      required: [type, taskId, state]
+      properties:
+        type:
+          const: flowStateChanged
+        taskId:
+          type: string
+        state:
+          $ref: '#/components/schemas/FlowState'
+
+    QueueChanged:
+      description: |
+        Turn scheduler state: cats running a turn now, cats waiting for a free
+        slot (FIFO order), and the cap.
+      type: object
+      additionalProperties: false
+      required: [type, running, queued, cap]
+      properties:
+        type:
+          const: queueChanged
+        running:
+          type: array
+          items:
+            type: string
+        queued:
+          type: array
+          items:
+            type: string
+        cap:
+          type: integer
+
+    NarratorLine:
+      description: Russian status line of one cat (narrator template output), sent on change only.
+      type: object
+      additionalProperties: false
+      required: [type, catId, state, line]
+      properties:
+        type:
+          const: narratorLine
+        catId:
+          type: integer
+          description: Office agent id of the cat.
+        state:
+          $ref: '#/components/schemas/NarratorState'
+        line:
+          type: string
+          description: Russian, at most 60 characters.
+
+    NarratorSummary:
+      description: Haiku summary of one conversation, validated by the server.
+      type: object
+      additionalProperties: false
+      required: [type, conversationId, catIds, summary]
+      properties:
+        type:
+          const: narratorSummary
+        conversationId:
+          type: string
+        catIds:
+          type: array
+          items:
+            type: integer
+        summary:
+          type: string
+          description: Russian, at most 120 characters.
+
+    NarratorSettings:
+      description: Narrator settings (standalone), sent on connect and after a change.
+      type: object
+      additionalProperties: false
+      required: [type, aiSummaries, rawToolStatus]
+      properties:
+        type:
+          const: narratorSettings
+        aiSummaries:
+          type: boolean
+        rawToolStatus:
+          type: boolean
 
     # ── Client message variants ────────────────────────────────────
 
@@ -1130,7 +1371,196 @@ components:
         type:
           const: requestDiagnostics
 
+    SaveCatProfile:
+      description: Create or replace one cat profile (needs the server token). The server validates it.
+      type: object
+      additionalProperties: false
+      required: [type, profile]
+      properties:
+        type:
+          const: saveCatProfile
+        profile:
+          $ref: '#/components/schemas/CatProfile'
+
+    DeleteCatProfile:
+      description: Delete one cat (needs the server token). Its reports move to its parent; a deleted boss hands over to its first report.
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: deleteCatProfile
+        id:
+          type: string
+
+    SetCatParent:
+      description: Make cat `id` report to `parentId` (needs the server token). Refused on a cycle or an unknown cat.
+      type: object
+      additionalProperties: false
+      required: [type, id, parentId]
+      properties:
+        type:
+          const: setCatParent
+        id:
+          type: string
+        parentId:
+          type: string
+
+    PromoteCatToBoss:
+      description: Cat `id` becomes the boss; the old boss reports to it (needs the server token).
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: promoteCatToBoss
+        id:
+          type: string
+
+    SetTurnConcurrency:
+      description: At most this many cat turns run at once (1-12). Others wait in a FIFO queue.
+      type: object
+      additionalProperties: false
+      required: [type, value]
+      properties:
+        type:
+          const: setTurnConcurrency
+        value:
+          type: integer
+
+    SetShowGuests:
+      description: Show external Claude sessions (guests) as translucent characters outside the hierarchy.
+      type: object
+      additionalProperties: false
+      required: [type, enabled]
+      properties:
+        type:
+          const: setShowGuests
+        enabled:
+          type: boolean
+
+    SetNarratorSettings:
+      description: Change narrator settings (standalone). Absent fields keep their value.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: setNarratorSettings
+        aiSummaries:
+          type: boolean
+        rawToolStatus:
+          type: boolean
+
     # ── Supporting schemas ─────────────────────────────────────────
+
+    CatProfile:
+      description: |
+        One cat of the office: who it is, how it looks, which engine, model and
+        effort it runs, and its place in the tree (`parentId` null = the boss;
+        exactly one cat is the boss).
+      type: object
+      additionalProperties: false
+      required: [id, name, appearance, role, systemPrompt, engine, model, effort, parentId]
+      properties:
+        id:
+          type: string
+          description: Stable id, `^[a-z0-9][a-z0-9-]{0,31}$`.
+        name:
+          type: string
+        appearance:
+          $ref: '#/components/schemas/CatAppearance'
+        role:
+          type: string
+        systemPrompt:
+          type: string
+          description: Appended to the engine's default system prompt.
+        engine:
+          $ref: '#/components/schemas/CatEngine'
+        model:
+          type: string
+        effort:
+          type: string
+        parentId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        isDefault:
+          type: boolean
+          description: Seeded by the app, not by the user.
+
+    EngineOptions:
+      type: object
+      additionalProperties: false
+      required: [engine, models, efforts]
+      properties:
+        engine:
+          $ref: '#/components/schemas/CatEngine'
+        models:
+          type: array
+          items:
+            type: string
+        efforts:
+          type: array
+          items:
+            type: string
+
+    CatAppearance:
+      description: |
+        A breed preset (`breed` = lower-case breed name, e.g. `marmalade`) and
+        optional overrides: coat `pattern`, colour layers, eyes, collar
+        (`#rrggbb`, or `none` for no collar). A missing layer keeps the colour
+        of the base breed.
+      type: object
+      additionalProperties: false
+      properties:
+        breed:
+          type: string
+        colors:
+          $ref: '#/components/schemas/CatColorLayers'
+        pattern:
+          $ref: '#/components/schemas/CatPattern'
+        eyes:
+          type: string
+        collar:
+          type: string
+
+    CatColorLayers:
+      type: object
+      additionalProperties: false
+      properties:
+        fur:
+          type: string
+        belly:
+          type: string
+        stripe:
+          type: string
+        patchA:
+          type: string
+        patchB:
+          type: string
+        point:
+          type: string
+
+    CatEngine:
+      type: string
+      enum: [claude, codex]
+
+    CatPattern:
+      type: string
+      enum: [solid, tabby, tuxedo, calico, tortie, siamese, bengal, sweater]
+
+    NarratorState:
+      type: string
+      enum: [thinking, reading, editing, testing, waiting, done, error]
+
+    CatMessageKind:
+      type: string
+      enum: [task, brief, delegate, ask, reply, report, final, nudge]
+
+    FlowState:
+      type: string
+      enum: [briefing, delegating, working, reporting, merging, done, error, interrupted]
 
     AgentSeatMeta:
       description: |

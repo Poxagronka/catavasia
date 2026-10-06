@@ -2,7 +2,13 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { CONFIG_FILE_NAME, LAYOUT_FILE_DIR } from './constants.js';
+import {
+  CONFIG_FILE_NAME,
+  LAYOUT_FILE_DIR,
+  TURN_CONCURRENCY_DEFAULT,
+  TURN_CONCURRENCY_MAX,
+  TURN_CONCURRENCY_MIN,
+} from './constants.js';
 
 export interface AdapterSettings {
   soundEnabled: boolean;
@@ -13,6 +19,10 @@ export interface AdapterSettings {
   hooksInfoShown: boolean;
   showAreas: boolean;
   areaMappings: Record<string, string[]>;
+  /** Show external Claude sessions as translucent guests (standalone). */
+  showGuests: boolean;
+  /** Cap on cat turns that run at once (standalone cat office). */
+  turnConcurrency: number;
   /** Narrator: batched Haiku conversation summaries. */
   narratorAiSummaries: boolean;
   /** Narrator: show the raw tool status instead of the narrator line (debug). */
@@ -32,6 +42,8 @@ export const ADAPTER_SETTING_KEYS = [
   'hooksInfoShown',
   'showAreas',
   'areaMappings',
+  'showGuests',
+  'turnConcurrency',
   'narratorAiSummaries',
   'narratorRawToolStatus',
 ] as const;
@@ -70,9 +82,20 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   hooksInfoShown: false,
   showAreas: false,
   areaMappings: {},
+  showGuests: false,
+  turnConcurrency: TURN_CONCURRENCY_DEFAULT,
   narratorAiSummaries: true,
   narratorRawToolStatus: false,
 };
+
+/** A turn cap inside TURN_CONCURRENCY_MIN..MAX, or undefined. */
+export function parseTurnConcurrency(value: unknown): number | undefined {
+  return Number.isInteger(value) &&
+    (value as number) >= TURN_CONCURRENCY_MIN &&
+    (value as number) <= TURN_CONCURRENCY_MAX
+    ? (value as number)
+    : undefined;
+}
 
 function getConfigFilePath(): string {
   return path.join(os.homedir(), LAYOUT_FILE_DIR, CONFIG_FILE_NAME);
@@ -153,6 +176,10 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
     showAreas:
       typeof obj.showAreas === 'boolean' ? obj.showAreas : DEFAULT_ADAPTER_SETTINGS.showAreas,
     areaMappings: parseAreaMappings(obj.areaMappings),
+    showGuests:
+      typeof obj.showGuests === 'boolean' ? obj.showGuests : DEFAULT_ADAPTER_SETTINGS.showGuests,
+    turnConcurrency:
+      parseTurnConcurrency(obj.turnConcurrency) ?? DEFAULT_ADAPTER_SETTINGS.turnConcurrency,
     narratorAiSummaries:
       typeof obj.narratorAiSummaries === 'boolean'
         ? obj.narratorAiSummaries
