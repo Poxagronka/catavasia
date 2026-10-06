@@ -91,6 +91,7 @@ describe('parsing the CLI status output', () => {
     expect(isAuthError('Not logged in')).toBe(true);
     expect(isAuthError('Invalid API key · Fix external API key')).toBe(true);
     expect(isAuthError('You are not logged into any GitHub hosts. Run gh auth login')).toBe(false);
+    expect(isAuthError('Stripe request failed: Invalid API key provided')).toBe(false);
     expect(isAuthError('Exit code 1: no output')).toBe(false);
     expect(isAuthError(undefined)).toBe(false);
   });
@@ -169,6 +170,26 @@ describe('EngineStatusProbe', () => {
 
     expect(await cache.refresh(true)).toEqual({ installed: true, loggedIn: true });
     expect(changed).toHaveBeenCalledTimes(2); // same status: no news
+  });
+
+  it('a forced probe during a running one probes again after it', async () => {
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const cache = new EngineStatusProbe(
+      async () => {
+        calls++;
+        if (calls === 1) await gate;
+        return { installed: true, loggedIn: calls > 1 };
+      },
+      () => {},
+    );
+    const first = cache.refresh();
+    const forced = cache.refresh(true);
+    release();
+    await first;
+    expect(await forced).toEqual({ installed: true, loggedIn: true });
+    expect(calls).toBe(2);
   });
 
   it('marks the engine logged out after an auth error', async () => {

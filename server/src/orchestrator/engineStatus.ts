@@ -53,11 +53,13 @@ export function parseVersion(output: string): string | undefined {
  * "Not logged in · Please run /login" (error "authentication_failed").
  */
 export function isAuthError(text: string | undefined): boolean {
+  // Anchored: a task's own text ("Stripe: Invalid API key") must not count as an engine logout.
   return (
     !!text &&
-    /^\s*not logged in\b|please run \/login|authentication_failed|invalid api key|oauth token has expired/i.test(
-      text,
-    )
+    (/please run \/login/i.test(text) ||
+      /^\s*(not logged in\b|invalid api key|oauth token has expired|authentication_failed)/i.test(
+        text,
+      ))
   );
 }
 
@@ -136,7 +138,8 @@ export class EngineStatusProbe {
 
   /** Probe when stale (or `force`); one probe at a time. */
   refresh(force = false): Promise<EngineStatus> {
-    if (this.inFlight) return this.inFlight;
+    // A forced probe must start after the reason for it (a login that just ended).
+    if (this.inFlight) return force ? this.inFlight.then(() => this.refresh(true)) : this.inFlight;
     if (!force && this.status && this.now() - this.at <= STATUS_TTL_MS)
       return Promise.resolve(this.status);
     this.inFlight = this.probe()
