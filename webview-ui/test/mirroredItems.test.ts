@@ -15,6 +15,7 @@ import { beforeAll, test } from 'vitest';
 
 import { buildFurnitureCatalog } from '../../core/src/assets/build.ts';
 import { decodeAllFurniture } from '../../core/src/assets/loader.ts';
+import { peekLeft, peekSprite } from '../src/office/engine/housePeek.js';
 import { getIdleActivity } from '../src/office/engine/idleActivities.js';
 import { advanceRunThrough, isHiddenInRunThrough } from '../src/office/engine/runThrough.js';
 import { buildDynamicCatalog, furnitureKind } from '../src/office/layout/furnitureCatalog.js';
@@ -90,12 +91,16 @@ test('a mirrored litter box: still a litter box, the cat digs facing the other w
   assert.equal(furnitureKind('LITTER_BOX_HOODED:left'), 'LITTER_BOX_HOODED');
 });
 
-test('a mirrored cat house shows the tail mirrored, at the mirrored door', () => {
+test('a mirrored cat house shows the ears / tail mirrored, at the mirrored door', () => {
   for (const type of ['HOUSE_WOODEN', 'HOUSE_IGLOO', 'HOUSE_CARDBOARD', 'HOUSE_CONDO']) {
     const [front] = spotsOf('house', [at(type)]);
     const [mirror] = spotsOf('house', [at(`${type}:left`)]);
-    const left = 5 * TILE_SIZE;
-    assert.equal(mirror.peek!.x - left, TILE_SIZE - (front.peek!.x - left), type);
+    // The drawn pixels mirror within the house sprite (odd-width ears too).
+    const w = peekSprite(front.peek!.kind, '')[0].length;
+    const lo = 5 * TILE_SIZE;
+    const frontLeft = peekLeft(front.peek!, w) - lo;
+    const mirrorLeft = peekLeft(mirror.peek!, w) - lo;
+    assert.equal(mirrorLeft, TILE_SIZE - (frontLeft + w), type);
     assert.equal(mirror.peek!.mirrored, true, type);
     assert.equal(front.peek!.mirrored, undefined, type);
   }

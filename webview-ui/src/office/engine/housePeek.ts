@@ -69,6 +69,15 @@ function isDark(hex: string): boolean {
   return lum < 64;
 }
 
+/**
+ * The peek sprite's left px for its anchor. An odd-width sprite has its
+ * extra column right of the anchor; mirrored, it moves to the left.
+ */
+export function peekLeft(peek: HousePeek, width: number): number {
+  const half = peek.mirrored ? Math.ceil(width / 2) : Math.floor(width / 2);
+  return peek.x - half;
+}
+
 /** A z-sorted drawable of the peek, in front of its house. */
 export function peekDrawable(
   peek: HousePeek,
@@ -80,7 +89,7 @@ export function peekDrawable(
 ): { zY: number; draw: (c: CanvasRenderingContext2D) => void } {
   const sprite = peekSprite(peek.kind, fur, twitch, peek.mirrored);
   const img = getCachedSprite(sprite, zoom);
-  const left = peek.x - Math.floor(sprite[0].length / 2);
+  const left = peekLeft(peek, sprite[0].length);
   const top = peek.y - sprite.length;
   const x = Math.round(offsetX + left * zoom);
   const y = Math.round(offsetY + top * zoom);

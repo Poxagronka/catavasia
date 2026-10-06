@@ -15,7 +15,7 @@ import {
   getCharacterSprite,
   peekNow,
 } from '../../webview-ui/src/office/engine/characters.ts';
-import { peekSprite, peekTwitch } from '../../webview-ui/src/office/engine/housePeek.ts';
+import { peekLeft, peekSprite, peekTwitch } from '../../webview-ui/src/office/engine/housePeek.ts';
 import type { OfficeState } from '../../webview-ui/src/office/engine/officeState.ts';
 import { isHiddenInRunThrough } from '../../webview-ui/src/office/engine/runThrough.ts';
 import { socialSpriteFor } from '../../webview-ui/src/office/engine/socialRender.ts';
@@ -145,7 +145,7 @@ export function renderOffice(os: OfficeState, nowSec: number): Img {
     const peek = peekNow(ch);
     if (peek) {
       const s = peekSprite(peek.kind, furColorOf(ch), peekTwitch(ch), peek.mirrored);
-      const x = peek.x - Math.floor(s[0].length / 2);
+      const x = peekLeft(peek, s[0].length);
       draws.push({ zY: peek.zY, draw: () => img.sprite(s, x, peek.y - s.length) });
       continue;
     }

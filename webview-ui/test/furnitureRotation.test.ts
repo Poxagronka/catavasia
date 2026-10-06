@@ -36,7 +36,7 @@ import {
   getToggledType,
   isRotatable,
 } from '../src/office/layout/furnitureCatalog.js';
-import { itemFrame } from '../src/office/layout/itemFrame.js';
+import { itemFrame, mirrorDirection } from '../src/office/layout/itemFrame.js';
 import {
   getBlockedTiles,
   layoutToFurnitureInstances,
@@ -211,6 +211,26 @@ test('every activity of an item works in every view: spots exist, are reachable,
           if (spot.exit) checkSpot(`${where} exit`, { ...spot, ...spot.exit }, item, ctx);
         }
       }
+    }
+  }
+});
+
+test('a mirror-scheme item mirrors every pose on it: px, facing, step directions', () => {
+  for (const type of paletteTypes().filter((t) => getRotationScheme(t) === 'mirror')) {
+    const left = getRotatedType(type, 'cw')!;
+    const front = activitySpots(spotContext(room(type).layout));
+    const mirror = activitySpots(spotContext(room(left).layout));
+    const w = getCatalogEntry(type)!.footprintW;
+    for (const [id, spots] of front) {
+      const on = spots.filter((s) => s.onFurniture && !s.seatUid);
+      const flipped = mirror.get(id)!.filter((s) => s.onFurniture && !s.seatUid);
+      assert.equal(flipped.length, on.length, `${left} ${id}`);
+      on.forEach((s, i) => {
+        const m = flipped[i];
+        assert.equal(m.offsetX, (w - 1) * TILE_SIZE - s.offsetX, `${left} ${id}: offsetX`);
+        assert.equal(m.facing, mirrorDirection(s.facing), `${left} ${id}: facing`);
+        assert.equal(m.mirrored, true, `${left} ${id}: steps not mirrored`);
+      });
     }
   }
 });

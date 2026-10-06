@@ -96,7 +96,11 @@ export function rotateFurniture(
   if (!item) return layout;
   const newType = getRotatedType(item.type, direction);
   if (!newType) return layout;
-  if (!canPlaceFurniture(layout, newType, item.col, item.row, uid)) return layout;
+  // A turn that keeps the footprint (a mirror image) needs no fit check.
+  const from = getCatalogEntry(item.type);
+  const to = getCatalogEntry(newType);
+  const sameTiles = from?.footprintW === to?.footprintW && from?.footprintH === to?.footprintH;
+  if (!sameTiles && !canPlaceFurniture(layout, newType, item.col, item.row, uid)) return layout;
   return {
     ...layout,
     furniture: layout.furniture.map((f) => (f.uid === uid ? { ...f, type: newType } : f)),

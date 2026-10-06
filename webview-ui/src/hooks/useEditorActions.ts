@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ColorValue } from '../components/ui/types.js';
 import {
@@ -481,6 +481,12 @@ export function useEditorActions(
     if (rotateNoteTimer.current) clearTimeout(rotateNoteTimer.current);
     rotateNoteTimer.current = setTimeout(() => setRotateNote(null), ROTATE_NOTE_MS);
   }, []);
+  useEffect(
+    () => () => {
+      if (rotateNoteTimer.current) clearTimeout(rotateNoteTimer.current);
+    },
+    [],
+  );
 
   const handleRotateSelected = useCallback(() => {
     // If in furniture placement mode, cycle the selected type through the rotation group
@@ -501,11 +507,13 @@ export function useEditorActions(
     const os = getOfficeState();
     const item = os.getLayout().furniture.find((f) => f.uid === uid);
     if (!item) return;
+    if (!getRotatedType(item.type, 'cw')) {
+      if (getRotationScheme(item.type) === 'symmetric') showRotateNote('Looks the same turned');
+      return;
+    }
     const newLayout = rotateFurniture(os.getLayout(), uid, 'cw');
     if (newLayout !== os.getLayout()) {
       applyEdit(newLayout);
-    } else if (getRotationScheme(item.type) === 'symmetric') {
-      showRotateNote('Looks the same turned');
     } else {
       // The turned footprint overlaps something or leaves the room: it stays as it was.
       showRotateNote('No room to turn it here');
