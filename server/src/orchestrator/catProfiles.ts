@@ -391,9 +391,7 @@ export class CatStore {
       // Never overwrite a file we cannot read: keep a copy, then start fresh.
       const backup = `${this.filePath}.bad-${Date.now()}`;
       fs.copyFileSync(this.filePath, backup);
-      console.warn(
-        `[Pixel Agents] Cats: ${this.filePath} unreadable (${err}); copied to ${backup}`,
-      );
+      console.warn(`[catavasia] Cats: ${this.filePath} unreadable (${err}); copied to ${backup}`);
       this.commit(defaultTeam());
       this.syncPrompts();
       return;
@@ -405,10 +403,9 @@ export class CatStore {
       const out: T[] = [];
       for (const entry of entries) {
         const result = check(entry);
-        if (!result.ok)
-          console.warn(`[Pixel Agents] Cats: dropped an invalid entry: ${result.error}`);
+        if (!result.ok) console.warn(`[catavasia] Cats: dropped an invalid entry: ${result.error}`);
         else if (out.some((e) => e.id === result.value.id))
-          console.warn(`[Pixel Agents] Cats: dropped duplicate ${result.value.id}`);
+          console.warn(`[catavasia] Cats: dropped duplicate ${result.value.id}`);
         else out.push(result.value);
       }
       return out;
@@ -454,7 +451,7 @@ export class CatStore {
         const error = this.saveRole(cat.id, role, 'import from cats.json');
         if (error) {
           // cats.json keeps the old text (write() keeps it while the file is missing).
-          console.warn(`[Pixel Agents] Cats: prompt of ${cat.id} not saved: ${error}`);
+          console.warn(`[catavasia] Cats: prompt of ${cat.id} not saved: ${error}`);
           continue;
         }
       } else {
@@ -483,7 +480,7 @@ export class CatStore {
       fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });
       fs.renameSync(tmp, this.filePath);
     } catch (err) {
-      console.error(`[Pixel Agents] Cats: failed to write ${this.filePath}: ${err}`);
+      console.error(`[catavasia] Cats: failed to write ${this.filePath}: ${err}`);
     }
   }
 }

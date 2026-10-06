@@ -69,7 +69,7 @@ export class HaikuBatcher {
     this.clock = opts.clock ?? realClock;
     this.intervalMs = opts.intervalMs ?? BATCH_INTERVAL_MS;
     this.delayMs = this.intervalMs;
-    this.log = opts.log ?? ((m) => console.log(`[Pixel Agents] Narrator: ${m}`));
+    this.log = opts.log ?? ((m) => console.log(`[catavasia] Narrator: ${m}`));
   }
 
   get isDisabled(): boolean {

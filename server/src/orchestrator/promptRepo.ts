@@ -230,7 +230,7 @@ export class PromptRepo {
       const message = body ? ['-m', subject, '-m', body] : ['-m', subject];
       this.git('commit', '-q', '--no-verify', ...message, '--', spec);
     } catch (err) {
-      console.error(`[Pixel Agents] Cats: prompt commit "${subject}" failed: ${String(err)}`);
+      console.error(`[catavasia] Cats: prompt commit "${subject}" failed: ${String(err)}`);
     }
   }
 

@@ -153,7 +153,7 @@ export class ReviewStore {
       fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), { mode: 0o600 });
       fs.renameSync(tmp, this.file);
     } catch (err) {
-      console.error(`[Pixel Agents] Cat CEO: failed to write ${this.file}: ${String(err)}`);
+      console.error(`[catavasia] Cat CEO: failed to write ${this.file}: ${String(err)}`);
     }
   }
 }

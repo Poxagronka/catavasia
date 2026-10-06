@@ -2,7 +2,7 @@
   "name": "catavasia",
   "displayName": "catavasia",
   "description": "Pixel-art cat office where your Claude Code agents are cats: watch your sessions, or hire a cat team that splits a task and works in git worktrees",
-  "version": "1.4.1-cats.38",
+  "version": "1.4.1-cats.39",
   "publisher": "pablodelucca",
   "author": "Poxagronka",
   "repository": {
@@ -61,18 +61,18 @@
     "commands": [
       {
         "command": "pixel-agents.showPanel",
-        "title": "Pixel Agents: Show Panel"
+        "title": "catavasia: Show Panel"
       },
       {
         "command": "pixel-agents.exportDefaultLayout",
-        "title": "Pixel Agents: Export Layout as Default"
+        "title": "catavasia: Export Layout as Default"
       }
     ],
     "viewsContainers": {
       "panel": [
         {
           "id": "pixel-agents-panel",
-          "title": "Pixel Agents",
+          "title": "catavasia",
           "icon": "$(window)"
         }
       ]
@@ -82,17 +82,17 @@
         {
           "type": "webview",
           "id": "pixel-agents.panelView",
-          "name": "Pixel Agents"
+          "name": "catavasia"
         }
       ]
     },
     "configuration": {
-      "title": "Pixel Agents",
+      "title": "catavasia",
       "properties": {
         "pixel-agents.autoShowPanel": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically open and focus the Pixel Agents panel when VS Code starts."
+          "description": "Automatically open and focus the catavasia panel when VS Code starts."
         },
         "pixel-agents.autoSpawnAgent": {
           "type": "boolean",

@@ -25,7 +25,7 @@ export function readLayoutFromFile(): Record<string, unknown> | null {
     const raw = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(raw) as Record<string, unknown>;
   } catch (err) {
-    console.error('[Pixel Agents] Failed to read layout file:', err);
+    console.error('[catavasia] Failed to read layout file:', err);
     return null;
   }
 }
@@ -42,7 +42,7 @@ export function writeLayoutToFile(layout: Record<string, unknown>): void {
     fs.writeFileSync(tmpPath, json, 'utf-8');
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    console.error('[Pixel Agents] Failed to write layout file:', err);
+    console.error('[catavasia] Failed to write layout file:', err);
   }
 }
 
@@ -116,11 +116,11 @@ export function loadLayout(
     if (migrateUnmodifiedLayout(fromFile, defaultLayout, previousDefaults)) {
       return { layout: defaultLayout!, wasReset: true };
     }
-    console.log('[Pixel Agents] Layout loaded from file');
+    console.log('[catavasia] Layout loaded from file');
     return { layout: fromFile, wasReset: false };
   }
   if (defaultLayout) {
-    console.log('[Pixel Agents] Writing bundled default layout to file');
+    console.log('[catavasia] Writing bundled default layout to file');
     writeLayoutToFile(defaultLayout);
     return { layout: defaultLayout, wasReset: false };
   }
@@ -139,12 +139,12 @@ export function migrateUnmodifiedLayout(
   if (!saved || !defaultLayout || revisionOf(defaultLayout) <= revisionOf(saved)) return false;
   if (!isUnmodifiedDefault(saved, previousDefaults)) {
     console.log(
-      `[Pixel Agents] Saved layout is customized: kept (a newer default, revision ${revisionOf(defaultLayout)}, is one click away in the editor)`,
+      `[catavasia] Saved layout is customized: kept (a newer default, revision ${revisionOf(defaultLayout)}, is one click away in the editor)`,
     );
     return false;
   }
   console.log(
-    `[Pixel Agents] Saved layout is the untouched revision ${revisionOf(saved)} default: upgrading to revision ${revisionOf(defaultLayout)}`,
+    `[catavasia] Saved layout is the untouched revision ${revisionOf(saved)} default: upgrading to revision ${revisionOf(defaultLayout)}`,
   );
   writeLayoutToFile(defaultLayout);
   return true;
@@ -188,10 +188,10 @@ export function watchLayoutFile(
 
       const raw = fs.readFileSync(filePath, 'utf-8');
       const layout = JSON.parse(raw) as Record<string, unknown>;
-      console.log('[Pixel Agents] External layout change detected');
+      console.log('[catavasia] External layout change detected');
       onExternalChange(layout);
     } catch (err) {
-      console.error('[Pixel Agents] Error checking layout file:', err);
+      console.error('[catavasia] Error checking layout file:', err);
     }
   }
 
@@ -204,7 +204,7 @@ export function watchLayoutFile(
       });
       fsWatcher.on('error', (err) => {
         // fs.watch can be unreliable on macOS (kqueue) and may hit inotify limits on Linux
-        console.log(`[Pixel Agents] Layout: fs.watch error: ${err.message}`);
+        console.log(`[catavasia] Layout: fs.watch error: ${err.message}`);
         fsWatcher?.close();
         fsWatcher = null;
       });

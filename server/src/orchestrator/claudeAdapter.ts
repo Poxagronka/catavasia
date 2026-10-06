@@ -93,7 +93,7 @@ export class ClaudeAdapter implements EngineAdapter {
       } catch (err) {
         const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
         if (!missing)
-          console.error(`[Pixel Agents] Cats: could not read \`${this.bin} --help\`: ${err}`);
+          console.error(`[catavasia] Cats: could not read \`${this.bin} --help\`: ${err}`);
         // Cached too: adapterFor() asks on every turn; a restart probes again.
         this.cachedChoices = {
           models: [],

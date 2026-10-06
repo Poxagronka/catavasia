@@ -343,7 +343,7 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
       try {
         const msg = JSON.parse(data.toString()) as Record<string, unknown>;
         if (!options.embedded && msg.type) {
-          console.log('[Pixel Agents] WS client message:', msg.type);
+          console.log('[catavasia] WS client message:', msg.type);
         }
         handleClientMessage(msg, send, {
           store,

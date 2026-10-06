@@ -549,7 +549,7 @@ export class TaskManager {
       this.events.emit('log', task.id, [{ kind: 'error', text: task.error }]);
     }
     this.events.emit('status', task.id);
-    console.log(`[Pixel Agents] Task ${task.id} ${task.status}`);
+    console.log(`[catavasia] Task ${task.id} ${task.status}`);
   }
 
   /** Commit the worktree, record the diff and remove it. Returns an error text on failure. */

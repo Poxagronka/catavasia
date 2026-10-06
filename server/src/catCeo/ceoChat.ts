@@ -175,7 +175,7 @@ export class CeoChat {
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      console.error(`[Pixel Agents] Cat CEO chat ${chatId}: ${error}`);
+      console.error(`[catavasia] Cat CEO chat ${chatId}: ${error}`);
       this.add({ kind: 'error', text: `The Cat CEO could not answer: ${error}` });
     } finally {
       host.working(false);
@@ -264,7 +264,7 @@ export class CeoChat {
       fs.writeFileSync(tmp, JSON.stringify({ version: 1, messages: this.messages }, null, 2));
       fs.renameSync(tmp, this.file);
     } catch (err) {
-      console.error(`[Pixel Agents] Cat CEO chat: could not save the history: ${String(err)}`);
+      console.error(`[catavasia] Cat CEO chat: could not save the history: ${String(err)}`);
     }
   }
 }
