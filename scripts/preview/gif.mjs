@@ -2,27 +2,41 @@
 // global palette of at most 256 colors, LZW-coded frames, looping forever.
 // Frames: { w, h, data: Uint8Array RGBA }, all the same size.
 
-/** Encode frames (opaque RGBA) at `scale`× into GIF bytes; `delayMs` per frame. */
+/**
+ * Encode frames (opaque RGBA) at `scale`× into GIF bytes; `delayMs` per frame.
+ * Blended effects (steam) may need more than 256 colors: then the low bits
+ * of each channel go, a step at a time, until the palette fits.
+ */
 export function encodeGif(frames, delayMs, scale = 1) {
+  for (const mask of [0xff, 0xfe, 0xfc, 0xf8, 0xf0]) {
+    const out = encodeWith(frames, delayMs, scale, mask);
+    if (out) return out;
+  }
+  throw new Error('more than 256 colors in a preview, even at 4 bits a channel');
+}
+
+function encodeWith(frames, delayMs, scale, mask) {
   const w = frames[0].w * scale;
   const h = frames[0].h * scale;
   const colors = new Map();
-  const indexed = frames.map((f) => {
+  const indexed = [];
+  for (const f of frames) {
     const out = new Uint8Array(w * h);
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         const i = ((Math.floor(y / scale) * f.w + Math.floor(x / scale)) * 4) | 0;
-        const key = (f.data[i] << 16) | (f.data[i + 1] << 8) | f.data[i + 2];
+        const key =
+          ((f.data[i] & mask) << 16) | ((f.data[i + 1] & mask) << 8) | (f.data[i + 2] & mask);
         let c = colors.get(key);
         if (c === undefined) {
-          if (colors.size >= 256) throw new Error('more than 256 colors in a preview');
+          if (colors.size >= 256) return null;
           c = colors.size;
           colors.set(key, c);
         }
         out[y * w + x] = c;
       }
-    return out;
-  });
+    indexed.push(out);
+  }
   const bits = Math.max(2, Math.ceil(Math.log2(Math.max(2, colors.size))));
   const bytes = [];
   const u16 = (n) => bytes.push(n & 255, (n >> 8) & 255);
