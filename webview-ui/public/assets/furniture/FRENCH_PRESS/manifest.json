@@ -1,0 +1,82 @@
+{
+  "id": "FRENCH_PRESS",
+  "name": "French Press",
+  "category": "coffee",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0,
+  "type": "group",
+  "groupType": "animation",
+  "members": [
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS",
+      "file": "FRENCH_PRESS.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 0
+    },
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS_1",
+      "file": "FRENCH_PRESS_1.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 1
+    },
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS_2",
+      "file": "FRENCH_PRESS_2.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 2
+    },
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS_3",
+      "file": "FRENCH_PRESS_3.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 3
+    },
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS_4",
+      "file": "FRENCH_PRESS_4.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 4
+    },
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS_5",
+      "file": "FRENCH_PRESS_5.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 5
+    },
+    {
+      "type": "asset",
+      "id": "FRENCH_PRESS_6",
+      "file": "FRENCH_PRESS_6.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 6
+    }
+  ]
+}

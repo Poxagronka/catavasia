@@ -26,6 +26,11 @@ const LABELS = {
   U: 'mug',
   K: 'mugShade',
   D: 'coffee',
+  r: 'mouthIn',
+  t: 'tongue',
+  B: 'book',
+  b: 'bookShade',
+  s: 'steam',
 };
 
 export class Frame {
@@ -67,7 +72,7 @@ export class Frame {
    * (rings, dark tips) follow the limb. The last `tip` steps use `tipLabel`.
    */
   stroke(points, thick, part, z, opts = {}) {
-    const { rim = false, tip = 0, tipLabel = 'paw', dir } = opts;
+    const { rim = false, tip = 0, tipLabel = 'paw', dir, label: body = 'fur' } = opts;
     const steps = [];
     for (let i = 0; i < points.length - 1; i++) {
       const [x0, y0] = points[i];
@@ -81,7 +86,7 @@ export class Frame {
       }
     }
     steps.forEach(([x, y], idx) => {
-      const label = idx >= steps.length - tip ? tipLabel : 'fur';
+      const label = idx >= steps.length - tip ? tipLabel : body;
       for (let dy = 0; dy < thick; dy++)
         for (let dx = 0; dx < thick; dx++)
           this.set(x + dx, y + dy, {

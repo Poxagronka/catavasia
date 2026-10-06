@@ -165,19 +165,78 @@ function frontDip(front: SpriteData, dy: number): SpriteData {
   return lower(front, b.minX, b.maxX, b.minY, cut, dy);
 }
 
+/** Shift a whole sprite `dx` px sideways (the purr shiver). */
+function shiftX(s: SpriteData, dx: number): SpriteData {
+  return s.map((row) => row.map((_, x) => row[x - dx] ?? ''));
+}
+
+/**
+ * Digging in the litter: the front legs (front 40 %, bottom quarter) scrape
+ * one pixel back or forward.
+ */
+function dig(side: SpriteData, dx: number): SpriteData {
+  const b = bbox(side);
+  const w = b.maxX - b.minX + 1;
+  const legTop = b.minY + Math.round((b.maxY - b.minY + 1) * LEG_FRACTION);
+  const x0 = b.maxX - Math.round(w * HEAD_FRACTION) + 1;
+  const out = side.map((row) => [...row]);
+  for (let y = legTop; y <= b.maxY; y++) {
+    for (let x = x0; x <= b.maxX; x++) out[y][x] = '';
+    for (let x = x0; x <= b.maxX; x++) {
+      const px = side[y][x];
+      if (px && out[y][x + dx] !== undefined) out[y][x + dx] = px;
+    }
+  }
+  return out;
+}
+
 export function buildCarePoses(p: PetSpriteFrames): PetCarePoses {
   // Pet sheets author no side idle, so the first walk frame is the side pose.
   const side = p.walkRight[0];
   const maxHop = Math.max(...PLAY_HOPS);
+  const hop = (s: SpriteData, h: number) => pad(s, maxHop - h, h);
+  const bite = headDip(side, 4);
+  const chew = headDip(side, 2);
+  const lap = withTongue(headDip(side, 4));
+  const front = p.idleDown[0];
+  const purr = frontDip(front, 1);
+  const crouch = hop(squat(headDip(side, 2), 1), 0);
   return {
-    eatRight: [headDip(side, 3), headDip(side, 4)],
-    drinkRight: [withTongue(headDip(side, 4)), headDip(side, 4)],
-    poopRight: [squat(side, 3), squat(side, 4)],
-    eatDown: [frontDip(p.idleDown[0], 2), frontDip(p.idleDown[0], 3)],
+    // Crunch: dip, bite, lift the head and chew, dip again (0.25 s per frame).
+    eatRight: [bite, headDip(side, 3), bite, chew, chew, bite, headDip(side, 3), bite],
+    // Lap, lap, lap: the tongue flicks, the head stays down.
+    drinkRight: [lap, bite, lap, bite, lap, headDip(side, 3)],
+    // Dig a hole, squat, then scrape the litter back over it.
+    poopRight: [
+      dig(side, -1),
+      dig(side, 1),
+      dig(side, -1),
+      dig(side, 1),
+      squat(side, 3),
+      squat(side, 4),
+      squat(side, 4),
+      squat(side, 4),
+      dig(side, 1),
+      dig(side, -1),
+      dig(side, 1),
+      dig(side, -1),
+    ],
+    eatDown: [frontDip(front, 2), frontDip(front, 3), frontDip(front, 2), frontDip(front, 1)],
     eatUp: [frontDip(p.idleUp[0], 1), frontDip(p.idleUp[0], 2)],
-    petted: [frontDip(p.idleDown[0], 1), p.idleDown[0]],
-    playRight: PLAY_HOPS.map((hop, i) => pad(p.walkRight[i % 3], maxHop - hop, hop)),
-    sleep: [frontDip(p.idleDown[0], 3), frontDip(p.idleDown[0], 3), frontDip(p.idleDown[0], 4)],
+    // Purring under the hand: settled low, the body shivers.
+    petted: [purr, shiftX(purr, 1), purr, shiftX(purr, -1), purr, front],
+    // Play: crouch, wiggle, pounce (a long leap), land, a few happy hops.
+    playRight: [
+      crouch,
+      hop(squat(headDip(side, 2), 2), 0),
+      crouch,
+      hop(squat(headDip(side, 2), 2), 0),
+      hop(shiftX(p.walkRight[1], 1), 4),
+      hop(shiftX(p.walkRight[2], 2), 3),
+      hop(headDip(side, 1), 0),
+      ...PLAY_HOPS.map((h, i) => hop(p.walkRight[i % 3], h)),
+    ],
+    sleep: [frontDip(front, 3), frontDip(front, 3), frontDip(front, 4)],
   };
 }
 

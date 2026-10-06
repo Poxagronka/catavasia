@@ -15,6 +15,7 @@ import {
   MAX_PET_ID_LENGTH,
   PET_HIT_HALF_WIDTH,
   PET_HIT_HEIGHT,
+  SPOT_CLAIM_RETRIES,
   WAITING_BUBBLE_DURATION_SEC,
 } from '../../constants.js';
 import { getAnimationFrames, getCatalogEntry, getOnStateType } from '../layout/furnitureCatalog.js';
@@ -47,6 +48,7 @@ import { CatLife } from './catLife.js';
 import { CatSocial } from './catSocial.js';
 import type { IdleWorld } from './characters.js';
 import {
+  activityStep,
   beginIdleActivity,
   characterDrawOffsetX,
   characterDrawOffsetY,
@@ -54,6 +56,8 @@ import {
   snapToTile,
   updateCharacter,
 } from './characters.js';
+import { CUP_OUT_FRAME } from './coffeeActivities.js';
+import { itemFrameSprite } from './furnitureFrames.js';
 import type { ActivitySpotSet, IdleChoice, PropMotion } from './idleActivities.js';
 import { buildActivitySpots, getIdleActivity, propOffset } from './idleActivities.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
@@ -63,6 +67,7 @@ import { OfficeScenes } from './officeScenes.js';
 import { createPet, updatePet } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
+import { DESK_READ_SEC, SKILL_READ, SKILL_TOOL } from './skillReading.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
 function seatFacingOffset(direction: Direction): { dCol: number; dRow: number } {
@@ -626,7 +631,9 @@ export class OfficeState {
    * the nearest walkable tiles. Empty when the office has no coffee.
    */
   queueTiles(n: number): Array<{ col: number; row: number }> {
-    const start = this.activitySpots.get('coffee')?.spots[0];
+    // The line forms at the coffee machine (else at a coffee cup).
+    const start =
+      this.activitySpots.get('brew')?.spots[0] ?? this.activitySpots.get('coffee')?.spots[0];
     if (!start || n <= 0) return [];
     const out: Array<{ col: number; row: number }> = [];
     const seen = new Set<string>([`${start.col},${start.row}`]);
@@ -1045,7 +1052,93 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (ch) {
       ch.currentTool = tool;
+      if (tool === SKILL_TOOL) this.startSkillRead(ch);
     }
+  }
+
+  /**
+   * A skill starts: the cat walks to the nearest free bookshelf it can reach
+   * and reads (skillReading.ts). With none it reads at its desk. A cat that
+   * already reads, or that a scene moves, is left alone.
+   */
+  startSkillRead(ch: Character): void {
+    if (ch.activity?.id === SKILL_READ.id || this.scenes.owns(ch.id) || ch.matrixEffect) return;
+    const taken = this.life.takenBy(ch);
+    const spots = (this.activitySpots.get(SKILL_READ.id)?.spots ?? [])
+      .filter((s) => !taken.has(s.key))
+      .map((s) => ({ s, path: this.pathFor(ch, s.col, s.row) }))
+      .filter((p) => p.path !== null)
+      .sort((a, b) => a.path!.length - b.path!.length);
+    this.social.leave(ch.id);
+    for (const { s } of spots) {
+      ch.activity = null;
+      ch.path = [];
+      if (ch.state === CharacterState.ACTIVITY || ch.state === CharacterState.TYPE) {
+        ch.state = CharacterState.IDLE;
+      }
+      const choice = { def: SKILL_READ, spot: s };
+      if (this.life.claimIdle(ch, choice) !== 'ok') continue;
+      if (
+        this.withOwnSeatUnblocked(ch, () =>
+          beginIdleActivity(ch, choice, this.tileMap, this.blockedTiles),
+        )
+      ) {
+        return;
+      }
+    }
+    ch.deskReadSec = DESK_READ_SEC;
+  }
+
+  /** Walking path from the cat to a tile (own seat unblocked), or null. [] = already there. */
+  private pathFor(
+    ch: Character,
+    col: number,
+    row: number,
+  ): Array<{ col: number; row: number }> | null {
+    if (ch.tileCol === col && ch.tileRow === row) return [];
+    const path = this.withOwnSeatUnblocked(ch, () =>
+      findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles),
+    );
+    return path.length > 0 ? path : null;
+  }
+
+  /**
+   * The next activity of a chain (coffee: brew, sip, return the cup): the
+   * nearest free spot, the same machine first for the cup's return. A cat
+   * with nowhere to sit sips where it stands; a cup with no free machine
+   * spot is simply put away.
+   */
+  private startChained(ch: Character, id: string, from?: string): boolean {
+    const def = getIdleActivity(id);
+    if (!def) return false;
+    const set = this.activitySpots.get(id);
+    const taken = this.life.takenBy(ch);
+    const free = (list: ActivitySpot[] = []) => list.filter((sp) => !taken.has(sp.key));
+    let spots = free(set?.spots);
+    if (spots.length === 0) spots = free(set?.fallback);
+    const dist = (sp: ActivitySpot) =>
+      (sp.itemUid === from ? 0 : 1000) +
+      Math.abs(sp.col - ch.tileCol) +
+      Math.abs(sp.row - ch.tileRow);
+    spots.sort((a, b) => dist(a) - dist(b));
+    for (const spot of spots.slice(0, SPOT_CLAIM_RETRIES)) {
+      const choice = { def, spot };
+      const outcome = this.life.claimIdle(ch, choice);
+      if (outcome === 'fight') return true;
+      if (outcome !== 'ok') continue;
+      if (beginIdleActivity(ch, choice, this.tileMap, this.blockedTiles)) {
+        if (ch.activity) ch.activity.cupFrom = from;
+        return true;
+      }
+    }
+    if (!def.carry || !def.next) return false;
+    // No seat for the cup: sip right here, facing the room.
+    const here = { key: `${ch.tileCol},${ch.tileRow}`, col: ch.tileCol, row: ch.tileRow };
+    const spot = { ...here, facing: Direction.DOWN, onFurniture: false, offsetX: 0, offsetY: 0 };
+    ch.activity = { id, spot, phase: 'going', timer: 0, cupFrom: from };
+    beginIdleActivity(ch, { def, spot }, this.tileMap, this.blockedTiles);
+    if (ch.activity) ch.activity.cupFrom = from;
+    return true;
   }
 
   showPermissionBubble(id: number): void {
@@ -1300,11 +1393,33 @@ export class OfficeState {
 
   /** Furniture to draw this frame: toys in use (yarn, feather, mouse) moved by their motion. */
   getFurnitureForRender(nowSec: number = performance.now() / 1000): FurnitureInstance[] {
-    const moving = new Map<string, PropMotion>();
+    const moving = new Map<string, PropMotion | { dx: number; dy: number }>();
+    // The used item's animation frame (a machine brewing, a shelf with a book out).
+    const frames = new Map<string, number>();
     for (const ch of this.characters.values()) {
       const uid = ch.activity?.spot?.itemUid;
+      if (ch.state !== CharacterState.ACTIVITY || !uid) continue;
+      // A cat running through the tunnel makes the fabric bulge as it passes.
+      if (isHiddenInRunThrough(ch)) {
+        moving.set(uid, { dx: 0, dy: Math.floor(ch.x / 3) % 2 ? -1 : 0 });
+        continue;
+      }
+      const step = activityStep(ch);
+      if (step?.item) frames.set(uid, step.item);
+      if (step && (step.px || step.py)) {
+        const flip = ch.dir === Direction.LEFT ? -1 : 1;
+        moving.set(uid, { dx: (step.px ?? 0) * flip, dy: step.py ?? 0 });
+        continue;
+      }
       const prop = getIdleActivity(ch.activity?.id)?.prop;
-      if (ch.state === CharacterState.ACTIVITY && uid && prop) moving.set(uid, prop);
+      if (prop && !getIdleActivity(ch.activity?.id)?.loop.some((s) => s.px || s.py)) {
+        moving.set(uid, prop);
+      }
+    }
+    // A machine whose cup a cat carries around shows no cup.
+    for (const ch of this.characters.values()) {
+      const cupFrom = ch.activity?.cupFrom;
+      if (cupFrom && !frames.has(cupFrom)) frames.set(cupFrom, CUP_OUT_FRAME);
     }
     // A pet batting a toy moves it too.
     for (const pet of this.pets) {
@@ -1313,12 +1428,19 @@ export class OfficeState {
       const prop = getIdleActivity(claim?.kind)?.prop;
       if (claim?.spot?.itemUid && prop) moving.set(claim.spot.itemUid, prop);
     }
-    if (moving.size === 0) return this.furniture;
+    if (moving.size === 0 && frames.size === 0) return this.furniture;
     return this.furniture.map((f) => {
       const motion = f.uid ? moving.get(f.uid) : undefined;
-      if (!motion) return f;
-      const { dx, dy } = propOffset(motion, nowSec);
-      return { ...f, x: f.x + dx, y: f.y + dy };
+      const frame = f.uid ? frames.get(f.uid) : undefined;
+      let out = f;
+      if (frame !== undefined) {
+        const type = this.layout.furniture.find((p) => p.uid === f.uid)?.type;
+        const sprite = type ? itemFrameSprite(type, frame) : undefined;
+        if (sprite) out = { ...out, sprite };
+      }
+      if (!motion) return out;
+      const { dx, dy } = typeof motion === 'string' ? propOffset(motion, nowSec) : motion;
+      return { ...out, x: out.x + dx, y: out.y + dy };
     });
   }
 
@@ -1362,6 +1484,7 @@ export class OfficeState {
       spotSets: this.activitySpots,
       takenBy: (ch) => this.life.takenBy(ch),
       claim: (ch, choice) => this.life.claimIdle(ch, choice),
+      startNext: (ch, id, from) => this.startChained(ch, id, from),
     };
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {
@@ -1387,6 +1510,8 @@ export class OfficeState {
           ),
         );
       }
+
+      if (ch.deskReadSec) ch.deskReadSec = Math.max(0, ch.deskReadSec - dt);
 
       // Tick bubble timer for waiting bubbles. "Waiting for input" has no
       // timer: it lasts until the agent works again, through any idle activity.

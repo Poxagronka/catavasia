@@ -31,6 +31,7 @@ describe('narrator templates: tools', () => {
     ['NotebookEdit', ...KNEAD],
     ['Task', 'thinking', 'herding cats'],
     ['Agent', 'thinking', 'herding cats'],
+    ['Skill', 'reading', 'reading the cat manual'],
     ['TodoWrite', ...PLAN],
     ['AskUserQuestion', ...MEOW],
     ['ExitPlanMode', ...MEOW],

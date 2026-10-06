@@ -55,19 +55,108 @@ const EAR_ROW0 = {
   big: { down: 'FiiiFhhFiiiF', right: '.FffFhhFiiF.' },
 };
 
-/** opts.closedEyes: eyes become a content line (sipping, napping). */
+/** Eye columns of the face rows: [left eye x, right eye x] (front) or [eye x] (side). */
+const EYE_X = { down: [2, 8], right: [8] };
+
+/** [top row, bottom row] of the left eye (front) or the side eye; the right eye mirrors it. */
+const EYES = {
+  closed: ['FF', 'mm'],
+  happy: ['mm', 'FF'],
+  wide: ['wE', 'EE'],
+  up: ['EE', 'ee'],
+  down: ['ee', 'EE'],
+  left: ['Ee', 'Ee'],
+  right: ['eE', 'eE'],
+  half: ['mm', 'eE'],
+};
+
+/** Mouth shapes as [x, face row, template char] cells. */
+const MOUTHS = {
+  down: {
+    open: [
+      [5, 6, 'r'],
+      [6, 6, 'r'],
+    ],
+    o: [
+      [5, 6, 'r'],
+      [6, 6, 'r'],
+      [5, 7, 'r'],
+      [6, 7, 'r'],
+    ],
+    yawn: [
+      [4, 6, 'r'],
+      [5, 6, 'r'],
+      [6, 6, 'r'],
+      [7, 6, 'r'],
+      [4, 7, 'r'],
+      [5, 7, 't'],
+      [6, 7, 't'],
+      [7, 7, 'r'],
+    ],
+    tongue: [
+      [5, 7, 't'],
+      [6, 7, 't'],
+    ],
+  },
+  right: {
+    open: [
+      [9, 6, 'r'],
+      [10, 6, 'r'],
+    ],
+    o: [
+      [10, 6, 'r'],
+      [10, 7, 'r'],
+    ],
+    yawn: [
+      [8, 6, 'r'],
+      [9, 6, 'r'],
+      [10, 6, 'r'],
+      [8, 7, 'r'],
+      [9, 7, 't'],
+      [10, 7, 'r'],
+    ],
+    tongue: [
+      [11, 6, 't'],
+      [11, 7, 't'],
+    ],
+  },
+};
+
+function setChar(row, x, ch) {
+  return row.slice(0, x) + ch + row.slice(x + 1);
+}
+
+/**
+ * opts.closedEyes: eyes become a content line (sipping, napping).
+ * opts.eyes: closed | happy | wide | up | down | left | right | half.
+ * opts.mouth: open | o | yawn | tongue. opts.twitch: one ear tip folds.
+ */
 export function drawHead(fr, dir, x, y, cat, opts = {}) {
   const earDir = dir === 'right' ? 'right' : 'down';
   let ears = EARS[earDir][cat.ears === 'big' ? 'big' : 'pointed'];
   const face = FACE[dir].slice();
-  if (opts.closedEyes) {
-    face[3] = face[3].replace(/[eE]/g, 'F');
-    face[4] = face[4].replace(/[eE]/g, 'm');
+  const eyes = opts.closedEyes ? 'closed' : opts.eyes;
+  if (eyes && dir !== 'up') {
+    const [top, bot] = EYES[eyes];
+    EYE_X[dir].forEach((ex, i) => {
+      const flip = i === 1 && eyes !== 'left' && eyes !== 'right';
+      const m = (s) => (flip ? [...s].reverse().join('') : s);
+      face[3] = face[3].slice(0, ex) + m(top) + face[3].slice(ex + 2);
+      face[4] = face[4].slice(0, ex) + m(bot) + face[4].slice(ex + 2);
+    });
+  }
+  if (opts.mouth && dir !== 'up') {
+    for (const [mx, my, ch] of MOUTHS[earDir][opts.mouth]) face[my] = setChar(face[my], mx, ch);
   }
   face[0] = EAR_ROW0[cat.ears === 'big' ? 'big' : 'pointed'][earDir];
   if (dir === 'up') {
     ears = ears.map((r) => r.replaceAll('i', 'f'));
     face[0] = face[0].replaceAll('i', 'f');
+  }
+  if (opts.twitch) {
+    ears = ears.slice();
+    ears[0] = dir === 'right' ? setChar(ears[0], 8, '.') : setChar(ears[0], 0, '.');
+    ears[1] = dir === 'right' ? ears[1] : setChar(ears[1], 0, '.');
   }
   fr.stamp(ears, x, y - ears.length, 'head', Z.head, { rim: true, lyShift: -ears.length });
   fr.stamp(face, x, y, 'head', Z.head, { rim: true });

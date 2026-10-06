@@ -21,6 +21,11 @@ import {
   SOCIAL_FIGHT_PUFF_SEC,
   SOCIAL_FLEE_MIN_TILES,
   SOCIAL_FLEE_SPEED_MUL,
+  SOCIAL_FLICK_FRAME_SEC,
+  SOCIAL_GREET_BOOP_SEC,
+  SOCIAL_GREET_RUB_CHANCE,
+  SOCIAL_GREET_RUB_SEC,
+  SOCIAL_HISS_FRAME_SEC,
   SOCIAL_TAG_BUBBLE_SEC,
   SOCIAL_TAG_COOLDOWN_SEC,
   SOCIAL_TALK_BUBBLE_SEC,
@@ -30,7 +35,7 @@ import {
   SOCIAL_TOY_TURN_SEC,
 } from '../../constants.js';
 import type { Character, CharacterSocialView, SocialIcon } from '../types.js';
-import { CharacterState, TILE_SIZE } from '../types.js';
+import { CharacterState, Direction, TILE_SIZE } from '../types.js';
 import type { JointPlay } from './catSocial.js';
 import type { SocialWorld, Tile } from './socialMoves.js';
 import {
@@ -45,7 +50,8 @@ import {
 } from './socialMoves.js';
 
 export type SocialKind = 'talk' | 'play' | 'fight';
-export type ScenePhase = 'approach' | 'talk' | 'chase' | 'toy' | 'puff' | 'cloud' | 'flee';
+export type ScenePhase =
+  'approach' | 'greet' | 'talk' | 'chase' | 'toy' | 'puff' | 'cloud' | 'flee';
 
 export interface Scene {
   kind: SocialKind;
@@ -73,6 +79,8 @@ export interface Scene {
   tagT: number;
   /** Chase: tile the play started on; the runner stays near it. */
   home?: Tile;
+  /** Greet: index of the cat that rubs its head on the other, or -1 for none. */
+  rubber?: number;
 }
 
 export interface SceneCast {
@@ -119,6 +127,8 @@ export function stepScene(s: Scene, cast: SceneCast, dt: number): StepResult {
   switch (s.phase) {
     case 'approach':
       return approach(s, cast);
+    case 'greet':
+      return greet(s, cast);
     case 'talk':
       return talk(s, cast);
     case 'chase':
@@ -169,8 +179,9 @@ function begin(s: Scene, cast: SceneCast): StepResult {
   if (s.kind === 'fight') {
     enter(s, 'puff');
   } else if (s.kind === 'talk') {
-    enter(s, 'talk');
+    enter(s, 'greet');
     s.turn = rng() < 0.5 ? 0 : 1;
+    s.rubber = rng() < SOCIAL_GREET_RUB_CHANCE ? (rng() < 0.5 ? 0 : 1) : -1;
   } else if (s.play?.kind === 'toy') {
     enter(s, 'toy');
     s.play.onTurn?.(a.id, s.play.toyId);
@@ -185,10 +196,35 @@ function begin(s: Scene, cast: SceneCast): StepResult {
   return 'running';
 }
 
+/** Hello: both cats boop noses, then one may rub its head on the other. */
+function greet(s: Scene, cast: SceneCast): StepResult {
+  const { a, b } = cast;
+  faceEachOther(a, b);
+  const rubber = s.rubber ?? -1;
+  if (s.t < SOCIAL_GREET_BOOP_SEC) {
+    for (const ch of [a, b]) Object.assign(view(ch), { pose: 'boop', frame: 0 });
+    return 'running';
+  }
+  if (rubber >= 0 && s.t < SOCIAL_GREET_BOOP_SEC + SOCIAL_GREET_RUB_SEC) {
+    const [rub, other] = rubber === 0 ? [a, b] : [b, a];
+    Object.assign(view(rub), { pose: 'rub', frame: 0 });
+    Object.assign(view(other), { pose: 'flick', frame: pulse(s.t, SOCIAL_FLICK_FRAME_SEC, 2) });
+    return 'running';
+  }
+  view(a).pose = null;
+  view(b).pose = null;
+  enter(s, 'talk');
+  return 'running';
+}
+
 function talk(s: Scene, cast: SceneCast): StepResult {
   const { a, b, rng } = cast;
   faceEachOther(a, b);
   const speaker = s.turn === 0 ? a : b;
+  // The listener's tail flicks happily while the other one talks.
+  const listener = view(speaker === a ? b : a);
+  listener.pose = 'flick';
+  listener.frame = pulse(s.t, SOCIAL_FLICK_FRAME_SEC, 2);
   const v = view(speaker);
   if (s.t < SOCIAL_TALK_BUBBLE_SEC) {
     if (!s.icon) {
@@ -273,8 +309,10 @@ function puff(s: Scene, cast: SceneCast): StepResult {
   faceEachOther(a, b);
   for (const ch of [a, b]) {
     const v = view(ch);
-    v.pose = 'angry';
-    v.frame = pulse(s.t, SOCIAL_ANGRY_FRAME_SEC, 2);
+    // Side by side: the arched-back hiss; facing up / down: the puffed-up front pose.
+    const side = ch.dir === Direction.LEFT || ch.dir === Direction.RIGHT;
+    v.pose = side ? 'hiss' : 'angry';
+    v.frame = pulse(s.t, side ? SOCIAL_HISS_FRAME_SEC : SOCIAL_ANGRY_FRAME_SEC, 2);
     v.anger = pulse(s.t, SOCIAL_ANGER_FRAME_SEC, 2);
   }
   if (s.t >= SOCIAL_FIGHT_PUFF_SEC) enter(s, 'cloud');

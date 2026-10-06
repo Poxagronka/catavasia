@@ -1,0 +1,82 @@
+{
+  "id": "ESPRESSO_MACHINE",
+  "name": "Espresso Machine",
+  "category": "coffee",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0,
+  "type": "group",
+  "groupType": "animation",
+  "members": [
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE",
+      "file": "ESPRESSO_MACHINE.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 0
+    },
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE_1",
+      "file": "ESPRESSO_MACHINE_1.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 1
+    },
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE_2",
+      "file": "ESPRESSO_MACHINE_2.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 2
+    },
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE_3",
+      "file": "ESPRESSO_MACHINE_3.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 3
+    },
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE_4",
+      "file": "ESPRESSO_MACHINE_4.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 4
+    },
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE_5",
+      "file": "ESPRESSO_MACHINE_5.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 5
+    },
+    {
+      "type": "asset",
+      "id": "ESPRESSO_MACHINE_6",
+      "file": "ESPRESSO_MACHINE_6.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 6
+    }
+  ]
+}

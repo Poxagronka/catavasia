@@ -10,20 +10,21 @@
  */
 
 import type { ActivitySpot } from '../types.js';
+import type { AnimParts } from './activityAnim.js';
 import type { SpotContext } from './activitySpots.js';
 import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
 import { BED_ACTIVITIES } from './bedActivities.js';
+import { COFFEE_ACTIVITIES } from './coffeeActivities.js';
+import { GROOM, LOAF, NAP, SIP, STRETCH, TAIL_CHASE, YAWN } from './idleAnims.js';
+import { SKILL_READ } from './skillReading.js';
 import { TOY_ACTIVITIES } from './toyActivities.js';
 
-export interface IdleActivityDef {
+export interface IdleActivityDef extends AnimParts {
   id: string;
   /** Relative chance in the weighted pick. */
   weight: number;
   /** Seconds at the spot: [min, max]. */
   durationSec: readonly [number, number];
-  /** Animation: idle frame indices (sheet frame - 7), one per step. */
-  frames: readonly number[];
-  frameSec: number;
   /** Where it happens. Omitted: a spotless activity (wander). */
   spots?: (ctx: SpotContext) => ActivitySpot[];
   /** Tried only when every spot is taken (sleep: the floor near a sofa). */
@@ -36,6 +37,14 @@ export interface IdleActivityDef {
   walkAnim?: boolean;
   /** The toy moves while in use: yarn rolls, a feather sways, a mouse darts. */
   prop?: PropMotion;
+  /** Runs while the agent works and plays to its end (reading a skill). Never picked idle. */
+  work?: boolean;
+  /** Activity that starts when this one ends (coffee: brew, sip, bring the cup back). */
+  next?: string;
+  /** The cat walks here with a mug in its paws. */
+  carry?: boolean;
+  /** Done on the tile the cat stands on: facing the viewer, or to a side. */
+  inPlace?: 'front' | 'side';
 }
 
 export type PropMotion = 'roll' | 'sway' | 'dart';
@@ -49,37 +58,42 @@ export interface ActivitySpotSet {
 const COFFEE_TYPES = ['COFFEE'] as const;
 const SOFA_TYPES = ['SOFA_FRONT', 'SOFA_BACK', 'SOFA_SIDE'] as const;
 
-/** Sheet frame 7 + index: 0-1 drink (hold, sip), 2-4 nap (out, in, tail flick). */
 export const IDLE_ACTIVITIES: IdleActivityDef[] = [
   {
     // The pre-existing idle behaviour: a few random walks, then a rest at the desk.
     id: 'wander',
     weight: 3,
     durationSec: [0, 0],
-    frames: [],
-    frameSec: 1,
+    loop: [],
   },
   {
+    // A cup someone left on a table (the COFFEE item): the brew chain is the main coffee idle.
     id: 'coffee',
-    weight: 2,
+    weight: 1,
     durationSec: [8, 16],
-    frames: [0, 0, 0, 1, 1, 0, 0, 1],
-    frameSec: 0.6,
+    ...SIP,
     spots: (ctx) => adjacentSpots(ctx, itemsOfType(ctx, COFFEE_TYPES)),
   },
   {
     id: 'sleep',
     weight: 2,
     durationSec: [25, 60],
-    frames: [2, 3, 2, 4],
-    frameSec: 0.9,
+    ...NAP,
     spots: (ctx) => seatSpots(ctx, itemsOfType(ctx, SOFA_TYPES), true),
     fallbackSpots: (ctx) => floorNear(ctx, itemsOfType(ctx, SOFA_TYPES)),
     zzz: true,
     lowPosePx: 12,
   },
+  ...COFFEE_ACTIVITIES,
+  // In place, wherever the cat stands.
+  { id: 'groom', weight: 1, durationSec: [5, 9], ...GROOM, inPlace: 'front' },
+  { id: 'yawn', weight: 0.6, durationSec: [0, 0], ...YAWN, inPlace: 'front' },
+  { id: 'stretch', weight: 0.8, durationSec: [0, 0], ...STRETCH, inPlace: 'side' },
+  { id: 'tailChase', weight: 0.5, durationSec: [2, 3], ...TAIL_CHASE, inPlace: 'side' },
+  { id: 'loaf', weight: 1, durationSec: [10, 20], ...LOAF, inPlace: 'front' },
   ...TOY_ACTIVITIES,
   ...BED_ACTIVITIES,
+  SKILL_READ,
 ];
 
 export function getIdleActivity(id: string | undefined | null): IdleActivityDef | undefined {
@@ -122,6 +136,7 @@ export function chooseIdleActivity(
   const options: IdleChoice[] = [];
   const spotsFor = new Map<string, ActivitySpot[]>();
   for (const def of defs) {
+    if (def.work || def.weight <= 0) continue;
     if (!def.spots) {
       options.push({ def, spot: null });
       continue;

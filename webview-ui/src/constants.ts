@@ -351,6 +351,14 @@ export const SOCIAL_TALK_EXCHANGES_MAX = 6;
 /** Seconds one pictogram bubble stays up, and the pause between bubbles. */
 export const SOCIAL_TALK_BUBBLE_SEC = 1.3;
 export const SOCIAL_TALK_GAP_SEC = 0.35;
+/** A talk opens with a nose boop, sometimes followed by a head rub from one cat. */
+export const SOCIAL_GREET_BOOP_SEC = 0.9;
+export const SOCIAL_GREET_RUB_SEC = 0.9;
+export const SOCIAL_GREET_RUB_CHANCE = 0.5;
+/** The listener's happy tail flick: seconds per frame. */
+export const SOCIAL_FLICK_FRAME_SEC = 0.35;
+/** The arched-back hiss bobs at this pace before a fight. */
+export const SOCIAL_HISS_FRAME_SEC = 0.25;
 /** Mouth open / closed toggle while a cat talks. */
 export const SOCIAL_TALK_MOUTH_SEC = 0.18;
 /** Chase play: total length, walk-speed multiplier, re-path interval, chase radius. */
@@ -615,3 +623,25 @@ export const TERMINAL_THEME = {
   brightCyan: '#7fe8e8',
   brightWhite: '#ffffff',
 } as const;
+
+// ── Activity animations (engine/activityAnim.ts, activityFx.ts) ─────────
+/** Colours of the small activity effects: steam, hearts, claw marks, dust, sparkles... */
+export const ACTIVITY_FX_COLORS = {
+  steam: '#f4f4f8',
+  puff: '#e8eef6',
+  heart: '#f0607c',
+  heartDark: '#a83850',
+  mark: '#fff6dc',
+  fur: '#f2e6d0',
+  sisal: '#d8b878',
+  dust: '#d8c8a8',
+  spark: '#fff4a0',
+  sparkCore: '#ffffff',
+  star: '#ffd84a',
+  page: '#fbf8ee',
+  line: '#5a4a58',
+  water: '#bfe6ff',
+  crumb: '#a8743c',
+} as const;
+/** The empty slot of a book taken from a shelf (the bookshelf art's darkest line). */
+export const SHELF_BACK_COLOR = '#301c1c';

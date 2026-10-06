@@ -73,6 +73,8 @@ import type {
 } from '../types.js';
 import { CharacterState, TILE_SIZE, TileType } from '../types.js';
 import { getWallInstances, hasWallSprites, wallColorToHex } from '../wallTiles.js';
+import type { FxDrawable } from './activityFx.js';
+import { characterFx } from './activityFx.js';
 import {
   activityHeadDropY,
   characterDrawOffsetX,
@@ -358,6 +360,28 @@ interface ZDrawable {
   draw: (ctx: CanvasRenderingContext2D) => void;
 }
 
+/** An activity effect (steam, hearts, claw marks...) as a z-sorted drawable. */
+export function fxDrawable(
+  fx: FxDrawable,
+  offsetX: number,
+  offsetY: number,
+  zoom: number,
+): ZDrawable {
+  const img = getCachedSprite(fx.sprite, zoom);
+  const x = Math.round(offsetX + fx.x * zoom);
+  const y = Math.round(offsetY + fx.y * zoom);
+  return {
+    zY: fx.zY,
+    draw: (c) => {
+      if (fx.alpha <= 0) return;
+      c.save();
+      c.globalAlpha = Math.min(1, fx.alpha);
+      c.drawImage(img, x, y);
+      c.restore();
+    },
+  };
+}
+
 /** @internal */
 export function renderScene(
   ctx: CanvasRenderingContext2D,
@@ -406,6 +430,7 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
+    for (const fx of characterFx(ch)) drawables.push(fxDrawable(fx, offsetX, offsetY, zoom));
     if (isHiddenInRunThrough(ch)) continue; // inside the play tunnel
     const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom, undefined, petFur);
     if (cloud) drawables.push(cloud);
@@ -416,7 +441,7 @@ export function renderScene(
       continue;
     }
     const sprites = ch.customSprites ?? getCharacterSprites(ch.palette, ch.hueShift);
-    const spriteData = socialSpriteFor(ch, getCharacterSprite(ch, sprites));
+    const spriteData = socialSpriteFor(ch, getCharacterSprite(ch, sprites), sprites);
     if (!spriteData) continue; // hidden inside the fight dust cloud
     const cached = getCachedSprite(spriteData, zoom);
     // Sitting offset: shift character down when seated so they visually sit in the chair

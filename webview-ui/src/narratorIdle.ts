@@ -13,6 +13,15 @@ export const NARRATOR_IDLE_AFTER_MS = 5000;
 
 const ACTIVITY_LINES: Record<string, string> = {
   coffee: 'sipping coffee',
+  brew: 'making coffee',
+  coffeeSip: 'sipping coffee',
+  coffeeReturn: 'bringing the cup back',
+  groom: 'washing its face',
+  yawn: 'yawning',
+  stretch: 'having a big stretch',
+  tailChase: 'chasing its tail',
+  loaf: 'loafing',
+  skillRead: 'reading the cat manual',
   sleep: 'taking a catnap',
   bed: 'taking a catnap',
   catBed: 'taking a catnap',

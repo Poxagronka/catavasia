@@ -7,6 +7,8 @@ import {
   PET_REQUEST_BOB_PX,
   PET_SPARKLE_SEC,
 } from '../../constants.js';
+import type { FxDrawable } from '../engine/activityFx.js';
+import { fxDrawables } from '../engine/activityFx.js';
 import { getCatalogEntry } from '../layout/furnitureCatalog.js';
 import {
   bowlSprite,
@@ -157,6 +159,9 @@ export function renderPetCareOverlay(
   for (const pet of pets) {
     // Same anchor as the pet heart bubble: centered, one tile above the feet.
     const headY = pet.y - TILE_SIZE;
+    for (const fx of petCareFx(pet, time)) {
+      draw(ctx, fx.sprite, fx.x, fx.y, offsetX, offsetY, zoom, fx.alpha);
+    }
     if (pet.careAnim?.kind === 'petted') {
       const hand = frameAt(HAND_FRAMES, time);
       draw(ctx, hand, pet.x - hand[0].length / 2, headY - 2, offsetX, offsetY, zoom);
@@ -198,5 +203,33 @@ export function renderPetCareOverlay(
         draw(ctx, s, e.x + dx, e.y + dy, offsetX, offsetY, zoom);
       }
     }
+  }
+}
+
+/**
+ * Small effects of a care pose: crumbs while it crunches, ripples while it
+ * laps, litter flying while it digs, hearts while it purrs under the hand.
+ */
+export function petCareFx(pet: Pet, time: number): FxDrawable[] {
+  const kind = pet.careAnim?.kind;
+  const ahead = pet.dir === Direction.LEFT ? -1 : 1;
+  const side = pet.dir === Direction.LEFT || pet.dir === Direction.RIGHT;
+  const at = (dx: number, dy: number) => ({
+    x: pet.x + dx,
+    y: pet.y + dy,
+    mirror: pet.dir === Direction.LEFT,
+    zY: pet.y + TILE_SIZE,
+  });
+  switch (kind) {
+    case 'eat':
+      return fxDrawables('crumbs', at(side ? ahead * 6 : 0, -2), time);
+    case 'drink':
+      return fxDrawables('ripple', at(side ? ahead * 7 : 0, 0), time);
+    case 'poop':
+      return fxDrawables('dust', at(side ? ahead * 4 : 0, -1), time);
+    case 'petted':
+      return fxDrawables('hearts', at(0, -TILE_SIZE + 2), time);
+    default:
+      return [];
   }
 }

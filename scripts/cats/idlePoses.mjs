@@ -16,23 +16,44 @@ function mug(fr, rows, x, y, z) {
   fr.stamp(rows, x, y, 'mug', z, { rim: true });
 }
 
-function drinkDown(fr, sip, cat) {
+const DRINK_FACE = {
+  hold: {},
+  sip: { eyes: 'closed' },
+  blow: { eyes: 'half', mouth: 'o' },
+  happy: { eyes: 'happy' },
+};
+
+function drinkDown(fr, mode, cat) {
   const fy = 10;
-  drawHead(fr, 'down', 2, fy, cat, { closedEyes: sip });
-  drawTorso(fr, 'down', 4, fy + 8);
-  leg(fr, 'legL', 4, 26, 30, 3);
-  leg(fr, 'legR', 9, 26, 30, 3);
-  tail(
-    fr,
-    cat,
-    [
-      [10, 29],
-      [12, 29],
-      [13, 27],
-      [13, 26],
-    ],
-    false,
-  );
+  const sip = mode === 'sip';
+  drawHead(fr, 'down', 2, fy, cat, DRINK_FACE[mode]);
+  if (mode === 'blow') {
+    // Mug held up under the chin, just below the pursed mouth.
+    mug(fr, MUG_FRONT, 6, fy + 8, Z_LIFT);
+    armAt(
+      fr,
+      'armL',
+      [
+        [2, fy + 9],
+        [3, fy + 9],
+        [5, fy + 9],
+      ],
+      Z_LIFT,
+    );
+    armAt(
+      fr,
+      'armR',
+      [
+        [12, fy + 9],
+        [11, fy + 9],
+        [10, fy + 9],
+      ],
+      Z_LIFT,
+    );
+    drinkBody(fr, cat, fy);
+    return;
+  }
+  drinkBody(fr, cat, fy);
   if (sip) {
     mug(fr, MUG_FRONT, 6, fy + 4, Z_LIFT);
     armAt(
@@ -80,7 +101,26 @@ function drinkDown(fr, sip, cat) {
   );
 }
 
-function drinkUp(fr, sip, cat) {
+/** Sitting body under a front-facing drinking head. */
+function drinkBody(fr, cat, fy) {
+  drawTorso(fr, 'down', 4, fy + 8);
+  leg(fr, 'legL', 4, 26, 30, 3);
+  leg(fr, 'legR', 9, 26, 30, 3);
+  tail(
+    fr,
+    cat,
+    [
+      [10, 29],
+      [12, 29],
+      [13, 27],
+      [13, 26],
+    ],
+    false,
+  );
+}
+
+function drinkUp(fr, mode, cat) {
+  const sip = mode === 'sip';
   const fy = sip ? 7 : 8;
   drawHead(fr, 'up', 2, fy, cat);
   drawTorso(fr, 'up', 4, fy + 8);
@@ -96,7 +136,7 @@ function drinkUp(fr, sip, cat) {
     ],
     true,
   );
-  const lift = sip ? 4 : 2;
+  const lift = sip ? 4 : mode === 'blow' ? 3 : 2;
   armAt(
     fr,
     'armL',
@@ -119,9 +159,10 @@ function drinkUp(fr, sip, cat) {
   mug(fr, MUG_BACK, 13, sip ? fy + 3 : fy + 6, Z_LIFT);
 }
 
-function drinkRight(fr, sip, cat) {
+function drinkRight(fr, mode, cat) {
   const fy = 9;
-  drawHead(fr, 'right', 2, fy, cat, { closedEyes: sip });
+  const sip = mode === 'sip';
+  drawHead(fr, 'right', 2, fy, cat, DRINK_FACE[mode]);
   drawTorso(fr, 'right', 5, fy + 8);
   fr.rect(7, 26, 5, 2, 'legF', Z.leg);
   leg(fr, 'legF', 10, 28, 29, 2);
@@ -136,6 +177,20 @@ function drinkRight(fr, sip, cat) {
     ],
     false,
   );
+  if (mode === 'blow') {
+    mug(fr, MUG_SIDE, 11, fy + 8, Z_LIFT);
+    armAt(
+      fr,
+      'armR',
+      [
+        [7, fy + 9],
+        [9, fy + 10],
+        [10, fy + 9],
+      ],
+      Z_LIFT,
+    );
+    return;
+  }
   if (sip) {
     mug(fr, MUG_SIDE, 11, fy + 4, Z_LIFT);
     armAt(
@@ -186,11 +241,15 @@ const NAP_EARS = {
 
 const NAP_FACE = ['FFFhhFFF', 'FFFFFFFF', 'FmmFFmmF', 'fWWnnWWf', '.fWWWWf.'];
 
-/** breath: 0 = out, 1 = in (back rises 1 px). twitch: tail tip flicks. */
-function curl(fr, cat, breath, twitch) {
+/**
+ * breath: 0 = out, 1 = in (back rises 1 px). flick: the tail tip lifts.
+ * twitch: the left ear tip folds (a dream twitch).
+ */
+export function curl(fr, cat, breath, flick, twitch = false) {
   const body = breath ? [CURL_BODY[0], ...CURL_BODY] : CURL_BODY;
   fr.stamp(body, 1, 29 - body.length + 1, 'curl', Z.torso, { dir: 'down' });
-  const ears = NAP_EARS[cat.ears === 'big' ? 'big' : 'pointed'];
+  let ears = NAP_EARS[cat.ears === 'big' ? 'big' : 'pointed'];
+  if (twitch) ears = ['.......F', ...ears.slice(1)];
   const hy = 24;
   fr.stamp(ears, 2, hy - ears.length, 'head', Z.head, {
     rim: true,
@@ -200,7 +259,7 @@ function curl(fr, cat, breath, twitch) {
   fr.stamp(NAP_FACE, 2, hy, 'head', Z.head, { rim: true, dir: 'down' });
   // Front paws tucked under the chin.
   fr.stamp(['PP..PP'], 3, hy + 5, 'armL', Z.arm, { rim: true, dir: 'down' });
-  const tip = twitch ? [10, 29] : [10, 30];
+  const tip = flick ? [10, 29] : [10, 30];
   fr.stroke([[14, 25], [14, 28], [12, 30], tip], cat.tail === 'thin' ? 1 : 2, 'tail', Z.tailFront, {
     rim: true,
     tip: 2,
@@ -209,21 +268,23 @@ function curl(fr, cat, breath, twitch) {
   });
 }
 
-/** Extra frames in sheet order. Each entry draws one frame for a row direction. */
-export const IDLE_FRAMES = [
-  (fr, dir, cat) =>
+function drink(mode) {
+  return (fr, dir, cat) =>
     dir === 'down'
-      ? drinkDown(fr, false, cat)
+      ? drinkDown(fr, mode, cat)
       : dir === 'up'
-        ? drinkUp(fr, false, cat)
-        : drinkRight(fr, false, cat),
-  (fr, dir, cat) =>
-    dir === 'down'
-      ? drinkDown(fr, true, cat)
-      : dir === 'up'
-        ? drinkUp(fr, true, cat)
-        : drinkRight(fr, true, cat),
-  (fr, _dir, cat) => curl(fr, cat, 0, false),
-  (fr, _dir, cat) => curl(fr, cat, 1, false),
-  (fr, _dir, cat) => curl(fr, cat, 0, true),
+        ? drinkUp(fr, mode, cat)
+        : drinkRight(fr, mode, cat);
+}
+
+/** Named poses in sheet order (see poses.mjs). */
+export const IDLE_POSES = [
+  { name: 'drinkHold', draw: drink('hold') },
+  { name: 'drinkSip', draw: drink('sip') },
+  { name: 'napOut', draw: (fr, _d, cat) => curl(fr, cat, 0, false) },
+  { name: 'napIn', draw: (fr, _d, cat) => curl(fr, cat, 1, false) },
+  { name: 'napFlick', draw: (fr, _d, cat) => curl(fr, cat, 0, true) },
+  { name: 'drinkBlow', draw: drink('blow') },
+  { name: 'drinkHappy', draw: drink('happy') },
+  { name: 'napTwitch', draw: (fr, _d, cat) => curl(fr, cat, 0, false, true) },
 ];

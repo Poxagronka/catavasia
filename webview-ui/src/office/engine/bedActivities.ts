@@ -15,6 +15,7 @@ import { TILE_SIZE } from '../types.js';
 import type { SpotContext } from './activitySpots.js';
 import { itemsOfType, onItemSpots } from './activitySpots.js';
 import type { IdleActivityDef } from './idleActivities.js';
+import { HOUSE_NAP, NAP } from './idleAnims.js';
 
 /** Where a curled cat lies on a bed: px from the bottom tile's centre (see onItemSpots). */
 export const BED_POSES: Readonly<Record<string, { offsetX: number; offsetY: number }>> = {
@@ -36,9 +37,6 @@ export const HOUSE_PEEKS: Readonly<
 
 export const BED_TYPES = Object.keys(BED_POSES);
 export const HOUSE_TYPES = Object.keys(HOUSE_PEEKS);
-
-/** Nap frames (sheet frame 7 + index: 2-4 nap) shared by beds and houses. */
-const NAP_FRAMES = [2, 3, 2, 4] as const;
 
 function bedSpots(ctx: SpotContext): ActivitySpot[] {
   return BED_TYPES.flatMap((type) => {
@@ -70,8 +68,7 @@ export const BED_ACTIVITIES: IdleActivityDef[] = [
     id: 'bed',
     weight: 1,
     durationSec: [25, 60],
-    frames: NAP_FRAMES,
-    frameSec: 0.9,
+    ...NAP,
     spots: bedSpots,
     zzz: true,
     lowPosePx: 12,
@@ -80,8 +77,7 @@ export const BED_ACTIVITIES: IdleActivityDef[] = [
     id: 'house',
     weight: 1,
     durationSec: [25, 60],
-    frames: NAP_FRAMES,
-    frameSec: 0.9,
+    ...HOUSE_NAP,
     spots: houseSpots,
     zzz: true,
     lowPosePx: 12,

@@ -51,6 +51,7 @@ export function renderZzz(
 ): void {
   for (const ch of characters) {
     if (ch.state !== CharacterState.ACTIVITY || !getIdleActivity(ch.activity?.id)?.zzz) continue;
+    if (ch.activity?.part && ch.activity.part !== 'loop') continue; // awake: kneading, waking up
     const headY = ch.y - HEAD_ABOVE_ANCHOR_PX + activityHeadDropY(ch);
     drawZzz(
       ctx,
