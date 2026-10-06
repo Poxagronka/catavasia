@@ -5,6 +5,8 @@ import {
   PET_LITTER_FULL,
   PET_LITTER_USED_AFTER,
 } from '../../constants.js';
+import { furnitureKind } from '../layout/furnitureCatalog.js';
+import { itemFrame, spriteX } from '../layout/itemFrame.js';
 import { isHoodedLitterBox } from '../sprites/petCareSprites.js';
 import type { HousePeek, PlacedFurniture } from '../types.js';
 import { TILE_SIZE } from '../types.js';
@@ -45,10 +47,11 @@ export function litterFreshness(uses: number): number {
 
 /** Every litter box variant: LITTER_BOX (open tray) and LITTER_BOX_<variant>. */
 export function isLitterBoxType(type: string): boolean {
-  return type === 'LITTER_BOX' || type.startsWith('LITTER_BOX_');
+  const kind = furnitureKind(type);
+  return kind === 'LITTER_BOX' || kind.startsWith('LITTER_BOX_');
 }
 
-/** Where the face of a cat inside a hooded box looks out: the door's foot (sprite px). */
+/** Where the face of a cat inside a hooded box looks out: the door's foot (front-view sprite px). */
 const HOOD_DOOR = { x: 8, y: 11 };
 
 /**
@@ -58,11 +61,13 @@ const HOOD_DOOR = { x: 8, y: 11 };
  */
 export function boxPose(box: PlacedFurniture): { offsetY: number; peek?: HousePeek } {
   if (!isHoodedLitterBox(box.type)) return { offsetY: LITTER_SPOT_OFFSET_Y };
+  const frame = itemFrame(box.type);
   const peek: HousePeek = {
     kind: 'face',
-    x: box.col * TILE_SIZE + HOOD_DOOR.x,
+    x: box.col * TILE_SIZE + spriteX(frame, HOOD_DOOR.x),
     y: box.row * TILE_SIZE + HOOD_DOOR.y,
     zY: (box.row + 1) * TILE_SIZE + 1.5, // furniture sorts at +0, the front wall at +1
+    ...(frame.mirrored ? { mirrored: true } : {}),
   };
   return { offsetY: 0, peek };
 }

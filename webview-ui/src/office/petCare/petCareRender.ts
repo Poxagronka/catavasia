@@ -11,7 +11,8 @@ import {
 } from '../../constants.js';
 import type { FxDrawable } from '../engine/activityFx.js';
 import { fxDrawables } from '../engine/activityFx.js';
-import { getCatalogEntry } from '../layout/furnitureCatalog.js';
+import { furnitureKind, getCatalogEntry } from '../layout/furnitureCatalog.js';
+import { itemFrame } from '../layout/itemFrame.js';
 import {
   BAG_FRAMES,
   bowlSprite,
@@ -67,7 +68,7 @@ export function decorateFurniture(
   for (const f of placed) {
     const from = getCatalogEntry(f.type)?.sprite;
     if (!from) continue;
-    if (f.type === PET_BOWL_TYPE) {
+    if (furnitureKind(f.type) === PET_BOWL_TYPE) {
       const b = care.world.bowl(f.uid);
       swap.set(`${f.col},${f.row}`, { from, to: bowlSprite(b.food, b.water, PET_BOWL_MAX) });
     } else if (isLitterBoxType(f.type)) {
@@ -81,6 +82,7 @@ export function decorateFurniture(
         x: f.col * TILE_SIZE,
         y: f.row * TILE_SIZE,
         zY: (f.row + 1) * TILE_SIZE + 1,
+        ...(itemFrame(f.type).mirrored ? { mirrored: true } : {}),
       });
     }
   }

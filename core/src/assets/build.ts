@@ -63,6 +63,7 @@ export function buildFurnitureCatalog(assetsDir: string): CatalogEntry[] {
           canPlaceOnSurfaces: manifest.canPlaceOnSurfaces,
           backgroundTiles: manifest.backgroundTiles,
           groupId: manifest.id,
+          ...(manifest.rotationScheme ? { rotationScheme: manifest.rotationScheme } : {}),
         });
       } else {
         // Group manifest — flatten into individual assets

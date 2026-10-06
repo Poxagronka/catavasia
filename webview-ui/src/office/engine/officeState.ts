@@ -21,7 +21,12 @@ import {
   SPOT_CLAIM_RETRIES,
   WAITING_BUBBLE_DURATION_SEC,
 } from '../../constants.js';
-import { getAnimationFrames, getCatalogEntry, getOnStateType } from '../layout/furnitureCatalog.js';
+import {
+  furnitureKind,
+  getAnimationFrames,
+  getCatalogEntry,
+  getOnStateType,
+} from '../layout/furnitureCatalog.js';
 import {
   createDefaultLayout,
   getBlockedTiles,
@@ -542,7 +547,7 @@ export class OfficeState {
   }
 
   private chairSeat(group: string): string | null {
-    const chair = this.layout.furniture.find((f) => f.type.startsWith(group));
+    const chair = this.layout.furniture.find((f) => furnitureKind(f.type) === group);
     return chair && this.seats.has(chair.uid) ? chair.uid : null;
   }
 
@@ -1568,7 +1573,9 @@ export class OfficeState {
     const counts = this.taskCounts;
     const boards = new Set(
       counts
-        ? this.layout.furniture.filter((p) => p.type === WHITEBOARD_TYPE).map((p) => p.uid)
+        ? this.layout.furniture
+            .filter((p) => furnitureKind(p.type) === WHITEBOARD_TYPE)
+            .map((p) => p.uid)
         : [],
     );
     if (moving.size === 0 && frames.size === 0 && boards.size === 0) return this.furniture;

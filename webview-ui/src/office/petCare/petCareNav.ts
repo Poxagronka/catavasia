@@ -1,4 +1,5 @@
 import { ZOOMIES_MAX_TILES, ZOOMIES_MIN_TILES, ZOOMIES_PICKS } from '../../constants.js';
+import { furnitureKind } from '../layout/furnitureCatalog.js';
 import { findPath, isWalkable } from '../layout/tileMap.js';
 import type { Pet, PlacedFurniture, TileType as TileTypeVal } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
@@ -62,7 +63,7 @@ export function findBowlSpot(
 ): CareTarget | null {
   let best: CareTarget | null = null;
   for (const f of env.furniture) {
-    if (f.type !== PET_BOWL_TYPE) continue;
+    if (furnitureKind(f.type) !== PET_BOWL_TYPE) continue;
     const b = world.bowl(f.uid);
     if ((goal === 'eat' ? b.food : b.water) <= 0) continue;
     for (const [dc, dr] of [
@@ -188,12 +189,12 @@ export function hitTestCare(
   if (poop) return { kind: 'poop', id: poop.id };
   // A bowl may stand on a (walkable) litter box tile: the bowl wins the click.
   const at = (type: string) =>
-    furniture.find((f) => f.col === col && f.row === row && f.type === type);
+    furniture.find((f) => f.col === col && f.row === row && furnitureKind(f.type) === type);
   const item =
     at(PET_BOWL_TYPE) ??
     furniture.find((f) => f.col === col && f.row === row && isLitterBoxType(f.type));
   if (!item) return null;
-  return { kind: item.type === PET_BOWL_TYPE ? 'bowl' : 'box', item };
+  return { kind: furnitureKind(item.type) === PET_BOWL_TYPE ? 'bowl' : 'box', item };
 }
 
 export function faceTowards(pet: Pet, col: number, row: number): Direction {

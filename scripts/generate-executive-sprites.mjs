@@ -103,7 +103,12 @@ for (const item of EXECUTIVE_ITEMS) {
     };
   } else {
     const size = writePng(path.join(dir, `${item.id}.png`), item.rows, item.id);
-    manifest = { ...common, type: 'asset', ...size };
+    manifest = {
+      ...common,
+      type: 'asset',
+      ...size,
+      ...(item.rotationScheme ? { rotationScheme: item.rotationScheme } : {}),
+    };
   }
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 }

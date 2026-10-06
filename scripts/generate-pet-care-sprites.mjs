@@ -105,11 +105,14 @@ function writeFurniture(id, name, rows, extra) {
 
 // Furniture: the catalog sprite is the full bowl / the clean box. The
 // webview swaps in the fill-state sprites below at render time.
-writeFurniture('PET_BOWL', 'Food & water bowl', bowl(3, 3));
+writeFurniture('PET_BOWL', 'Food & water bowl', bowl(3, 3), { rotationScheme: 'symmetric' });
 // Litter boxes: the catalog sprite is the clean box on used litter. The cat
 // steps INTO the box, so its tile stays walkable (backgroundTiles).
 for (const v of LITTER_VARIANTS) {
-  writeFurniture(v.id, v.name, litterBox(v, 0, 'used'), { backgroundTiles: 1 });
+  writeFurniture(v.id, v.name, litterBox(v, 0, 'used'), {
+    backgroundTiles: 1,
+    ...(v.rotationScheme ? { rotationScheme: v.rotationScheme } : {}),
+  });
 }
 
 const pack = {

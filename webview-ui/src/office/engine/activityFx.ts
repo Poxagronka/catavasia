@@ -16,6 +16,7 @@ import {
   characterDrawOffsetX,
   characterDrawOffsetY,
   isSprinting,
+  stepDirection,
 } from './characters.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 
@@ -321,7 +322,7 @@ function activityFx(ch: Character): FxDrawable[] {
   }
   const step = activityStep(ch);
   if (!step?.fx || !ch.activity) return [];
-  const dir = step.dir ?? ch.dir;
+  const dir = stepDirection(ch, step);
   const at = step.fxAt ?? ABOVE_HEAD;
   const [fx, fy] =
     'down' in at ? (dir === Direction.DOWN ? at.down : dir === Direction.UP ? at.up : at.side) : at;

@@ -27,9 +27,17 @@ const FACE_BLINK = ['o....o', 'Fo..oF', 'FFFFFF', 'FFFFFF', 'FoFFoF'];
 
 const cache = new Map<string, SpriteData>();
 
-/** The ears / tail / face sprite in this fur color; `twitch`: the ear folds or the tail flicks. */
-export function peekSprite(kind: HousePeek['kind'], fur: string, twitch = false): SpriteData {
-  const key = `${kind}:${fur}:${twitch}`;
+/**
+ * The ears / tail / face sprite in this fur color; `twitch`: the ear folds or
+ * the tail flicks; `mirrored`: flipped, for a mirrored house (the tail).
+ */
+export function peekSprite(
+  kind: HousePeek['kind'],
+  fur: string,
+  twitch = false,
+  mirrored = false,
+): SpriteData {
+  const key = `${kind}:${fur}:${twitch}:${mirrored}`;
   let s = cache.get(key);
   if (!s) {
     const rows = {
@@ -44,7 +52,10 @@ export function peekSprite(kind: HousePeek['kind'], fur: string, twitch = false)
       p: HOUSE_PEEK_INNER_EAR_COLOR,
       w: HOUSE_PEEK_EYE_COLOR,
     };
-    s = rows.map((r) => [...r].map((c) => color[c] ?? ''));
+    s = rows.map((r) => {
+      const px = [...r].map((c) => color[c] ?? '');
+      return mirrored ? px.reverse() : px;
+    });
     cache.set(key, s);
   }
   return s;
@@ -58,6 +69,15 @@ function isDark(hex: string): boolean {
   return lum < 64;
 }
 
+/**
+ * The peek sprite's left px for its anchor. An odd-width sprite has its
+ * extra column right of the anchor; mirrored, it moves to the left.
+ */
+export function peekLeft(peek: HousePeek, width: number): number {
+  const half = peek.mirrored ? Math.ceil(width / 2) : Math.floor(width / 2);
+  return peek.x - half;
+}
+
 /** A z-sorted drawable of the peek, in front of its house. */
 export function peekDrawable(
   peek: HousePeek,
@@ -67,9 +87,9 @@ export function peekDrawable(
   zoom: number,
   twitch = false,
 ): { zY: number; draw: (c: CanvasRenderingContext2D) => void } {
-  const sprite = peekSprite(peek.kind, fur, twitch);
+  const sprite = peekSprite(peek.kind, fur, twitch, peek.mirrored);
   const img = getCachedSprite(sprite, zoom);
-  const left = peek.x - Math.floor(sprite[0].length / 2);
+  const left = peekLeft(peek, sprite[0].length);
   const top = peek.y - sprite.length;
   const x = Math.round(offsetX + left * zoom);
   const y = Math.round(offsetY + top * zoom);

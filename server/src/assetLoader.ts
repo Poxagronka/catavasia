@@ -125,6 +125,7 @@ export async function loadFurnitureAssets(workspaceRoot: string): Promise<Loaded
               canPlaceOnSurfaces: manifest.canPlaceOnSurfaces,
               backgroundTiles: manifest.backgroundTiles,
               groupId: manifest.id,
+              ...(manifest.rotationScheme ? { rotationScheme: manifest.rotationScheme } : {}),
             },
           ];
         } else {

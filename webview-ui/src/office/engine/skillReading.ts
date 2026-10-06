@@ -7,7 +7,7 @@
  * for a short skill. With no reachable free shelf the cat reads at its desk.
  */
 
-import { getCatalogEntry } from '../layout/furnitureCatalog.js';
+import { itemFrame } from '../layout/itemFrame.js';
 import { isWalkable } from '../layout/tileMap.js';
 import type { ActivitySpot } from '../types.js';
 import { Direction } from '../types.js';
@@ -25,7 +25,7 @@ export const SKILL_READ_MIN_SEC = 4;
 /** Seconds a cat with no reachable shelf reads at its desk. */
 export const DESK_READ_SEC = 6;
 
-/** The book a cat takes is in the right column of the shelf (shelfGap.ts GAPS: x 27-28). */
+/** The book a cat takes is in the right column of the front view (shelfGap.ts GAPS: x 27-28). */
 const BOOK_COL = 1;
 
 const UP = Direction.UP;
@@ -60,8 +60,8 @@ const READ: AnimParts = {
 export function shelfSpots(ctx: SpotContext): ActivitySpot[] {
   const out: ActivitySpot[] = [];
   for (const item of itemsOfType(ctx, SHELF_TYPES)) {
-    const h = getCatalogEntry(item.type)?.footprintH ?? 1;
-    const col = item.col + BOOK_COL;
+    const { w, h, mirrored } = itemFrame(item.type);
+    const col = item.col + (mirrored ? w - 1 - BOOK_COL : BOOK_COL);
     // Stand back far enough that the top shelf (and the gap) shows above the head.
     const row = item.row + Math.max(h, 2);
     if (!isWalkable(col, row, ctx.tileMap, ctx.blockedTiles)) continue;

@@ -15,6 +15,7 @@ import {
   WANDER_PAUSE_MIN_SEC,
   ZOOMIES_SPEED_MUL,
 } from '../../constants.js';
+import { mirrorDirection } from '../layout/itemFrame.js';
 import { findPath } from '../layout/tileMap.js';
 import type { CharacterSprites } from '../sprites/spriteData.js';
 import { isReadingToolName } from '../toolUtils.js';
@@ -431,6 +432,15 @@ export function characterDrawOffsetX(ch: Character): number {
   return (ch.activity?.spot?.offsetX ?? 0) + (ch.dir === Direction.LEFT ? -dx : dx);
 }
 
+/**
+ * The way a step faces: its own `dir` (LEFT and RIGHT swapped at a mirrored
+ * item: poses are written for the item's front view), else the cat's.
+ */
+export function stepDirection(ch: Character, step: AnimStep): Direction {
+  if (step.dir === undefined) return ch.dir;
+  return ch.activity?.spot?.mirrored ? mirrorDirection(step.dir) : step.dir;
+}
+
 /** The animation step a cat at its activity plays now. */
 export function activityStep(ch: Character): AnimStep | undefined {
   if (ch.state !== CharacterState.ACTIVITY || !ch.activity) return undefined;
@@ -502,7 +512,7 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
       if (def?.walkAnim && ch.activity?.part === 'loop') return sprites.walk[ch.dir][ch.frame % 4];
       const step = activityStep(ch);
       if (!step) return sprites.walk[ch.dir][1];
-      const dir = step.dir ?? ch.dir;
+      const dir = stepDirection(ch, step);
       if (step.walk) {
         const n = Math.floor((ch.activity?.elapsed ?? 0) / WALK_FRAME_DURATION_SEC) % 4;
         return sprites.walk[dir][n];

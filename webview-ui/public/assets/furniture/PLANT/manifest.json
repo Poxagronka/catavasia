@@ -3,6 +3,7 @@
   "name": "Plant",
   "category": "decor",
   "type": "asset",
+  "rotationScheme": "symmetric",
   "canPlaceOnWalls": false,
   "canPlaceOnSurfaces": false,
   "backgroundTiles": 1,

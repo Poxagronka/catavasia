@@ -3,6 +3,7 @@
   "name": "Table",
   "category": "desks",
   "type": "asset",
+  "rotationScheme": "symmetric",
   "canPlaceOnWalls": false,
   "canPlaceOnSurfaces": false,
   "backgroundTiles": 1,

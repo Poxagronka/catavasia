@@ -300,13 +300,24 @@ const CAT_TREE = [
  * Every toy: one furniture folder with a manifest. footprint and
  * backgroundTiles follow the existing assets (a tall item blocks only its
  * bottom row). `frames`: an animation group (frame 0 = rows), picked by an
- * activity step's `item` (the yarn ball turning as it rolls).
+ * activity step's `item` (the yarn ball turning as it rolls). `rotationScheme:
+ * 'symmetric'`: R keeps the toy as it is; any other toy turns as a mirror
+ * image (docs/catavasia/furniture.md).
  */
 export const TOYS = [
-  { id: 'SCRATCHING_POST', name: 'Scratching Post', rows: SCRATCHING_POST, fw: 1, fh: 2, bg: 1 },
+  {
+    id: 'SCRATCHING_POST',
+    name: 'Scratching Post',
+    rows: SCRATCHING_POST,
+    fw: 1,
+    fh: 2,
+    bg: 1,
+    rotationScheme: 'symmetric',
+  },
   { id: 'CAT_TREE', name: 'Cat Tree', rows: CAT_TREE, fw: 2, fh: 3, bg: 2 },
   {
     id: 'YARN_BALL',
+    rotationScheme: 'symmetric',
     name: 'Ball of Yarn',
     rows: YARN_FRAMES[0],
     frames: YARN_FRAMES,
@@ -314,9 +325,17 @@ export const TOYS = [
     fh: 1,
     bg: 0,
   },
-  { id: 'CARDBOARD_BOX', name: 'Cardboard Box', rows: BOX_ROWS, fw: 1, fh: 1, bg: 0 },
+  {
+    id: 'CARDBOARD_BOX',
+    name: 'Cardboard Box',
+    rows: BOX_ROWS,
+    fw: 1,
+    fh: 1,
+    bg: 0,
+    rotationScheme: 'symmetric',
+  },
   { id: 'FEATHER_TEASER', name: 'Feather Teaser', rows: TEASER, fw: 1, fh: 2, bg: 1 },
   { id: 'PLAY_TUNNEL', name: 'Play Tunnel', rows: TUNNEL, fw: 2, fh: 1, bg: 0 },
-  { id: 'CAT_BED', name: 'Cat Bed', rows: BED, fw: 1, fh: 1, bg: 0 },
+  { id: 'CAT_BED', name: 'Cat Bed', rows: BED, fw: 1, fh: 1, bg: 0, rotationScheme: 'symmetric' },
   { id: 'TOY_MOUSE', name: 'Toy Mouse', rows: MOUSE, fw: 1, fh: 1, bg: 0 },
 ];

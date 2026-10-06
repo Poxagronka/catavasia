@@ -13,7 +13,7 @@ import {
   WHITEBOARD_NOTE_COLORS,
   WHITEBOARD_NOTE_SHADOW as SHADOW,
 } from '../../constants.js';
-import { getCatalogEntry } from '../layout/furnitureCatalog.js';
+import { furnitureKind, getCatalogEntry } from '../layout/furnitureCatalog.js';
 import type { PlacedFurniture, SpriteData } from '../types.js';
 import { TILE_SIZE } from '../types.js';
 
@@ -52,7 +52,7 @@ export function whiteboardAt(
   furniture: readonly PlacedFurniture[],
 ): PlacedFurniture | undefined {
   return furniture.find((f) => {
-    if (f.type !== WHITEBOARD_TYPE) return false;
+    if (furnitureKind(f.type) !== WHITEBOARD_TYPE) return false;
     const entry = getCatalogEntry(f.type);
     const w = (entry?.footprintW ?? 2) * TILE_SIZE;
     const h = (entry?.footprintH ?? 2) * TILE_SIZE;

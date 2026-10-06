@@ -32,7 +32,11 @@ allure-report/
 !.env.example
 
 # Project-specific
-.claude
+# Local Claude Code state; the project skills, the skill-loop protocol and its judge agent are shared
+.claude/*
+!.claude/skills/
+!.claude/skill-loop/
+!.claude/agents/
 .mcp.json
 /sprites-export
 .vercel/
@@ -50,3 +54,5 @@ agent-orchestrator.yaml
 .ao/
 .serena/
 tasks/
+preview-out/
+.skill-runs/
