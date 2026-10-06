@@ -40,6 +40,7 @@ import { orchestratorEvents } from './orchestratorEvents.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
 import { installTestHooks } from './testHooks.js';
 import { transport } from './transport/index.js';
+import { UpdateBanner } from './update/UpdateBanner.js';
 
 // Game state lives outside React — updated imperatively by message handlers
 const officeStateRef = { current: null as OfficeState | null };
@@ -622,6 +623,8 @@ function App() {
       />
 
       <ConnectionIndicator />
+
+      {isBrowserRuntime && <UpdateBanner />}
 
       <ChangelogModal
         isOpen={isChangelogOpen}

@@ -31,6 +31,7 @@ import { registerOfficeMcpRoute } from './orchestrator/officeMcp.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { TaskBusyError, TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
+import { registerUpdateRoutes, type SelfUpdate } from './update/updateRoutes.js';
 
 /** Options for creating the HTTP + WebSocket server. */
 export interface HttpServerOptions {
@@ -62,6 +63,8 @@ export interface HttpServerOptions {
   orchestrator?: Orchestrator;
   /** Narrator (standalone only). Sends its state to each new client. */
   narrator?: Narrator;
+  /** Self-update (standalone only). Enables the /api/update routes. */
+  update?: SelfUpdate;
 }
 
 /** Result of createHttpServer(). */
@@ -101,20 +104,22 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
   // ── Routes ──────────────────────────────────────────────────
 
+  const isPrivileged = (req: FastifyRequest) =>
+    timingSafeStringEqual(req.headers.authorization ?? '', `Bearer ${options.token}`) ||
+    standaloneTokenValid(req.url, options.token);
   registerHealthRoute(app);
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
   if (options.tasks) registerTaskRoutes(app, options.tasks, options.token);
   if (options.orchestrator) registerOfficeMcpRoute(app, options.orchestrator);
+  if (options.update) registerUpdateRoutes(app, options.update, isPrivileged);
   if (options.tasks) {
     registerCatTerminalRoutes(app, {
       // Profile cats (cat office) first; task-board cats fall through.
       source: options.orchestrator
         ? new OfficeCatSource(options.orchestrator, options.tasks)
         : new TaskBoardCatSource(options.tasks),
-      isPrivileged: (req) =>
-        timingSafeStringEqual(req.headers.authorization ?? '', `Bearer ${options.token}`) ||
-        standaloneTokenValid(req.url, options.token),
+      isPrivileged,
       isSameOrigin: (req) => isAllowedWebSocketOrigin(req.headers.origin, req.headers.host),
       pty: ptyModule,
     });
@@ -136,6 +141,8 @@ function registerHealthRoute(app: FastifyInstance): void {
     status: 'ok',
     uptime: Math.floor((Date.now() - startTime) / 1000),
     pid: process.pid,
+    // A self-updating tab polls this until the new version answers.
+    version: process.env.PIXEL_AGENTS_VERSION ?? '',
   }));
 }
 
