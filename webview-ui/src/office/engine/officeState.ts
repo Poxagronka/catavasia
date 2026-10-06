@@ -727,8 +727,11 @@ export class OfficeState {
       if (next) {
         this.reassignSeat(otherId, next);
       } else {
+        // No free seat: it stands up and steps off the chair (a rare full office).
         this.seats.get(seatId)!.assigned = false;
         other.seatId = null;
+        other.state = CharacterState.IDLE;
+        this.relocateCharacterToWalkable(other);
       }
     }
   }

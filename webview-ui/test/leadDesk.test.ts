@@ -144,6 +144,25 @@ test('a new root moves to the lead desk; the old one gives the chair up', () => 
   runUntil(os, () => seatedAt(os, 2, CHAIR));
 });
 
+test('in a full office the old lead stands up from the chair for the new one', () => {
+  const os = office(3, 1);
+  runUntil(os, () => seatedAt(os, 1, CHAIR));
+  // Every other seat is taken: no free seat is left for the old lead.
+  for (const s of os.seats.values()) s.assigned = true;
+  os.setResidentCats([
+    resident(1, { working: true }),
+    resident(2, { lead: true, working: true }),
+    resident(3, { working: true }),
+  ]);
+  const old = os.characters.get(1)!;
+  const seat = os.seats.get(CHAIR)!;
+  assert.equal(os.characters.get(2)!.seatId, CHAIR);
+  assert.equal(old.seatId, null);
+  assert.equal(old.state, CharacterState.IDLE, 'the old lead no longer types on the chair');
+  assert.ok(old.tileCol !== seat.seatCol || old.tileRow !== seat.seatRow, 'it left the chair');
+  runUntil(os, () => seatedAt(os, 2, CHAIR));
+});
+
 test('the lead walks back to its desk when a task turn starts', () => {
   const os = office(2, 1);
   const lead = os.characters.get(1)!;
