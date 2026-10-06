@@ -20,7 +20,7 @@ import {
   PetActivities,
   petAnimFor,
 } from '../src/office/engine/petActivities.js';
-import { createPet, getPetSpriteData } from '../src/office/engine/petEntity.js';
+import { createPet, getPetSpriteData, updatePet } from '../src/office/engine/petEntity.js';
 import {
   PET_PLAY_ANIMS,
   petPlayFx,
@@ -244,4 +244,35 @@ test('a joint-play turn plays the toy pose at the pet side, the hop elsewhere', 
   care.playTurn(pet, 2, 'yarn', spot({ col: 6 }));
   care.update(0.1, env);
   assert.equal((pet as Pet).careAnim?.kind, 'play', 'away from its side: the hop');
+});
+
+test('a scene turning the pet keeps its play pose at the toy; a tunnel run never stretches', () => {
+  const care = new PetCareSystem();
+  const pet = createPet('cat', 0, 3, 3);
+  const env: PetCareEnv = {
+    pets: [pet],
+    furniture: [],
+    tileMap: openMap(8, 8),
+    blockedTiles: new Set(),
+    isCat: () => true,
+  };
+  care.playTurn(pet, 2, 'yarn', spot({ facing: Direction.RIGHT }));
+  care.update(0.1, env);
+  pet.dir = Direction.LEFT; // the scene faces the partner
+  const sprites = sheet(blob);
+  assert.equal(petPlayView(pet, sprites)?.dir, Direction.RIGHT);
+  assert.equal(care.currentClaim(pet.id)?.joint, true, 'a turn is never resumed after a fight');
+  care.interrupt(pet);
+  // A talk extends a play, but not the fixed tunnel run.
+  const provider = new PetActivities(host(() => 0.5));
+  const claim = provider.claimAt(pet, 'tunnel', spot({ exit: { col: 7, row: 3 } }));
+  assert.ok(typeof claim === 'object');
+  assert.ok(care.startClaim(pet, claim, env));
+  for (let i = 0; i < 200 && !pet.careAnim; i++) {
+    care.update(0.05, env);
+    if (!care.isBusy(pet.id)) updatePet(pet, 0.05, [], new Map(), env.tileMap, env.blockedTiles);
+  }
+  care.extend(pet.id, 5);
+  care.update(0.05, env);
+  assert.equal(pet.careAnim?.dur, petPlaySec('tunnel'));
 });

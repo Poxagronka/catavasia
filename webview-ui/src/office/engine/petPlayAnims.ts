@@ -245,6 +245,8 @@ export interface PetPlayView {
   /** Inside the tunnel: not drawn. */
   hidden: boolean;
   dir: Direction;
+  /** -1 when the pose is drawn flipped (facing left, or a front pose at a mirrored item). */
+  sign: 1 | -1;
   step: PetStep;
   stepT: number;
 }
@@ -271,7 +273,8 @@ export function petPlayView(pet: Pet, sprites: PetSpriteFrames): PetPlayView | n
   const base = PET_PLAY_ANIMS[anim.kind].base ?? { dx: 0, dy: 0 };
   let x = rest?.offsetX ?? 0;
   let y = (rest?.offsetY ?? 0) + base.dy;
-  let dir = pet.dir;
+  // The spot's facing: a scene turns the pet to its partner, the pose stays at the toy.
+  let dir = rest?.facing ?? pet.dir;
   if (step.pose === 'run') {
     const exit = rest?.exit ?? { dx: 0, dy: 0 };
     const p = Math.min(1, stepT / step.sec);
@@ -293,7 +296,8 @@ export function petPlayView(pet: Pet, sprites: PetSpriteFrames): PetPlayView | n
             ? sprites.walkLeft
             : sprites.walkRight;
     const sprite = frames[Math.floor(stepT / 0.1) % 3];
-    return { sprite, x, y, hidden: along > lip && along < len - lip, dir, step, stepT };
+    const sign = dir === Direction.LEFT ? -1 : 1;
+    return { sprite, x, y, hidden: along > lip && along < len - lip, dir, sign, step, stepT };
   }
   const pose = getPlayPoses(sprites)[step.pose];
   const side = dir === Direction.LEFT || dir === Direction.RIGHT;
@@ -308,7 +312,7 @@ export function petPlayView(pet: Pet, sprites: PetSpriteFrames): PetPlayView | n
   const sign = dir === Direction.LEFT || (!side && rest?.mirrored) ? -1 : 1;
   x += ((step.dx ?? 0) + base.dx) * sign;
   y += step.dy ?? 0;
-  return { sprite, x, y, hidden: false, dir, step, stepT };
+  return { sprite, x, y, hidden: false, dir, sign, step, stepT };
 }
 
 /** Effects of the pet's play step (claw marks, sparkles, the tunnel's rustle), in world px. */
@@ -327,7 +331,7 @@ export function petPlayFx(pet: Pet, sprites: PetSpriteFrames | null): FxDrawable
   }
   if (!v.step.fx) return [];
   const [fx, fy] = v.step.fxAt ?? ABOVE;
-  const mirror = v.dir === Direction.LEFT;
+  const mirror = v.sign < 0;
   const at = { x: pet.x + v.x + (mirror ? -fx : fx), y: pet.y + v.y + fy, mirror, zY };
   return fxDrawables(v.step.fx, at, v.stepT);
 }
@@ -340,6 +344,6 @@ export function petToyMotion(
   const v = sprites ? petPlayView(pet, sprites) : null;
   if (!v) return null;
   if (v.hidden) return { dx: 0, dy: Math.floor((pet.x + v.x) / 3) % 2 ? -1 : 0, hidden: true };
-  const flip = v.dir === Direction.LEFT ? -1 : 1;
+  const flip = v.sign;
   return { dx: (v.step.px ?? 0) * flip, dy: v.step.py ?? 0, item: v.step.item, hidden: false };
 }

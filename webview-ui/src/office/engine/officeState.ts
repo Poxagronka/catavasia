@@ -1509,8 +1509,9 @@ export class OfficeState {
 
   /**
    * Send a content cat pet to an activity now (screenshots, tests): it claims
-   * the spot (`spotKey`, else the first free one) and walks there like an
-   * idle pick. False when the pet, the activity or a free spot is missing.
+   * the spot (`spotKey`, else the activity's first spot) and walks there like
+   * an idle pick. False when the pet, the activity or the spot is missing, or
+   * another cat holds it (a contest fight may start then).
    */
   forcePetActivity(petId: string, activityId: string, spotKey?: string): boolean {
     const pet = this.pets.find((p) => p.id === petId);

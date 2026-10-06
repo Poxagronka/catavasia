@@ -178,7 +178,7 @@ export class CatLife {
     }
     const pet = this.petOf(id);
     const claim = pet ? this.w.petCare.currentClaim(pet.id) : null;
-    if (!pet || !claim) return null;
+    if (!pet || !claim || claim.joint) return null;
     return () => this.w.petCare.startClaim(pet, claim, this.w.petCareEnv());
   }
 

@@ -435,6 +435,8 @@ export interface PetRest {
   peek?: HousePeek;
   /** The item is drawn mirrored: a front-view pose flips with it. */
   mirrored?: boolean;
+  /** The spot's facing: a play pose keeps it while a scene turns the pet to a partner. */
+  facing?: Direction;
   /** A run-through toy (the tunnel): px from the spot to the far end. */
   exit?: { dx: number; dy: number };
 }

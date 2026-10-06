@@ -29,6 +29,8 @@ export interface PetActivityClaim {
   keys?: string[];
   /** A nap: energy refills while it lasts, and the cat wakes once it is full. */
   sleep?: boolean;
+  /** A joint-play turn (the scene holds the spot): never resumed after a fight. */
+  joint?: boolean;
 }
 
 export interface PetActivityProvider {

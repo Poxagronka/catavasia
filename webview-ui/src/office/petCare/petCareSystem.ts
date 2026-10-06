@@ -47,6 +47,7 @@ import {
   ZOOMIES_DASHES_MAX,
   ZOOMIES_DASHES_MIN,
 } from '../../constants.js';
+import { isPetPlayAnim, PET_PLAY_ANIMS } from '../engine/petPlayAnims.js';
 import { furnitureKind } from '../layout/furnitureCatalog.js';
 import type { ActivitySpot, Pet, PetRest, PlacedFurniture } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
@@ -357,7 +358,8 @@ export class PetCareSystem {
   /** Keep the pet `sec` longer in its current pose (it stays for a talk). */
   extend(petId: string, sec: number): void {
     const anim = this.runtime.get(petId)?.anim;
-    if (anim) anim.dur += sec;
+    // A fixed play (the tunnel run) ends on its own: a longer one would freeze mid-run.
+    if (anim && !(isPetPlayAnim(anim.kind) && PET_PLAY_ANIMS[anim.kind].fixed)) anim.dur += sec;
   }
 
   /**
@@ -377,7 +379,15 @@ export class PetCareSystem {
     pet.dir = spot.facing;
     pet.rest = restAt(spot, false);
     // The toy moves with the pose (OfficeState reads the claim's spot); no keys: the scene holds them.
-    r.claim = { kind: anim, col: spot.col, row: spot.row, durationSec: sec, spot, anim };
+    r.claim = {
+      kind: anim,
+      col: spot.col,
+      row: spot.row,
+      durationSec: sec,
+      spot,
+      anim,
+      joint: true,
+    };
   }
 
   /** Tiles this pet may target (free or contestable); everything without a broker. */
@@ -723,6 +733,7 @@ function restAt(spot: ActivitySpot | undefined, zzz: boolean): PetRest {
     offsetY: spot?.offsetY ?? 0,
     zzz,
     peek: spot?.peek,
+    ...(spot ? { facing: spot.facing } : {}),
     ...(spot?.mirrored ? { mirrored: true } : {}),
     ...(spot?.exit
       ? {
