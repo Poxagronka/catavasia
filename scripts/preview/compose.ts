@@ -15,15 +15,23 @@ import {
   getCharacterSprite,
   peekNow,
 } from '../../webview-ui/src/office/engine/characters.ts';
-import { peekLeft, peekSprite, peekTwitch } from '../../webview-ui/src/office/engine/housePeek.ts';
+import {
+  dominantFur,
+  peekLeft,
+  peekSprite,
+  peekTwitch,
+} from '../../webview-ui/src/office/engine/housePeek.ts';
 import type { OfficeState } from '../../webview-ui/src/office/engine/officeState.ts';
 import { isHiddenInRunThrough } from '../../webview-ui/src/office/engine/runThrough.ts';
 import { socialSpriteFor } from '../../webview-ui/src/office/engine/socialRender.ts';
 import { buildDynamicCatalog } from '../../webview-ui/src/office/layout/furnitureCatalog.ts';
-import { decorateFurniture } from '../../webview-ui/src/office/petCare/petCareRender.ts';
+import { getPetSpriteData } from '../../webview-ui/src/office/engine/petEntity.ts';
+import { petPlayView } from '../../webview-ui/src/office/engine/petPlayAnims.ts';
+import { decorateFurniture, petCareFx } from '../../webview-ui/src/office/petCare/petCareRender.ts';
+import { getPetSpritesFor } from '../../webview-ui/src/office/sprites/petSpriteData.ts';
 import { furColorOf } from '../../webview-ui/src/office/sprites/socialSprites.ts';
 import { getCharacterSprites } from '../../webview-ui/src/office/sprites/spriteData.ts';
-import type { SpriteData } from '../../webview-ui/src/office/types.ts';
+import type { Pet, SpriteData } from '../../webview-ui/src/office/types.ts';
 import { TILE_SIZE, TileType } from '../../webview-ui/src/office/types.ts';
 
 export const ASSETS = path.resolve(
@@ -157,7 +165,30 @@ export function renderOffice(os: OfficeState, nowSec: number): Img {
     const y = Math.round(ch.y + characterDrawOffsetY(ch) - s.length);
     draws.push({ zY: ch.y + TILE_SIZE / 2 + 0.5, draw: () => img.sprite(s, x, y) });
   }
+  for (const pet of os.pets) drawPet(pet, draws, img);
   draws.sort((a, b) => a.zY - b.zY);
   for (const d of draws) d.draw();
+  // Pet effects draw over the scene, like renderPetCareOverlay.
+  for (const pet of os.pets)
+    for (const d of petCareFx(pet, nowSec)) img.sprite(d.sprite, d.x, d.y, false, d.alpha ?? 1);
   return img;
+}
+
+/** A pet the way renderer.ts draws it: its pose, play offsets, a house peek. */
+function drawPet(pet: Pet, draws: Array<{ zY: number; draw: () => void }>, img: Img): void {
+  const sprites = getPetSpritesFor(pet);
+  const s = getPetSpriteData(pet, sprites);
+  if (!s || !sprites) return;
+  const peek = pet.rest?.peek;
+  if (peek) {
+    const p = peekSprite(peek.kind, dominantFur(sprites.idleDown[0]), false, peek.mirrored);
+    const x = peekLeft(peek, p[0].length);
+    draws.push({ zY: peek.zY, draw: () => img.sprite(p, x, peek.y - p.length) });
+    return;
+  }
+  const play = petPlayView(pet, sprites);
+  if (play?.hidden) return;
+  const x = Math.round(pet.x + (play ? play.x : (pet.rest?.offsetX ?? 0)) - s[0].length / 2);
+  const y = Math.round(pet.y + (play ? play.y : (pet.rest?.offsetY ?? 0)) - s.length);
+  draws.push({ zY: pet.y + TILE_SIZE / 2, draw: () => img.sprite(s, x, y) });
 }

@@ -47,14 +47,14 @@ const BODY_FRACTION = 0.6;
 /** Hop heights (px) of the play cycle. */
 const PLAY_HOPS = [0, 2, 3, 2];
 
-interface Box {
+export interface Box {
   minX: number;
   maxX: number;
   minY: number;
   maxY: number;
 }
 
-function bbox(s: SpriteData): Box {
+export function bbox(s: SpriteData): Box {
   const box = { minX: Infinity, maxX: -1, minY: Infinity, maxY: -1 };
   s.forEach((row, y) =>
     row.forEach((px, x) => {
@@ -89,7 +89,7 @@ function outlineColor(s: SpriteData): string {
  * moved pixels overwrite whatever lies below. Columns x0-1..x0 and x1..x1+1
  * are then re-outlined so the seam does not show the fill color.
  */
-function lower(
+export function lower(
   s: SpriteData,
   x0: number,
   x1: number,
@@ -128,7 +128,7 @@ function pad(s: SpriteData, top: number, bottom: number): SpriteData {
   ];
 }
 
-function headDip(side: SpriteData, dy: number): SpriteData {
+export function headDip(side: SpriteData, dy: number): SpriteData {
   const b = bbox(side);
   const w = b.maxX - b.minX + 1;
   const cut = b.minY + Math.round((b.maxY - b.minY + 1) * BODY_FRACTION);
@@ -152,7 +152,7 @@ function withTongue(s: SpriteData): SpriteData {
  * Squat: the rump (rear ~45 %, minus the tail root) settles onto the hind
  * legs. The tail rows above the back stay put, so the tail stays raised.
  */
-function squat(side: SpriteData, dy: number): SpriteData {
+export function squat(side: SpriteData, dy: number): SpriteData {
   const b = bbox(side);
   const w = b.maxX - b.minX + 1;
   const h = b.maxY - b.minY + 1;
@@ -162,14 +162,14 @@ function squat(side: SpriteData, dy: number): SpriteData {
   return lower(side, x0, b.minX + Math.round(w * RUMP_FRACTION) - 1, backTop, legTop, dy);
 }
 
-function frontDip(front: SpriteData, dy: number): SpriteData {
+export function frontDip(front: SpriteData, dy: number): SpriteData {
   const b = bbox(front);
   const cut = b.minY + Math.round((b.maxY - b.minY + 1) * BODY_FRACTION);
   return lower(front, b.minX, b.maxX, b.minY, cut, dy);
 }
 
 /** Shift a whole sprite `dx` px sideways (the purr shiver). */
-function shiftX(s: SpriteData, dx: number): SpriteData {
+export function shiftX(s: SpriteData, dx: number): SpriteData {
   return s.map((row) => row.map((_, x) => row[x - dx] ?? ''));
 }
 
@@ -177,7 +177,7 @@ function shiftX(s: SpriteData, dx: number): SpriteData {
  * Digging in the litter: the front legs (front 40 %, bottom quarter) scrape
  * one pixel back or forward.
  */
-function dig(side: SpriteData, dx: number): SpriteData {
+export function dig(side: SpriteData, dx: number): SpriteData {
   const b = bbox(side);
   const w = b.maxX - b.minX + 1;
   const legTop = b.minY + Math.round((b.maxY - b.minY + 1) * LEG_FRACTION);
@@ -294,5 +294,7 @@ export function careSpriteFor(pet: Pet, sprites: PetSpriteFrames): SpriteData | 
       return pick(poses.sleep);
     case 'grimace':
       return pick(poses.grimace);
+    default:
+      return null; // a play pose (engine/petPlayAnims.ts)
   }
 }

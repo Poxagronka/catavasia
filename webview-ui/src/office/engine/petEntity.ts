@@ -18,6 +18,7 @@ import { careSpriteFor } from '../sprites/petCareFrames.js';
 import type { PetSpriteFrames } from '../sprites/petSpriteData.js';
 import type { Character, Pet, SpriteData, TileType as TileTypeVal } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
+import { petPlayView } from './petPlayAnims.js';
 
 /** Inclusive-min / exclusive-max random float */
 function randomRange(min: number, max: number): number {
@@ -319,6 +320,8 @@ export function updatePet(
 export function getPetSpriteData(pet: Pet, petSprites: PetSpriteFrames | null): SpriteData | null {
   if (!petSprites) return null;
 
+  const play = petPlayView(pet, petSprites);
+  if (play) return play.sprite;
   const care = careSpriteFor(pet, petSprites);
   if (care) return care;
 
