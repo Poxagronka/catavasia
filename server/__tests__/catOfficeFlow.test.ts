@@ -276,8 +276,8 @@ describe('team task (1 boss + 2 workers)', () => {
 
     const boss = userRows('boss');
     expect(boss[0]).toBe('make two files');
-    expect(boss).toContain('Report from Murka (murka):\nwrote murka.txt');
-    expect(userRows('murka')[0]).toBe('Task from Barsik (boss):\nwrite murka.txt');
+    expect(boss).toContain('Report from Luna (murka):\nwrote murka.txt');
+    expect(userRows('murka')[0]).toBe('Task from Oliver (boss):\nwrite murka.txt');
     const all = [...boss, ...userRows('murka'), ...userRows('pushok')].join('\n');
     for (const scaffold of ['[Task from', 'Steps:', 'When you are done', '[Office]', '---']) {
       expect(all).not.toContain(scaffold);
