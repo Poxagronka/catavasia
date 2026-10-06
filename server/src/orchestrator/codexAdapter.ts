@@ -102,7 +102,7 @@ export class CodexAdapter implements EngineAdapter {
         this.cachedChoices = parseCodexModels(json);
       } catch (err) {
         const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
-        if (!missing) console.error(`[Pixel Agents] Cats: \`${this.bin} debug models\`: ${err}`);
+        if (!missing) console.error(`[catavasia] Cats: \`${this.bin} debug models\`: ${err}`);
         // Cached too: adapterFor() asks on every turn; a restart probes again.
         this.cachedChoices = {
           models: [],

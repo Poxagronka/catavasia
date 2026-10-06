@@ -182,7 +182,7 @@ function backupClaudeSettingsOnce(settingsPath: string): void {
   const backupPath = settingsPath + SETTINGS_BACKUP_SUFFIX;
   try {
     fs.copyFileSync(settingsPath, backupPath, fs.constants.COPYFILE_EXCL);
-    console.log(`[Pixel Agents] Backed up Claude settings to ${backupPath}`);
+    console.log(`[catavasia] Backed up Claude settings to ${backupPath}`);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
     if (!isRegularFile(backupPath)) {
@@ -604,7 +604,7 @@ export async function installHooks(): Promise<void> {
     });
   }
   if (wrote) {
-    console.log('[Pixel Agents] Hooks installed in ~/.claude/settings.json');
+    console.log('[catavasia] Hooks installed in ~/.claude/settings.json');
   }
 }
 
@@ -717,7 +717,7 @@ export async function uninstallHooks(): Promise<void> {
     });
   }
   if (wrote) {
-    console.log('[Pixel Agents] Hooks removed from ~/.claude/settings.json');
+    console.log('[catavasia] Hooks removed from ~/.claude/settings.json');
   }
 }
 
@@ -735,15 +735,15 @@ export function copyHookScript(extensionPath: string): boolean {
       fs.mkdirSync(dstDir, { recursive: true, mode: 0o700 });
     }
     if (!fs.existsSync(src)) {
-      console.warn(`[Pixel Agents] Hook script not found at ${src}`);
+      console.warn(`[catavasia] Hook script not found at ${src}`);
       return false;
     }
     fs.copyFileSync(src, dst);
     fs.chmodSync(dst, 0o700);
-    console.log(`[Pixel Agents] Hook script installed at ${dst}`);
+    console.log(`[catavasia] Hook script installed at ${dst}`);
     return true;
   } catch (e) {
-    console.error(`[Pixel Agents] Failed to copy hook script: ${e}`);
+    console.error(`[catavasia] Failed to copy hook script: ${e}`);
     return false;
   }
 }

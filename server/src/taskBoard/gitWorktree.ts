@@ -14,12 +14,7 @@ import { TASK_DIFF_MAX_BYTES } from '../constants.js';
 const GIT_MAX_BUFFER = 64 * 1024 * 1024;
 
 /** Identity used only when the repo has no user.email configured. */
-const FALLBACK_IDENTITY = [
-  '-c',
-  'user.name=Pixel Agents',
-  '-c',
-  'user.email=pixel-agents@localhost',
-];
+const FALLBACK_IDENTITY = ['-c', 'user.name=catavasia', '-c', 'user.email=catavasia@localhost'];
 
 function git(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {

@@ -121,7 +121,7 @@ Options:
  */
 function copyHookScriptOrReport(packageRoot: string, context = ''): boolean {
   if (copyHookScript(packageRoot)) return true;
-  console.error(`[Pixel Agents] Hooks NOT installed${context}: hook script missing.`);
+  console.error(`[catavasia] Hooks NOT installed${context}: hook script missing.`);
   return false;
 }
 
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
   try {
     args = parseArgs(process.argv.slice(2));
   } catch (err) {
-    console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`[catavasia] ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
   // tab stays privileged) and must be gone before this one takes the port.
   const inheritedToken = takeInheritedToken();
   if (!(await waitForPreviousServer(isProcessRunning))) {
-    console.error('[Pixel Agents] The previous server did not exit; not starting.');
+    console.error('[catavasia] The previous server did not exit; not starting.');
     process.exit(1);
   }
 
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
   // External asset directories are merged at startup too, so directories added
   // in a previous session survive a restart. buildAssetCache is the shared
   // loader used by both the standalone server and the VS Code adapter.
-  console.log('[Pixel Agents] Loading assets...');
+  console.log('[catavasia] Loading assets...');
   const assetCache: AssetCache = await buildAssetCache(
     distRoot,
     readConfig().externalAssetDirectories,
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
   const petCount = assetCache.pets?.pets.length ?? 0;
   const furnitureCount = assetCache.furniture?.catalog.length ?? 0;
   console.log(
-    `[Pixel Agents] Assets loaded: ${charCount} characters, ${petCount} pets, ${furnitureCount} furniture items`,
+    `[catavasia] Assets loaded: ${charCount} characters, ${petCount} pets, ${furnitureCount} furniture items`,
   );
   // An untouched older default office upgrades to the new default; an edited one stays.
   migrateUnmodifiedLayout(
@@ -248,16 +248,16 @@ async function main(): Promise<void> {
             currentConfig.token,
           );
         } catch (err) {
-          console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+          console.error(`[catavasia] ${err instanceof Error ? err.message : String(err)}`);
           return;
         }
-        console.log('[Pixel Agents] Hooks installed (user toggle)');
+        console.log('[catavasia] Hooks installed (user toggle)');
       } else {
         try {
           await provider.uninstallHooks();
-          console.log('[Pixel Agents] Hooks uninstalled (user toggle)');
+          console.log('[catavasia] Hooks uninstalled (user toggle)');
         } catch (err) {
-          console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+          console.error(`[catavasia] ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     };
@@ -297,7 +297,7 @@ async function main(): Promise<void> {
           sprites: Object.fromEntries(furniture.sprites),
         });
       }
-      console.log('[Pixel Agents] Assets reloaded (external directory change)');
+      console.log('[catavasia] Assets reloaded (external directory change)');
     };
 
     // Self-update: check the fixed repo, install from source only on approval.
@@ -377,21 +377,21 @@ async function main(): Promise<void> {
       }
       if (!consent) {
         console.log(
-          '[Pixel Agents] Hooks not installed: modifying ~/.claude/settings.json needs one-time approval — open the URL below to review and approve it.',
+          '[catavasia] Hooks not installed: modifying ~/.claude/settings.json needs one-time approval — open the URL below to review and approve it.',
         );
       } else if (copyHookScriptOrReport(packageRoot)) {
         try {
           await claudeProvider.installHooks(`http://127.0.0.1:${config.port}`, config.token);
-          console.log('[Pixel Agents] Hooks installed');
+          console.log('[catavasia] Hooks installed');
         } catch (err) {
-          console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+          console.error(`[catavasia] ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     } else {
       // Without this line, a persisted hooks-off makes startup skip the entire
       // consent/install flow with zero output — indistinguishable from a bug.
       console.log(
-        '[Pixel Agents] Hooks disabled — enable "Instant Detection (Hooks)" in the UI settings to install them.',
+        '[catavasia] Hooks disabled — enable "Instant Detection (Hooks)" in the UI settings to install them.',
       );
     }
 
@@ -400,7 +400,7 @@ async function main(): Promise<void> {
     const dirs = claudeProvider.getSessionDirs?.(cwd);
     if (dirs && dirs[0]) {
       const projectDir = dirs[0];
-      console.log(`[Pixel Agents] Scanning project dir: ${projectDir}`);
+      console.log(`[catavasia] Scanning project dir: ${projectDir}`);
       runtime.startProjectScan(projectDir);
       runtime.startExternalScanning(projectDir);
       runtime.startStaleCheck();
@@ -416,7 +416,7 @@ async function main(): Promise<void> {
     const displayHost =
       args.host === '0.0.0.0' || args.host === '::' || args.host === '' ? '127.0.0.1' : args.host;
     console.log(
-      `\n  Pixel Agents server running at http://${displayHost}:${config.port}/?token=${config.token}\n`,
+      `\n  catavasia server running at http://${displayHost}:${config.port}/?token=${config.token}\n`,
     );
 
     // ── Graceful shutdown ──

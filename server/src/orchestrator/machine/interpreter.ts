@@ -124,7 +124,7 @@ export class TaskRunner {
     try {
       step = event.type === 'TaskStarted' ? startTask(event) : reduce(this.state, event);
     } catch (err) {
-      console.error(`[Pixel Agents] Team task ${this.task.id}: ${String(err)}`);
+      console.error(`[catavasia] Team task ${this.task.id}: ${String(err)}`);
       if (event.type !== 'OfficeFailed')
         this.queue.push({ type: 'OfficeFailed', error: String(err) });
       return { text: 'The office failed on this call.', isError: true };
@@ -132,7 +132,7 @@ export class TaskRunner {
     this.state = step.state;
     const problems = checkInvariants(this.state);
     if (problems.length && isActive(this.state.phase)) {
-      console.error(`[Pixel Agents] Team task ${this.task.id}: ${problems.join('; ')}`);
+      console.error(`[catavasia] Team task ${this.task.id}: ${problems.join('; ')}`);
       this.queue.push({ type: 'OfficeFailed', error: problems.join('; ') });
     }
     this.task.flow = wireFlow(this.state);
@@ -351,7 +351,7 @@ export class TaskRunner {
     this.stop();
     this.host.finished(this);
     this.sink.ended(task);
-    console.log(`[Pixel Agents] Team task ${task.id} ${state.phase}`);
+    console.log(`[catavasia] Team task ${task.id} ${state.phase}`);
   }
 
   /** No more events: timers, tokens and held slots go. */

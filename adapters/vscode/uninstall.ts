@@ -15,7 +15,7 @@ import { uninstallHooks } from '../../server/src/providers/hook/claude/claudeHoo
 // (an unhandledRejection here would just be noise in VS Code's uninstall flow).
 uninstallHooks()
   .catch((err: unknown) => {
-    console.error(`[Pixel Agents] ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`[catavasia] ${err instanceof Error ? err.message : String(err)}`);
   })
   .finally(() => {
     resetHooksConfig();

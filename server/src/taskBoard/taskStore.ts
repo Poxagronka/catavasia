@@ -51,7 +51,7 @@ export class TaskStore {
       fs.writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
       fs.renameSync(tmp, this.filePath);
     } catch (err) {
-      console.error(`[Pixel Agents] Tasks: failed to write ${this.filePath}: ${err}`);
+      console.error(`[catavasia] Tasks: failed to write ${this.filePath}: ${err}`);
     }
   }
 }

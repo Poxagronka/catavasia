@@ -56,7 +56,7 @@ export function loadOrCreateAuthToken(
     } catch {
       // The tmp file was never written.
     }
-    console.error(`[Pixel Agents] Could not save the auth token; it lasts until restart: ${e}`);
+    console.error(`[catavasia] Could not save the auth token; it lasts until restart: ${e}`);
   }
   return token;
 }

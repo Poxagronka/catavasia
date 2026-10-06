@@ -100,7 +100,7 @@ export class PixelAgentsServer {
       this.config = candidate;
       this.ownsServer = false;
       console.log(
-        `[Pixel Agents] Reusing existing ${wantsSpa ? 'standalone' : 'embedded'} server on port ${candidate.port} (PID ${candidate.pid})`,
+        `[catavasia] Reusing existing ${wantsSpa ? 'standalone' : 'embedded'} server on port ${candidate.port} (PID ${candidate.pid})`,
       );
       return candidate;
     }
@@ -146,7 +146,7 @@ export class PixelAgentsServer {
     // entry (new hook scripts fan out to every entry here).
     this.writeServerJson(this.config);
     this.writeRegistryEntry(this.config);
-    console.log(`[Pixel Agents] Server: listening on 127.0.0.1:${port}`);
+    console.log(`[catavasia] Server: listening on 127.0.0.1:${port}`);
 
     return this.config;
   }
@@ -187,7 +187,7 @@ export class PixelAgentsServer {
       fs.writeFileSync(tmpPath, JSON.stringify(config, null, 2), { mode: 0o600 });
       fs.renameSync(tmpPath, filePath);
     } catch (e) {
-      console.error(`[Pixel Agents] Failed to write server.json: ${e}`);
+      console.error(`[catavasia] Failed to write server.json: ${e}`);
     }
   }
 
@@ -282,7 +282,7 @@ export class PixelAgentsServer {
       fs.writeFileSync(tmpPath, JSON.stringify(config, null, 2), { mode: 0o600 });
       fs.renameSync(tmpPath, filePath);
     } catch (e) {
-      console.error(`[Pixel Agents] Failed to write registry entry: ${e}`);
+      console.error(`[catavasia] Failed to write registry entry: ${e}`);
     }
   }
 

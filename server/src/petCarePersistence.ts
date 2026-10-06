@@ -23,7 +23,7 @@ export function readPetCareState(): Record<string, unknown> | null {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     return parsed as Record<string, unknown>;
   } catch (err) {
-    console.error('[Pixel Agents] Failed to read pet-care state:', err);
+    console.error('[catavasia] Failed to read pet-care state:', err);
     return null;
   }
 }
@@ -33,7 +33,7 @@ export function writePetCareState(state: unknown): boolean {
   if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
   const json = JSON.stringify(state);
   if (json.length > PETS_STATE_MAX_BYTES) {
-    console.warn('[Pixel Agents] Pet-care state too large, not saved');
+    console.warn('[catavasia] Pet-care state too large, not saved');
     return false;
   }
   const filePath = getPetCareFilePath();
@@ -44,7 +44,7 @@ export function writePetCareState(state: unknown): boolean {
     fs.renameSync(tmpPath, filePath);
     return true;
   } catch (err) {
-    console.error('[Pixel Agents] Failed to write pet-care state:', err);
+    console.error('[catavasia] Failed to write pet-care state:', err);
     return false;
   }
 }

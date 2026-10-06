@@ -242,7 +242,7 @@ export function handleClientMessage(
         // Answer with the truth so the checkbox still shows reality instead of
         // silently appearing to have worked.
         console.warn(
-          '[Pixel Agents] Ignoring setHooksEnabled from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
+          '[catavasia] Ignoring setHooksEnabled from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
         );
         void provider
           .areHooksInstalled()
@@ -259,7 +259,7 @@ export function handleClientMessage(
       // reasoning as setHooksEnabled above.
       if (!ctx.privileged) {
         console.warn(
-          '[Pixel Agents] Ignoring hooksConsentResponse from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
+          '[catavasia] Ignoring hooksConsentResponse from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
         );
         break;
       }
@@ -419,7 +419,7 @@ async function applyHooksPreference(
     // not outcome (the installer refuses to touch an unparseable file).
     send({ type: 'hooksStatus', providerId: provider.id, installed });
   } catch (err) {
-    console.error('[Pixel Agents] Applying the hooks preference failed:', err);
+    console.error('[catavasia] Applying the hooks preference failed:', err);
   }
 }
 
@@ -442,7 +442,7 @@ function standaloneConsentEffects(
       try {
         await ctx.onSetHooksEnabled?.(provider.id, false);
       } catch (err) {
-        console.error('[Pixel Agents] Hook uninstall failed:', err);
+        console.error('[catavasia] Hook uninstall failed:', err);
       }
     },
     areHooksInstalled: () => provider.areHooksInstalled(),
@@ -557,7 +557,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     void provider
       .areHooksInstalled()
       .catch((err: unknown) => {
-        console.error(`[Pixel Agents] hooks status check failed for provider ${provider.id}:`, err);
+        console.error(`[catavasia] hooks status check failed for provider ${provider.id}:`, err);
         return false;
       })
       .then((installed) => {

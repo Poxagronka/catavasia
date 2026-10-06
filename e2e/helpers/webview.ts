@@ -250,7 +250,7 @@ export async function openPixelAgentsPanel(
     }
   }
   if (!shown) {
-    await runCommand(window, 'Pixel Agents: Show Panel');
+    await runCommand(window, 'catavasia: Show Panel');
   }
 
   // Wait for the panel container to appear

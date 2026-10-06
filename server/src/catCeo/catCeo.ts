@@ -100,7 +100,7 @@ export class CatCeo {
       catIds: () => opts.cats.list().map((c) => c.id),
       queueRoom: () => CAT_CEO_QUEUE_MAX - this.waiting,
       enqueue: (job) =>
-        this.enqueue(job, (err) => console.error(`[Pixel Agents] Cat CEO: ${errorText(err)}`)),
+        this.enqueue(job, (err) => console.error(`[catavasia] Cat CEO: ${errorText(err)}`)),
       judge: (rules, digest, schema) => this.judge(rules, digest, schema),
       emit: opts.emit,
       log: (kind, text) => opts.consoles.push(CAT_CEO_ID, { kind, text }),
@@ -116,7 +116,7 @@ export class CatCeo {
         settings: () => this.settings,
         roster: () => opts.cats.list(),
         enqueue: (job) =>
-          this.enqueue(job, (err) => console.error(`[Pixel Agents] Cat CEO: ${errorText(err)}`)),
+          this.enqueue(job, (err) => console.error(`[catavasia] Cat CEO: ${errorText(err)}`)),
         judge: (rules, digest, schema) => this.judge(rules, digest, schema),
         push: (entries) => opts.consoles.push(CAT_CEO_ID, ...entries),
         statusChanged: () => opts.consoles.statusChanged(),
@@ -245,7 +245,7 @@ export class CatCeo {
   }
 
   private fail(task: StoredTask, sink: ReviewSink, reviewId: string, error: string): void {
-    console.error(`[Pixel Agents] Cat CEO: review of ${task.id} failed: ${error}`);
+    console.error(`[catavasia] Cat CEO: review of ${task.id} failed: ${error}`);
     this.setReview(task, sink, { state: 'failed', reviewId, error });
     this.logEvent(task.id, { type: 'ReviewFailed', error });
     this.opts.emit({ type: 'reviewFailed', taskId: task.id, reviewId, error });
@@ -265,7 +265,7 @@ export class CatCeo {
       log.append({ seq, at: this.now, event });
       log.writeSnapshot(seq, reduce(saved.state, event).state);
     } catch (err) {
-      console.error(`[Pixel Agents] Cat CEO: event log of ${taskId}: ${errorText(err)}`);
+      console.error(`[catavasia] Cat CEO: event log of ${taskId}: ${errorText(err)}`);
     }
   }
 
