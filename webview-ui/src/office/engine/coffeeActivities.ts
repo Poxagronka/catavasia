@@ -13,6 +13,7 @@
  * take part (petActivities.ts names no coffee activity).
  */
 
+import { getOrientationInGroup } from '../layout/furnitureCatalog.js';
 import { Direction } from '../types.js';
 import type { AnimParts } from './activityAnim.js';
 import { st } from './activityAnim.js';
@@ -29,6 +30,9 @@ export const COFFEE_MACHINE_TYPES = [
   'MOKA_POT',
   'ELECTRIC_KETTLE',
 ] as const;
+
+/** Placed types of the machines: every view the editor rotates to (":left" mirrors "_SIDE"). */
+const MACHINE_VIEW_TYPES = COFFEE_MACHINE_TYPES.flatMap((t) => [t, `${t}_SIDE`, `${t}_BACK`]);
 
 /** Machine frame while its cup is out (coffeeArt.mjs frame 6). */
 export const CUP_OUT_FRAME = 6;
@@ -71,12 +75,40 @@ const RETURN: AnimParts = {
 /** A cat beside a counter sits this many px lower: its paws meet the machine on the counter. */
 const COUNTER_SIDE_DROP_PX = 5;
 
+/** Where a machine's working face points, by its view (catalog orientation). */
+const FACE_OUT: Record<string, Direction> = {
+  front: Direction.DOWN,
+  right: Direction.RIGHT,
+  back: Direction.UP,
+  left: Direction.LEFT,
+};
+const OPPOSITE: Record<Direction, Direction> = {
+  [Direction.DOWN]: Direction.UP,
+  [Direction.UP]: Direction.DOWN,
+  [Direction.LEFT]: Direction.RIGHT,
+  [Direction.RIGHT]: Direction.LEFT,
+};
+
+/**
+ * The cat stands in front of the machine's working face, facing it. A face
+ * against a wall or more counter: the cat uses the machine from its sides,
+ * never from behind.
+ */
 const machineSpots: IdleActivityDef['spots'] = (ctx) =>
-  adjacentSpots(ctx, itemsOfType(ctx, COFFEE_MACHINE_TYPES), { nudgePx: 3 }).map((s) =>
-    s.onFurniture || (s.facing !== Direction.LEFT && s.facing !== Direction.RIGHT)
-      ? s
-      : { ...s, offsetY: s.offsetY + COUNTER_SIDE_DROP_PX },
-  );
+  itemsOfType(ctx, MACHINE_VIEW_TYPES)
+    .flatMap((item) => {
+      const spots = adjacentSpots(ctx, [item], { nudgePx: 3 });
+      const out = FACE_OUT[getOrientationInGroup(item.type) ?? 'front'];
+      const front = spots.filter((s) => s.facing === OPPOSITE[out]);
+      return front.length > 0
+        ? front
+        : spots.filter((s) => s.facing !== out && s.facing !== OPPOSITE[out]);
+    })
+    .map((s) =>
+      s.onFurniture || (s.facing !== Direction.LEFT && s.facing !== Direction.RIGHT)
+        ? s
+        : { ...s, offsetY: s.offsetY + COUNTER_SIDE_DROP_PX },
+    );
 
 export const COFFEE_ACTIVITIES: IdleActivityDef[] = [
   {
