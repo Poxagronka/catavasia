@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
+import { DefaultLayoutReset } from './DefaultLayoutReset.js';
 import { Button } from './ui/Button.js';
 import { Checkbox } from './ui/Checkbox.js';
 import { MenuItem } from './ui/MenuItem.js';
@@ -36,6 +37,8 @@ interface SettingsModalProps {
   onExportLayout: () => void;
   /** Browser-native layout import from a chosen file (standalone only). */
   onImportLayout: (file: File) => void;
+  /** Same action as the editor's Default button (sends resetLayoutToDefault). */
+  onResetLayoutToDefault: () => void;
 }
 
 export function SettingsModal({
@@ -57,13 +60,22 @@ export function SettingsModal({
   showAreasAvailable,
   onExportLayout,
   onImportLayout,
+  onResetLayoutToDefault,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assetDirDraft, setAssetDirDraft] = useState('');
+  const [resetConfirming, setResetConfirming] = useState(false);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Settings">
+    <Modal
+      isOpen={isOpen}
+      onClose={() => {
+        setResetConfirming(false);
+        onClose();
+      }}
+      title="Settings"
+    >
       {/* Open Sessions Folder opens an OS file manager — impossible in the browser. */}
       {!isBrowserRuntime && (
         <MenuItem
@@ -100,6 +112,17 @@ export function SettingsModal({
       >
         Import Layout
       </MenuItem>
+      <div className="py-4 px-10">
+        <DefaultLayoutReset
+          label="Reset layout to default"
+          confirming={resetConfirming}
+          onConfirmingChange={setResetConfirming}
+          onReset={() => {
+            onResetLayoutToDefault();
+            onClose();
+          }}
+        />
+      </div>
       {isBrowserRuntime && (
         <input
           ref={fileInputRef}
