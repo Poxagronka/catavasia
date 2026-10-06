@@ -1,7 +1,7 @@
 name: "Feature request"
-description: "Suggest a new feature, idea, or improvement for Pixel Agents."
+description: "Suggest a new feature or idea for Catavasia."
 title: "[Feature]: "
-labels: ["type: feature"]
+labels: ["enhancement"]
 body:
   - type: checkboxes
     id: checks
@@ -16,7 +16,7 @@ body:
     attributes:
       label: "Problem or motivation"
       description: "What problem does this solve, or what need does it address? A clear problem statement helps us prioritize."
-      placeholder: "e.g., When I have many agents open, I can't tell which terminal each character is connected to."
+      placeholder: "e.g., I cannot see which cat works on which part of a team task."
     validations:
       required: true
 
@@ -25,7 +25,7 @@ body:
     attributes:
       label: "Proposed solution"
       description: "How should it work? Describe the behavior, UI, or API you envision."
-      placeholder: "e.g., Show the terminal name as a label above each character, toggled via a setting."
+      placeholder: "e.g., Show the task title in a small bubble over each working cat."
     validations:
       required: true
 

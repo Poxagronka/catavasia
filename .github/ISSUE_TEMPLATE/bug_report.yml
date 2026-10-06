@@ -1,14 +1,22 @@
 name: "Bug report"
-description: "Report a bug to help us improve Pixel Agents."
+description: "Something in Catavasia does not work as it should."
 title: "[Bug]: "
-labels: ["type: bug"]
+labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. Before you send it, please:
+        - Update to the newest version (Settings → Check for updates) and check that the bug is still there.
+        - Search the open issues for the same bug.
+        - Remove tokens (`?token=...`), user names and private paths from logs and screenshots.
+
   - type: textarea
     id: description
     attributes:
-      label: "Describe the bug"
-      description: "A clear and concise description of what the bug is."
-      placeholder: "e.g., Characters freeze after switching terminals."
+      label: "What happened?"
+      description: "Tell what you saw and what you expected to see."
+      placeholder: "e.g., The cat at the lead desk stays on 'Idle' while its task runs."
     validations:
       required: true
 
@@ -16,69 +24,72 @@ body:
     id: reproduce
     attributes:
       label: "Steps to reproduce"
-      description: "List exact steps to reproduce the behavior."
+      description: "Exact steps from a fresh start of `catavasia`."
       placeholder: |
-        1. Open Pixel Agents panel
-        2. Click '+ Agent'
+        1. Start `catavasia` in a project folder
+        2. Open Tasks, press +, start a task for the team
         3. ...
     validations:
       required: true
 
-  - type: textarea
-    id: expected
-    attributes:
-      label: "Expected behavior"
-      description: "What should happen?"
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: "Actual behavior"
-      description: "What happens instead? Include any error messages."
-    validations:
-      required: true
-
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: "Screenshots / GIFs"
-      description: "If applicable, add screenshots or screen recordings. For agent tracking issues (stuck on idle, not spawning), include a screenshot of the **Debug View**: in the Pixel Agents panel, click the gear icon (Settings) and toggle Debug View. This shows JSONL connection status, lines parsed, and file paths. **Note:** paths may contain your username -- redact anything sensitive before posting."
-
   - type: input
-    id: vscode-version
+    id: version
     attributes:
-      label: "VS Code version"
-      description: "Run 'Help > About' to find your version."
-      placeholder: "e.g., 1.112.0"
-    validations:
-      required: true
-
-  - type: input
-    id: claude-code-version
-    attributes:
-      label: "Claude Code CLI version"
-      description: "Run `claude --version` in your terminal."
-      placeholder: "e.g., 2.1.78"
+      label: "Catavasia version"
+      description: "Settings shows it at the bottom (e.g., 'Up to date (1.4.1-cats.32)'). Or run `npm ls -g catavasia`."
+      placeholder: "e.g., 1.4.1-cats.32"
     validations:
       required: true
 
   - type: dropdown
     id: os
     attributes:
-      label: "Operating System"
+      label: "Operating system"
       options:
-        - Windows
         - macOS
         - Linux
-        - WSL2
+        - Windows (WSL2)
+        - Windows (native)
     validations:
       required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: "Node.js version"
+      description: "Run `node -v`."
+      placeholder: "e.g., v22.11.0"
+    validations:
+      required: true
+
+  - type: input
+    id: claude-code-version
+    attributes:
+      label: "Claude Code version"
+      description: "Run `claude --version`. Write 'not installed' if you do not use it."
+      placeholder: "e.g., 2.1.78"
+
+  - type: input
+    id: browser
+    attributes:
+      label: "Browser"
+      placeholder: "e.g., Chrome 141, Safari 26"
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots or a screen recording"
+      description: "Drag images here. For a cat that does not show or does not move, add a screenshot of Settings → Debug View."
 
   - type: textarea
     id: logs
     attributes:
       label: "Logs"
-      description: "If running from source (F5), open **View > Debug Console** and paste any lines containing `[Pixel Agents]`. Otherwise, open **Help > Toggle Developer Tools > Console** and paste relevant output. **Note:** logs may contain file paths with your username -- redact anything sensitive before posting."
+      description: |
+        Where to find them:
+        - The terminal where `catavasia` runs: copy the lines around the error.
+        - A failed in-game update: `~/.pixel-agents/update/update-<time>.log` and `~/.pixel-agents/update/restart.log`.
+        - A team task: `~/.pixel-agents/flows/<task id>/`.
+        - The browser console (F12 → Console) for errors in the page.
+        Remove tokens, user names and private paths first.
       render: shell
