@@ -21,7 +21,7 @@ const MAX_COMMITS = 50;
  */
 export function updateBranch(env: NodeJS.ProcessEnv = process.env): string {
   const branch = env['CATAVASIA_UPDATE_BRANCH'];
-  return branch && /^[\w][\w./-]*$/.test(branch) ? branch : 'main';
+  return branch && /^[\w][\w./-]*$/.test(branch) && !branch.includes('..') ? branch : 'main';
 }
 
 type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;

@@ -57,17 +57,21 @@ export function takeInheritedToken(env: NodeJS.ProcessEnv = process.env): string
   return token && token.length >= 16 ? token : undefined;
 }
 
-/** When started by a self-update, wait until the old server has exited. */
+/** When started by a self-update, wait until the old server has exited.
+ *  False when it is still alive at the deadline (the caller must not start:
+ *  it would reuse the old server's registry entry and serve nothing). */
 export async function waitForPreviousServer(
   isRunning: (pid: number) => boolean,
   env: NodeJS.ProcessEnv = process.env,
   timeoutMs = WAIT_TIMEOUT_MS,
-): Promise<void> {
+): Promise<boolean> {
   const pid = Number(env[RESTART_WAIT_PID_ENV]);
   delete env[RESTART_WAIT_PID_ENV];
-  if (!Number.isSafeInteger(pid) || pid <= 0) return;
+  if (!Number.isSafeInteger(pid) || pid <= 0) return true;
   const deadline = Date.now() + timeoutMs;
-  while (isRunning(pid) && Date.now() < deadline) {
+  while (isRunning(pid)) {
+    if (Date.now() >= deadline) return false;
     await new Promise((resolve) => setTimeout(resolve, WAIT_STEP_MS));
   }
+  return true;
 }

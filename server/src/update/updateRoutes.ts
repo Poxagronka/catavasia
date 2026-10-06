@@ -22,7 +22,7 @@ export interface SelfUpdate {
 }
 
 function status({ checker, runner }: SelfUpdate): UpdateStatus {
-  return { ...checker.state(), run: runner.state() };
+  return { ...checker.state(), run: runner.state(), serverPid: process.pid };
 }
 
 export function registerUpdateRoutes(

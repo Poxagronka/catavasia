@@ -30,6 +30,8 @@ export interface UpdateRunnerOptions {
   /** Start the installed version and stop this one. */
   restart: (cliPath: string) => void;
   run?: RunCommand;
+  /** How often to re-check a busy office before the restart. */
+  idlePollMs?: number;
 }
 
 export const STEP_NAMES = [
@@ -122,6 +124,13 @@ export class UpdateRunner {
         version?: string;
       };
 
+      // A task may have started during the build: restart only when idle.
+      let busy = this.opts.busyReason();
+      if (busy) this.append(`Installed. Waiting to restart: ${busy}`);
+      while (busy) {
+        await new Promise((resolve) => setTimeout(resolve, this.opts.idlePollMs ?? 5000));
+        busy = this.opts.busyReason();
+      }
       this.append(`Installed ${pkg.version ?? '(unknown version)'}. Restarting…`);
       this.current.installedVersion = pkg.version;
       this.current.phase = 'restarting';
@@ -134,7 +143,11 @@ export class UpdateRunner {
       this.current.phase = 'failed';
       this.append(this.current.error);
     } finally {
-      if (workDir) fs.rmSync(workDir, { recursive: true, force: true });
+      try {
+        if (workDir) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch (err) {
+        this.append(`Could not remove ${workDir}: ${String(err)}`);
+      }
     }
   }
 

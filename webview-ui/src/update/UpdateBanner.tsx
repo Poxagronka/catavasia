@@ -88,7 +88,7 @@ export function UpdateBanner() {
         >
           Update
         </Button>
-        <Button size="sm" onClick={() => void updateActions.dismiss(latest)}>
+        <Button size="sm" onClick={() => updateActions.dismiss(latest).catch(() => {})}>
           Later
         </Button>
         <Button size="sm" onClick={() => setShowNews((v) => !v)}>

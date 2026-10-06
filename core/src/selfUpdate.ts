@@ -40,4 +40,8 @@ export interface UpdateRunState {
   installedVersion?: string;
 }
 
-export type UpdateStatus = UpdateCheckState & { run: UpdateRunState };
+export type UpdateStatus = UpdateCheckState & {
+  run: UpdateRunState;
+  /** The answering server's pid: a new pid after "Restarting…" is the new server. */
+  serverPid: number;
+};

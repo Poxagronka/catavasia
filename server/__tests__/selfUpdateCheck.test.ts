@@ -38,6 +38,7 @@ describe('updateBranch', () => {
     expect(updateBranch({})).toBe('main');
     expect(updateBranch({ CATAVASIA_UPDATE_BRANCH: 'feat/self-update' })).toBe('feat/self-update');
     expect(updateBranch({ CATAVASIA_UPDATE_BRANCH: '--upload-pack=x' })).toBe('main');
+    expect(updateBranch({ CATAVASIA_UPDATE_BRANCH: 'a/../../other/main' })).toBe('main');
   });
 });
 

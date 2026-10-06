@@ -137,7 +137,10 @@ async function main(): Promise<void> {
   // Started by a self-update: the old server hands over its token (so the open
   // tab stays privileged) and must be gone before this one takes the port.
   const inheritedToken = takeInheritedToken();
-  await waitForPreviousServer(isProcessRunning);
+  if (!(await waitForPreviousServer(isProcessRunning))) {
+    console.error('[Pixel Agents] The previous server did not exit; not starting.');
+    process.exit(1);
+  }
 
   // dist/ contains both the CLI bundle and the assets/ + webview/ directories
   const distRoot = __dirname;

@@ -42,13 +42,14 @@ function fakeRun(failAt?: number): { run: RunCommand; calls: string[][] } {
   return { run, calls };
 }
 
-function makeRunner(run: RunCommand, busy?: string) {
+function makeRunner(run: RunCommand, busy?: string | (() => string | undefined)) {
   const restart = vi.fn();
   const runner = new UpdateRunner({
+    idlePollMs: 5,
     updateDir: path.join(tmp, 'update'),
     repoUrl: 'https://github.com/Poxagronka/catavasia.git',
     branch: 'main',
-    busyReason: () => busy,
+    busyReason: typeof busy === 'function' ? busy : () => busy,
     restart,
     run,
   });
@@ -112,6 +113,21 @@ describe('UpdateRunner', () => {
     expect(calls).toEqual([]);
   });
 
+  it('waits to restart while a task started during the build runs', async () => {
+    const { run } = fakeRun();
+    let checks = 0;
+    // Free at start, busy for the next two checks, then free again.
+    const { runner, restart } = makeRunner(
+      run,
+      () => [undefined, 'Cats are working.', 'Cats are working.'][checks++],
+    );
+    expect(runner.start().ok).toBe(true);
+    await runner.finished();
+    expect(checks).toBe(4);
+    expect(runner.state().log.some((l) => l.includes('Waiting to restart'))).toBe(true);
+    expect(restart).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses a second start while one runs, and allows a retry after a failure', async () => {
     const { run } = fakeRun(1);
     const { runner } = makeRunner(run);
@@ -171,10 +187,15 @@ describe('restart keeps the token', () => {
     let alive = 3;
     const isRunning = vi.fn(() => alive-- > 0);
     const env: NodeJS.ProcessEnv = { [RESTART_WAIT_PID_ENV]: '4242' };
-    await waitForPreviousServer(isRunning, env, 5000);
+    expect(await waitForPreviousServer(isRunning, env, 5000)).toBe(true);
     expect(isRunning).toHaveBeenCalledWith(4242);
     expect(isRunning).toHaveBeenCalledTimes(4);
     expect(env[RESTART_WAIT_PID_ENV]).toBeUndefined();
+  });
+
+  it('reports an old server that never exits', async () => {
+    const env: NodeJS.ProcessEnv = { [RESTART_WAIT_PID_ENV]: '4242' };
+    expect(await waitForPreviousServer(() => true, env, 300)).toBe(false);
   });
 
   it('does not wait on a normal start', async () => {
