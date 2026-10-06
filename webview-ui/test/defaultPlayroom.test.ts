@@ -1,7 +1,7 @@
 /**
  * The bundled default office: the playroom doorway is as wide as the other
- * doorway, and every toy, bed and house in the playroom is in reach of a cat
- * that walks in from the lounge.
+ * doorway, and the calm playroom (two toys, one house, the rest decor) is in
+ * reach of a cat that walks in from the lounge.
  *
  * Run with: npm test
  */
@@ -63,7 +63,7 @@ test('the lounge-playroom doorway is as wide as the main room-lounge doorway', (
   assert.deepEqual(doorwayRows(19), doorwayRows(10));
 });
 
-test('every playroom toy, bed and house spot is reachable from the lounge', () => {
+test('every playroom toy and house spot is reachable from the lounge', () => {
   const os = new OfficeState(layout);
   assert.ok(isWalkable(LOUNGE.col, LOUNGE.row, os.tileMap, os.blockedTiles));
   const used = new Map<string, string>();
@@ -84,18 +84,6 @@ test('every playroom toy, bed and house spot is reachable from the lounge', () =
       used.set(spot.key, activity);
     }
   }
-  const activities = new Set(used.values());
-  for (const id of [
-    'scratch',
-    'yarn',
-    'box',
-    'catTree',
-    'tunnel',
-    'mouse',
-    'teaser',
-    'bed',
-    'house',
-  ]) {
-    assert.ok(activities.has(id), `the playroom has no ${id} spot`);
-  }
+  // Calm room: the scratching post, the ball of yarn and one house, nothing else.
+  assert.deepEqual([...new Set(used.values())].sort(), ['house', 'scratch', 'yarn']);
 });
