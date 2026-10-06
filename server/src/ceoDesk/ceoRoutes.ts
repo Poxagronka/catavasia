@@ -6,16 +6,19 @@
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import * as fs from 'fs';
 
 import {
   CEO_API_PREFIX,
+  CEO_ATTACH_MAX_COUNT,
   type CeoFolderRequest,
   type CeoFoldersResponse,
   type CeoMessageRequest,
   type CeoStopResponse,
 } from '../../../core/src/ceoDesk.js';
 import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
-import { TASK_PROMPT_MAX_CHARS } from '../constants.js';
+import { CEO_DESK_MESSAGE_BODY_LIMIT, TASK_PROMPT_MAX_CHARS } from '../constants.js';
+import { attachmentFile } from './attachments.js';
 import type { CeoDesk } from './ceoDesk.js';
 import { checkWorkFolder } from './workFolder.js';
 
@@ -34,18 +37,53 @@ export function registerCeoRoutes(
     `${CEO_API_PREFIX}/messages`,
     {
       onRequest,
+      // Files travel as base64 JSON: 25 MB of files is about 34 MB of body.
+      bodyLimit: CEO_DESK_MESSAGE_BODY_LIMIT,
       schema: {
         body: {
           type: 'object',
-          properties: { text: { type: 'string', minLength: 1, maxLength: TASK_PROMPT_MAX_CHARS } },
+          properties: {
+            text: { type: 'string', maxLength: TASK_PROMPT_MAX_CHARS },
+            attachments: {
+              type: 'array',
+              maxItems: CEO_ATTACH_MAX_COUNT,
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', maxLength: 255 },
+                  type: { type: 'string', maxLength: 255 },
+                  data: { type: 'string' },
+                },
+                required: ['name', 'type', 'data'],
+              },
+            },
+          },
           required: ['text'],
         },
       },
     },
     async (request, reply) => {
       const text = request.body.text.trim();
-      if (!text) return reply.code(400).send({ error: 'Message is empty' });
-      return reply.code(202).send({ ok: true, queued: desk.send(text) });
+      const uploads = request.body.attachments ?? [];
+      if (!text && !uploads.length) return reply.code(400).send({ error: 'Message is empty' });
+      const files = desk.saveAttachments(uploads);
+      if ('error' in files) return reply.code(400).send({ error: files.error });
+      return reply.code(202).send({ ok: true, queued: desk.send(text, files) });
+    },
+  );
+
+  // Thumbnails and downloads of attached files (the page adds `?token=`).
+  app.get<{ Params: { chat: string; file: string } }>(
+    `${CEO_API_PREFIX}/attachments/:chat/:file`,
+    { onRequest },
+    async (request, reply) => {
+      const found = attachmentFile(stateDir, request.params.chat, request.params.file);
+      if (!found) return reply.code(404).send({ error: 'No such attachment' });
+      return reply
+        .header('Content-Type', found.type)
+        .header('X-Content-Type-Options', 'nosniff')
+        .header('Cache-Control', 'private, max-age=86400')
+        .send(fs.createReadStream(found.path));
     },
   );
 

@@ -3,10 +3,13 @@
  *
  * The cat keeps the project settings (no --setting-sources), so it sees the
  * project CLAUDE.md and the user's hooks. Only the office MCP server is
- * attached (--strict-mcp-config). Permissions are skipped, as for board tasks.
+ * attached (--strict-mcp-config), unless the turn asks for the user's own MCP
+ * servers too (the CEO desk). Permissions are skipped, as for board tasks.
  */
 
 import { execFileSync, spawn } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import type { EngineStatus } from '../../../core/src/messages.js';
 import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
@@ -58,6 +61,59 @@ export function claudeTurnEnv(cwd: string): NodeJS.ProcessEnv {
     PWD: cwd,
     CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(CAT_AUTO_COMPACT_WINDOW),
   };
+}
+
+const IMAGE_MEDIA_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+};
+
+/**
+ * The stream-json user message of a turn: plain text, or a content-block
+ * array (text, then one base64 image block per image) when it has images.
+ */
+export function claudeUserMessage(text: string, images: string[] = []): string {
+  const content = images.length
+    ? [
+        { type: 'text', text },
+        ...images.map((file) => ({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: IMAGE_MEDIA_TYPES[path.extname(file).toLowerCase()] ?? 'image/png',
+            data: fs.readFileSync(file).toString('base64'),
+          },
+        })),
+      ]
+    : text;
+  return `${JSON.stringify({ type: 'user', message: { role: 'user', content } })}\n`;
+}
+
+/** The `claude -p` arguments of one turn (stdin carries the message). */
+export function claudeTurnArgs(req: TurnRequest): string[] {
+  return [
+    '-p',
+    '--input-format',
+    'stream-json',
+    '--output-format',
+    'stream-json',
+    '--verbose',
+    req.resume ? '--resume' : '--session-id',
+    req.sessionId,
+    '--append-system-prompt-file',
+    req.systemPromptFile,
+    '--model',
+    req.model,
+    ...(req.effort ? ['--effort', req.effort] : []),
+    '--mcp-config',
+    req.mcpConfigFile,
+    ...(req.userMcp ? [] : ['--strict-mcp-config']),
+    '--dangerously-skip-permissions',
+    ...(req.extraArgs ?? []),
+  ];
 }
 
 /** `{"type":"system","subtype":"compact_boundary","compact_metadata":{...}}` -> CompactInfo. */
@@ -129,26 +185,7 @@ export class ClaudeAdapter implements EngineAdapter {
   }
 
   spawnTurn(req: TurnRequest): TurnHandle {
-    const args = [
-      '-p',
-      '--input-format',
-      'stream-json',
-      '--output-format',
-      'stream-json',
-      '--verbose',
-      req.resume ? '--resume' : '--session-id',
-      req.sessionId,
-      '--append-system-prompt-file',
-      req.systemPromptFile,
-      '--model',
-      req.model,
-      ...(req.effort ? ['--effort', req.effort] : []),
-      '--mcp-config',
-      req.mcpConfigFile,
-      '--strict-mcp-config',
-      '--dangerously-skip-permissions',
-    ];
-    const child = spawn(this.bin, args, {
+    const child = spawn(this.bin, claudeTurnArgs(req), {
       cwd: req.cwd,
       env: claudeTurnEnv(req.cwd),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -199,9 +236,8 @@ export class ClaudeAdapter implements EngineAdapter {
     });
 
     // One user message, then EOF: the CLI answers it and exits.
-    const message = { type: 'user', message: { role: 'user', content: req.message } };
     child.stdin?.on('error', () => {});
-    child.stdin?.end(`${JSON.stringify(message)}\n`);
+    child.stdin?.end(claudeUserMessage(req.message, req.images));
 
     return { done, kill: () => child.kill('SIGTERM') };
   }

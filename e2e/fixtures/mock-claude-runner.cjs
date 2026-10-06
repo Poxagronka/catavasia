@@ -508,7 +508,17 @@ async function headlessTurn(argv) {
   for await (const chunk of process.stdin) input += chunk;
   const first = JSON.parse(input.trim().split('\n')[0] || '{}');
   const content = first.message ? first.message.content : '';
-  const message = typeof content === 'string' ? content : JSON.stringify(content);
+  // A content-block array (attached images): its text blocks are the message.
+  const blocks = Array.isArray(content) ? content : [];
+  const message =
+    typeof content === 'string'
+      ? content
+      : blocks
+          .filter((b) => b.type === 'text')
+          .map((b) => b.text)
+          .join('\n');
+  const images = blocks.filter((b) => b.type === 'image').length;
+  const files = (message.match(/\[Attached file: /g) || []).length;
   // The CEO desk wraps the user's words: "[Message from the user]\n<text>".
   const marker = '[Message from the user]\n';
   const at = message.lastIndexOf(marker);
@@ -516,7 +526,8 @@ async function headlessTurn(argv) {
   const sessionId = flagValue(argv, '--session-id') || flagValue(argv, '--resume') || '';
   const fence = '`'.repeat(3);
   const text = [
-    `Mock CEO: ${said}`,
+    `Mock CEO: ${said.replace(/\[Attached [^\n]*\n?/g, '').trim()}`,
+    ...(images || files ? ['', `Received ${images} images and ${files} files.`] : []),
     '',
     '- first point',
     '- second point',

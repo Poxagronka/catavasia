@@ -177,7 +177,8 @@ test.describe('Standalone / UI', () => {
       const modal = await openSettingsModal(page);
       // Set the hidden import input directly rather than clicking "Import
       // Layout" (which would open the OS file dialog Playwright can't drive).
-      await page.setInputFiles('input[type="file"]', tmpFile);
+      // The CEO dock has a file input too: pick the JSON one.
+      await page.setInputFiles('input[type="file"][accept="application/json"]', tmpFile);
       await expect(modal).toBeHidden();
 
       // saveLayout is client→server and unrecorded by drainMessages (Seam A),

@@ -39,8 +39,11 @@ export interface DeskState {
   liveJobs: string[];
   /** A turn was running when the state was saved (a restart cut it). */
   turnRunning: boolean;
-  /** User messages and job notices that wait for the next turn (they survive a restart). */
-  pending: Array<{ kind: 'user' | 'notice'; text: string }>;
+  /**
+   * User messages and job notices that wait for the next turn (they survive a
+   * restart). `images`: attached image files of a user message.
+   */
+  pending: Array<{ kind: 'user' | 'notice'; text: string; images?: string[] }>;
 }
 
 export type DeskRow = CatSessionEntry & { at: number };

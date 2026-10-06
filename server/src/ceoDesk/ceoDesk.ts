@@ -16,8 +16,8 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
+import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
-import { toConsoleEntry } from '../catTerminal/catSessionSource.js';
 import {
   CAT_CEO_DIR,
   CAT_CEO_ID,
@@ -25,18 +25,19 @@ import {
   CEO_DESK_CARD_THROTTLE_MS,
   CEO_DESK_HISTORY_MAX,
 } from '../constants.js';
-import type { EngineAdapter, TurnHandle, TurnOutcome } from '../orchestrator/engineAdapter.js';
+import type { EngineAdapter, TurnOutcome } from '../orchestrator/engineAdapter.js';
 import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
-import { deskPersona, jobNotice, turnMessage, userPart } from './deskPrompt.js';
+import { saveAttachments, type SavedAttachments } from './attachments.js';
+import { jobNotice } from './deskPrompt.js';
 import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, cardLine, DESK_MCP_NAME, type DeskToolHost, jobCard } from './deskTools.js';
+import { logRows, spawnDeskTurn, type Turn } from './deskTurn.js';
 import { recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
-const DESK_TOOL_PREFIX = `mcp__${DESK_MCP_NAME}__`;
 export const RESTARTED_TEXT = 'The server restarted during this turn; send again.';
 
 export interface CeoDeskOptions {
@@ -45,15 +46,6 @@ export interface CeoDeskOptions {
   tasks: TaskManager;
   /** The Claude Code adapter: the CEO always runs on Claude. */
   adapter: EngineAdapter;
-}
-
-interface Turn {
-  chatId: string;
-  handle: TurnHandle;
-  /** The newest text row: the turn's full final text replaces it at the end. */
-  held?: string;
-  stopped: boolean;
-  timer: NodeJS.Timeout;
 }
 
 export class CeoDesk implements OfficeToolHandler {
@@ -123,10 +115,20 @@ export class CeoDesk implements OfficeToolHandler {
     return this.state.folder;
   }
 
+  /** Save the files of a message in this chat (attachments.ts checks the limits). */
+  saveAttachments(uploads: CeoAttachmentUpload[]): SavedAttachments | { error: string } {
+    return saveAttachments(this.store.chatDir(this.state.chatId), this.state.chatId, uploads);
+  }
+
   /** A user message. Returns how many messages and notices wait for the next turn. */
-  send(text: string): number {
-    this.add({ kind: 'user', text });
-    this.state.pending.push({ kind: 'user', text });
+  send(text: string, files?: SavedAttachments): number {
+    const attachments = files?.attachments.length ? { attachments: files.attachments } : {};
+    this.add({ kind: 'user', text, ...attachments });
+    this.state.pending.push({
+      kind: 'user',
+      text: [text, ...(files?.lines ?? [])].filter(Boolean).join('\n'),
+      ...(files?.images.length ? { images: files.images } : {}),
+    });
     this.store.save(this.state);
     this.statusChanged();
     this.pump();
@@ -241,26 +243,13 @@ export class CeoDesk implements OfficeToolHandler {
     }
     const parts = this.state.pending.splice(0);
     if (parts.some((p) => p.kind === 'user')) this.reworkCount = 0;
-    const message = turnMessage(
-      this.state.folder,
-      parts.map((p) => (p.kind === 'user' ? userPart(p.text) : p.text)),
-    );
-    const settings = office.ceo.settings;
-    const role = office.cats.prompts.read(CAT_CEO_ID).file.role;
-    const { cwd, systemPromptFile, mcpConfigFile } = this.store.writeTurnFiles(
-      this.state.chatId,
-      deskPersona(settings.name, role),
-      adapter.mcpConfig({ url: this.mcpUrl, token: this.state.mcpToken, name: DESK_MCP_NAME }),
-    );
-    const handle = adapter.spawnTurn({
-      sessionId: this.state.sessionId,
-      resume: this.state.started,
-      cwd,
-      model: settings.model,
-      effort: settings.effort,
-      systemPromptFile,
-      mcpConfigFile,
-      message,
+    const handle = spawnDeskTurn({
+      adapter,
+      office,
+      store: this.store,
+      state: this.state,
+      mcpUrl: this.mcpUrl,
+      parts,
       onLog: (entry) => this.onLog(turn, entry),
     });
     const turn: Turn = {
@@ -279,22 +268,7 @@ export class CeoDesk implements OfficeToolHandler {
 
   private onLog(turn: Turn, entry: TaskLogEntry): void {
     if (turn.stopped || turn.chatId !== this.state.chatId) return;
-    if (entry.kind === 'text') {
-      if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
-      turn.held = entry.text;
-      return;
-    }
-    if (entry.kind !== 'tool' && entry.kind !== 'error') return;
-    // Desk tools get a readable row when they run (callTool), not the raw input.
-    if (entry.kind === 'tool' && entry.name?.startsWith(DESK_TOOL_PREFIX)) {
-      // The text before the call explains it: write it before the tool's row.
-      if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
-      turn.held = undefined;
-      return;
-    }
-    if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
-    turn.held = undefined;
-    this.add(toConsoleEntry(entry));
+    logRows(turn, entry, (e) => this.add(e));
   }
 
   private finishTurn(turn: Turn, outcome: TurnOutcome): void {
@@ -313,7 +287,8 @@ export class CeoDesk implements OfficeToolHandler {
         if (!outcome.ok) {
           const auth = isAuthError(outcome.error);
           const fix = auth ? ` ${this.opts.office.engineDown('claude', true)}` : '';
-          this.add({ kind: 'error', text: `The CEO could not answer: ${outcome.error}${fix}` });
+          const text = `The CEO could not answer: ${outcome.error}${fix}`;
+          this.add({ kind: 'error', text, ...(auth ? { login: true } : {}) });
         }
       }
       this.store.save(this.state);

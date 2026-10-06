@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import type { CatSessionEntry } from '../../../core/src/catSession.js';
+import { type CeoAttachment, formatSize } from '../../../core/src/ceoDesk.js';
 import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import { JobCard, type JobCardActions } from '../ceoDesk/JobCard.js';
 import { Markdown } from '../components/taskBoard/Markdown.js';
@@ -42,15 +43,57 @@ function ActionRow({ tool }: { tool: ToolEntry }) {
   );
 }
 
+/** A served attachment with the page token (the route needs it; an <img> sends no header). */
+function attachmentHref(url: string): string {
+  return sessionToken ? `${url}?token=${encodeURIComponent(sessionToken)}` : url;
+}
+
+/** The files of a sent message: thumbnails that open the image, chips that download the file. */
+function SentAttachments({ files }: { files: CeoAttachment[] }) {
+  return (
+    <div
+      className="self-end flex flex-wrap justify-end gap-6 max-w-[85%]"
+      data-testid="sent-attachments"
+    >
+      {files.map((f, n) =>
+        f.image ? (
+          <a key={n} href={attachmentHref(f.url)} target="_blank" rel="noreferrer" title={f.name}>
+            <img
+              src={attachmentHref(f.url)}
+              alt={f.name}
+              className="max-w-[160px] max-h-[120px] border-2 border-accent block"
+              data-testid="sent-thumb"
+            />
+          </a>
+        ) : (
+          <a
+            key={n}
+            href={attachmentHref(f.url)}
+            download={f.name}
+            className="flex items-center gap-4 max-w-[220px] h-28 px-6 border-2 border-accent bg-active-bg text-xs no-underline"
+            data-testid="sent-chip"
+          >
+            <span className="truncate">{f.name}</span>
+            <span className="shrink-0 text-text-muted">{formatSize(f.size)}</span>
+          </a>
+        ),
+      )}
+    </div>
+  );
+}
+
 export function MessageRow({
   entry,
   onOpenPromptHistory,
   job,
+  onLogin,
 }: {
   entry: Exclude<CatSessionEntry, ToolEntry>;
   onOpenPromptHistory?: (catId: string) => void;
   /** Job card actions (CEO desk); without them a job row is its one-line text. */
   job?: JobCardActions;
+  /** Opens the engine login: an auth error row offers it (CEO desk). */
+  onLogin?: () => void;
 }) {
   if (entry.kind === 'job') {
     if (job) return <JobCard job={entry.job} actions={job} />;
@@ -76,16 +119,30 @@ export function MessageRow({
     );
   }
   if (entry.kind === 'user') {
-    return (
+    const bubble = entry.text && (
       <div className="self-end max-w-[85%] prose-measure bg-active-bg border-2 border-accent px-10 py-6 shadow-pixel prose-body whitespace-pre-wrap break-words">
         {entry.text}
+      </div>
+    );
+    if (!entry.attachments?.length) return bubble;
+    return (
+      <div className="self-end flex flex-col items-end gap-4 max-w-full">
+        <SentAttachments files={entry.attachments} />
+        {bubble}
       </div>
     );
   }
   if (entry.kind === 'error') {
     return (
-      <div className="self-start max-w-[92%] prose-measure border-2 border-danger px-10 py-6 prose-body prose-small text-status-error whitespace-pre-wrap break-words">
-        {entry.text}
+      <div className="self-start max-w-[92%] prose-measure border-2 border-danger px-10 py-6 flex flex-col items-start gap-6">
+        <span className="prose-body prose-small text-status-error whitespace-pre-wrap break-words">
+          {entry.text}
+        </span>
+        {entry.login && onLogin && (
+          <Button variant="accent" size="sm" onClick={onLogin} data-testid="error-login">
+            Log in
+          </Button>
+        )}
       </div>
     );
   }
@@ -101,14 +158,23 @@ export function ConsoleRowView({
   row,
   onOpenPromptHistory,
   job,
+  onLogin,
 }: {
   row: ConsoleRow;
   onOpenPromptHistory?: (catId: string) => void;
   job?: JobCardActions;
+  onLogin?: () => void;
 }) {
   if (row.kind === 'tools') return <ToolRow tools={row.tools} />;
   if (row.kind === 'action') return <ActionRow tool={row.tool} />;
-  return <MessageRow entry={row.entry} onOpenPromptHistory={onOpenPromptHistory} job={job} />;
+  return (
+    <MessageRow
+      entry={row.entry}
+      onOpenPromptHistory={onOpenPromptHistory}
+      job={job}
+      onLogin={onLogin}
+    />
+  );
 }
 
 interface ChatConsoleProps {

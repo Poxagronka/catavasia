@@ -6,6 +6,7 @@
 
 import {
   CEO_API_PREFIX,
+  type CeoAttachmentUpload,
   type CeoFoldersResponse,
   type CeoStopResponse,
 } from '../../../core/src/ceoDesk.js';
@@ -35,7 +36,11 @@ async function call<T>(method: string, leaf: string, body?: unknown): Promise<T>
 }
 
 export const ceoDeskApi = {
-  send: (text: string) => call<{ ok: boolean; queued: number }>('POST', 'messages', { text }),
+  send: (text: string, attachments: CeoAttachmentUpload[] = []) =>
+    call<{ ok: boolean; queued: number }>('POST', 'messages', {
+      text,
+      ...(attachments.length ? { attachments } : {}),
+    }),
   /** Stop the turn; the queued user messages come back for the draft. */
   stop: () => call<CeoStopResponse>('POST', 'stop'),
   newChat: () => call<{ chatId: string }>('POST', 'new'),

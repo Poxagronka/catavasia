@@ -68,6 +68,8 @@ export function codexTurnArgs(req: TurnRequest, persona: string, mcpUrl: string)
   return [
     'exec',
     ...(req.resume ? ['resume', req.sessionId] : []),
+    // Before every other flag: `-i` takes a list, so it must not meet the `-` prompt.
+    ...(req.images ?? []).flatMap((file) => ['-i', file]),
     '--json',
     '--ignore-user-config',
     '--skip-git-repo-check',

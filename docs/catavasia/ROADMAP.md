@@ -483,10 +483,24 @@ User requirement: remove the Tasks board (the whiteboard becomes decor). The CEO
 - Unread badge: CEO text rows and new job cards after the last seen row, plus job state changes while collapsed. The collapsed flag and the seen row count persist in localStorage. The "done" sound plays when a turn ends with text while the dock is collapsed.
 - "Queued" marks the newest user rows while the CEO works (`status.queued`). A job notice has no row, so a waiting notice can mark one row too many.
 - Preflight in the dock: when Claude Code is missing or logged out, the dock shows the engine notice (Log in / Check again) above the box, and Send is off with "Send is off until Claude Code is ready. Your draft stays."
-- The composer is text only. Its attachment strip and attach button have marked slots for phase 3.
+- The composer is text only. Its attachment strip and attach button have marked slots for phase 3 (done: see phase 3 decisions).
 - Typography tokens live once in `index.css` (`--font-body`, `--font-code`, `--text-body-size` 15 px, `--text-body-small` 14 px, `--text-code-size` 13 px, `--leading-body` 1.55, `--color-text-body` #E6E6EE, `--measure-body` 680 px) with the classes `prose-body`, `prose-small`, `prose-code` and `prose-measure`. They apply to the dock, the cat chats, Markdown, TaskDetailModal, the engine notice, the Reset everything warning and the Instant Detection modal. Headings, labels, buttons and status pills keep the pixel font. The onboarding bubble keeps the pixel font (phase 4 rewrites its steps).
 - Markdown links open in a new tab with `rel="noopener noreferrer"`, only for http(s) URLs; a bare URL loses its trailing punctuation. `*x*` and `_x_` are italics, but not inside snake_case words. Numbered lists render as ordered lists.
 - The old Tasks board keeps working until phase 4.
+
+**Phase 3 decisions** (attachments, agent-made 2026-10-07, the user was asleep):
+
+- **Smoke test first.** One real `claude -p --input-format stream-json --model haiku --no-session-persistence` call on this machine, with a generated 64x64 red PNG as a base64 image block and "What color is this square?", answered "Red." ($0.045). Image blocks on stdin work, so there is no path-only fallback.
+- **Transport: base64 JSON** (`attachments: [{name, type, data}]` in `POST /api/ceo/messages`), not multipart: no new dependency, one schema. The route body limit is 40 MB (25 MB of files is about 34 MB as base64). Text may be empty when files come.
+- **Limits** (`core/src/ceoDesk.ts`, checked in the dock on add and again on the server): at most 8 files per message, 25 MB per message, 5 MB per image. Other files have no own cap inside the 25 MB.
+- **An image is decided by its bytes** (PNG, JPEG, GIF, WebP signatures), not by the name or the browser type. Any other file (SVG, HEIC, PDF, code) is a file the CEO reads with Read. The stored name is `<8 hex>-<safe name>` (+ the image extension when it is missing) in `chats/<chatId>/attachments/`.
+- **The CEO's message** gets one `[Attached image|file: /abs/path (name, size)]` line per file, images too, so the CEO can hand a path to a job. Images also go as content blocks. A queued message that Stop sends back to the draft keeps these lines as text.
+- **`GET /api/ceo/attachments/:chat/:file`** needs the token (`?token=` for `<img>`). Only names this code writes match (`c-<hex>` chat, no `/`, no leading dot), and the path must stay in the folder. Only the four image types are served as images; everything else is `application/octet-stream`, always with `nosniff`.
+- **The dock downscales** an image over 5 MB on a canvas to a 2000 px longest edge, as JPEG 0.9 (alpha is lost; screenshots are the use). A failed downscale keeps the file, and the size check then shows the reason.
+- **Desk turn flags** (verified in `claude --help` 2.1.x): `--add-dir <folder>` when the chat has a folder, `--disallowedTools Edit,Write,NotebookEdit` (comma form: both flags are variadic), `--max-budget-usd 5` (`CEO_DESK_TURN_BUDGET_USD`, a safety rail, not a plan), and no `--strict-mcp-config`: the CEO has the user's own MCP servers like their terminal. Cats stay strict.
+- **Codex**: `-i <path>` per image goes right after `exec` / `exec resume <id>`: `-i` takes a list and must not meet the `-` prompt (verified in `codex exec --help` and `codex exec resume --help`). Only Codex cats use it today; the CEO always runs on Claude.
+- **Auth error row**: an error entry has `login: true` when the turn failed with an auth error; the dock shows a Log in button on it that opens the engine login terminal.
+- Refactor: `ceoDesk.ts` was at the 400-line limit, so the turn request and the log rows moved to `deskTurn.ts` first (pure move).
 
 ## Pet interactions (feat/pet-interactions, agent-made 2026-10-07)
 

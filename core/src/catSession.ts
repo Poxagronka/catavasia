@@ -8,14 +8,16 @@
  * in through the server's CatSessionSource interface without changing this file.
  */
 
-import type { JobCard } from './ceoDesk.js';
+import type { CeoAttachment, JobCard } from './ceoDesk.js';
 
 /** One row of the chat console. */
 export type CatSessionEntry =
-  | { kind: 'user'; text: string }
+  /** `attachments`: files the user sent with the message (CEO desk). */
+  | { kind: 'user'; text: string; attachments?: CeoAttachment[] }
   | { kind: 'text'; text: string }
   | { kind: 'tool'; name: string; text: string }
-  | { kind: 'error'; text: string }
+  /** `login`: the engine is logged out; the console offers its login (CEO desk). */
+  | { kind: 'error'; text: string; login?: boolean }
   /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */
   | { kind: 'edits'; text: string; catIds: string[] }
   /**
