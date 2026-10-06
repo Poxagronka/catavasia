@@ -162,6 +162,7 @@ export function onTurnFinished(d: Draft, e: EventOf<'TurnFinished'>): void {
   const r = e.result;
   d.fx.push({ type: 'CancelTimer', id: `turn:${e.turnId}` });
   m.started ||= r.sessionStarted;
+  if (r.sessionId) m.sessionId = r.sessionId;
   const sessionCost = r.sessionCostUsd ?? m.sessionCostUsd;
   const costUsd = Math.max(0, sessionCost - m.sessionCostUsd);
   m.sessionCostUsd = sessionCost;

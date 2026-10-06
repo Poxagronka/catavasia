@@ -223,13 +223,13 @@ describe('resident cats', () => {
     });
   });
 
-  it('marks a Codex cat as not ready in the task form', () => {
+  it('disables a cat whose engine has no adapter in the task form', () => {
     const targets = tasks.targets();
     expect(targets.find((t) => t.id === 'team')).toEqual({
       id: 'team',
       label: 'Team: Oliver leads',
     });
-    expect(targets.find((t) => t.id === 'codex')?.disabled).toBe('codex adapter not ready');
+    expect(targets.find((t) => t.id === 'codex')?.disabled).toBe('codex has no adapter');
     expect(targets.find((t) => t.id === 'murka')?.disabled).toBeUndefined();
   });
 });

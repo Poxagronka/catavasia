@@ -15,15 +15,18 @@ import { moveCat, normalizeHierarchy, promoteToBoss, removeCat } from './hierarc
 
 /**
  * Offline lists only: with a server office the values come from the
- * installed CLI (`claude --help`). Codex values are unverified placeholders
- * (the model is the one in ~/.codex/config.toml on the dev machine).
+ * installed CLI (`claude --help`, `codex debug models`). The Codex values are
+ * a subset of `codex debug models` from codex-cli 0.155.1 (2026-10-06).
  */
 const ENGINE_OPTIONS: Record<Engine, EngineOptions> = {
   claude: {
     models: ['opus', 'sonnet', 'haiku', 'fable'],
     efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
-  codex: { models: ['gpt-6-astra'], efforts: ['low', 'medium', 'high'] },
+  codex: {
+    models: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna'],
+    efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
 };
 
 export const STORAGE_KEY = 'catavasia.cats.v1';

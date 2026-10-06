@@ -74,9 +74,9 @@ describe('server cats adapter', () => {
     load(defaults());
     expect(notified).toBe(1);
     expect(api.getSnapshot().cats.map((c) => c.id)).toEqual(['boss', 'murka', 'pushok']);
-    // Engine options come from the server; Codex stays listed but cannot run.
+    // Engine options come from the server; an engine it does not list cannot run.
     expect(api.engineOptions('claude').models).toEqual(['fable', 'opus', 'sonnet']);
-    expect(api.engineOptions('codex').unavailable).toContain('adapter not ready');
+    expect(api.engineOptions('codex').unavailable).toContain('no adapter');
     expect(sent).toEqual([]);
   });
 
@@ -97,8 +97,27 @@ describe('server cats adapter', () => {
     expect(api.getSnapshot().cats.find((c) => c.parentId === null)?.id).toBe('murka');
     // Validation runs on the client too: an unknown alias never leaves.
     expect(() => api.saveCat(cat('x', 'boss', { model: 'haiku' }))).toThrow(/not offered/);
-    expect(() => api.saveCat(cat('y', 'boss', { engine: 'codex' }))).toThrow(/adapter not ready/);
+    expect(() => api.saveCat(cat('y', 'boss', { engine: 'codex' }))).toThrow(/no adapter/);
     expect(sent).toHaveLength(4);
+  });
+
+  it('offers Codex when the server runs it, and says why when its CLI is missing', () => {
+    const { api, server } = setup();
+    const codex = { engine: 'codex' as const, models: ['gpt-6-astra'], efforts: ['low', 'high'] };
+    const loaded = (engineOptions: typeof ENGINES | Array<Record<string, unknown>>) =>
+      server({ type: 'catProfilesLoaded', cats: defaults() as never, engineOptions } as never);
+    loaded([...ENGINES, codex]);
+    expect(api.engineOptions('codex')).toEqual({
+      models: ['gpt-6-astra'],
+      efforts: ['low', 'high'],
+    });
+    api.saveCat(cat('kodi', 'boss', { engine: 'codex', model: 'gpt-6-astra', effort: 'low' }));
+    expect(api.getSnapshot().cats.map((c) => c.id)).toContain('kodi');
+    loaded([
+      ...ENGINES,
+      { engine: 'codex', models: [], efforts: [], unavailable: 'Codex CLI not found' },
+    ]);
+    expect(api.engineOptions('codex').unavailable).toBe('Codex CLI not found');
   });
 
   it('shows a rejection inline and goes back to the last server snapshot', () => {

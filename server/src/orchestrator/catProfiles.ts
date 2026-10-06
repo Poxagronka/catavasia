@@ -41,6 +41,8 @@ export interface EngineChoices {
   efforts: string[];
   /** A full model name the CLI also accepts (e.g. `claude-...`). */
   fullModelPattern?: RegExp;
+  /** Why cats of this engine cannot run here (e.g. "Codex CLI not found"). */
+  unavailable?: string;
 }
 
 /** Engines with an adapter. An engine absent here cannot run a cat. */
