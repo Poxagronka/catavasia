@@ -59,9 +59,9 @@ async function startOffice(): Promise<void> {
     JSON.stringify({
       version: 1,
       cats: [
-        cat('boss', 'Barsik', 'opus', null, 'marmalade'),
-        cat('murka', 'Murka', 'sonnet', 'boss', 'smokey'),
-        cat('pushok', 'Pushok', 'sonnet', 'boss', 'snow'),
+        cat('boss', 'Oliver', 'opus', null, 'marmalade'),
+        cat('murka', 'Luna', 'sonnet', 'boss', 'smokey'),
+        cat('pushok', 'Milo', 'sonnet', 'boss', 'snow'),
       ],
       // The Cat CEO has its own tests (catCeo*.test.ts): no judge runs here.
       catCeo: { enabled: false },
@@ -188,9 +188,9 @@ describe('team task (1 boss + 2 workers)', () => {
     // The narrator hears tool calls, office messages and the final result.
     expect(narrated.some((n) => n.kind === 'tool' && n.tool === 'Write')).toBe(true);
     expect(narrated).toContainEqual(
-      expect.objectContaining({ kind: 'message', from: 'Barsik', to: 'Murka' }),
+      expect.objectContaining({ kind: 'message', from: 'Oliver', to: 'Luna' }),
     );
-    expect(narrated.some((n) => n.kind === 'result' && n.from === 'Barsik')).toBe(true);
+    expect(narrated.some((n) => n.kind === 'result' && n.from === 'Oliver')).toBe(true);
   });
 
   it('emits the phase 1 event sequence (golden list, one turn at a time)', async () => {
@@ -234,7 +234,7 @@ describe('team task (1 boss + 2 workers)', () => {
     const runs = readFakeLog(fakeLog);
     const boss = runs.find((r) => r.cat === 'boss')!;
     for (const part of [
-      '# Role & conduct\n\nI am Barsik.',
+      '# Role & conduct\n\nI am Oliver.',
       '# Rules',
       '# Lessons',
       '## Office rules',

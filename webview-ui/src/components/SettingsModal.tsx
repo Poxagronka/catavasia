@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { catCeo, useCatCeo } from '../cats/catCeoClient.js';
 import type { CatOfficeSettings } from '../hooks/useExtensionMessages.js';
@@ -7,6 +7,7 @@ import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
 import { DefaultLayoutReset } from './DefaultLayoutReset.js';
+import { ResetEverything } from './ResetEverything.js';
 import { Button } from './ui/Button.js';
 import { Checkbox } from './ui/Checkbox.js';
 import { MenuItem } from './ui/MenuItem.js';
@@ -79,12 +80,29 @@ export function SettingsModal({
   const narrator = useNarratorSettings();
   const ceo = useCatCeo().settings;
   const [resetConfirming, setResetConfirming] = useState(false);
+  const [resetAllConfirming, setResetAllConfirming] = useState(false);
+  const [resetAllTyped, setResetAllTyped] = useState('');
+  const [resetAllResult, setResetAllResult] = useState<{
+    backupDir?: string;
+    error?: string;
+  } | null>(null);
+
+  useEffect(
+    () =>
+      transport.onMessage((msg) => {
+        if (msg.type === 'resetAllResult') setResetAllResult(msg);
+      }),
+    [],
+  );
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={() => {
         setResetConfirming(false);
+        setResetAllConfirming(false);
+        setResetAllTyped('');
+        setResetAllResult(null);
         onClose();
       }}
       title="Settings"
@@ -134,6 +152,19 @@ export function SettingsModal({
             onResetLayoutToDefault();
             onClose();
           }}
+        />
+      </div>
+      <div className="py-4 px-10">
+        <ResetEverything
+          confirming={resetAllConfirming}
+          onConfirmingChange={setResetAllConfirming}
+          typed={resetAllTyped}
+          onTypedChange={setResetAllTyped}
+          onReset={() => {
+            setResetAllResult(null);
+            transport.send({ type: 'resetAllToDefault' });
+          }}
+          result={resetAllResult}
         />
       </div>
       {isBrowserRuntime && (

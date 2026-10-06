@@ -77,7 +77,7 @@ describe('judge output schema', () => {
 });
 
 const file = (over: Partial<PromptFile> = {}): PromptFile => ({
-  role: 'You are Murka.\n\n# not a heading the parser knows',
+  role: 'You are Luna.\n\n# not a heading the parser knows',
   rules: [{ id: 'R1', text: 'Keep changes small.' }],
   lessons: [{ id: 'L1', text: 'The webview tests need npm run build:core first.' }],
   ...over,
@@ -278,7 +278,7 @@ describe('review digest (§5.1)', () => {
       cats: [
         {
           id: 'boss',
-          name: 'Barsik',
+          name: 'Oliver',
           appearance: {},
           role: '',
           systemPrompt: '',
@@ -300,7 +300,7 @@ describe('review digest (§5.1)', () => {
         prompt: `Use ghp_secret123456 and look at /Users/me/repo. ${'x'.repeat(70_000)}`,
         status: 'done',
         createdAt: 0,
-        log: [{ kind: 'tool', name: 'Murka: Bash', text: 'npm test' }],
+        log: [{ kind: 'tool', name: 'Luna: Bash', text: 'npm test' }],
       },
       state,
       events: [],
@@ -314,7 +314,7 @@ describe('review digest (§5.1)', () => {
     for (const part of [
       '## Task',
       '## Tests run',
-      'Murka: npm test',
+      'Luna: npm test',
       '## Prompt files',
       't0: 70 (pass)',
     ]) {
