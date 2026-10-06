@@ -259,6 +259,11 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     await Promise.all(running.map((h) => h.done));
 
     const worktreeError = await endFlowWorkspaces(flow);
+    // Persona and MCP config files: the tokens in them die with the task.
+    fs.rmSync(path.join(this.opts.stateDir, ORCHESTRATOR_DIR, task.id), {
+      recursive: true,
+      force: true,
+    });
     if (ok) task.result = text;
     else task.error = text;
     if (worktreeError) task.error = task.error ? `${task.error}\n${worktreeError}` : worktreeError;

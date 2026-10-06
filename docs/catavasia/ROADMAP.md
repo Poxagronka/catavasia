@@ -38,6 +38,26 @@ Design research and evidence: [orchestration-spec.md](orchestration-spec.md).
 - The Cats menu: Agents tab (look, name, prompt, role, model, effort: passed as `--model` / `--effort`; list the values the installed `claude --help` accepts, do not hardcode from memory), Hierarchy tab (tree editor), Pets tab (create, name, colour/pattern from the shared editor with more colours).
 - A task flows boss → briefing meeting (all cats gather in one room) → delegation down → work → reports up → result to the user. Cats walk to each other for every conversation. Speech bubbles appear, and hover shows the narrator summary.
 
+### Phase 1 decisions (feat/orchestrator-core, 1.4.1-cats.11, agent-made)
+
+Code: `server/src/orchestrator/`. UI is phase 2; phase 1 adds only the Settings rows, the task-form "Who" field and the card state.
+
+- **Per-turn process, verified.** Each turn is `claude -p --input-format stream-json --output-format stream-json --verbose --session-id|--resume <id> --append-system-prompt-file --model [--effort] --mcp-config <file> --strict-mcp-config --dangerously-skip-permissions`, cwd = the cat's worktree. One user message, then EOF. Project settings stay on, so cats see the project CLAUDE.md.
+- **Cache after `--resume` is hit (measured 2026-10-06, CLI 2.1.290).** Probe (haiku, 2 turns): turn 2 read 29,294 cached tokens and wrote 281. Real e2e run, boss Sonnet: turn 2 after resume read 36,085 and wrote 263; turn 3 read 36,085 and wrote 492. The CLI writes the cache with the 1 h TTL (`ephemeral_1h_input_tokens`). So the long-lived fallback process is NOT built.
+- **Cost per turn = delta.** `total_cost_usd` in the `result` event is cumulative over resumes of one session (probe: $0.0328 then $0.0369). The office records the delta per turn.
+- **Branch names.** Git cannot hold `task/<id>` and `task/<id>/<cat>` at once (a ref cannot be a file and a folder). Worker branches are `task/<id>-<cat>`. The merged result stays on `task/<id>`.
+- **Merges are done by the server, in the parent's name.** When a worker reports, its worktree is committed. Before the parent's next turn, the server merges the branch into the parent's worktree (`--no-ff`) and puts a note in the message. On a conflict the merge stays open and the note tells the parent to resolve and commit. A report never reaches the parent before its branch is merged.
+- **Sessions.** One session per cat per task (a task has its own worktrees, and a session is bound to its cwd). Turns of one cat are serialized across tasks by the per-cat lock in the turn scheduler.
+- **Characters.** A cat gets a character at its first turn, with its breed as the palette. The character stays idle and linked to the task after the task. The cat's next task replaces it.
+- **Delivery.** Tools return at once. A message waits in the target's inbox and becomes the user message of its next turn. A message that arrives during a turn waits for the next turn.
+- **Guards.** A cat that ends its turn owing a report (nothing to wait for) gets one nudge; after that its last text counts as the report (root: as the final result). A question that the target did not answer with `reply` gets the target's last text as the answer. A task stops with an error after 80 turns (`FLOW_MAX_TURNS`). The root cannot report while a worker still works.
+- **Team target.** "Team" = the first root cat. A task can also go to one cat; that cat leads, and it may delegate to its own reports.
+- **Model check.** Models and efforts come from `claude --help`: aliases `fable`, `opus`, `sonnet` and efforts `low, medium, high, xhigh, max` on 2.1.290. Help does not list `haiku`, so a Haiku cat uses a full model name (`claude-haiku-4-5-20251001`); the office accepts any `claude-...` full name, as the help text says. The file load checks only the shape, so a CLI upgrade never deletes a cat.
+- **cats.json.** `{ version: 1, cats: [...] }`, atomic tmp + rename. An unreadable file is copied to `cats.json.bad-<ts>`, then the default team is seeded. Deleting a cat moves its reports to its parent. Editing cats over the WebSocket needs the server token (a cat runs with no permission prompts).
+- **Guests.** With the office on, the standalone server holds back every message about an external session unless Settings → Show Guests is on (default off). Shown guests render translucent. Show Guests and Cats Working at Once (1–12, default 6) persist in config.json like the other settings.
+- **MCP transport.** A small hand-written MCP Streamable HTTP endpoint at `/mcp` (JSON responses, no SSE; GET returns 405), one random bearer token per cat per task. No MCP SDK dependency. The token files are removed when the task ends.
+- **E2E run (2026-10-06, real CLI, port 4100).** Task "create hello.txt with the word meow and goodbye.txt with the word purr, one file per worker", boss Sonnet + 2 workers Haiku. The boss called brief and two delegates over MCP; both workers reported; both branches were merged into `task/<id>` (two merge commits); result returned to the user. 5 turns (boss 3, workers 1 each), 39 s, total $0.264.
+
 ## Resource budget (RAM) — plan to reach the goal cheaper
 
 Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB peak RSS, 15.6 s wall time incl. the model reply. The research measured 300–850 MB per long-lived session.

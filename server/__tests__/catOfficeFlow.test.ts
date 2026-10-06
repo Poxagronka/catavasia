@@ -127,6 +127,7 @@ describe('team task (1 boss + 2 workers)', () => {
     expect(task.changedFiles?.map((f) => f.path).sort()).toEqual(['murka.txt', 'pushok.txt']);
     // Every worktree is gone; only branches stay.
     expect(fs.readdirSync(path.join(stateDir, 'worktrees'))).toEqual([]);
+    expect(fs.existsSync(path.join(stateDir, 'orchestrator', task.id))).toBe(false);
 
     // Per-turn processes: the first turn creates the session, later turns resume it.
     const runs = readFakeLog(fakeLog);

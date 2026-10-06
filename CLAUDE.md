@@ -323,6 +323,10 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
 
 "Tasks" button → board of headless `claude -p --dangerously-skip-permissions --output-format stream-json --verbose` runs (`server/src/taskBoard/`, `webview-ui/src/components/taskBoard/`, contract `core/src/tasks.ts`). Plain HTTP, not AsyncAPI: `GET /api/tasks`, `GET /api/tasks/:id` (open), `POST /api/tasks` (needs the server token, `?token=` or Bearer — the run has no permission prompts). Each run gets a git worktree at `~/.pixel-agents/worktrees/<id>` on branch `task/<id>`; on exit everything is committed, the diff vs the base commit is recorded, the worktree is removed and the branch kept. Non-git folders run in place. The character comes from `AgentRuntime.launchHeadlessAgent` (registered directly with `--session-id`, so no Watch All gate). `finishHeadlessAgent(id, taskId)` stops its watchers but keeps it as an idle cat until the server restarts (`agentTaskFinished`, resent on connect); clicking it opens the task. Tasks persist in `~/.pixel-agents/tasks.json` (shared by all servers, per-task read-merge-write); a `running` task whose owner PID is dead becomes "interrupted".
 
+### Cat office (standalone only)
+
+`server/src/orchestrator/`: cat profiles (`~/.pixel-agents/cats.json`), team tasks on the task board (target `team` or a cat id), one `claude -p` stream-json process per cat turn with `--resume`, a turn cap + per-cat lock (`TurnScheduler`), and the office MCP endpoint `/mcp` (brief, delegate, ask, reply, report, list_team) that enforces the hierarchy. Decisions and measurements: `docs/catavasia/ROADMAP.md` → "Phase 1 decisions". Tripwires: office tools must return at once (60 s MCP timeout); worker branches are `task/<id>-<cat>` because git cannot hold `task/<id>` and `task/<id>/<cat>` together. Guests (external sessions) are held back by `server/src/guests.ts` unless Show Guests is on.
+
 **Tripwire**: `.gitignore` ignores every `tasks/` directory — a folder named `tasks` is silently untracked AND skipped by Tailwind's class scan. That is why the folders are named `taskBoard`.
 
 ## Persistence
@@ -335,6 +339,8 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
   layout.json              OfficeLayout (shared across surfaces)
   server.json              { port, pid, authToken }
   tasks.json               Task board tasks (all standalone servers)
+  cats.json                Cat profiles + hierarchy ({ version: 1, cats })
+  orchestrator/<taskId>/   Per-cat persona + office MCP config of a running team task
   pets-state.json          Pet care: cat needs, bowl levels, litter boxes, floor poops (both surfaces)
   worktrees/<taskId>/      Git worktree of a running task (removed on finish)
   hooks/claude-hook.js     Bundled hook script (CJS, shebang)
