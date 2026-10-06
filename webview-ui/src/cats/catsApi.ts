@@ -58,17 +58,9 @@ export interface CatProfile {
   isDefault?: boolean;
 }
 
-export interface PetProfile {
-  id: string;
-  name: string;
-  /** Only cats have generated art today. */
-  species: 'cat';
-  appearance: Appearance;
-}
-
+/** Agent cats only: pets are the pet cats placed in the layout (see cats/petRoster.ts). */
 export interface CatsSnapshot {
   cats: CatProfile[];
-  pets: PetProfile[];
 }
 
 export interface EngineOptions {
@@ -91,8 +83,6 @@ export interface CatsApi {
   /** Throws on a cycle or an unknown cat. */
   setParent(id: string, parentId: string): void;
   promoteToBoss(id: string): void;
-  savePet(pet: PetProfile): void;
-  deletePet(id: string): void;
   engineOptions(engine: Engine): EngineOptions;
 }
 
@@ -104,7 +94,7 @@ export const ENGINE_LABELS: Record<Engine, string> = {
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 export const MAX_NAME_LENGTH = 40;
 
-function appearanceErrors(a: Appearance, knownBreeds: readonly string[]): string[] {
+export function appearanceErrors(a: Appearance, knownBreeds: readonly string[]): string[] {
   const errors: string[] = [];
   if (a.breed !== undefined && !knownBreeds.includes(a.breed))
     errors.push(`unknown breed "${a.breed}"`);
@@ -118,7 +108,7 @@ function appearanceErrors(a: Appearance, knownBreeds: readonly string[]): string
   return errors;
 }
 
-function nameErrors(name: string): string[] {
+export function nameErrors(name: string): string[] {
   const trimmed = name.trim();
   if (!trimmed) return ['name is empty'];
   if (trimmed.length > MAX_NAME_LENGTH) return [`name is longer than ${MAX_NAME_LENGTH}`];
@@ -135,11 +125,5 @@ export function validateCatProfile(
   if (!options.models.includes(cat.model)) errors.push(`model "${cat.model}" is not offered`);
   if (!options.efforts.includes(cat.effort)) errors.push(`effort "${cat.effort}" is not offered`);
   if (cat.parentId === cat.id) errors.push('a cat cannot report to itself');
-  return errors;
-}
-
-export function validatePetProfile(pet: PetProfile, knownBreeds: readonly string[]): string[] {
-  const errors = [...nameErrors(pet.name), ...appearanceErrors(pet.appearance, knownBreeds)];
-  if (pet.species !== 'cat') errors.push(`unknown species "${String(pet.species)}"`);
   return errors;
 }

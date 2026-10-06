@@ -1,4 +1,6 @@
+import type { Appearance } from '../../cats/catsApi.js';
 import type { SpriteData } from '../types.js';
+import { renderPetAppearance } from './petAppearance.js';
 
 /**
  * Resolved per-pet sprite frames. Each entry is a 3-frame animation array.
@@ -91,6 +93,7 @@ export function setPetTemplates(
     resolvedSpecies.push(petSpecies?.[i] ?? '');
   }
   loadedPets = resolved;
+  coatCache.clear();
   loadedPetNames = resolvedNames;
   loadedPetSpecies = resolvedSpecies;
 }
@@ -100,6 +103,31 @@ export function getPetSprites(petIndex: number): PetSpriteFrames | null {
   if (!loadedPets) return null;
   if (petIndex < 0 || petIndex >= loadedPets.length) return null;
   return loadedPets[petIndex];
+}
+
+/** Repainted sheets by petType + appearance. Stable objects: the sprite caches key on identity. */
+const coatCache = new Map<string, PetSpriteFrames>();
+const COAT_CACHE_LIMIT = 64;
+
+/**
+ * The frames a pet draws with: its template sheet, repainted when a cat pet
+ * has an appearance. Dogs and coat-less cats (Gitcat as shipped) get the
+ * template unchanged.
+ */
+export function getPetSpritesFor(pet: {
+  petType: number;
+  appearance?: Appearance;
+}): PetSpriteFrames | null {
+  const template = getPetSprites(pet.petType);
+  if (!template || !pet.appearance || !isCatPet(pet.petType)) return template;
+  const key = `${pet.petType}|${JSON.stringify(pet.appearance)}`;
+  let frames = coatCache.get(key);
+  if (!frames) {
+    frames = renderPetAppearance(template, pet.appearance);
+    if (coatCache.size >= COAT_CACHE_LIMIT) coatCache.delete(coatCache.keys().next().value!);
+    coatCache.set(key, frames);
+  }
+  return frames;
 }
 
 /** Number of pets currently loaded. */
