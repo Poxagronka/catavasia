@@ -1,65 +1,78 @@
 import { describe, expect, it } from 'vitest';
 
-import { NARRATOR_LINE_MAX_CHARS, type NarratorInput } from '../../core/src/narrator.js';
+import { type NarratorInput } from '../../core/src/narrator.js';
 import { taskLogInput } from '../src/narrator/narrator.js';
-import { clipLine, templateFor } from '../src/narrator/templates.js';
+import { clipLine, PHASES, templateFor } from '../src/narrator/templates.js';
 
 const tool = (name: string, extra: Partial<NarratorInput> = {}) =>
   templateFor({ catId: 1, ts: 0, kind: 'tool', tool: name, ...extra });
 const bash = (command: string) => tool('Bash', { text: command });
 
+const PLAN = ['thinking', 'plotting the hunt'];
+const SNIFF = ['reading', 'sniffing around'];
+const KNEAD = ['editing', 'kneading the code'];
+const BAT = ['testing', 'batting at bugs'];
+const GROOM = ['reading', 'grooming the code'];
+const MOUSE = ['editing', 'bringing you a mouse'];
+const MEOW = ['waiting', 'meowing for you'];
+
 describe('narrator templates: tools', () => {
-  it.each(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead'])('%s -> reading code', (name) => {
-    expect(tool(name, { file: '/a/b.ts' })).toEqual({ state: 'reading', line: 'reading code' });
-  });
-
-  it.each(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])('%s -> editing <basename>', (name) => {
-    expect(tool(name, { file: '/repo/server/src/foo.ts' })).toEqual({
-      state: 'editing',
-      line: 'editing foo.ts',
-    });
-    expect(tool(name)).toEqual({ state: 'editing', line: 'editing code' });
-  });
-
   it.each([
-    ['WebSearch', 'reading', 'searching the web'],
-    ['WebFetch', 'reading', 'reading a web page'],
-    ['Task', 'thinking', 'delegating a subtask'],
-    ['Agent', 'thinking', 'delegating a subtask'],
-    ['TodoWrite', 'thinking', 'making a plan'],
-    ['AskUserQuestion', 'waiting', 'waiting for your input'],
-    ['ExitPlanMode', 'waiting', 'waiting for plan approval'],
-    ['mcp__catavasia__delegate', 'thinking', 'delegating tasks'],
-    ['mcp__catavasia__brief', 'thinking', 'holding a briefing'],
-    ['mcp__catavasia__report', 'thinking', 'writing a report'],
-    ['mcp__catavasia__ask', 'waiting', 'asking a teammate'],
-    ['mcp__catavasia__reply', 'thinking', 'replying to a teammate'],
-    ['mcp__catavasia__list_team', 'thinking', 'checking the team'],
-    ['mcp__github__create_issue', 'thinking', 'using an external tool'],
-    ['SomethingNew', 'thinking', 'working'],
+    ['Read', ...SNIFF],
+    ['Grep', ...SNIFF],
+    ['Glob', ...SNIFF],
+    ['LS', ...SNIFF],
+    ['NotebookRead', ...SNIFF],
+    ['WebSearch', ...SNIFF],
+    ['WebFetch', ...SNIFF],
+    ['Edit', ...KNEAD],
+    ['MultiEdit', ...KNEAD],
+    ['Write', ...KNEAD],
+    ['NotebookEdit', ...KNEAD],
+    ['Task', 'thinking', 'herding cats'],
+    ['Agent', 'thinking', 'herding cats'],
+    ['TodoWrite', ...PLAN],
+    ['AskUserQuestion', ...MEOW],
+    ['ExitPlanMode', ...MEOW],
+    ['mcp__catavasia__brief', 'thinking', 'holding a cat meeting'],
+    ['mcp__catavasia__delegate', 'thinking', 'herding cats'],
+    ['mcp__catavasia__report', ...MOUSE],
+    ['mcp__catavasia__ask', 'waiting', 'nosing a teammate'],
+    ['mcp__catavasia__reply', 'thinking', 'nosing a teammate'],
+    ['mcp__catavasia__list_team', ...PLAN],
+    ['mcp__github__create_issue', ...SNIFF],
+    ['SomethingNew', ...PLAN],
   ])('%s -> %s / %s', (name, state, line) => {
-    expect(tool(name)).toEqual({ state, line });
+    // A file path never leaks into the line.
+    expect(tool(name, { file: '/repo/server/src/foo.ts', text: 'foo.ts' })).toEqual({
+      state,
+      line,
+    });
   });
 
   it.each([
-    ['npm test', 'testing', 'running tests'],
-    ['cd server && npx vitest run', 'testing', 'running tests'],
-    ['pytest -q tests/', 'testing', 'running tests'],
-    ['npm run test:server', 'testing', 'running tests'],
-    ['go test ./...', 'testing', 'running tests'],
-    ['git commit -m "fix"', 'editing', 'committing'],
-    ['git add -A && git commit -m x', 'editing', 'committing'],
-    ['git -C /repo commit -m x', 'editing', 'committing'],
-    ['git push origin main', 'editing', 'pushing changes'],
-    ['git merge origin/main', 'editing', 'merging branches'],
-    ['git status', 'reading', 'checking git history'],
-    ['gh pr create --fill', 'editing', 'opening a pull request'],
-    ['npm run lint', 'testing', 'running the linter'],
-    ['npx tsc --noEmit', 'testing', 'running the linter'],
-    ['npm run build', 'testing', 'building the project'],
-    ['npm ci', 'editing', 'installing dependencies'],
-    ['ls -la', 'reading', 'reading code'],
-    ['curl https://example.com', 'editing', 'running a command'],
+    ['npm test', ...BAT],
+    ['cd server && npx vitest run', ...BAT],
+    ['pytest -q tests/', ...BAT],
+    ['npm run test:server', ...BAT],
+    ['go test ./...', ...BAT],
+    ['npm run lint', ...BAT],
+    ['npx tsc --noEmit', ...BAT],
+    ['npm run build', ...BAT],
+    ['git commit -m "fix"', ...MOUSE],
+    ['git add -A && git commit -m x', ...MOUSE],
+    ['git -C /repo commit -m x', ...MOUSE],
+    ['git push origin main', ...MOUSE],
+    ['git merge origin/main', ...MOUSE],
+    ['gh pr create --fill', ...MOUSE],
+    ['gh pr merge 3 --merge', ...MOUSE],
+    ['git status', ...GROOM],
+    ['git diff HEAD', ...GROOM],
+    ['git log --oneline', ...GROOM],
+    ['gh pr view 3', ...GROOM],
+    ['ls -la', ...SNIFF],
+    ['npm ci', ...KNEAD],
+    ['curl https://example.com', ...KNEAD],
   ])('Bash "%s" -> %s / %s', (command, state, line) => {
     expect(bash(command)).toEqual({ state, line });
   });
@@ -71,11 +84,11 @@ describe('narrator templates: tools', () => {
 
 describe('narrator templates: states, messages, results', () => {
   it.each([
-    ['thinking', 'thinking', 'thinking'],
-    ['permission', 'waiting', 'waiting for permission'],
-    ['input', 'waiting', 'waiting for your input'],
-    ['done', 'done', 'done'],
-    ['error', 'error', 'error'],
+    ['thinking', ...PLAN],
+    ['permission', 'waiting', 'pawing at the door'],
+    ['input', ...MEOW],
+    ['done', 'done', 'purring, all done'],
+    ['error', 'error', 'hissing at a bug'],
   ])('state %s -> %s / %s', (text, state, line) => {
     expect(templateFor({ catId: 1, ts: 0, kind: 'state', text })).toEqual({ state, line });
   });
@@ -84,28 +97,23 @@ describe('narrator templates: states, messages, results', () => {
     expect(templateFor({ catId: 1, ts: 0, kind: 'state', text: 'dancing' })).toBeNull();
   });
 
-  it('a message names the receiver', () => {
+  it('a message is a teammate phase without names', () => {
     expect(templateFor({ catId: 1, ts: 0, kind: 'message', to: 'Whiskers', text: 'hi' })).toEqual({
       state: 'thinking',
-      line: 'messaging Whiskers',
+      line: 'nosing a teammate',
     });
-    expect(templateFor({ catId: 1, ts: 0, kind: 'message', text: 'hi' })?.line).toBe(
-      'talking to a teammate',
-    );
   });
 
   it('a result is done', () => {
     expect(templateFor({ catId: 1, ts: 0, kind: 'result', text: 'ok' })).toEqual({
       state: 'done',
-      line: 'handed in the result',
+      line: 'purring, all done',
     });
   });
 
-  it('every line fits the limit, a long file name is cut with an ellipsis', () => {
-    const long = `${'x'.repeat(100)}.ts`;
-    const t = tool('Edit', { file: `/a/${long}` });
-    expect(t?.line.length).toBe(NARRATOR_LINE_MAX_CHARS);
-    expect(t?.line.endsWith('…')).toBe(true);
+  it('every phase line is short', () => {
+    for (const p of Object.values(PHASES)) expect(p.line.length).toBeLessThanOrEqual(30);
+    expect(clipLine('x'.repeat(10), 5)).toBe('xxxx…');
     expect(clipLine('short')).toBe('short');
   });
 });

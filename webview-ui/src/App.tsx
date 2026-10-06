@@ -576,6 +576,8 @@ function App() {
           setIsCatsOpen(false);
           setCatsFocusId(null);
         }}
+        getOfficeState={getOfficeState}
+        onCommitPets={editor.commitPets}
       />
       <HierarchyModal
         isOpen={isHierarchyOpen}

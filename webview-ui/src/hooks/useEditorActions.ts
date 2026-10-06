@@ -57,6 +57,8 @@ interface EditorActions {
   setLastSavedLayout: (layout: OfficeLayout) => void;
   /** Clear the dirty flag (used after a browser import applies a new saved baseline). */
   markClean: () => void;
+  /** Save the pets the Cats menu changed in OfficeState (see commitPets). */
+  commitPets: () => void;
   handleOpenClaude: () => void;
   handleToggleEditMode: () => void;
   handleToolChange: (tool: EditToolType) => void;
@@ -149,6 +151,20 @@ export function useEditorActions(
       transport.send({ type: 'saveLayout', layout: layout as unknown as Record<string, unknown> });
     }, LAYOUT_SAVE_DEBOUNCE_MS);
   }, []);
+
+  // Cats menu pet edits are already live in OfficeState: save the layout and
+  // carry the pets into the editor's Reset baseline so a later Reset keeps them.
+  // No undo entry: the edit happened outside the editor.
+  const commitPets = useCallback(() => {
+    const layout = getOfficeState().getLayout();
+    saveLayout(layout);
+    if (lastSavedLayoutRef.current)
+      lastSavedLayoutRef.current = {
+        ...lastSavedLayoutRef.current,
+        pets: structuredClone(layout.pets),
+      };
+    setEditorTick((n) => n + 1);
+  }, [getOfficeState, saveLayout]);
 
   // Apply a layout edit: push undo, clear redo, rebuild state, save, mark dirty
   const applyEdit = useCallback(
@@ -941,6 +957,7 @@ export function useEditorActions(
     saveTimerRef,
     setLastSavedLayout,
     markClean,
+    commitPets,
     handleOpenClaude,
     handleToggleEditMode,
     handleToolChange,
