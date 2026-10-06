@@ -1,13 +1,28 @@
 {
   "name": "catavasia",
-  "displayName": "Pixel Agents",
-  "description": "Pixel art office where your Claude Code agents come to life as animated characters",
+  "displayName": "catavasia",
+  "description": "Pixel-art cat office where your Claude Code agents are cats: watch your sessions, or hire a cat team that splits a task and works in git worktrees",
   "version": "1.4.1-cats.35",
   "publisher": "pablodelucca",
+  "author": "Poxagronka",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pixel-agents-hq/pixel-agents"
+    "url": "git+https://github.com/Poxagronka/catavasia.git"
   },
+  "homepage": "https://github.com/Poxagronka/catavasia#readme",
+  "bugs": {
+    "url": "https://github.com/Poxagronka/catavasia/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "claude",
+    "ai-agents",
+    "cats",
+    "pixel-art",
+    "office",
+    "visualization",
+    "cli"
+  ],
   "workspaces": [
     "server",
     "webview-ui"

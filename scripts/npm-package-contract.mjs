@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import semver from 'semver';
 
 export const EXPECTED_PACKAGE_NAME = 'catavasia';
-export const EXPECTED_REPOSITORY_URL = 'https://github.com/pixel-agents-hq/pixel-agents';
+export const EXPECTED_REPOSITORY_URL = 'git+https://github.com/Poxagronka/catavasia.git';
 
 // fastify + @fastify/{cors,static,websocket} are root runtime `dependencies` even though
 // no root source file imports them: esbuild marks them `external` when bundling

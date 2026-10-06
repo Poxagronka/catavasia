@@ -8,10 +8,10 @@ Catavasia is a fork of [Pixel Agents](https://github.com/pixel-agents-hq/pixel-a
 
 ## Quick install
 
-macOS and Linux (Node.js 20 or later, npm and git):
+Node.js 20 or later:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Poxagronka/catavasia/main/install.sh | bash
+npm install -g catavasia
 ```
 
 Then start it in your project folder and open the URL that it prints:
@@ -21,7 +21,15 @@ cd /path/to/your/project
 catavasia
 ```
 
-The script builds Catavasia from this repository and installs the `catavasia` command. Catavasia is not on npm: `npx catavasia` and `npm install -g catavasia` do not work. The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): requirements, manual install, Windows, update, uninstall and troubleshooting.
+To try it once without an install, run `npx catavasia` in your project folder.
+
+Alternative for macOS and Linux (also needs git): this script builds catavasia from GitHub `main` and installs the `catavasia` command.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Poxagronka/catavasia/main/install.sh | bash
+```
+
+The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): requirements, manual install, Windows, update, uninstall and troubleshooting.
 
 ## Differences from Pixel Agents
 
@@ -29,8 +37,8 @@ The script builds Catavasia from this repository and installs the `catavasia` co
 | ------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Characters         | 6 human characters                                | 13 cat breeds, and custom coats                                                                                |
 | Main form          | VS Code extension, plus a standalone CLI          | Standalone browser app (`catavasia`). The cat team needs the standalone server.                                |
-| Install            | VS Code Marketplace, Open VSX, `npx pixel-agents` | `install.sh` builds from GitHub `main`                                                                         |
-| Updates            | Marketplace or npm                                | In-game update from GitHub `main`, one click                                                                   |
+| Install            | VS Code Marketplace, Open VSX, `npx pixel-agents` | `npm install -g catavasia`, or `install.sh` builds from GitHub `main`                                          |
+| Updates            | Marketplace or npm                                | In-game update from GitHub `main`, one click, or `npm install -g catavasia@latest`                             |
 | Agents             | Watches the Claude sessions that you start        | Also has its own cat team: a team lead, workers and a Cat CEO, each a Claude Code session that the server runs |
 | Tasks              | None                                              | Tasks panel and a whiteboard in the office. The team lead splits a task and delegates it down the hierarchy.   |
 | Talk to an agent   | Through your own terminal                         | A chat and a terminal panel for each cat in the browser                                                        |
@@ -92,7 +100,7 @@ npm pack --ignore-scripts
 npm install -g ./catavasia-*.tgz
 ```
 
-These are the same steps that `install.sh` and the in-game update run.
+Use these steps to build from source. They are the same steps that `install.sh` and the in-game update run.
 
 ## Start
 
@@ -110,7 +118,7 @@ On the first start, the office asks for approval to add hooks to `~/.claude/sett
 ## Update
 
 - **In the game:** when a new version is on `main`, a panel offers **Update**. The game builds the new version, installs it and restarts. It waits while cats work on tasks. **Settings → Check for updates** checks now.
-- **From the terminal:** run the [quick install](#quick-install) line again.
+- **From the terminal:** run `npm install -g catavasia@latest`. Or run the `install.sh` line again to build the newest `main`.
 
 Your office, cats and tasks stay in `~/.pixel-agents/` across updates.
 
@@ -127,7 +135,7 @@ Your data stays in `~/.pixel-agents/`. See [INSTALL.md](docs/catavasia/INSTALL.m
 
 - **`catavasia: command not found`:** add the npm global `bin` folder (`npm prefix -g` + `/bin`) to your `PATH`.
 - **`EACCES` during install:** do not use `sudo`. Use [nvm](https://github.com/nvm-sh/nvm), or set a home prefix with `npm config set prefix "$HOME/.npm-global"`.
-- **`EADDRINUSE` (the port is busy):** start without `--port`, or pick another port.
+- **"Port N is busy":** start without `--port`, or pick another port.
 - **"Open the office with `pa` to get edit rights":** `pa` is the author's own shortcut. Open the full URL that `catavasia` prints, with its `?token=` part.
 - **The cats do not do tasks:** check that `claude --version` works and that you are logged in to Claude Code.
 - **A Claude session does not show:** turn on **Settings → Show Guests**. **Settings → Debug View** shows the connection state.
@@ -213,4 +221,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [e2e/REA
 
 ## License
 
-Catavasia is available under the [MIT License](LICENSE). It is a fork of [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) by Pablo De Lucca and its contributors.
+MIT. catavasia is a fork of [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) by Pablo De Lucca. See [LICENSE](LICENSE).
