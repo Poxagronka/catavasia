@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import { afterEach, beforeAll, test } from 'vitest';
 
-import { LITTER_ACTIVITY_WEIGHT, PET_LITTER_CAPACITY } from '../src/constants.js';
+import { LITTER_ACTIVITY_WEIGHT, LITTER_DUE_SEC, PET_LITTER_CAPACITY } from '../src/constants.js';
 import { isSprinting, peekNow } from '../src/office/engine/characters.js';
 import { IDLE_ACTIVITIES } from '../src/office/engine/idleActivities.js';
 import { OfficeState } from '../src/office/engine/officeState.js';
@@ -227,4 +227,12 @@ test('a box cleaned while the cat walks there is used, not refused', () => {
   runUntil(os, () => ch.lastActivityId === 'litter');
   assert.equal(os.petCare.world.boxCount('a'), 1);
   assert.equal(os.petCare.world.floorPoops.length, 0);
+});
+
+test('a cat that has not been to a box for LITTER_DUE_SEC goes next, whatever the roll', () => {
+  Math.random = () => 0.5; // the weighted pick alternates groom and yawn, never a box
+  const os = office([BOX]);
+  const ch = idleCat(os, 1);
+  ch.wanderTimer = 0;
+  runUntil(os, () => os.petCare.world.boxCount('a') > 0, LITTER_DUE_SEC + 600);
 });

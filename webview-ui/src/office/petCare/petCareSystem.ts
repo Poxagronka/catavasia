@@ -311,6 +311,8 @@ export class PetCareSystem {
         this.reserve(pet, box, env, 'poop');
         return;
       }
+      // A box another cat is using: wait for it (decide again soon), no accident.
+      if (findLitterBox(pet, env, this.world, undefined, r.refused)) return;
       // Every box refused (or none reachable): an accident on the floor, off the boxes.
       const spot = floorSpotNear(pet.tileCol, pet.tileRow, env, this.world, this.canTarget(pet));
       const path = spot ? pathTo(pet, spot.col, spot.row, env) : null;

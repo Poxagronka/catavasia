@@ -230,6 +230,23 @@ test('every box refused: the pet has an accident on the floor, never on a box ti
   assert.ok(care.world.entry(pet.id).bowel < 100);
 });
 
+test('a box another cat is using: the pet waits for it, no accident on the floor', () => {
+  const { pet, env, care } = setup([BOX_A]);
+  pet.wanderTimer = 1e9;
+  let busy = true; // an agent cat sits in the box for the first seconds
+  care.broker = {
+    canTarget: (_p, key) => !(busy && key === `${BOX_A.col},${BOX_A.row}`),
+    claim: () => 'ok',
+  };
+  care.world.entry(pet.id).bowel = 100;
+  run(care, env, pet, 6);
+  assert.equal(care.world.floorPoops.length, 0);
+  busy = false;
+  run(care, env, pet, 25);
+  assert.equal(care.world.boxCount('a'), 1);
+  assert.equal(care.world.floorPoops.length, 0);
+});
+
 test('the floor spot for an accident skips boxes, poops and taken tiles', () => {
   const w = new PetCareWorld();
   w.floorPoop(3, 1);
