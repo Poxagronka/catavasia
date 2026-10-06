@@ -550,7 +550,12 @@ function App() {
       />
 
       <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
-      <CatsModal isOpen={isCatsOpen} onClose={() => setIsCatsOpen(false)} />
+      <CatsModal
+        isOpen={isCatsOpen}
+        onClose={() => setIsCatsOpen(false)}
+        getOfficeState={getOfficeState}
+        onCommitPets={editor.commitPets}
+      />
       <HierarchyModal isOpen={isHierarchyOpen} onClose={() => setIsHierarchyOpen(false)} />
       {clickedTaskId && (
         <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />

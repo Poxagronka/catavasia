@@ -9,8 +9,8 @@ import {
   resolveBreed,
   toHex,
 } from '../src/cats/catArt.js';
-import type { CatProfile, PetProfile } from '../src/cats/catsApi.js';
-import { validateCatProfile, validatePetProfile } from '../src/cats/catsApi.js';
+import type { CatProfile } from '../src/cats/catsApi.js';
+import { validateCatProfile } from '../src/cats/catsApi.js';
 import {
   buildTree,
   findBoss,
@@ -141,15 +141,8 @@ describe('hierarchy operations', () => {
 describe('profile validation', () => {
   const options = { models: ['opus', 'sonnet'], efforts: ['low', 'medium'] };
 
-  it('accepts a valid cat and pet', () => {
+  it('accepts a valid cat', () => {
     expect(validateCatProfile(cat('a', null), options, BREED_IDS)).toEqual([]);
-    const pet: PetProfile = {
-      id: 'p',
-      name: 'Biscuit',
-      species: 'cat',
-      appearance: { breed: 'tux' },
-    };
-    expect(validatePetProfile(pet, BREED_IDS)).toEqual([]);
   });
 
   it('reports each broken field', () => {
@@ -200,5 +193,14 @@ describe('local adapter', () => {
     expect(() => api.saveCat({ ...cat('x', 'boss'), name: '' })).toThrow();
     expect(() => api.setParent('boss', 'dev')).toThrow(HierarchyError);
     expect(api.getSnapshot()).toBe(before);
+  });
+
+  it('loads cats saved by a build that also stored pet profiles, and drops the pets', () => {
+    const store = memoryStore();
+    const saved = { cats: [{ ...cat('boss', null), name: 'Old boss' }], pets: [{ id: 'p' }] };
+    store.setItem(STORAGE_KEY, JSON.stringify(saved));
+    const snap = createLocalCatsAdapter(store).getSnapshot();
+    expect(snap.cats.map((c) => c.name)).toEqual(['Old boss']);
+    expect(snap).not.toHaveProperty('pets');
   });
 });

@@ -51,7 +51,7 @@ import {
   getCarpetPaletteKey,
   hasCarpetSprites,
 } from '../sprites/carpetTiles.js';
-import { getPetSprites } from '../sprites/petSpriteData.js';
+import { getPetSpritesFor } from '../sprites/petSpriteData.js';
 import { getFurColor } from '../sprites/socialSprites.js';
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js';
 import {
@@ -373,7 +373,7 @@ export function renderScene(
   // Fur of a pet in a fight, by its stand-in actor id (the cloud's other cat).
   const petFur = (id: number) => {
     const pet = pets.find((p) => p.actorId === id);
-    const sprites = pet ? getPetSprites(pet.petType) : null;
+    const sprites = pet ? getPetSpritesFor(pet) : null;
     return sprites ? dominantFur(sprites.idleDown[0]) : undefined;
   };
 
@@ -490,7 +490,7 @@ export function renderScene(
 
   // ── Pets ──────────────────────────────────────────────
   for (const pet of pets) {
-    const petSprites = getPetSprites(pet.petType);
+    const petSprites = getPetSpritesFor(pet);
     const spriteData = getPetSpriteData(pet, petSprites);
     if (!spriteData) continue;
     const fur = petSprites ? dominantFur(petSprites.idleDown[0]) : '';

@@ -410,6 +410,11 @@ export const CAT_PREVIEW_FRAME_MS = 180;
 export const CAT_LIST_ZOOM = 2;
 /** Pixel scale of the big preview in the appearance editor. */
 export const CAT_EDITOR_ZOOM = 5;
+/** Pixel scale of pet cats (smaller sprites) in the Pets list and preset tiles. */
+export const PET_LIST_ZOOM = 3;
+export const PET_PRESET_ZOOM = 2;
+/** Pixel scale of the big pet preview in the Pets tab. */
+export const PET_EDITOR_ZOOM = 7;
 
 // ── Idle activities ──────────────────────────────────────────
 /** Floating "Zzz" over a napping cat. */

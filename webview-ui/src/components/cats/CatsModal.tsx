@@ -1,16 +1,19 @@
 import { type ReactNode, useState } from 'react';
 
-import type { Appearance, CatProfile, PetProfile } from '../../cats/catsApi.js';
+import type { Appearance, CatProfile } from '../../cats/catsApi.js';
 import { findBoss } from '../../cats/hierarchy.js';
 import { catsApi } from '../../cats/localCatsAdapter.js';
 import { useCats } from '../../cats/useCats.js';
+import { usePetRoster } from '../../cats/usePetRoster.js';
 import { CAT_LIST_ZOOM } from '../../constants.js';
+import type { OfficeState } from '../../office/engine/officeState.js';
 import { Button } from '../ui/Button.js';
 import { Modal } from '../ui/Modal.js';
 import { AgentFields } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
 import { CatSprite } from './CatSprite.js';
 import { FIELD } from './fields.js';
+import { PetsTab } from './PetsTab.js';
 
 type Tab = 'agents' | 'pets';
 
@@ -184,37 +187,6 @@ function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string
   );
 }
 
-function PetEditor({ pet, onSelect }: { pet: PetProfile; onSelect: (id: string) => void }) {
-  const { pets } = useCats();
-  const { draft, error, update } = useDraft(pet, catsApi.savePet);
-  return (
-    <div className="flex flex-col gap-10 flex-1 min-w-0">
-      <EditorHeader
-        name={draft.name}
-        onRename={(name) => update({ ...draft, name })}
-        error={error}
-        onDuplicate={() => {
-          const copy = {
-            ...pet,
-            id: newId('pet'),
-            name: copyName(
-              pet.name,
-              pets.map((p) => p.name),
-            ),
-          };
-          catsApi.savePet(copy);
-          onSelect(copy.id);
-        }}
-        onDelete={() => catsApi.deletePet(pet.id)}
-      />
-      <AppearanceEditor
-        value={draft.appearance}
-        onChange={(appearance) => update({ ...draft, appearance })}
-      />
-    </div>
-  );
-}
-
 function TabButton({
   active,
   onClick,
@@ -231,14 +203,23 @@ function TabButton({
   );
 }
 
-/** Cats menu: agent and pet profiles (look, role, prompt, engine). */
-export function CatsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { cats, pets } = useCats();
+/** Cats menu: agent cat profiles (look, role, prompt, engine) and the office's pet cats. */
+export function CatsModal({
+  isOpen,
+  onClose,
+  getOfficeState,
+  onCommitPets,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  getOfficeState: () => OfficeState;
+  onCommitPets: () => void;
+}) {
+  const { cats } = useCats();
   const [tab, setTab] = useState<Tab>('agents');
   const [catId, setCatId] = useState<string | null>(null);
-  const [petId, setPetId] = useState<string | null>(null);
   const cat = cats.find((c) => c.id === catId) ?? cats[0];
-  const pet = pets.find((p) => p.id === petId) ?? pets[0];
+  const roster = usePetRoster(getOfficeState, isOpen);
 
   const createCat = () => {
     const boss = findBoss(cats);
@@ -260,20 +241,6 @@ export function CatsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     catsApi.saveCat(fresh);
     setCatId(fresh.id);
   };
-  const createPet = () => {
-    const fresh: PetProfile = {
-      id: newId('pet'),
-      name: copyName(
-        'Pet',
-        pets.map((p) => p.name),
-      ),
-      species: 'cat',
-      appearance: { breed: 'butterscotch' },
-    };
-    catsApi.savePet(fresh);
-    setPetId(fresh.id);
-  };
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Cats" className="w-[min(1180px,96vw)]">
       {/* Keep office shortcuts (R, T, Esc, Ctrl+Z...) out of the form fields. */}
@@ -283,7 +250,7 @@ export function CatsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             Agents ({cats.length})
           </TabButton>
           <TabButton active={tab === 'pets'} onClick={() => setTab('pets')}>
-            Pets ({pets.length})
+            Pets ({roster.rows.length})
           </TabButton>
         </div>
         <div className="flex gap-12 max-h-[78vh] overflow-y-auto">
@@ -308,25 +275,7 @@ export function CatsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               )}
             </>
           ) : (
-            <>
-              <ProfileList
-                items={pets.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  detail: 'pet',
-                  appearance: p.appearance,
-                }))}
-                selectedId={pet?.id ?? null}
-                onSelect={setPetId}
-                onCreate={createPet}
-                createLabel="+ Pet"
-              />
-              {pet ? (
-                <PetEditor key={pet.id} pet={pet} onSelect={setPetId} />
-              ) : (
-                <div className="text-sm text-text-muted">No pets yet.</div>
-              )}
-            </>
+            <PetsTab roster={roster} getOfficeState={getOfficeState} onCommit={onCommitPets} />
           )}
         </div>
       </div>

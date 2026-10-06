@@ -1,4 +1,6 @@
 import { pickDiversePalette } from '../../../../core/src/paletteUtils.js';
+import { BREED_IDS } from '../../cats/catArt.js';
+import { type Appearance, appearanceErrors, nameErrors } from '../../cats/catsApi.js';
 import {
   AUTO_ON_FACING_DEPTH,
   AUTO_ON_SIDE_DEPTH,
@@ -999,7 +1001,7 @@ export class OfficeState {
    * Mirror in `this.layout.pets` so debounced saveLayout serialises the roster.
    * Bounds-checks petType against the loaded sprite count to defend against stale layouts.
    */
-  addPet(placedPet: PlacedPet): void {
+  addPet(placedPet: PlacedPet, spawnAt?: { col: number; row: number }): void {
     // Defensive guards (upstream 5e6c0a0)
     if (
       typeof placedPet.id !== 'string' ||
@@ -1018,10 +1020,19 @@ export class OfficeState {
     if (this.pets.some((p) => p.id === placedPet.id)) return; // de-dupe
     if (this.walkableTiles.length === 0) return; // no spawn space — silently drop
 
-    const spawn = this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)];
+    const spawn =
+      spawnAt ?? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)];
     const pet = createPet(placedPet.id, placedPet.petType, spawn.col, spawn.row);
-    pet.name = getPetName(placedPet.petType);
+    applyPetProfile(pet, placedPet);
     this.pets.push(pet);
+    this.syncLayoutPets();
+  }
+
+  /** Rename / recolour a placed pet (Cats menu). Invalid values are dropped. */
+  updatePetProfile(id: string, profile: { name?: string; appearance?: Appearance }): void {
+    const pet = this.pets.find((p) => p.id === id);
+    if (!pet) return;
+    applyPetProfile(pet, { ...profile, petType: pet.petType });
     this.syncLayoutPets();
   }
 
@@ -1103,10 +1114,11 @@ export class OfficeState {
    */
   private rebuildPetsFromLayout(layout: OfficeLayout): void {
     const placed = layout.pets ?? [];
-    const placedIds = new Set(placed.map((p) => p.id));
+    const placedById = new Map(placed.map((p) => [p.id, p]));
 
-    // 1. Remove pets no longer in layout
-    this.pets = this.pets.filter((p) => placedIds.has(p.id));
+    // 1. Remove pets no longer in layout; refresh the name and coat of the rest
+    this.pets = this.pets.filter((p) => placedById.has(p.id));
+    for (const pet of this.pets) applyPetProfile(pet, placedById.get(pet.id)!);
 
     // 2. Add pets that exist in layout but not in runtime
     const existingIds = new Set(this.pets.map((p) => p.id));
@@ -1125,7 +1137,12 @@ export class OfficeState {
    * getLayout(), which runs on every render frame.
    */
   private syncLayoutPets(): void {
-    this.layout.pets = this.pets.map((p) => ({ id: p.id, petType: p.petType }));
+    this.layout.pets = this.pets.map((p) => ({
+      id: p.id,
+      petType: p.petType,
+      ...(p.customName ? { name: p.customName } : {}),
+      ...(p.appearance ? { appearance: p.appearance } : {}),
+    }));
   }
 
   setTeamInfo(
@@ -1373,4 +1390,25 @@ export class OfficeState {
     }
     return null;
   }
+}
+
+/**
+ * Copy a layout entry's name and coat onto the runtime pet. The layout file is
+ * user-editable: a bad name or coat falls back to the manifest name / template.
+ */
+function applyPetProfile(
+  pet: Pet,
+  placed: { petType: number; name?: unknown; appearance?: unknown },
+): void {
+  const name = typeof placed.name === 'string' ? placed.name.trim() : '';
+  pet.customName = name && nameErrors(name).length === 0 ? name : undefined;
+  pet.name = pet.customName ?? getPetName(placed.petType);
+  const a = placed.appearance;
+  const valid =
+    isCatPet(placed.petType) &&
+    !!a &&
+    typeof a === 'object' &&
+    !Array.isArray(a) &&
+    appearanceErrors(a as Appearance, BREED_IDS).length === 0;
+  pet.appearance = valid ? (a as Appearance) : undefined;
 }

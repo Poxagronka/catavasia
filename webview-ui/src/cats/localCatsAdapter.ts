@@ -9,9 +9,7 @@ import {
   type CatsSnapshot,
   type Engine,
   type EngineOptions,
-  type PetProfile,
   validateCatProfile,
-  validatePetProfile,
 } from './catsApi.js';
 import { moveCat, normalizeHierarchy, promoteToBoss, removeCat } from './hierarchy.js';
 
@@ -56,7 +54,6 @@ function seed(): CatsSnapshot {
       worker('dev', 'Smokey', 'smokey', 'Developer'),
       worker('qa', 'Mochi', 'mochi', 'Tester'),
     ],
-    pets: [{ id: 'pet-1', name: 'Biscuit', species: 'cat', appearance: { breed: 'butterscotch' } }],
   };
 }
 
@@ -82,11 +79,11 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
       const raw = store?.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<CatsSnapshot>;
-        if (Array.isArray(parsed.cats) && Array.isArray(parsed.pets))
+        // A `pets` list left by an older build is ignored: pets live in the layout now.
+        if (Array.isArray(parsed.cats))
           // Profiles with an engine this build does not know are dropped.
           return {
             cats: normalizeHierarchy(parsed.cats.filter((c) => c.engine in ENGINE_OPTIONS)),
-            pets: parsed.pets,
           };
       }
     } catch {
@@ -132,17 +129,6 @@ export function createLocalCatsAdapter(store: Store | null = browserStore()): Ca
     },
     promoteToBoss(id) {
       commit({ ...state, cats: promoteToBoss(state.cats, id) });
-    },
-    savePet(pet: PetProfile) {
-      fail(validatePetProfile(pet, BREED_IDS));
-      const exists = state.pets.some((p) => p.id === pet.id);
-      const pets = exists
-        ? state.pets.map((p) => (p.id === pet.id ? pet : p))
-        : [...state.pets, pet];
-      commit({ ...state, pets });
-    },
-    deletePet(id) {
-      commit({ ...state, pets: state.pets.filter((p) => p.id !== id) });
     },
     engineOptions: (engine) => ENGINE_OPTIONS[engine],
   };
