@@ -263,7 +263,11 @@ export async function selectCharacter(frame: OverlaySurface, agentId: number): P
   }, agentId);
 }
 
-export async function closeAgentFromOverlay(
+/** Close an agent. The cat label has no close button (cats are deleted only
+ *  from the Cats menu), so this sends closeAgent through the test hook, the
+ *  same message the Debug View "Close agent" button sends. The overlay carries
+ *  its agent id as data-agent-id, so the text-based lookup resolves an id too. */
+export async function closeAgent(
   frame: OverlaySurface,
   options: { agentId?: number; text?: string },
   timeout = OVERLAY_TIMEOUT_MS,
@@ -273,23 +277,9 @@ export async function closeAgentFromOverlay(
       ? getOverlayByAgentId(frame, options.agentId).first()
       : getOverlayByText(frame, options.text ?? '').first();
   await expect(overlay).toBeVisible({ timeout });
-
-  // Selecting an agent is what reveals its "Close agent" (×) button. The
-  // production path selects via a canvas hit-test on the sprite; driving that
-  // from a test means computing pixel offsets below the overlay, which is
-  // geometry-brittle and previously caused retry-flakes (e.g. the "close via
-  // X" lifecycle test). Instead, select deterministically through the test
-  // hook: it sets officeState.selectedAgentId (the same state a click sets),
-  // and ToolOverlay re-renders every rAF, so the × button surfaces and becomes
-  // clickable on the next frame. The overlay carries its agent id as
-  // data-agent-id, so the text-based lookup path resolves an id too.
   const agentId = options.agentId ?? Number(await overlay.getAttribute('data-agent-id'));
+  narrate.step('closing the agent (closeAgent message)');
   await frame.evaluate((id) => {
-    window.__pixelAgentsTestHooks?.selectAgent?.(id);
+    window.__pixelAgentsTestHooks?.closeAgent?.(id);
   }, agentId);
-
-  const closeButton = overlay.locator('button[title="Close agent"]');
-  await expect(closeButton).toBeVisible({ timeout });
-  narrate.step('closing the agent via its "×" overlay button');
-  await closeButton.click();
 }

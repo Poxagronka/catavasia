@@ -12,7 +12,7 @@ import { closeBottomPanel, getPixelAgentsFrame, reopenBottomPanel } from '../../
  * runtime state that is never persisted, so the live assertions read pet state
  * through `window.__pixelAgentsTestHooks.getPets()` / `.petClick()` — the same
  * state-driving approach `selectAgent` uses for characters (see
- * webview-ui/src/testHooks.ts and the comment on closeAgentFromOverlay in
+ * webview-ui/src/testHooks.ts and the comment on closeAgent in
  * e2e/helpers/office.ts). Pets spawn at a random walkable tile, so tests never
  * compute screen coordinates; they read pet ids/state back instead.
  *

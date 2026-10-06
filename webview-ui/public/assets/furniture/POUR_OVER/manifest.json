@@ -6,77 +6,162 @@
   "canPlaceOnSurfaces": true,
   "backgroundTiles": 0,
   "type": "group",
-  "groupType": "animation",
+  "groupType": "rotation",
+  "rotationScheme": "2-way",
   "members": [
     {
-      "type": "asset",
-      "id": "POUR_OVER",
-      "file": "POUR_OVER.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 0
+      "type": "group",
+      "groupType": "animation",
+      "orientation": "front",
+      "members": [
+        {
+          "type": "asset",
+          "id": "POUR_OVER",
+          "file": "POUR_OVER.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 0
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_1",
+          "file": "POUR_OVER_1.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 1
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_2",
+          "file": "POUR_OVER_2.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 2
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_3",
+          "file": "POUR_OVER_3.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 3
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_4",
+          "file": "POUR_OVER_4.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 4
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_5",
+          "file": "POUR_OVER_5.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 5
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_6",
+          "file": "POUR_OVER_6.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 6
+        }
+      ]
     },
     {
-      "type": "asset",
-      "id": "POUR_OVER_1",
-      "file": "POUR_OVER_1.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 1
-    },
-    {
-      "type": "asset",
-      "id": "POUR_OVER_2",
-      "file": "POUR_OVER_2.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 2
-    },
-    {
-      "type": "asset",
-      "id": "POUR_OVER_3",
-      "file": "POUR_OVER_3.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 3
-    },
-    {
-      "type": "asset",
-      "id": "POUR_OVER_4",
-      "file": "POUR_OVER_4.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 4
-    },
-    {
-      "type": "asset",
-      "id": "POUR_OVER_5",
-      "file": "POUR_OVER_5.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 5
-    },
-    {
-      "type": "asset",
-      "id": "POUR_OVER_6",
-      "file": "POUR_OVER_6.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 6
+      "type": "group",
+      "groupType": "animation",
+      "orientation": "side",
+      "members": [
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE",
+          "file": "POUR_OVER_SIDE.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 0
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE_1",
+          "file": "POUR_OVER_SIDE_1.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 1
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE_2",
+          "file": "POUR_OVER_SIDE_2.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 2
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE_3",
+          "file": "POUR_OVER_SIDE_3.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 3
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE_4",
+          "file": "POUR_OVER_SIDE_4.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 4
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE_5",
+          "file": "POUR_OVER_SIDE_5.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 5
+        },
+        {
+          "type": "asset",
+          "id": "POUR_OVER_SIDE_6",
+          "file": "POUR_OVER_SIDE_6.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 6
+        }
+      ]
     }
   ]
 }

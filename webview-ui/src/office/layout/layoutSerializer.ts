@@ -23,6 +23,15 @@ export function layoutToTileMap(layout: OfficeLayout): TileTypeVal[][] {
   return map;
 }
 
+/**
+ * Sprite top (px) of an item whose footprint starts at `row`. The sprite's
+ * bottom meets the footprint's bottom, so a sprite taller than its footprint
+ * rises into the tiles behind (a coffee machine on a table's front row).
+ */
+export function furnitureSpriteTop(row: number, footprintH: number, spriteH: number): number {
+  return (row + footprintH) * TILE_SIZE - spriteH;
+}
+
 /** Convert placed furniture into renderable FurnitureInstance[] */
 export function layoutToFurnitureInstances(furniture: PlacedFurniture[]): FurnitureInstance[] {
   // Pre-compute desk zY per tile so surface items can sort in front of desks
@@ -45,8 +54,8 @@ export function layoutToFurnitureInstances(furniture: PlacedFurniture[]): Furnit
     const entry = getCatalogEntry(item.type);
     if (!entry) continue;
     const x = item.col * TILE_SIZE;
-    const y = item.row * TILE_SIZE;
     const spriteH = entry.sprite.length;
+    const y = furnitureSpriteTop(item.row, entry.footprintH, spriteH);
     let zY = y + spriteH;
 
     // Chair z-sorting: ensure characters sitting on chairs render correctly

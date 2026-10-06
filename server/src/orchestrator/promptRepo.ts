@@ -83,6 +83,27 @@ export class PromptRepo {
     this.commit(catId, subject);
   }
 
+  /**
+   * Replace every prompt file with `files` (others are deleted) in one commit.
+   * Returns an error, and changes nothing, when a file would not parse back.
+   */
+  replaceAll(files: Record<string, PromptFile>, subject: string): string | undefined {
+    const texts = new Map<string, string>();
+    for (const [catId, file] of Object.entries(files)) {
+      const text = renderPromptFile(catId, file);
+      if (!parsePromptFile(text).ok) return `${catId}.md would not parse`;
+      texts.set(catId, text);
+    }
+    fs.mkdirSync(this.dir, { recursive: true });
+    for (const name of fs.readdirSync(this.dir)) {
+      if (name.endsWith('.md') && !texts.has(name.slice(0, -3)))
+        fs.rmSync(path.join(this.dir, name));
+    }
+    for (const [catId, text] of texts) fs.writeFileSync(this.fileOf(catId), text, { mode: 0o600 });
+    this.commitPaths('*.md', subject);
+    return undefined;
+  }
+
   /** A hand edit on disk becomes a commit (only when the file still parses). */
   commitHandEdit(catId: string): void {
     if (!this.exists(catId) || this.read(catId).error) return;
@@ -197,13 +218,17 @@ export class PromptRepo {
    * entry: the server must start and save profiles without git.
    */
   private commit(catId: string, subject: string, body?: string): void {
+    this.commitPaths(`${catId}.md`, subject, body);
+  }
+
+  private commitPaths(spec: string, subject: string, body?: string): void {
     try {
       this.ensure();
-      this.git('add', '-A', '--', `${catId}.md`);
-      const staged = this.git('diff', '--cached', '--name-only', '--', `${catId}.md`).trim();
+      this.git('add', '-A', '--', spec);
+      const staged = this.git('diff', '--cached', '--name-only', '--', spec).trim();
       if (!staged) return;
       const message = body ? ['-m', subject, '-m', body] : ['-m', subject];
-      this.git('commit', '-q', '--no-verify', ...message, '--', `${catId}.md`);
+      this.git('commit', '-q', '--no-verify', ...message, '--', spec);
     } catch (err) {
       console.error(`[Pixel Agents] Cats: prompt commit "${subject}" failed: ${String(err)}`);
     }

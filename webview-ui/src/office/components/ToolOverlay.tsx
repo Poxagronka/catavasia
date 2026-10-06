@@ -40,9 +40,8 @@ interface ToolOverlayProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
-  onCloseAgent: (id: number) => void;
-  /** Open the cat terminal (standalone only; absent hides the button). */
-  onOpenTerminal?: (id: number) => void;
+  /** Open the cat panel on its Chat tab (standalone only; absent hides the button). */
+  onOpenChat?: (id: number) => void;
   alwaysShowOverlay: boolean;
 }
 
@@ -78,6 +77,26 @@ function getActivityText(
   return 'Idle';
 }
 
+/** 8x7 pixel speech bubble, drawn in the current text color. */
+function ChatBubbleIcon() {
+  return (
+    <svg
+      width={16}
+      height={14}
+      viewBox="0 0 8 7"
+      shapeRendering="crispEdges"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x={1} y={0} width={6} height={1} />
+      <rect x={0} y={1} width={8} height={3} />
+      <rect x={1} y={4} width={6} height={1} />
+      <rect x={1} y={5} width={2} height={1} />
+      <rect x={1} y={6} width={1} height={1} />
+    </svg>
+  );
+}
+
 function getFuelColor(ratio: number): string {
   if (ratio >= CONTEXT_CRITICAL_THRESHOLD) return CONTEXT_GAUGE_COLOR_CRITICAL;
   if (ratio >= CONTEXT_DANGER_THRESHOLD) return CONTEXT_GAUGE_COLOR_DANGER;
@@ -94,8 +113,7 @@ export function ToolOverlay({
   containerRef,
   zoom,
   panRef,
-  onCloseAgent,
-  onOpenTerminal,
+  onOpenChat,
   alwaysShowOverlay,
 }: ToolOverlayProps) {
   const [, setTick] = useState(0);
@@ -279,33 +297,21 @@ export function ToolOverlay({
                   </span>
                 )}
               </div>
-              {isSelected && !isSub && onOpenTerminal && (
+              {/* The label has no close/delete button: cats are deleted only
+                  from the Cats menu. */}
+              {isSelected && !isSub && onOpenChat && (
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenTerminal(id);
+                    onOpenChat(id);
                   }}
-                  title="Open terminal"
+                  title="Chat"
                   className="ml-2 shrink-0 leading-none w-auto! px-2"
-                  data-testid="open-cat-terminal"
+                  data-testid="open-cat-chat"
                 >
-                  {'>_'}
-                </Button>
-              )}
-              {isSelected && !isSub && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCloseAgent(id);
-                  }}
-                  title="Close agent"
-                  className="ml-2 shrink-0 leading-none"
-                >
-                  ×
+                  <ChatBubbleIcon />
                 </Button>
               )}
             </div>

@@ -16,7 +16,7 @@ import {
   spawnExternalClaudeScenario,
 } from '../../../helpers/mock-claude';
 import {
-  closeAgentFromOverlay,
+  closeAgent,
   expectNoOverlay,
   expectNoOverlayWithTexts,
   expectOverlayCount,
@@ -635,7 +635,7 @@ test.describe('Hooks OFF / lifecycle', () => {
     await expectOverlayVisible(frame, 'Running: npm run old-live');
     const oldAgentId = await expectSingleAgentOverlay(frame);
     narrator.check('external character adopted — "Running: npm run old-live"');
-    await closeAgentFromOverlay(frame, { agentId: oldAgentId });
+    await closeAgent(frame, { agentId: oldAgentId });
     await expectOverlayCount(frame, 0, 8_000);
     narrator.check('character dismissed — count 0');
 
@@ -790,8 +790,8 @@ test.describe('Hooks OFF / lifecycle', () => {
   //
   // Uses EXTERNAL agent (no VS Code terminal) so the Pixel Agents panel
   // stays at full size, dodging the layout race that breaks
-  // closeAgentFromOverlay after an internal spawn (same close-via-overlay
-  // pattern used by the dismissal-cooldown lifecycle test in this file).
+  // closing the agent after an internal spawn (same close pattern used by
+  // the dismissal-cooldown lifecycle test in this file).
   //
   // This catches "hard" leaks (broadcast despite missing agent). "Soft" leaks
   // (timer fires but its callback no-ops because internal state is gone) are
@@ -834,7 +834,7 @@ test.describe('Hooks OFF / lifecycle', () => {
     const [agentId] = await readAgentOverlayIds(frame);
     narrator.check('external character present — "Running: npm test"');
 
-    await closeAgentFromOverlay(frame, { agentId });
+    await closeAgent(frame, { agentId });
     await expectOverlayCount(frame, 0, 8_000);
     narrator.check('agent closed — count 0');
 

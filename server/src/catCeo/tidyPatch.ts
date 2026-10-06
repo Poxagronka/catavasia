@@ -24,7 +24,7 @@ import { type ItemMeta, metaOf } from './tidyDigest.js';
 import type { TidyOp } from './tidySchema.js';
 
 /** The provenance suffix the server adds: `(task <id>, <date>)` or `(tidy <id>, <date>)`. */
-const SUFFIX_RE = /\s*\((?:task|tidy) [^,()]+, \d{4}-\d{2}-\d{2}\)\s*$/;
+const SUFFIX_RE = /\s*\((?:task|tidy|chat) [^,()]+, \d{4}-\d{2}-\d{2}\)\s*$/;
 
 export interface TidyContext {
   meta: Map<string, ItemMeta>;

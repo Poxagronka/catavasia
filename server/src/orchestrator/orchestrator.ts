@@ -19,6 +19,7 @@ import type { CatProfile, ServerMessage } from '../../../core/src/messages.js';
 import type { NarratorInput } from '../../../core/src/narrator.js';
 import type { TaskTarget } from '../../../core/src/tasks.js';
 import { CatCeo } from '../catCeo/catCeo.js';
+import { CEO_DEFAULT_ROLE } from '../catCeo/ceoSettings.js';
 import { applyPromptAction, promptDiff, promptHistory } from '../catCeo/promptActions.js';
 import { CAT_CEO_ID, CATS_FILE_NAME, OFFICE_MCP_PATH, PROMPTS_DIR } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
@@ -241,6 +242,29 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     this.cats.reloadPrompt(catId);
     for (const message of this.profileMessages()) this.opts.emit(message);
     return { reply: promptHistory(catId, prompts, this.ceo.store) };
+  }
+
+  /** A task, a turn or a review runs: "Reset everything" waits (docs/catavasia/ROADMAP.md). */
+  busy(): boolean {
+    const { running, queued } = this.scheduler.state();
+    return (
+      running.length > 0 ||
+      queued.length > 0 ||
+      this.ceo.running.size > 0 ||
+      [...this.runners.values()].some((r) => isActive(r.state.phase))
+    );
+  }
+
+  /** Settings "Reset everything": the default team and prompt files (the Cat CEO's too). */
+  resetToDefaults(): string | undefined {
+    const error = this.cats.resetToDefaults({
+      [CAT_CEO_ID]: { role: CEO_DEFAULT_ROLE, rules: [], lessons: [] },
+    });
+    if (error) return error;
+    this.lastCwd.clear();
+    this.residents.sync();
+    for (const message of this.profileMessages()) this.opts.emit(message);
+    return undefined;
   }
 
   // ── Task board ──
