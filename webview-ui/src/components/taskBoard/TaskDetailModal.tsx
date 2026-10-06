@@ -6,6 +6,7 @@ import { Modal } from '../ui/Modal.js';
 import { CatAvatar } from './CatAvatar.js';
 import { Markdown } from './Markdown.js';
 import { fetchTask } from './taskApi.js';
+import { TaskControls } from './TaskControls.js';
 import { catName, formatElapsed, STATUS_CLASS } from './taskFormat.js';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -88,6 +89,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
         {task && (
           <>
             <Meta task={task} />
+            <TaskControls task={task} onChanged={(s) => setTask({ ...task, ...s })} />
             <Section title="Prompt">
               <div className="whitespace-pre-wrap text-text-muted">{task.prompt}</div>
             </Section>

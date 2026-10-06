@@ -78,8 +78,9 @@ export class CatOfficeFeed {
   private onFlow(taskId: string, wireState: string, rootCatId?: string, catIds?: string[]): void {
     if (rootCatId) this.teams.set(taskId, { root: rootCatId, cats: catIds ?? [rootCatId] });
     const team = this.teams.get(taskId);
-    // The webview scenes know no 'interrupted': it ends a meeting like an error.
-    const state = (wireState === 'interrupted' ? 'error' : wireState) as FlowState;
+    // The webview scenes know no 'interrupted' or 'cancelled': they end a meeting like an error.
+    const ended = wireState === 'interrupted' || wireState === 'cancelled';
+    const state = (ended ? 'error' : wireState) as FlowState;
     if (state === 'briefing') this.briefing.add(taskId);
     else this.briefing.delete(taskId);
     this.bus.emit({

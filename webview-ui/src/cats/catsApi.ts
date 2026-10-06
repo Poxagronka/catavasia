@@ -56,6 +56,16 @@ export interface CatProfile {
   parentId: string | null;
   /** Seeded by the app, not by the user. */
   isDefault?: boolean;
+  /** Read-only items of the cat's prompt file (server office only; the Cat CEO edits them). */
+  rules?: PromptItem[];
+  lessons?: PromptItem[];
+  /** The prompt file on disk does not parse; the server uses the last committed version. */
+  promptError?: string;
+}
+
+export interface PromptItem {
+  id: string;
+  text: string;
 }
 
 /** Agent cats only: pets are the pet cats placed in the layout (see cats/petRoster.ts). */

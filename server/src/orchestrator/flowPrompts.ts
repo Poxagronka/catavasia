@@ -16,10 +16,14 @@ function describe(cat: CatProfile): string {
   return `- ${catLabel(cat)}: ${cat.role || 'cat'}, model ${cat.model}`;
 }
 
-export function personaText(cat: CatProfile): string {
+/**
+ * The persona file appended to the cat's system prompt (context-policy.md §6):
+ * intro line, the cat's prompt file (Role & conduct, Rules, Lessons), office rules.
+ */
+export function personaText(cat: CatProfile, promptFile: string): string {
   return [
     `You are ${cat.name}, a cat in the catavasia office. Your cat id is "${cat.id}". Your role: ${cat.role || 'cat'}.`,
-    cat.systemPrompt,
+    promptFile.trim(),
     '## Office rules',
     '- You work on a task of the user together with other cats. Talk to them only with the office MCP tools: brief, delegate, ask, reply, report, list_team.',
     '- Every office tool returns at once. Answers and reports from other cats arrive later as new messages. Do not wait or poll for them: end your turn.',
@@ -61,10 +65,12 @@ export function delegateMessage(
   cats: readonly CatProfile[],
   branch: string | undefined,
   plan: string | undefined,
+  rework = false,
 ): string {
   const reports = childrenOf(cats, to.id);
   return [
     `[Task from ${catLabel(from)}]`,
+    rework ? 'Rework: your lead did not accept your last report. Fix the work as asked below.' : '',
     task,
     plan ? `[Team plan]\n${plan}` : '',
     branch
@@ -100,6 +106,22 @@ export function mergeNote(cat: CatProfile, branch: string, outcome: MergeOutcome
     );
   }
   return `[Office] Could not merge branch ${branch} of ${catLabel(cat)}: ${outcome.error}`;
+}
+
+export function unfinishedMergeNote(paths: string[]): string {
+  return (
+    `[Office] Your worktree still has an unfinished merge (${paths.join(', ')}). ` +
+    'Fix it and run `git add -A && git commit --no-edit`; the next reports merge after that.'
+  );
+}
+
+export const RESUME_NOTE =
+  '[Office] The office restarted while you worked on the message below. ' +
+  'Check your folder for the work you already did, then go on.';
+
+export function workerBranch(taskId: string, catId: string): string {
+  // `task/<id>/<cat>` cannot coexist with the `task/<id>` branch in git refs.
+  return `task/${taskId}-${catId}`;
 }
 
 export const NUDGE_REPORT =

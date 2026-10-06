@@ -15,6 +15,8 @@ import * as path from 'path';
 import type { CatAppearance, CatEngine, CatProfile } from '../../../core/src/messages.js';
 import { CAT_NAME_MAX_CHARS, CAT_SYSTEM_PROMPT_MAX_CHARS } from '../constants.js';
 import { bossOf, isInSubtree, normalizeHierarchy } from './catTree.js';
+import type { PromptItem } from './promptFile.js';
+import type { PromptRepo } from './promptRepo.js';
 
 /** Breed preset ids in char_N order (= palette index). Mirrors scripts/cats/breeds.mjs names. */
 export const CAT_BREED_IDS = [
@@ -133,7 +135,11 @@ export function validateCat(raw: unknown, catalog?: EngineCatalog): Result<CatPr
       name: text(rec.name, 'name', CAT_NAME_MAX_CHARS),
       appearance: appearance(rec.appearance),
       role: text(rec.role, 'role', CAT_NAME_MAX_CHARS, true),
-      systemPrompt: text(rec.systemPrompt, 'systemPrompt', CAT_SYSTEM_PROMPT_MAX_CHARS, true),
+      // Since the prompt files, cats.json holds no systemPrompt: it is the Role section.
+      systemPrompt:
+        rec.systemPrompt === undefined
+          ? ''
+          : text(rec.systemPrompt, 'systemPrompt', CAT_SYSTEM_PROMPT_MAX_CHARS, true),
       engine,
       model: text(rec.model, 'model', CAT_NAME_MAX_CHARS * 2),
       effort: text(rec.effort, 'effort', CAT_NAME_MAX_CHARS),
@@ -207,15 +213,29 @@ interface CatsFile {
   cats: CatProfile[];
 }
 
-/** cats.json: every mutation validates, keeps the tree rules, and writes atomically. */
+/**
+ * cats.json: every mutation validates, keeps the tree rules, and writes atomically.
+ * The prompt text of each cat lives in its prompt file (PromptRepo): the wire
+ * field `systemPrompt` carries its `Role & conduct` section.
+ */
 export class CatStore {
   private cats: CatProfile[] = [];
+  /** Why a cat's prompt file on disk is not used (it does not parse). */
+  private readonly promptErrors = new Map<string, string>();
 
   constructor(
     private readonly filePath: string,
     private readonly catalog: () => EngineCatalog,
+    readonly prompts: PromptRepo,
   ) {
     this.load();
+  }
+
+  /** Rules and Lessons of a cat's prompt file (read-only in the Cats menu), and its parse error. */
+  promptView(catId: string): { rules: PromptItem[]; lessons: PromptItem[]; promptError?: string } {
+    const { file } = this.prompts.read(catId);
+    const promptError = this.promptErrors.get(catId);
+    return { rules: file.rules, lessons: file.lessons, ...(promptError ? { promptError } : {}) };
   }
 
   list(): CatProfile[] {
@@ -234,15 +254,20 @@ export class CatStore {
     if (cat.parentId !== null && !this.get(cat.parentId)) {
       return { ok: false, error: `parent ${cat.parentId} does not exist` };
     }
+    const before = this.get(cat.id);
     const next = this.cats.some((c) => c.id === cat.id)
       ? this.cats.map((c) => (c.id === cat.id ? cat : c))
       : [...this.cats, cat];
     if (cat.parentId !== null && isInSubtree(next, cat.id, cat.parentId)) {
       return { ok: false, error: 'a cat cannot report to itself or to one of its reports' };
     }
+    if (!before || before.systemPrompt !== cat.systemPrompt) {
+      const subject = before ? 'edit Role & conduct' : 'create';
+      const error = this.saveRole(cat.id, cat.systemPrompt, subject);
+      if (error) return { ok: false, error };
+    }
     // A second cat with parentId null is not a new boss: promoteToBoss does that.
-    const old = this.get(cat.id);
-    const fixed = cat.parentId === null && old?.parentId !== null && this.cats.length > 0;
+    const fixed = cat.parentId === null && before?.parentId !== null && this.cats.length > 0;
     this.commit(
       next.map((c) => (fixed && c.id === cat.id ? { ...c, parentId: bossOf(this.cats)!.id } : c)),
     );
@@ -254,6 +279,8 @@ export class CatStore {
     const gone = this.get(catId);
     if (!gone) return `cat ${catId} does not exist`;
     const rest = this.cats.filter((c) => c.id !== catId);
+    this.prompts.remove(catId, `user(${catId}): delete`);
+    this.promptErrors.delete(catId);
     const heir = gone.parentId ?? rest.find((c) => c.parentId === catId)?.id ?? null;
     this.commit(
       rest.map((c) => {
@@ -300,6 +327,7 @@ export class CatStore {
       raw = fs.readFileSync(this.filePath, 'utf-8');
     } catch {
       this.commit(defaultTeam());
+      this.syncPrompts();
       return;
     }
     let parsed: Partial<CatsFile>;
@@ -314,6 +342,7 @@ export class CatStore {
         `[Pixel Agents] Cats: ${this.filePath} unreadable (${err}); copied to ${backup}`,
       );
       this.commit(defaultTeam());
+      this.syncPrompts();
       return;
     }
     const keep = <T extends { id: string }>(
@@ -332,10 +361,43 @@ export class CatStore {
       return out;
     };
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e)));
+    this.syncPrompts();
+    // The prompt text moved to the prompt files: cats.json drops it.
+    if (parsed.cats.some((c) => (c as { systemPrompt?: unknown })?.systemPrompt !== undefined)) {
+      this.write();
+    }
+  }
+
+  /** The Role section of a cat's prompt file (Rules and Lessons stay). */
+  private saveRole(catId: string, role: string, subject: string): string | undefined {
+    const { file } = this.prompts.read(catId);
+    const error = this.prompts.write(catId, { ...file, role }, `user(${catId}): ${subject}`);
+    if (!error) this.promptErrors.delete(catId);
+    return error;
+  }
+
+  /**
+   * Each cat gets its prompt file (migration: Role = the old systemPrompt), a
+   * hand edit on disk is committed, and the in-memory systemPrompt = the Role.
+   */
+  private syncPrompts(): void {
+    for (const cat of this.cats) {
+      if (!this.prompts.exists(cat.id)) {
+        const error = this.saveRole(cat.id, cat.systemPrompt, 'import from cats.json');
+        if (error) console.warn(`[Pixel Agents] Cats: prompt of ${cat.id} not saved: ${error}`);
+      } else {
+        this.prompts.commitHandEdit(cat.id);
+      }
+      const { file, error } = this.prompts.read(cat.id);
+      if (error) this.promptErrors.set(cat.id, error);
+      else this.promptErrors.delete(cat.id);
+      cat.systemPrompt = file.role;
+    }
   }
 
   private write(): void {
-    const data: CatsFile = { version: 1, cats: this.cats };
+    const cats = this.cats.map(({ systemPrompt: _prompt, ...rest }) => rest);
+    const data = { version: 1, cats };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });

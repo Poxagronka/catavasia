@@ -126,6 +126,32 @@ export function AgentFields({
           onChange={(e) => onChange({ ...cat, systemPrompt: e.target.value })}
         />
       </label>
+      <PromptItems cat={cat} />
+    </div>
+  );
+}
+
+/** Rules and Lessons of the cat's prompt file: read-only here (the Cat CEO edits them). */
+function PromptItems({ cat }: { cat: CatProfile }) {
+  if (!cat.rules && !cat.lessons && !cat.promptError) return null;
+  const sections = [
+    ['Rules', cat.rules ?? []],
+    ['Lessons', cat.lessons ?? []],
+  ] as const;
+  return (
+    <div className="flex flex-col gap-4 text-xs text-text-muted">
+      {cat.promptError && <span className="text-status-error">{cat.promptError}</span>}
+      {sections.map(([title, items]) => (
+        <div key={title} className="flex flex-col gap-2">
+          <span>{title} (read-only)</span>
+          {items.length === 0 && <span className="opacity-60">None yet.</span>}
+          {items.map((item) => (
+            <span key={item.id} className="text-text break-words">
+              [{item.id}] {item.text}
+            </span>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
