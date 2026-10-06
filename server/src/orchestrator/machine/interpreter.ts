@@ -318,11 +318,14 @@ export class TaskRunner {
   private async finalize(): Promise<void> {
     await Promise.all([...this.handles.values()].map((h) => h.done));
     while (this.gitWork.size) await Promise.all([...this.gitWork]);
+    // A shutdown meanwhile: the task is interrupted, Resume finalizes again.
+    if (this.disposed) return;
     // The user drives a cat's session in a terminal (its worktree): wait for it.
     const members = () => Object.values(this.state.members);
     while (members().some((m) => m.sessionId && sessionLockHolder(m.sessionId) === 'wheel')) {
       await new Promise((r) => setTimeout(r, SESSION_LOCK_RETRY_MS));
     }
+    if (this.disposed) return;
     const error = await endFlowWorkspaces(this.task, this.state);
     // Persona and MCP config files: the tokens in them die with the task.
     fs.rmSync(path.join(this.host.stateDir, ORCHESTRATOR_DIR, this.task.id), {

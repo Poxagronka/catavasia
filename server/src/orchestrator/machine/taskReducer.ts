@@ -184,7 +184,10 @@ function onRestarted(d: Draft): void {
   for (const m of Object.values(s.members)) {
     if (m.turn === 'running') d.fx.push({ type: 'KillTurn', catId: m.catId });
     dropTurn(d, m);
+    // A report or result of a turn that did not finish does not count.
     Object.assign(m, { joined: false, retryWait: false, timedOut: false, askedThisTurn: [] });
+    m.outgoingReport = undefined;
+    m.final = undefined;
   }
 }
 

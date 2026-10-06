@@ -96,7 +96,13 @@ export function commitEffect(d: Draft, a: Assignment, worktreePath: string): Eff
 
 export function onCommitFinished(d: Draft, assignmentId: string, ok: boolean, error?: string) {
   const a = d.s.assignments.find((x) => x.id === assignmentId);
-  if (!a || a.state !== 'reporting') return;
+  if (!a) return;
+  if (a.state !== 'reporting') {
+    // Cancelled meanwhile: only the held slot goes back.
+    const child = d.s.members[a.child];
+    if (child) releaseSlot(d, child);
+    return;
+  }
   const text = a.report ?? '';
   if (ok) completeReport(d, a, text, false);
   else completeReport(d, a, `${text}\n[Office] Could not commit the work: ${error}`, true);

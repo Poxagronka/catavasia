@@ -74,6 +74,17 @@ describe('prompt files', () => {
     expect(fs.existsSync(path.join(promptsDir, '.git'))).toBe(true);
   });
 
+  it('keeps an old prompt that uses the section headings (they become level 2)', () => {
+    fs.writeFileSync(
+      catsFile,
+      JSON.stringify({
+        version: 1,
+        cats: [legacyCat('boss', null, 'Be terse.\n# Rules\n- no emojis')],
+      }),
+    );
+    expect(open().get('boss')?.systemPrompt).toBe('Be terse.\n## Rules\n- no emojis');
+  });
+
   it('commits a Role edit from the Cats menu once, keeps Rules and Lessons', () => {
     const store = open();
     const repo = store.prompts;

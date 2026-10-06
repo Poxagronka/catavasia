@@ -214,6 +214,26 @@ describe('assignment machine', () => {
   });
 });
 
+describe('review fixes', () => {
+  it('refuses a delegate after a report in the same turn (I3)', () => {
+    const sim = delegated({}, ['mid']);
+    sim.tool('mid', 'report', { result: 'done' });
+    expect(sim.tool('mid', 'delegate', { to: 'deep', task: 'x' }).text).toContain(
+      'already reported',
+    );
+  });
+
+  it('refuses new work for a cat whose report is still unread (A16)', () => {
+    const sim = delegated({ repo: true, manual: ['MergeBranches'] });
+    sim.tool('w1', 'report', { result: 'r1' });
+    sim.finish('w1');
+    expect(sim.state.members.boss.pendingReports.w1).toContain('r1');
+    expect(sim.tool('boss', 'delegate', { to: 'w1', task: 'again' }).text).toContain(
+      'reaches you in your next turn',
+    );
+  });
+});
+
 describe('turn region', () => {
   it('R1, R2, R5: an inbox message queues a turn; the grant prepares the worktree and spawns', () => {
     const sim = delegated({ repo: true });

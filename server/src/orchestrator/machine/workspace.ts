@@ -15,6 +15,7 @@ import {
   finalizeWorktree,
   mergeBranch,
   removeWorktree,
+  reopenWorktree,
   type RepoInfo,
   unmergedPaths,
 } from '../../taskBoard/gitWorktree.js';
@@ -32,7 +33,12 @@ export async function prepareWorkspace(
   if (!repo) return { type: 'WorkspaceReady', catId, cwd: task.cwd };
   const worktreePath = path.join(stateDir, TASK_WORKTREES_DIR, `${task.id}-${catId}`);
   const branch = workerBranch(task.id, catId);
-  await createWorktree(repo, worktreePath, branch);
+  // A restart can cut the step off after git made the worktree or the branch.
+  if (!fs.existsSync(worktreePath)) {
+    await createWorktree(repo, worktreePath, branch).catch(() =>
+      reopenWorktree(repo.root, worktreePath, branch),
+    );
+  }
   return {
     type: 'WorkspaceReady',
     catId,

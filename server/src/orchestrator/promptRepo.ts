@@ -106,13 +106,21 @@ export class PromptRepo {
     }
   }
 
-  /** Commit the cat's file when it changed (no empty commits). */
+  /**
+   * Commit the cat's file when it changed (no empty commits). A git failure
+   * (no git, broken repo) keeps the written file and only loses the history
+   * entry: the server must start and save profiles without git.
+   */
   private commit(catId: string, subject: string): void {
-    this.ensure();
-    this.git('add', '-A', '--', `${catId}.md`);
-    const staged = this.git('diff', '--cached', '--name-only', '--', `${catId}.md`).trim();
-    if (!staged) return;
-    this.git('commit', '-q', '--no-verify', '-m', subject, '--', `${catId}.md`);
+    try {
+      this.ensure();
+      this.git('add', '-A', '--', `${catId}.md`);
+      const staged = this.git('diff', '--cached', '--name-only', '--', `${catId}.md`).trim();
+      if (!staged) return;
+      this.git('commit', '-q', '--no-verify', '-m', subject, '--', `${catId}.md`);
+    } catch (err) {
+      console.error(`[Pixel Agents] Cats: prompt commit "${subject}" failed: ${String(err)}`);
+    }
   }
 
   private git(...args: string[]): string {

@@ -110,6 +110,16 @@ function runTool(d: Draft, catId: string, name: string, args: Record<string, unk
       if (openAssignmentOf(s, to.id)) {
         throw new ToolError(`${to.id} still works on an earlier task. Use ask to add details.`);
       }
+      // I3: a report or result made in this turn covers all work below it.
+      if (self.outgoingReport !== undefined || self.final !== undefined) {
+        throw new ToolError('You already reported in this turn. Delegate before you report.');
+      }
+      // A16: the last report of this cat must be read before it gets new work.
+      if (self.pendingMerges.includes(to.id) || self.pendingReports[to.id] !== undefined) {
+        throw new ToolError(
+          `Wait: the report of ${to.id} reaches you in your next turn. Read it, then delegate.`,
+        );
+      }
       const last = [...s.assignments].reverse().find((a) => a.child === to.id);
       if (rework && last?.state !== 'reported') {
         throw new ToolError(`${to.id} has no report to rework. Delegate without rework.`);

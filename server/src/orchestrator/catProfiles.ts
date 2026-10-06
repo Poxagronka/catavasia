@@ -383,8 +383,17 @@ export class CatStore {
   private syncPrompts(): void {
     for (const cat of this.cats) {
       if (!this.prompts.exists(cat.id)) {
-        const error = this.saveRole(cat.id, cat.systemPrompt, 'import from cats.json');
-        if (error) console.warn(`[Pixel Agents] Cats: prompt of ${cat.id} not saved: ${error}`);
+        // An old prompt may use the section headings as its own: they become level 2.
+        const role = cat.systemPrompt.replace(
+          /^# (Role & conduct|Rules|Lessons)[ \t]*$/gm,
+          '## $1',
+        );
+        const error = this.saveRole(cat.id, role, 'import from cats.json');
+        if (error) {
+          // cats.json keeps the old text (write() keeps it while the file is missing).
+          console.warn(`[Pixel Agents] Cats: prompt of ${cat.id} not saved: ${error}`);
+          continue;
+        }
       } else {
         this.prompts.commitHandEdit(cat.id);
       }
@@ -396,7 +405,10 @@ export class CatStore {
   }
 
   private write(): void {
-    const cats = this.cats.map(({ systemPrompt: _prompt, ...rest }) => rest);
+    // The prompt text lives in the prompt file; a cat without a file keeps it here.
+    const cats = this.cats.map(({ systemPrompt, ...rest }) =>
+      this.prompts.exists(rest.id) ? rest : { ...rest, systemPrompt },
+    );
     const data = { version: 1, cats };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {

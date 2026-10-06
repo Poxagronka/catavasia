@@ -167,6 +167,16 @@ describe('task machine', () => {
     expect(sim.held.map((e) => e.type)).toEqual(['CommitWorktree']);
   });
 
+  it('T13 drops a result made in the turn the restart cut off', () => {
+    const sim = new Sim({ cats: [cat('solo', null)] });
+    sim.tool('solo', 'report', { result: 'old' });
+    sim.send({ type: 'ServerRestarted' });
+    sim.send({ type: 'ResumeRequested' });
+    expect(sim.state.members.solo.final).toBeUndefined();
+    sim.finish('solo', { text: 'thinking again' });
+    expect(sim.state.phase).not.toBe('finalizing');
+  });
+
   it('T15: cancel from interrupted', () => {
     const sim = delegated();
     sim.send({ type: 'ServerRestarted' });
