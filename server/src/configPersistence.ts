@@ -27,6 +27,8 @@ export interface AdapterSettings {
   narratorAiSummaries: boolean;
   /** Narrator: show the raw tool status instead of the narrator line (debug). */
   narratorRawToolStatus: boolean;
+  /** Self-update: check the repo for a newer version at start and every 6 h. */
+  autoUpdateCheck: boolean;
 }
 
 /** All keys in AdapterSettings. Used by adapters to map `pixel-agents.foo` → `foo`.
@@ -46,6 +48,7 @@ export const ADAPTER_SETTING_KEYS = [
   'turnConcurrency',
   'narratorAiSummaries',
   'narratorRawToolStatus',
+  'autoUpdateCheck',
 ] as const;
 
 export type AdapterSettingKey = (typeof ADAPTER_SETTING_KEYS)[number];
@@ -86,6 +89,7 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   turnConcurrency: TURN_CONCURRENCY_DEFAULT,
   narratorAiSummaries: true,
   narratorRawToolStatus: false,
+  autoUpdateCheck: true,
 };
 
 /** A turn cap inside TURN_CONCURRENCY_MIN..MAX, or undefined. */
@@ -188,6 +192,10 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
       typeof obj.narratorRawToolStatus === 'boolean'
         ? obj.narratorRawToolStatus
         : DEFAULT_ADAPTER_SETTINGS.narratorRawToolStatus,
+    autoUpdateCheck:
+      typeof obj.autoUpdateCheck === 'boolean'
+        ? obj.autoUpdateCheck
+        : DEFAULT_ADAPTER_SETTINGS.autoUpdateCheck,
   };
 }
 

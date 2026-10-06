@@ -203,3 +203,6 @@ export const CAT_CEO_TIDY_SUMMARIES = 5;
 export const CAT_CEO_TIDY_LOG_MAX = 200;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;
+/** Self-update: how long the old server stays up after spawning the new one,
+ *  so the open tab reads the `restarting` phase. */
+export const UPDATE_RESTART_GRACE_MS = 1500;

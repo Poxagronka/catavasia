@@ -6,6 +6,7 @@ import { setNarratorSettings, useNarratorSettings } from '../narratorStore.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
+import { UpdateSettings } from '../update/UpdateSettings.js';
 import { DefaultLayoutReset } from './DefaultLayoutReset.js';
 import { Button } from './ui/Button.js';
 import { Checkbox } from './ui/Checkbox.js';
@@ -290,6 +291,7 @@ export function SettingsModal({
         </>
       )}
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
+      {isBrowserRuntime && <UpdateSettings />}
     </Modal>
   );
 }
