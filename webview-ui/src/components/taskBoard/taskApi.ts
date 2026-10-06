@@ -4,12 +4,7 @@ import type {
   TaskListResponse,
   TaskSummary,
 } from '../../../../core/src/tasks.js';
-
-/**
- * The server token from the URL the CLI printed. Creating a task needs it
- * (the run has no permission prompts); reading the board does not.
- */
-export const sessionToken = new URLSearchParams(window.location.search).get('token');
+import { sessionToken } from '../../sessionToken.js';
 
 async function readJson<T>(res: Response): Promise<T> {
   if (!res.ok) {

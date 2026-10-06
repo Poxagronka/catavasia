@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { sessionToken } from '../components/taskBoard/taskApi.js';
 import { Button } from '../components/ui/Button.js';
+import { sessionToken } from '../sessionToken.js';
 import { catSessionApi } from './catSessionApi.js';
 import { ChatConsole } from './ChatConsole.js';
 import { applyFrame, EMPTY_CONSOLE, wheelBlocker } from './consoleState.js';

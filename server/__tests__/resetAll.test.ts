@@ -9,6 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { handleClientMessage } from '../src/clientMessageHandler.js';
 import { Orchestrator } from '../src/orchestrator/orchestrator.js';
@@ -164,9 +165,7 @@ describe('resetAllToDefault', () => {
   it('refuses an untokened client and a busy office, and changes nothing', () => {
     const o = office();
     const before = fs.readFileSync(file('cats.json'), 'utf-8');
-    expect(reset(o, false).sent).toEqual([
-      { type: 'resetAllResult', error: expect.stringContaining('server token') },
-    ]);
+    expect(reset(o, false).sent).toEqual([{ type: 'resetAllResult', error: EDIT_RIGHTS_HINT }]);
 
     void o.scheduler.run('boss', () => new Promise(() => {}));
     const { sent, broadcast } = reset(o, true);

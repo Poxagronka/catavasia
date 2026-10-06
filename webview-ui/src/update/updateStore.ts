@@ -5,7 +5,7 @@
 import { useSyncExternalStore } from 'react';
 
 import type { UpdateStatus } from '../../../core/src/selfUpdate.js';
-import { sessionToken } from '../components/taskBoard/taskApi.js';
+import { sessionToken } from '../sessionToken.js';
 
 const IDLE_POLL_MS = 5 * 60_000;
 const BUSY_POLL_MS = 1_000;

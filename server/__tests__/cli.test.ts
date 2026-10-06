@@ -241,6 +241,22 @@ describe('dist/cli.js entry-point guard', () => {
     });
   });
 
+  // A restart must not lock open tabs out: the server reuses the token saved
+  // by an earlier start (~/.pixel-agents/auth-token) instead of a new one.
+  itBuilt('reuses the token an earlier start saved', async () => {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-cli-token-'));
+    const saved = 'fake-token-0123456789-saved';
+    fs.mkdirSync(path.join(tmpHome, '.pixel-agents'), { mode: 0o700 });
+    fs.writeFileSync(path.join(tmpHome, '.pixel-agents', 'auth-token'), `${saved}\n`, {
+      mode: 0o600,
+    });
+    await runCliServer(tmpHome, async ({ output }) => {
+      await waitForCondition(() => URL_LINE.test(output()));
+      expect(mintedToken(tmpHome)).toBe(saved);
+      expect(printedUrl(output()).searchParams.get('token')).toBe(saved);
+    });
+  });
+
   // `--host 0.0.0.0` is a BIND target, not an address to browse to: printing
   // `http://0.0.0.0:PORT` hands the operator a URL that is dead on Windows and
   // merely accidental elsewhere (macOS happens to route it to loopback, so

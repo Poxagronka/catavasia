@@ -12,6 +12,7 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import type { UpdateStatus } from '../../../core/src/selfUpdate.js';
 import type { UpdateChecker } from './updateChecker.js';
 import type { UpdateRunner } from './updateRunner.js';
@@ -32,7 +33,7 @@ export function registerUpdateRoutes(
 ): void {
   const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!isPrivileged(request)) {
-      return reply.code(401).send({ error: 'A valid session token is required' });
+      return reply.code(401).send({ error: EDIT_RIGHTS_HINT });
     }
   };
 

@@ -49,6 +49,8 @@ export interface IdleWorld {
   startNext?: (ch: Character, id: string, from?: string) => boolean;
   /** An activity played to its end (not cut by work). True: something new started. */
   finished?: (ch: Character, run: IdleActivityRun) => boolean;
+  /** Start a due activity before the weighted pick (a litter visit). True: it started. */
+  due?: (ch: Character) => boolean;
 }
 
 /** Whether a tool should show the reading animation (vs typing). Taxonomy comes
@@ -547,6 +549,7 @@ function startIdleActivity(
   tileMap: TileTypeVal[][],
   blockedTiles: Set<string>,
 ): boolean {
+  if (idle.due?.(ch)) return true;
   const taken = idle.takenBy(ch);
   for (let i = 0; i < SPOT_CLAIM_RETRIES; i++) {
     const choice = chooseIdleActivity(ch.lastActivityId, idle.spotSets, taken);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CatSessionEntry, CatSessionStatus } from '../../core/src/catSession.js';
+import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import * as api from '../src/catTerminal/consoleState.js';
 
 const idle: CatSessionStatus = { busy: false, wheelHeld: false };
@@ -51,6 +52,6 @@ describe('wheelBlocker', () => {
     expect(api.wheelBlocker({ ...idle, wheelUnavailable: 'No working PTY module' }, true)).toBe(
       'No working PTY module',
     );
-    expect(api.wheelBlocker(idle, false)).toContain('tokened URL');
+    expect(api.wheelBlocker(idle, false)).toBe(EDIT_RIGHTS_HINT);
   });
 });
