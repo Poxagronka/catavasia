@@ -102,16 +102,7 @@ export const HUNT_POSES = [
   // Sitting up proud, pleased with itself.
   {
     name: 'yarnProud',
-    draw: (fr, _d, cat) =>
-      sitSide(fr, cat, {
-        head: { eyes: 'happy' },
-        tailPts: [
-          [5, 25],
-          [3, 24],
-          [2, 21],
-          [3, 18],
-        ],
-      }),
+    draw: (fr, _d, cat) => sitSide(fr, cat, { head: { eyes: 'happy' }, tail: 'up' }),
   },
   // Toy mouse.
   {

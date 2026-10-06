@@ -61,24 +61,62 @@ export const BOX_ROWS = [
   '................',
 ];
 
-const YARN = [
-  '................',
-  '................',
-  '................',
-  '................',
-  '.....oooooo.....',
-  '....ozzYYyYo....',
-  '...ozYYyYYYyo...',
-  '...oYYyYYyYYo...',
-  '...oyYYYyYYyo...',
-  '...oYyYYYyYYo...',
-  '...oYYyYyYYyo...',
-  '....oyYYyYyo....',
-  '.....oooooooo...',
-  '...........oYo..',
-  '............oYo.',
-  '.............o..',
+/** Inside of the yarn ball (16 px rows 3-11): '#' = wool, '.' = outside. */
+const YARN_SHAPE = [
+  '...######.......',
+  '..########......',
+  '.##########.....',
+  '.##########.....',
+  '.##########.....',
+  '.##########.....',
+  '.##########.....',
+  '..########......',
+  '...######.......',
 ];
+
+/**
+ * The loose thread lies flat on the floor as a wavy strand from under the
+ * ball (x 6-15, y 13-14). Two shapes: the roll drags it, so it alternates.
+ */
+const YARN_THREADS = [
+  [6, 13, 13, 14, 14, 13, 13, 14, 14, 13],
+  [6, 13, 14, 14, 13, 13, 14, 14, 13, 13],
+].map(([x0, ...ys]) => ys.map((y, i) => [x0 + i, y]));
+
+/**
+ * Ball of yarn at roll phase 0-3: the wound stripes shift one step per
+ * phase, so a ball moved by the cat (activity step px) visibly turns.
+ */
+function yarnFrame(phase) {
+  const grid = Array.from({ length: 16 }, () => [...'................']);
+  YARN_SHAPE.forEach((row, r) => {
+    [...row].forEach((ch, x) => {
+      if (ch !== '#') return;
+      const y = r + 3;
+      const stripe = (x + y + phase) % 4 === 0;
+      // Light catches the top left.
+      grid[y][x] = stripe ? 'y' : x + r <= 4 ? 'z' : 'Y';
+    });
+  });
+  for (const [x, y] of YARN_THREADS[phase % 2]) grid[y][x] = 'Y';
+  // Outline every empty pixel that touches wool or thread.
+  const filled = (x, y) => grid[y]?.[x] && grid[y][x] !== '.' && grid[y][x] !== 'o';
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++)
+      if (
+        grid[y][x] === '.' &&
+        [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ].some(([dx, dy]) => filled(x + dx, y + dy))
+      )
+        grid[y][x] = 'o';
+  return grid.map((r) => r.join(''));
+}
+
+const YARN_FRAMES = [0, 1, 2, 3].map(yarnFrame);
 
 const MOUSE = [
   '................',
@@ -261,12 +299,21 @@ const CAT_TREE = [
 /**
  * Every toy: one furniture folder with a manifest. footprint and
  * backgroundTiles follow the existing assets (a tall item blocks only its
- * bottom row).
+ * bottom row). `frames`: an animation group (frame 0 = rows), picked by an
+ * activity step's `item` (the yarn ball turning as it rolls).
  */
 export const TOYS = [
   { id: 'SCRATCHING_POST', name: 'Scratching Post', rows: SCRATCHING_POST, fw: 1, fh: 2, bg: 1 },
   { id: 'CAT_TREE', name: 'Cat Tree', rows: CAT_TREE, fw: 2, fh: 3, bg: 2 },
-  { id: 'YARN_BALL', name: 'Ball of Yarn', rows: YARN, fw: 1, fh: 1, bg: 0 },
+  {
+    id: 'YARN_BALL',
+    name: 'Ball of Yarn',
+    rows: YARN_FRAMES[0],
+    frames: YARN_FRAMES,
+    fw: 1,
+    fh: 1,
+    bg: 0,
+  },
   { id: 'CARDBOARD_BOX', name: 'Cardboard Box', rows: BOX_ROWS, fw: 1, fh: 1, bg: 0 },
   { id: 'FEATHER_TEASER', name: 'Feather Teaser', rows: TEASER, fw: 1, fh: 2, bg: 1 },
   { id: 'PLAY_TUNNEL', name: 'Play Tunnel', rows: TUNNEL, fw: 2, fh: 1, bg: 0 },

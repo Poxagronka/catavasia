@@ -56,15 +56,7 @@ function backTail(fr, cat, flick, dy = 0) {
 /** Listening happily: the tail stands up and its tip flicks. */
 function flick(fr, dir, cat, f) {
   if (dir === 'right') {
-    sitSide(fr, cat, {
-      head: { eyes: 'happy' },
-      tailPts: [
-        [5, 25],
-        [2, 23],
-        [1, 18],
-        [2 + f, 15],
-      ],
-    });
+    sitSide(fr, cat, { head: { eyes: 'happy' }, tail: f ? 'flick' : 'up' });
   } else if (dir === 'down') {
     frontSit(fr, cat, {
       head: { eyes: 'happy' },
@@ -80,34 +72,74 @@ function flick(fr, dir, cat, f) {
   }
 }
 
-const ARCH = ['...FFFFF...', '.FFhhhhhFF.', 'FFFFFFFFFFF', 'fFFFFFFFFFf', 'ff.......ff'];
+/**
+ * Halloween-cat arch from (0, y): fur on end along a high round back, the
+ * belly tucked up between stiff legs.
+ */
+const ARCH = [
+  '...F.F.F....',
+  '..FhFhFhF...',
+  '.FFFFFFFFF..',
+  'FFFFFFFFFFF.',
+  'FFFFFFFFFFFF',
+  'fFFFFFFFFFFF',
+  'fFFFF..FFFFF',
+  'fFF......FFF',
+];
 
-/** Arched back, fur on end, hissing; `up`: the body bobs 1 px higher. */
-function hiss(fr, cat, up) {
-  const y = 15 - up;
-  fr.stamp(ARCH, 0, y, 'torso', Z.torso);
-  for (const [x, z] of [
-    [0, Z.leg - 0.5],
-    [3, Z.leg],
-    [8, Z.leg - 0.5],
-    [9, Z.leg],
-  ]) {
-    fr.rect(x, y + 4, 2, 30 - (y + 4), x < 5 ? 'legB' : 'legF', z);
-    fr.rect(x, 30, 2, 1, x < 5 ? 'legB' : 'legF', z, 'paw');
+/** The bottle-brush tail: a thick column with tufts sticking out both sides. */
+function brushTail(fr, y) {
+  const pts = [
+    [1, y + 3],
+    [0, y - 2],
+    [1, y - 7],
+  ];
+  fr.stroke(pts, 3, 'tail', Z.tailBack, { tip: 2, tipLabel: 'tailTip' });
+  for (let ty = y - 6; ty <= y + 2; ty += 3) {
+    fr.set(ty % 2 ? -1 : 3, ty, { label: 'fur', part: 'tail', lx: 0, ly: ty, z: Z.tailBack });
+    fr.set(3, ty + 1, { label: 'fur', part: 'tail', lx: 0, ly: ty + 1, z: Z.tailBack });
   }
-  // A bottle-brush tail straight up.
-  fr.stroke(
-    [
-      [1, y + 1],
-      [0, y - 6],
-      [1, y - 10],
-    ],
-    3,
-    'tail',
-    Z.tailBack,
-    { tip: 2, tipLabel: 'tailTip' },
-  );
-  drawHead(fr, 'right', 4, y + 2, cat, { eyes: 'wide', mouth: 'yawn' });
+}
+
+/**
+ * Arched back, fur on end, ears flat, mouth wide open, hissing. `up`: the
+ * body bobs 1 px higher and the "hss" lines in front of the mouth shake.
+ */
+function hiss(fr, cat, up) {
+  const y = 8 - up;
+  fr.stamp(ARCH, 0, y, 'torso', Z.torso);
+  // Stiff legs, splayed a little: far ones in the shade colour.
+  for (const [x0, x1, part, z] of [
+    [1, 0, 'legB', Z.leg - 0.5],
+    [2, 3, 'legB', Z.leg],
+    [9, 10, 'legF', Z.leg - 0.5],
+    [11, 12, 'legF', Z.leg],
+  ]) {
+    fr.stroke(
+      [
+        [x0, y + 7],
+        [x1, 29],
+      ],
+      2,
+      part,
+      z,
+      { tip: 1, label: z < Z.leg ? 'shade' : 'fur' },
+    );
+  }
+  brushTail(fr, y);
+  // The head is held forward at shoulder height, below the top of the arch.
+  const hy = y + 7;
+  drawHead(fr, 'right', 2, hy, cat, { eyes: 'wide', mouth: 'yawn', flatEars: true });
+  // "hss": a short zigzag of breath in front of the open mouth. The head
+  // sits 2 px back from the frame edge, so two cats face to face keep a gap.
+  const dx = up ? 1 : 0;
+  for (const [x, yy] of [
+    [14 + dx, hy + 4],
+    [15 - dx, hy + 5],
+    [14 + dx, hy + 6],
+    [15 - dx, hy + 7],
+  ])
+    fr.addOverlay(x, yy, 'whisker');
 }
 
 export const SOCIAL_POSES = [

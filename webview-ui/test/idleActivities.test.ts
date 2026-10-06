@@ -195,9 +195,15 @@ test('an idle cat goes on to a different activity after one ends', () => {
   const os = office();
   const ch = idleCat(os, 1, 'chairA');
   assert.ok(os.forceIdleActivity(1, 'coffee'));
-  runFor(os, 30);
-  assert.equal(ch.lastActivityId, 'coffee');
-  assert.notEqual(ch.activity?.id, 'coffee');
+  // The order of activities, not their timing: a short next one may also end in the window.
+  const seen: string[] = [];
+  for (let t = 0; t < 40; t += 0.05) {
+    os.update(0.05);
+    const id = ch.activity?.id;
+    if (id && seen.at(-1) !== id) seen.push(id);
+  }
+  assert.equal(seen[0], 'coffee');
+  assert.ok(seen.length > 1 && seen[1] !== 'coffee', seen.join(' > '));
 });
 
 test('a finished task cat stays, idle, and its click target is the task', () => {

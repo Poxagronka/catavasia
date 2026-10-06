@@ -9,21 +9,25 @@ import type { AnimParts, AnimStep } from './activityAnim.js';
 import { st } from './activityAnim.js';
 
 /** Steam rises from the mug: frame px per facing (front, back, side). */
-const MUG_STEAM = { down: [8, 19], up: [14, 12], side: [12, 19] } as const;
-const BLOW_AT = { down: [10, 17], up: [9, 10], side: [14, 16] } as const;
+const MUG_STEAM = { down: [8, 19], up: [14, 12], side: [16, 20] } as const;
+const BLOW_AT = { down: [10, 17], up: [9, 10], side: [16, 16] } as const;
 
-/** Holding a hot mug: steam, a blow on it, a long sip, an "ahh". */
+/**
+ * Holding a hot mug in both paws: steam, two blows on it, lift it to the
+ * mouth, a long sip with the head tipped back, lower it, a content "ahh".
+ */
 export const SIP: AnimParts = {
   intro: [st('drinkHold', 0.7, { fx: 'steam', fxAt: MUG_STEAM })],
   loop: [
-    st('drinkHold', 0.9, { fx: 'steam', fxAt: MUG_STEAM }),
+    st('drinkHold', 0.8, { fx: 'steam', fxAt: MUG_STEAM }),
     st('drinkBlow', 0.45, { fx: 'blow', fxAt: BLOW_AT }),
-    st('drinkHold', 0.15),
+    st('drinkLift', 0.15),
     st('drinkBlow', 0.45, { fx: 'blow', fxAt: BLOW_AT }),
-    st('drinkHold', 0.35, { fx: 'steam', fxAt: MUG_STEAM }),
-    st('drinkSip', 1.3),
+    st('drinkLift', 0.3),
+    st('drinkSip', 1.2),
+    st('drinkLift', 0.25),
     st('drinkHappy', 1.0),
-    st('drinkHold', 1.2, { fx: 'steam', fxAt: MUG_STEAM }),
+    st('drinkHold', 0.9, { fx: 'steam', fxAt: MUG_STEAM }),
   ],
 };
 

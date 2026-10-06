@@ -18,39 +18,85 @@ export function nearArm(fr, pts, over = false) {
   armAt(fr, 'armR', pts, over ? Z_LIFT : Z.arm);
 }
 
+/** Side sit body (facing right) from (1, fy + 8): round back, chest at the right. */
+const SIT_BODY = [
+  '....FFFFF..',
+  '...CCCCCCC.',
+  '..FFFFFFFWW',
+  '.FFFFFFFFWW',
+  '.FFFFFFFFWW',
+  'FFFFFFFFFWW',
+  'FFFFFFFFFFW',
+  'fFFFFFFFFFW',
+  'fFFFFFFFFF.',
+  'fFFFFFFFFF.',
+  'ffFFFFFFFf.',
+  '.ffFFFFFf..',
+  '..ffffff...',
+];
+
+/** The hind haunch: a round thigh resting on the floor, from (1, fy + 13). */
+const HAUNCH = ['..hFFF..', '.hFFFFF.', 'FFFFFFFF', 'FFFFFFFF', 'fFFFFFFF', 'fFFFFFFF', '.ffffff.'];
+
+/** Tail of a sit: wrapped along the floor around the front paws, or held up. */
+const SIT_TAIL = {
+  wrap: [
+    [0, 26],
+    [0, 28],
+    [3, 29],
+    [9, 29],
+    [12, 29],
+    [13, 28],
+  ],
+  up: [
+    [1, 25],
+    [0, 22],
+    [0, 19],
+    [1, 17],
+  ],
+};
+
 /**
- * Sitting side-on. dy: whole body offset. tailPts: the tail path (default
- * curled on the floor behind). head: drawHead options. Arms are left to the
- * caller (none drawn here) unless `paw` is true (resting front paw).
+ * Sitting side-on: a round haunch on the floor, straight front legs, the
+ * tail wrapped around the paws. The body always rests on the floor row 30.
+ * head: drawHead options; headDx / headDy move the head only (a lean).
+ * tail: 'wrap' (default), 'up', or 'flick' (up, the tip bent forward).
+ * paw: true (both front legs on the floor), 'far' (the caller draws the near
+ * one: a reach) or false (both paws up: holding a mug). Near shoulder: SIT_SHOULDER.
  */
 export function sitSide(
   fr,
   cat,
-  { dy = 0, head = {}, headDx = 0, headDy = 0, tailPts, paw = true } = {},
+  { head = {}, headDx = 0, headDy = 0, tail: tailKind = 'wrap', paw = true } = {},
 ) {
-  const fy = 9 + dy;
-  drawHead(fr, 'right', 2 + headDx, fy + headDy, cat, head);
-  drawTorso(fr, 'right', 5, fy + 8);
-  fr.rect(7, 26 + dy, 5, 2, 'legF', Z.leg);
-  leg(fr, 'legF', 10, 28 + dy, 29 + dy, 2);
-  tail(
-    fr,
-    cat,
-    tailPts ?? [
-      [5, 25 + dy],
-      [3, 25 + dy],
-      [2, 23 + dy],
-      [2, 21 + dy],
-    ],
-    false,
-  );
-  if (paw)
-    nearArm(fr, [
-      [7, fy + 9],
-      [9, fy + 13],
-      [10, fy + 16],
-    ]);
+  const fy = 10;
+  drawHead(fr, 'right', 3 + headDx, fy + headDy, cat, head);
+  fr.stamp(SIT_BODY, 1, fy + 8, 'torso', Z.torso);
+  fr.stamp(HAUNCH, 1, fy + 13, 'haunch', Z.torso + 0.3, { rim: true });
+  // Hind paw: flat on the floor in front of the haunch.
+  fr.rect(5, 30, 4, 1, 'haunch', Z.torso + 0.3, 'paw', { rim: true });
+  // Far front leg: a shade sliver just past the near one.
+  if (paw) {
+    fr.rect(11, 25, 2, 5, 'legB', Z_FAR, 'shade');
+    fr.rect(11, 30, 2, 1, 'legB', Z_FAR, 'paw');
+  }
+  if (paw === true) {
+    fr.rect(9, 22, 2, 8, 'legF', Z.arm, 'fur', { rim: true });
+    fr.rect(9, 30, 2, 1, 'legF', Z.arm, 'paw', { rim: true });
+  }
+  // Without front paws on the floor the wrap stops short of where they would stand.
+  const wrap = paw ? SIT_TAIL.wrap : [...SIT_TAIL.wrap.slice(0, 3), [7, 29], [8, 28]];
+  const pts =
+    tailKind === 'wrap'
+      ? wrap.map(([x, y]) => [x, cat.tail === 'thin' ? y + 1 : y])
+      : tailKind === 'flick'
+        ? [...SIT_TAIL.up.slice(0, 3), [2, 16]]
+        : SIT_TAIL.up;
+  tail(fr, cat, pts, tailKind === 'wrap');
 }
+
+/** Near front leg shoulder of sitSide (frame px), for callers that draw the arm. */
+export const SIT_SHOULDER = [9, 20];
 
 /**
  * Up on the hind legs, upright. fy: head top row. Hind legs reach the floor

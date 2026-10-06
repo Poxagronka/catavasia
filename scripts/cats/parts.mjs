@@ -130,6 +130,7 @@ function setChar(row, x, ch) {
  * opts.closedEyes: eyes become a content line (sipping, napping).
  * opts.eyes: closed | happy | wide | up | down | left | right | half.
  * opts.mouth: open | o | yawn | tongue. opts.twitch: one ear tip folds.
+ * opts.flatEars: ears pinned back flat.
  */
 export function drawHead(fr, dir, x, y, cat, opts = {}) {
   const earDir = dir === 'right' ? 'right' : 'down';
@@ -153,6 +154,8 @@ export function drawHead(fr, dir, x, y, cat, opts = {}) {
     ears = ears.map((r) => r.replaceAll('i', 'f'));
     face[0] = face[0].replaceAll('i', 'f');
   }
+  // Ears pinned back flat (a hiss): only the ear bases show.
+  if (opts.flatEars) ears = ears.slice(-1);
   if (opts.twitch) {
     ears = ears.slice();
     ears[0] = dir === 'right' ? setChar(ears[0], 8, '.') : setChar(ears[0], 0, '.');

@@ -20,16 +20,7 @@ export const TEASER_POSES = [
   { name: 'teaserWatch', draw: (fr, _d, cat) => sitSide(fr, cat, { head: { eyes: 'right' } }) },
   {
     name: 'teaserWatchUp',
-    draw: (fr, _d, cat) =>
-      sitSide(fr, cat, {
-        head: { eyes: 'up' },
-        tailPts: [
-          [5, 25],
-          [3, 24],
-          [2, 21],
-          [3, 19],
-        ],
-      }),
+    draw: (fr, _d, cat) => sitSide(fr, cat, { head: { eyes: 'up' }, tail: 'up' }),
   },
   { name: 'teaserRear', draw: (fr, _d, cat) => rear(fr, cat, [12, 13], [13, 12]) },
   {

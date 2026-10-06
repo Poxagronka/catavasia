@@ -7,7 +7,7 @@
 import { down, right } from './officePoses.mjs';
 import { armAt, drawHead, drawTorso, tail, Z } from './parts.mjs';
 import { frontSit } from './restPoses.mjs';
-import { sitSide, Z_LIFT } from './sideKit.mjs';
+import { SIT_SHOULDER, sitSide, Z_LIFT } from './sideKit.mjs';
 
 const MUG_FRONT = ['UDDU.', 'UUUUU', 'UUUUU', 'KKKK.'];
 const MUG_SIDE = ['.UDU', 'UUUU', 'UUUU', '.KKK'];
@@ -89,17 +89,8 @@ function reach(fr, dir, cat, press) {
   const p = press ? 1 : 0;
   if (dir === 'right') {
     // The machine stands on a counter at knee height: sit and reach out.
-    sitSide(fr, cat, { head: { eyes: 'down' }, paw: false });
-    armAt(
-      fr,
-      'armR',
-      [
-        [7, 18],
-        [11, 22],
-        [14 + p, 25 + p],
-      ],
-      Z_LIFT,
-    );
+    sitSide(fr, cat, { head: { eyes: 'down' }, paw: 'far' });
+    armAt(fr, 'armR', [SIT_SHOULDER, [12, 21], [14 + p, 23 + p]], Z_LIFT);
   } else if (dir === 'up') {
     backSit(fr, cat, false);
     // Seen from behind: the raised paw shows past the side of the head.
@@ -159,15 +150,7 @@ function backSit(fr, cat, flick) {
 /** Sitting, facing the machine, the tail tip flicking (wait for the brew). */
 function wait(fr, dir, cat, flick) {
   if (dir === 'right') {
-    sitSide(fr, cat, {
-      head: { eyes: flick ? 'happy' : 'right' },
-      tailPts: [
-        [5, 25],
-        [3, 25],
-        [2, 23],
-        [2 + (flick ? 1 : 0), 20],
-      ],
-    });
+    sitSide(fr, cat, { head: { eyes: flick ? 'happy' : 'right' }, tail: flick ? 'flick' : 'up' });
   } else if (dir === 'down') {
     frontSit(fr, cat, {
       head: { eyes: flick ? 'happy' : 'down' },

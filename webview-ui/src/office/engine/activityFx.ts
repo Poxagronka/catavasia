@@ -73,8 +73,8 @@ const STAR_S = grid(['.s.', 'sss', '.s.'], { s: STAR });
 const FUR_DOT = [[FUR]];
 const SISAL_DOT = [[SISAL_BIT]];
 const CRUMB_DOT = [[CRUMB]];
-const WISP_A = grid(['.s', 's.', '.s'], { s: STEAM });
-const WISP_B = grid(['s.', '.s', 's.'], { s: STEAM });
+const WISP_A = grid(['.s', 's.', 's.', '.s'], { s: STEAM });
+const WISP_B = grid(['s.', '.s', '.s', 's.'], { s: STEAM });
 const PUFF_S = grid(['.pp', 'p..', '.pp'], { p: PUFF });
 const MARKS_S = grid(['m..', 'm.m', '.mm', '..m'], { m: MARK });
 const DUST_S = grid(['.d.', 'ddd'], { d: DUST });
@@ -99,12 +99,13 @@ export function fxDrawables(kind: FxKind, at: FxAnchor, t: number): FxDrawable[]
   };
   switch (kind) {
     case 'steam':
-      for (let i = 0; i < 2; i++) {
-        const p = cyc(t, 1.6, i * 0.5);
+      // Three wisps rise about 9 px, drifting from side to side.
+      for (let i = 0; i < 3; i++) {
+        const p = cyc(t, 1.5, i / 3);
         add(
-          i ? WISP_B : WISP_A,
-          i * 2 - 1 + Math.round(Math.sin(p * 6) * 0.6),
-          -3 - p * 7,
+          i % 2 ? WISP_B : WISP_A,
+          i - 1 + Math.round(Math.sin(p * 7 + i) * 1.2),
+          -4 - p * 9,
           fade(p),
         );
       }
