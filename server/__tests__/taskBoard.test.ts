@@ -162,7 +162,7 @@ describe('TaskManager', () => {
     const host = new FakeHost();
     const manager = new TaskManager({ host, stateDir, defaultCwd: repo, claudeBin: fakeBin });
 
-    const created = await manager.create('create meow.txt\nwith the word meow');
+    const created = await manager.create('create meow.txt\nwith the word meow', manager.defaultCwd);
     expect(created).toMatchObject({ status: 'running', title: 'create meow.txt', palette: 4 });
     const task = await waitSettled(manager, created.id);
 
@@ -199,7 +199,7 @@ describe('TaskManager', () => {
       narrate: (input) => narrated.push(input),
     });
 
-    const task = await waitSettled(manager, (await manager.create('hello')).id);
+    const task = await waitSettled(manager, (await manager.create('hello', manager.defaultCwd)).id);
 
     expect(task.status).toBe('done');
     expect(task.branch).toBeUndefined();
@@ -217,7 +217,10 @@ describe('TaskManager', () => {
     const host = new FakeHost();
     const manager = new TaskManager({ host, stateDir, defaultCwd: tmp, claudeBin: fakeBin });
 
-    const task = await waitSettled(manager, (await manager.create('please FAIL')).id);
+    const task = await waitSettled(
+      manager,
+      (await manager.create('please FAIL', manager.defaultCwd)).id,
+    );
 
     expect(task.status).toBe('error');
     expect(task.error).toContain('Exit code 3');
@@ -232,7 +235,7 @@ describe('TaskManager', () => {
       defaultCwd: tmp,
       claudeBin: path.join(tmp, 'no-such-claude'),
     });
-    const task = await waitSettled(manager, (await manager.create('hi')).id);
+    const task = await waitSettled(manager, (await manager.create('hi', manager.defaultCwd)).id);
     expect(task.status).toBe('error');
     expect(task.error).toContain('ENOENT');
   });

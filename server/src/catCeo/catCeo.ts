@@ -140,10 +140,12 @@ export class CatCeo {
     return readCeoSettings(this.opts.cats.catCeo);
   }
 
-  /** The judge as a resident character (none while it is off). */
+  /**
+   * The CEO as a resident character. Always present: it runs the CEO desk;
+   * `enabled` only turns the reviews, tidies and walks on or off.
+   */
   resident(): CatProfile[] {
-    const s = this.settings;
-    return s.enabled ? [ceoProfile(s)] : [];
+    return [ceoProfile(this.settings)];
   }
 
   message(): ServerMessage {

@@ -6,11 +6,12 @@
  * 60 s, so a tool never waits for another cat: the message is queued and lands
  * in the target cat's next turn. The bearer token names the calling cat and
  * its task; the handler enforces the hierarchy.
+ *
+ * The same transport serves the CEO desk tools at their own path
+ * (server/src/ceoDesk/deskTools.ts): one route per tool set and handler.
  */
 
 import type { FastifyInstance } from 'fastify';
-
-import { OFFICE_MCP_PATH } from '../constants.js';
 
 export interface OfficeToolResult {
   text: string;
@@ -20,15 +21,26 @@ export interface OfficeToolResult {
 export interface OfficeToolHandler {
   /** Whether a bearer token belongs to a cat of a live task. */
   knowsToken(token: string): boolean;
-  callTool(token: string, name: string, args: Record<string, unknown>): OfficeToolResult;
+  callTool(
+    token: string,
+    name: string,
+    args: Record<string, unknown>,
+  ): OfficeToolResult | Promise<OfficeToolResult>;
+}
+
+/** What tools/list returns for one tool. */
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
 }
 
 const PROTOCOL_VERSION = '2025-06-18';
 const ROUTE_BODY_LIMIT = 512 * 1024;
 
-const str = (description: string) => ({ type: 'string', description });
+export const str = (description: string) => ({ type: 'string', description });
 
-export const OFFICE_TOOLS = [
+export const OFFICE_TOOLS: McpTool[] = [
   {
     name: 'brief',
     description:
@@ -110,11 +122,12 @@ function rpcError(id: RpcRequest['id'], code: number, message: string) {
 }
 
 /** Answer one JSON-RPC message, or undefined for a notification. */
-export function handleRpc(
+async function handleRpc(
   req: RpcRequest,
   token: string,
+  tools: McpTool[],
   handler: OfficeToolHandler,
-): Record<string, unknown> | undefined {
+): Promise<Record<string, unknown> | undefined> {
   if (req.id === undefined) return undefined; // notification (e.g. notifications/initialized)
   switch (req.method) {
     case 'initialize': {
@@ -128,12 +141,12 @@ export function handleRpc(
     case 'ping':
       return rpcResult(req.id, {});
     case 'tools/list':
-      return rpcResult(req.id, { tools: OFFICE_TOOLS });
+      return rpcResult(req.id, { tools });
     case 'tools/call': {
       const name = req.params?.name;
       const args = req.params?.arguments;
       if (typeof name !== 'string') return rpcError(req.id, -32602, 'tools/call needs a name');
-      const result = handler.callTool(
+      const result = await handler.callTool(
         token,
         name,
         args && typeof args === 'object' ? (args as Record<string, unknown>) : {},
@@ -148,8 +161,14 @@ export function handleRpc(
   }
 }
 
-export function registerOfficeMcpRoute(app: FastifyInstance, handler: OfficeToolHandler): void {
-  app.post(OFFICE_MCP_PATH, { bodyLimit: ROUTE_BODY_LIMIT }, async (request, reply) => {
+/** Serve `tools` at `path`; the bearer token must be one `handler` knows. */
+export function registerMcpRoute(
+  app: FastifyInstance,
+  path: string,
+  tools: McpTool[],
+  handler: OfficeToolHandler,
+): void {
+  app.post(path, { bodyLimit: ROUTE_BODY_LIMIT }, async (request, reply) => {
     const auth = request.headers.authorization ?? '';
     const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
     if (!token || !handler.knowsToken(token)) {
@@ -160,13 +179,15 @@ export function registerOfficeMcpRoute(app: FastifyInstance, handler: OfficeTool
       return reply.code(400).send(rpcError(null, -32700, 'Parse error'));
     }
     if (Array.isArray(body)) {
-      const answers = body.map((r) => handleRpc(r, token, handler)).filter(Boolean);
+      const answers = (
+        await Promise.all(body.map((r) => handleRpc(r, token, tools, handler)))
+      ).filter(Boolean);
       return answers.length ? reply.send(answers) : reply.code(202).send();
     }
-    const answer = handleRpc(body, token, handler);
+    const answer = await handleRpc(body, token, tools, handler);
     return answer ? reply.send(answer) : reply.code(202).send();
   });
   // No server-initiated stream: the transport allows 405 for GET.
-  app.get(OFFICE_MCP_PATH, async (_request, reply) => reply.code(405).send());
-  app.delete(OFFICE_MCP_PATH, async (_request, reply) => reply.code(405).send());
+  app.get(path, async (_request, reply) => reply.code(405).send());
+  app.delete(path, async (_request, reply) => reply.code(405).send());
 }

@@ -167,7 +167,7 @@ function collect(socket: WebSocket): CatSessionFrame[] {
 
 describe('console event mapping', () => {
   it('maps task log rows and the prompt into console entries', async () => {
-    await manager.create('fix the bug');
+    await manager.create('fix the bug', manager.defaultCwd);
     await settled();
     const snap = new TaskBoardCatSource(manager).snapshot('7')!;
     expect(snap.title).toBe('fix the bug');
@@ -195,7 +195,7 @@ describe('console event mapping', () => {
   });
 
   it('streams a snapshot, then live entries and status frames', async () => {
-    await manager.create('first');
+    await manager.create('first', manager.defaultCwd);
     await settled();
     const socket = new WebSocket(`ws://${base}/events`);
     const frames = collect(socket);
@@ -218,7 +218,7 @@ describe('console event mapping', () => {
 
 describe('send path', () => {
   it('resumes the same session in the reopened worktree and commits again', async () => {
-    const created = await manager.create('first');
+    const created = await manager.create('first', manager.defaultCwd);
     await settled();
     expect((await post(`?token=${TOKEN}`, 'second')).status).toBe(202);
     await settled();
@@ -240,7 +240,7 @@ describe('send path', () => {
 
   it('answers 404 for a cat with no session and 400 for an empty message', async () => {
     expect((await post(`?token=${TOKEN}`, 'hi')).status).toBe(404);
-    await manager.create('first');
+    await manager.create('first', manager.defaultCwd);
     await settled();
     expect((await post(`?token=${TOKEN}`, '   ')).status).toBe(400);
   });
@@ -248,7 +248,7 @@ describe('send path', () => {
 
 describe('session lock', () => {
   it('refuses a message and the wheel while a turn runs', async () => {
-    await manager.create('SLOW first');
+    await manager.create('SLOW first', manager.defaultCwd);
     const task = manager.findByAgent(7)!;
     expect(manager.isRunning(task.id)).toBe(true);
     expect((await post(`?token=${TOKEN}`, 'again')).status).toBe(409);
@@ -261,7 +261,7 @@ describe('session lock', () => {
   });
 
   it('takes the wheel when idle, blocks turns while held, releases on exit', async () => {
-    const created = await manager.create('first');
+    const created = await manager.create('first', manager.defaultCwd);
     await settled();
     const sessionId = JSON.parse(fs.readFileSync(argvLog, 'utf-8').split('\n')[0])[1] as string;
 
@@ -327,7 +327,7 @@ describe('engine login terminal', () => {
 
 describe('token gating', () => {
   it('needs the token to send a message or take the wheel', async () => {
-    await manager.create('first');
+    await manager.create('first', manager.defaultCwd);
     await settled();
     expect((await post('', 'hi')).status).toBe(401);
     const wrong = await post('?token=wrong', 'hi');

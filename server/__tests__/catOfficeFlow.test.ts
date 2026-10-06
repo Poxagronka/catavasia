@@ -177,7 +177,8 @@ describe('team task (1 boss + 2 workers)', () => {
 
     // One resident character per cat (spawned at start, breed palette). Each
     // turn points it at its session; at the end every member links to the task.
-    expect(host.spawned.map((s) => s.palette)).toEqual([0, 1, 3]);
+    // The three cats, then the CEO (always resident).
+    expect(host.spawned.map((s) => s.palette)).toEqual([0, 1, 3, 4]);
     expect(new Set(host.turns.map((t) => t.id))).toEqual(new Set([1, 2, 3]));
     expect(host.ended).toHaveLength(host.turns.length);
     expect(host.linked.map((l) => l.id).sort()).toEqual([1, 2, 3]);

@@ -245,7 +245,7 @@ export class CeoChat {
       const data = JSON.parse(fs.readFileSync(this.file, 'utf-8')) as { messages?: unknown };
       if (!Array.isArray(data.messages)) return [];
       // A hand-edited or broken row would break every later run: drop it.
-      return (data.messages as Array<Partial<ChatEntry> | null>).filter(
+      return (data.messages as Array<(Partial<ChatEntry> & { text?: unknown }) | null>).filter(
         (m): m is ChatEntry =>
           !!m &&
           typeof m.text === 'string' &&

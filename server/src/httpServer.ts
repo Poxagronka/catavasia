@@ -13,6 +13,9 @@ import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
 import { registerCatTerminalRoutes } from './catTerminal/catTerminalRoutes.js';
 import { OfficeCatSource } from './catTerminal/officeCatSource.js';
 import { ptyModule } from './catTerminal/ptyModule.js';
+import type { CeoDesk } from './ceoDesk/ceoDesk.js';
+import { registerCeoRoutes } from './ceoDesk/ceoRoutes.js';
+import { DESK_TOOLS } from './ceoDesk/deskTools.js';
 import type {
   AssetCache,
   ReloadAssetsSideEffect,
@@ -20,15 +23,17 @@ import type {
 } from './clientMessageHandler.js';
 import { handleClientMessage } from './clientMessageHandler.js';
 import {
+  CEO_MCP_PATH,
   HOOK_API_PREFIX,
   MAX_HOOK_BODY_SIZE,
+  OFFICE_MCP_PATH,
   TASK_PROMPT_MAX_CHARS,
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
 import { filterGuestMessage } from './guests.js';
 import type { Narrator } from './narrator/narrator.js';
-import { registerOfficeMcpRoute } from './orchestrator/officeMcp.js';
+import { OFFICE_TOOLS, registerMcpRoute } from './orchestrator/officeMcp.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { TaskBusyError, TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
@@ -62,6 +67,8 @@ export interface HttpServerOptions {
   tasks?: TaskManager;
   /** Cat office (standalone only). Enables the office MCP endpoint and cat messages. */
   orchestrator?: Orchestrator;
+  /** CEO desk (standalone only, with the cat office). Enables /api/ceo and the desk tools. */
+  ceoDesk?: CeoDesk;
   /** Narrator (standalone only). Sends its state to each new client. */
   narrator?: Narrator;
   /** Self-update (standalone only). Enables the /api/update routes. */
@@ -118,13 +125,19 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
   if (options.tasks) registerTaskRoutes(app, options.tasks, options.token);
-  if (options.orchestrator) registerOfficeMcpRoute(app, options.orchestrator);
+  if (options.orchestrator) {
+    registerMcpRoute(app, OFFICE_MCP_PATH, OFFICE_TOOLS, options.orchestrator);
+  }
+  if (options.ceoDesk && options.orchestrator) {
+    registerMcpRoute(app, CEO_MCP_PATH, DESK_TOOLS, options.ceoDesk);
+    registerCeoRoutes(app, options.ceoDesk, options.orchestrator.stateDir, isPrivileged);
+  }
   if (options.update) registerUpdateRoutes(app, options.update, isPrivileged);
   if (options.tasks) {
     registerCatTerminalRoutes(app, {
       // Profile cats (cat office) first; task-board cats fall through.
       source: options.orchestrator
-        ? new OfficeCatSource(options.orchestrator, options.tasks)
+        ? new OfficeCatSource(options.orchestrator, options.tasks, options.ceoDesk)
         : new TaskBoardCatSource(options.tasks),
       isPrivileged,
       isSameOrigin: (req) => isAllowedWebSocketOrigin(req.headers.origin, req.headers.host),
@@ -257,7 +270,9 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
         return reply.code(400).send({ error: `Not a folder: ${cwd}` });
       }
       try {
-        return reply.code(201).send(await tasks.create(prompt, cwd, target));
+        // The board form's empty folder falls back to the server folder until
+        // the board goes (the CEO desk never defaults a folder).
+        return reply.code(201).send(await tasks.create(prompt, cwd ?? tasks.defaultCwd, target));
       } catch (err) {
         if (err instanceof TaskInputError) return reply.code(400).send({ error: err.message });
         throw err;

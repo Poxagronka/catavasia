@@ -32,6 +32,7 @@ import {
   inspectRepo,
   reopenWorktree,
   type RepoInfo,
+  revParse,
 } from './gitWorktree.js';
 import { type ParsedStreamLine, parseStreamLine, type StreamResult } from './streamJson.js';
 import { type StoredTask, TaskStore } from './taskStore.js';
@@ -90,7 +91,7 @@ export interface TaskManagerOptions {
   host: TaskAgentHost;
   /** ~/.pixel-agents (tasks.json and worktrees/ live here). */
   stateDir: string;
-  /** Folder the server was started in: the default task target. */
+  /** Folder the server was started in: the board form's default folder. */
   defaultCwd: string;
   /** CLI binary override (tests). Default: the provider's launch command. */
   claudeBin?: string;
@@ -129,6 +130,7 @@ function toDetail(task: StoredTask): TaskDetail {
     worktreePath: _wt,
     sessionId: _sid,
     agentCwd: _cwd,
+    chatId: _chat,
     ...detail
   } = task;
   return detail;
@@ -209,10 +211,23 @@ export class TaskManager {
     return this.opts.flows?.targets() ?? [];
   }
 
+  /** The jobs a CEO desk chat started, newest first. */
+  chatJobs(chatId: string): TaskDetail[] {
+    return Object.values(this.allTasks())
+      .filter((t) => t.chatId === chatId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(toDetail);
+  }
+
+  /**
+   * `job`: the CEO desk chat that starts the task, and the ref the task branch
+   * starts from (a rework starts from the branch of the job it corrects).
+   */
   async create(
     prompt: string,
-    cwd: string = this.opts.defaultCwd,
+    cwd: string,
     target?: string,
+    job?: { chatId?: string; baseRef?: string },
   ): Promise<TaskSummary> {
     if (!path.isAbsolute(cwd)) throw new TaskInputError('Folder must be an absolute path');
     const flows = this.opts.flows;
@@ -230,6 +245,7 @@ export class TaskManager {
       createdAt: Date.now(),
       ownerPid: process.pid,
       log: [],
+      ...(job?.chatId ? { chatId: job.chatId } : {}),
     };
 
     // Nothing spawns while the engine is missing or logged out: the task fails now, with the fix.
@@ -241,6 +257,13 @@ export class TaskManager {
 
     let agentCwd = cwd;
     const repo = await inspectRepo(cwd);
+    if (repo && job?.baseRef) {
+      try {
+        repo.head = await revParse(repo.root, job.baseRef);
+      } catch {
+        throw new TaskInputError(`Unknown base branch: ${job.baseRef}`);
+      }
+    }
     if (repo) {
       task.repoRoot = repo.root;
       task.baseCommit = repo.head;
@@ -337,12 +360,17 @@ export class TaskManager {
     return task;
   }
 
+  /** Every save of a team task is a status event: the CEO desk updates its job cards. */
   private flowSink(): FlowSink {
     return {
-      save: (t) => this.store.save(t),
+      save: (t) => {
+        this.store.save(t);
+        this.events.emit('status', t.id);
+      },
       ended: (t) => {
         this.flowTasks.delete(t.id);
         this.store.save(t);
+        this.events.emit('status', t.id);
       },
     };
   }

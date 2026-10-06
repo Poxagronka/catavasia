@@ -33,6 +33,8 @@ export function applyFrame(state: CatConsoleState, frame: CatSessionFrame): CatC
     return { title: frame.title, entries: frame.entries, status: frame.status, loaded: true };
   }
   if (frame.type === 'entries') return { ...state, entries: [...state.entries, ...frame.entries] };
+  // A job card update (CEO desk): its row keeps the one-line text it came with.
+  if (frame.type === 'job') return state;
   return { ...state, status: frame.status };
 }
 

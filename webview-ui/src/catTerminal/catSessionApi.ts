@@ -110,7 +110,9 @@ function createCatSessionApi(): CatSessionApi {
         socket = new WebSocket(wsUrl(catPath(catId, 'events')));
         socket.onmessage = (event: MessageEvent) => {
           const frame = JSON.parse(String(event.data)) as CatSessionFrame;
-          if (frame.type !== 'entries') lastStatus.set(catId, frame.status);
+          if (frame.type === 'snapshot' || frame.type === 'status') {
+            lastStatus.set(catId, frame.status);
+          }
           onEvent(frame);
         };
         socket.onclose = (event: CloseEvent) => {
