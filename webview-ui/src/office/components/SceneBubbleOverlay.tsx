@@ -22,6 +22,7 @@ const KIND_BADGE: Record<CatMessageKind, { glyph: string; color: string; label: 
   ask: { glyph: '?', color: SCENE_KIND_COLORS.ask, label: 'Ask' },
   reply: { glyph: '«', color: SCENE_KIND_COLORS.reply, label: 'Reply' },
   report: { glyph: '✓', color: SCENE_KIND_COLORS.report, label: 'Report' },
+  review: { glyph: '★', color: SCENE_KIND_COLORS.review, label: 'Review' },
 };
 
 /** CSS px between the bubble tail and the cat's head. */

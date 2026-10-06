@@ -1,6 +1,6 @@
 # Team task as a state machine (orchestrator v2 spec)
 
-Date: 2026-10-06. Status: built in 1.4.1-cats.13 (review region: seam only, see cat-ceo-judge.md). Base: phase 1 code on `main` (`server/src/orchestrator/`).
+Date: 2026-10-06. Status: built in 1.4.1-cats.13 (review region: built in 1.4.1-cats.14, see cat-ceo-judge.md). Base: phase 1 code on `main` (`server/src/orchestrator/`).
 User request: "make the task execution structure with delegation/orchestration by the canons of a state machine".
 Related specs: [context-policy.md](context-policy.md) (sessions and prompts), [cat-ceo-judge.md](cat-ceo-judge.md) (post-done review).
 

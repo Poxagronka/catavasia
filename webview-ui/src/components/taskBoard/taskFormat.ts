@@ -38,3 +38,22 @@ export const STATUS_CLASS: Record<TaskStatus, string> = {
 export function defaultTarget(targets: TaskTarget[]): string {
   return targets.some((t) => t.id === 'team' && !t.disabled) ? 'team' : '';
 }
+
+/** The Cat CEO review badge of a task card: short text and its hover text. */
+export function reviewBadge(review: TaskSummary['review']): { text: string; title: string } | null {
+  if (!review) return null;
+  if (review.state === 'pending')
+    return { text: 'CEO: queued', title: 'The Cat CEO reviews it soon' };
+  if (review.state === 'reviewing') {
+    return { text: 'CEO: reviewing…', title: 'The Cat CEO reviews it now' };
+  }
+  if (review.state === 'failed') return { text: 'CEO: no review', title: review.error ?? '' };
+  const range =
+    review.minScore === undefined
+      ? ''
+      : review.minScore === review.maxScore
+        ? `${review.minScore} `
+        : `${review.minScore}–${review.maxScore} `;
+  const cost = review.costUsd === undefined ? '' : ` ($${review.costUsd.toFixed(2)})`;
+  return { text: `CEO: ${range}${review.verdict ?? ''}`, title: `${review.summary ?? ''}${cost}` };
+}

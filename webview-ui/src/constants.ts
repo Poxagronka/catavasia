@@ -420,9 +420,18 @@ export const SCENE_KIND_COLORS = {
   ask: '#b8860b',
   reply: '#3f8f3a',
   report: '#c8640c',
+  review: '#d4af37',
 } as const;
 /** Badge glyph colour. */
 export const SCENE_BADGE_GLYPH_COLOR = '#ffffff';
+
+// ── Cat CEO ──────────────────────────────────────────────────
+/** Cat id of the Cat CEO resident (server: CAT_CEO_ID). */
+export const CAT_CEO_ID = 'cat-ceo';
+/** An Area whose label matches holds the Cat CEO's desk. */
+export const CAT_CEO_AREA_PATTERN = /head|ceo/i;
+/** The Cat CEO walks to at most this many reviewed cats (lowest scores first). */
+export const CAT_CEO_MAX_WALKS = 4;
 
 // ── Task Board ───────────────────────────────────────────────
 /** How often the open board re-reads GET /api/tasks. */

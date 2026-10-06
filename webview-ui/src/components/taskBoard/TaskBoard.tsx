@@ -8,7 +8,7 @@ import { CatAvatar } from './CatAvatar.js';
 import { NewTaskForm } from './NewTaskForm.js';
 import { fetchTasks, sessionToken } from './taskApi.js';
 import { TaskDetailModal } from './TaskDetailModal.js';
-import { formatElapsed, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
+import { formatElapsed, reviewBadge, STATUS_CLASS, taskCatLabel } from './taskFormat.js';
 
 interface TaskBoardProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ interface TaskBoardProps {
 
 function TaskCard({ task, now, onOpen }: { task: TaskSummary; now: number; onOpen: () => void }) {
   const { cats } = useCats();
+  const review = reviewBadge(task.review);
   return (
     <button
       onClick={onOpen}
@@ -41,6 +42,11 @@ function TaskCard({ task, now, onOpen }: { task: TaskSummary; now: number; onOpe
             {formatElapsed((task.finishedAt ?? now) - task.createdAt)}
           </span>
         </span>
+        {review && (
+          <span className="text-2xs text-status-permission truncate" title={review.title}>
+            {review.text}
+          </span>
+        )}
       </div>
     </button>
   );

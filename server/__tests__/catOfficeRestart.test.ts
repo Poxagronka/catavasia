@@ -97,6 +97,8 @@ beforeEach(async () => {
     JSON.stringify({
       version: 1,
       cats: [cat('boss', null), cat('murka', 'boss'), cat('pushok', 'boss')],
+      // The Cat CEO has its own tests (catCeo*.test.ts): no judge runs here.
+      catCeo: { enabled: false },
     }),
   );
   repo = path.join(tmp, 'repo');

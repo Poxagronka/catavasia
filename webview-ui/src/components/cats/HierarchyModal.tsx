@@ -1,14 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 
 import { BREED_IDS } from '../../cats/catArt.js';
-import type { CatProfile } from '../../cats/catsApi.js';
+import { useCatCeo } from '../../cats/catCeoClient.js';
+import type { Appearance, CatProfile } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
 import { buildTree, draftReport, isInSubtree } from '../../cats/hierarchy.js';
 import { layoutOrgChart } from '../../cats/orgLayout.js';
 import { useCats } from '../../cats/useCats.js';
-import { CAT_NAMES } from '../../constants.js';
+import { CAT_CEO_ID, CAT_LIST_ZOOM, CAT_NAMES } from '../../constants.js';
 import { Button } from '../ui/Button.js';
 import { Modal } from '../ui/Modal.js';
+import { CatSprite } from './CatSprite.js';
 import { DeleteConfirm, type DropLook, NodeMenu, OrgNode, QuickEdit } from './OrgNode.js';
 
 interface DragState {
@@ -56,6 +58,7 @@ export function HierarchyModal({
   onEditCat: (id: string) => void;
 }) {
   const { cats, rejected } = useCats();
+  const ceo = useCatCeo().settings;
   const [drag, setDrag] = useState<DragState>({ dragId: null, overId: null });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pop, setPop] = useState<Pop>(null);
@@ -168,6 +171,28 @@ export function HierarchyModal({
         </div>
         {(error ?? rejected?.error) && (
           <div className="text-xs text-status-error">{error ?? rejected?.error}</div>
+        )}
+        {ceo && (
+          // The Cat CEO sits above the boss, pinned: not part of the tree, not draggable.
+          <button
+            data-testid="org-ceo"
+            className="self-center flex gap-8 items-center px-10 py-2 border-2 border-status-permission bg-bg-dark text-text cursor-pointer"
+            onDoubleClick={() => onEditCat(CAT_CEO_ID)}
+            title="Reviews every finished team task. Double-click opens it in Cats."
+          >
+            <CatSprite
+              appearance={ceo.appearance as Appearance}
+              zoom={CAT_LIST_ZOOM}
+              mode="walk"
+              className="-my-8"
+            />
+            <span className="flex flex-col text-left">
+              <span className="text-sm">{ceo.name}</span>
+              <span className="text-2xs text-text-muted">
+                Cat CEO · {ceo.enabled ? `reviews every task · ${ceo.model}` : 'reviews off'}
+              </span>
+            </span>
+          </button>
         )}
         <div
           ref={viewport}

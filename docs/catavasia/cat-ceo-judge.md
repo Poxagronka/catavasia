@@ -1,6 +1,6 @@
 # Cat CEO: the judge that reviews cats and tunes their prompts
 
-Date: 2026-10-06. Status: design, not built. Installed CLI: `2.1.290 (Claude Code)`.
+Date: 2026-10-06. Status: built in 1.4.1-cats.14 (decisions and the measured cost: ROADMAP, "Cat CEO"). Installed CLI: `2.1.290 (Claude Code)`.
 Related: [task-state-machine.md](task-state-machine.md) §3.4 (review region), [context-policy.md](context-policy.md) §5 (prompt files).
 
 ## 1. Decisions
@@ -15,17 +15,17 @@ User decisions (2026-10-06):
 
 Decisions made in this spec:
 
-| # | Decision | Reason |
-| :- | :- | :- |
-| D1 | One review per finished task (`done` or `error`), after the user has the result. No review per assignment report. | The final outcome is known only at the end. One call per task bounds cost. Assignment reports are inputs of that review. |
-| D2 | No review for `cancelled`, `interrupted`, or tasks without a cat turn. | Nothing to judge, or the outcome is not the cats' doing. |
-| D3 | "Always on" = the Cat CEO character and its review queue are always present. Each review is a **fresh** `claude -p` process with `--no-session-persistence`. | The context policy keeps one session per unit of work ([context-policy.md](context-policy.md) §3). The RAM plan forbids resident processes (ROADMAP, Resource budget item 1). Memory between reviews is a bounded, server-built history block (§5.4), not chat history. |
-| D4 | The judge gets no tools (`--tools ""`) and no MCP. The server puts every input into one message. | Deterministic input, no side effects, smaller prefix, nothing to escape. |
-| D5 | Output is JSON validated by `--json-schema`. Prompt changes are structured item edits, never free rewrites. | The server can validate every edit before it touches a file. |
-| D6 | Model `opus` (resolves to `claude-opus-5-5` on this machine), effort `high`, `--max-budget-usd 1` per review. The user can change model and effort. | Judging needs the strongest model. The budget flag is a hard stop. |
-| D7 | Rate limit: max 1 commit per cat per review, max 3 item changes per commit, max 2 Cat CEO commits per cat per rolling 24 h. | An edit needs evidence from new tasks before the next one. |
-| D8 | Regression guard: auto-revert a Cat CEO commit when the cat's mean score drops by 15 points or more over its next 3 reviewed assignments. Flag at 8–14. | Edits must earn their place. User commits are never auto-reverted. |
-| D9 | The review takes one slot of the global turn cap under cat id `cat-ceo`. Reviews run one at a time, FIFO, queue cap 10. | Same RAM rule as the cats. |
+| #   | Decision                                                                                                                                                     | Reason                                                                                                                                                                                                                                                                  |
+| :-- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | One review per finished task (`done` or `error`), after the user has the result. No review per assignment report.                                            | The final outcome is known only at the end. One call per task bounds cost. Assignment reports are inputs of that review.                                                                                                                                                |
+| D2  | No review for `cancelled`, `interrupted`, or tasks without a cat turn.                                                                                       | Nothing to judge, or the outcome is not the cats' doing.                                                                                                                                                                                                                |
+| D3  | "Always on" = the Cat CEO character and its review queue are always present. Each review is a **fresh** `claude -p` process with `--no-session-persistence`. | The context policy keeps one session per unit of work ([context-policy.md](context-policy.md) §3). The RAM plan forbids resident processes (ROADMAP, Resource budget item 1). Memory between reviews is a bounded, server-built history block (§5.4), not chat history. |
+| D4  | The judge gets no tools (`--tools ""`) and no MCP. The server puts every input into one message.                                                             | Deterministic input, no side effects, smaller prefix, nothing to escape.                                                                                                                                                                                                |
+| D5  | Output is JSON validated by `--json-schema`. Prompt changes are structured item edits, never free rewrites.                                                  | The server can validate every edit before it touches a file.                                                                                                                                                                                                            |
+| D6  | Model `opus` (resolves to `claude-opus-5-5` on this machine), effort `high`, `--max-budget-usd 1` per review. The user can change model and effort.          | Judging needs the strongest model. The budget flag is a hard stop.                                                                                                                                                                                                      |
+| D7  | Rate limit: max 1 commit per cat per review, max 3 item changes per commit, max 2 Cat CEO commits per cat per rolling 24 h.                                  | An edit needs evidence from new tasks before the next one.                                                                                                                                                                                                              |
+| D8  | Regression guard: auto-revert a Cat CEO commit when the cat's mean score drops by 15 points or more over its next 3 reviewed assignments. Flag at 8–14.      | Edits must earn their place. User commits are never auto-reverted.                                                                                                                                                                                                      |
+| D9  | The review takes one slot of the global turn cap under cat id `cat-ceo`. Reviews run one at a time, FIFO, queue cap 10.                                      | Same RAM rule as the cats.                                                                                                                                                                                                                                              |
 
 ## 2. Place in the office
 
@@ -75,17 +75,17 @@ Probe (2026-10-06, Haiku 4.5, stdin prompt, `--tools "" --strict-mcp-config --sa
 
 Hard cap: 60,000 chars (about 15K tokens). Each part has its own cap; cut text ends with `…[cut N chars]`.
 
-| Part | Content | Cap |
-| :- | :- | :- |
-| Task | id, title, user prompt, target, final state, final result or error, turns, cost, wall time | 4,000 |
-| Plan | root `brief` text | 2,000 |
-| Assignments | per assignment: id, parent → child, goal, end state (`done`, `rejected`, `failed`…), report text, turns, cost, `promptSha` | 2,000 each |
-| Diffs | per worker branch: `git diff --stat <base>...task/<id>-<cat>` + diff body; task diff (`task.diff`) | 25,000 total, split by changed lines |
-| Anomaly signals | from the event log: nudges (A5), auto-reports (A6), failed turns and retries, timeouts, merge conflicts with the cat whose branch conflicted, office tool errors, unanswered asks (I7), rework (`rejected`), turn cap, `compact_boundary` events | 6,000 |
-| Tests run | Bash tool calls whose command matches `test\|vitest\|jest\|pytest\|lint\|typecheck\|tsc\|build`, with `is_error` of the tool result | 4,000 |
-| Transcript excerpts | per cat: last assistant text of each turn (200 chars each) | 6,000 |
-| Prompt files | per reviewed cat: current `Rules` and `Lessons` items with ids; `Role & conduct` first 1,000 chars, marked read-only | 8,000 |
-| History | §5.4 | 3,000 |
+| Part                | Content                                                                                                                                                                                                                                          | Cap                                  |
+| :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
+| Task                | id, title, user prompt, target, final state, final result or error, turns, cost, wall time                                                                                                                                                       | 4,000                                |
+| Plan                | root `brief` text                                                                                                                                                                                                                                | 2,000                                |
+| Assignments         | per assignment: id, parent → child, goal, end state (`done`, `rejected`, `failed`…), report text, turns, cost, `promptSha`                                                                                                                       | 2,000 each                           |
+| Diffs               | per worker branch: `git diff --stat <base>...task/<id>-<cat>` + diff body; task diff (`task.diff`)                                                                                                                                               | 25,000 total, split by changed lines |
+| Anomaly signals     | from the event log: nudges (A5), auto-reports (A6), failed turns and retries, timeouts, merge conflicts with the cat whose branch conflicted, office tool errors, unanswered asks (I7), rework (`rejected`), turn cap, `compact_boundary` events | 6,000                                |
+| Tests run           | Bash tool calls whose command matches `test\|vitest\|jest\|pytest\|lint\|typecheck\|tsc\|build`, with `is_error` of the tool result                                                                                                              | 4,000                                |
+| Transcript excerpts | per cat: last assistant text of each turn (200 chars each)                                                                                                                                                                                       | 6,000                                |
+| Prompt files        | per reviewed cat: current `Rules` and `Lessons` items with ids; `Role & conduct` first 1,000 chars, marked read-only                                                                                                                             | 8,000                                |
+| History             | §5.4                                                                                                                                                                                                                                             | 3,000                                |
 
 ### 5.2 What the digest never holds
 
@@ -104,13 +104,13 @@ The History part lists, for each reviewed cat: its last 5 scores (task id, score
 
 ### 5.5 Rubric
 
-| Criterion | Weight | 100 % means |
-| :- | :- | :- |
-| Goal fit | 30 | The diff and the report do what the assignment asked, nothing missing |
-| Verification | 20 | Relevant tests/lint/build ran and the report states the result truthfully |
-| Protocol | 20 | Used `report`, no nudge needed, answered asks, worked only in its folder, did not push |
-| Scope and teamwork | 15 | No edits outside its part, caused no merge conflict; a lead split work without overlap |
-| Efficiency | 15 | Turns and cost fit the size of the change; no auto-compaction |
+| Criterion          | Weight | 100 % means                                                                            |
+| :----------------- | :----- | :------------------------------------------------------------------------------------- |
+| Goal fit           | 30     | The diff and the report do what the assignment asked, nothing missing                  |
+| Verification       | 20     | Relevant tests/lint/build ran and the report states the result truthfully              |
+| Protocol           | 20     | Used `report`, no nudge needed, answered asks, worked only in its folder, did not push |
+| Scope and teamwork | 15     | No edits outside its part, caused no merge conflict; a lead split work without overlap |
+| Efficiency         | 15     | Turns and cost fit the size of the change; no auto-compaction                          |
 
 Score = weighted sum, 0–100. Task verdict: `pass` (every score ≥ 70, no `high` anomaly), `fail` (any score < 40, or a cat caused the task error), else `concerns`.
 
@@ -123,37 +123,78 @@ Score = weighted sum, 0–100. Task verdict: `pass` (every score ≥ 70, no `hig
   "properties": {
     "verdict": { "enum": ["pass", "concerns", "fail"] },
     "summary": { "type": "string", "maxLength": 300 },
-    "scores": { "type": "array", "items": {
-      "type": "object", "required": ["catId", "assignmentId", "score", "criteria", "bubble"],
-      "properties": {
-        "catId": { "type": "string" },
-        "assignmentId": { "type": "string", "description": "\"root\" for the lead's own work" },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "criteria": { "type": "object", "properties": {
-          "goalFit": { "type": "integer" }, "verification": { "type": "integer" },
-          "protocol": { "type": "integer" }, "scope": { "type": "integer" },
-          "efficiency": { "type": "integer" } } },
-        "bubble": { "type": "string", "maxLength": 40 },
-        "evidence": { "type": "array", "items": { "type": "string", "maxLength": 200 } } } } },
-    "anomalies": { "type": "array", "items": {
-      "type": "object", "required": ["id", "catId", "kind", "severity", "evidence"],
-      "properties": {
-        "id": { "type": "string" }, "catId": { "type": "string" },
-        "kind": { "enum": ["needed_nudge", "auto_report", "failed_turn", "timeout", "merge_conflict",
-          "out_of_scope_edit", "no_tests_run", "false_claim", "rework", "ask_unanswered",
-          "excessive_turns", "excessive_cost", "auto_compacted", "office_tool_misuse", "other"] },
-        "severity": { "enum": ["low", "medium", "high"] },
-        "evidence": { "type": "string", "maxLength": 400 } } } },
-    "edits": { "type": "array", "items": {
-      "type": "object", "required": ["catId", "section", "op", "reason", "anomalyIds"],
-      "properties": {
-        "catId": { "type": "string" },
-        "section": { "enum": ["Rules", "Lessons"] },
-        "op": { "enum": ["add", "replace", "remove"] },
-        "itemId": { "type": "string", "pattern": "^[RL][0-9]+$" },
-        "text": { "type": "string", "maxLength": 280 },
-        "reason": { "type": "string", "maxLength": 200 },
-        "anomalyIds": { "type": "array", "items": { "type": "string" }, "minItems": 1 } } } }
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["catId", "assignmentId", "score", "criteria", "bubble"],
+        "properties": {
+          "catId": { "type": "string" },
+          "assignmentId": { "type": "string", "description": "\"root\" for the lead's own work" },
+          "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "criteria": {
+            "type": "object",
+            "properties": {
+              "goalFit": { "type": "integer" },
+              "verification": { "type": "integer" },
+              "protocol": { "type": "integer" },
+              "scope": { "type": "integer" },
+              "efficiency": { "type": "integer" }
+            }
+          },
+          "bubble": { "type": "string", "maxLength": 40 },
+          "evidence": { "type": "array", "items": { "type": "string", "maxLength": 200 } }
+        }
+      }
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "catId", "kind", "severity", "evidence"],
+        "properties": {
+          "id": { "type": "string" },
+          "catId": { "type": "string" },
+          "kind": {
+            "enum": [
+              "needed_nudge",
+              "auto_report",
+              "failed_turn",
+              "timeout",
+              "merge_conflict",
+              "out_of_scope_edit",
+              "no_tests_run",
+              "false_claim",
+              "rework",
+              "ask_unanswered",
+              "excessive_turns",
+              "excessive_cost",
+              "auto_compacted",
+              "office_tool_misuse",
+              "other"
+            ]
+          },
+          "severity": { "enum": ["low", "medium", "high"] },
+          "evidence": { "type": "string", "maxLength": 400 }
+        }
+      }
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["catId", "section", "op", "reason", "anomalyIds"],
+        "properties": {
+          "catId": { "type": "string" },
+          "section": { "enum": ["Rules", "Lessons"] },
+          "op": { "enum": ["add", "replace", "remove"] },
+          "itemId": { "type": "string", "pattern": "^[RL][0-9]+$" },
+          "text": { "type": "string", "maxLength": 280 },
+          "reason": { "type": "string", "maxLength": 200 },
+          "anomalyIds": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+        }
+      }
+    }
   }
 }
 ```
@@ -222,26 +263,26 @@ Cats menu → Agents → select a cat → **Prompt history** button:
 
 New wire messages in `core/asyncapi.yaml` (all client → server changes need the server token, like profile edits):
 
-| Direction | Message |
-| :- | :- |
-| server → client | `reviewStarted {taskId, reviewId}` |
+| Direction       | Message                                                                                                                                                           |
+| :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| server → client | `reviewStarted {taskId, reviewId}`                                                                                                                                |
 | server → client | `reviewFinished {taskId, reviewId, verdict, summary, scores[{catId, assignmentId, score, bubble}], edits[{catId, sha, subject}], rejectedEdits[{catId, reason}]}` |
-| server → client | `promptHistory {catId, entries[{sha, at, author, subject, taskId?, flag?}]}`, `promptDiff {catId, sha, diff}` |
-| server → client | `catCeoSettings {enabled, model, effort, maxEditsPerCatPerDay}` |
-| client → server | `getPromptHistory {catId}`, `getPromptDiff {catId, sha}` |
-| client → server | `revertPromptEdit {catId, sha}`, `restorePromptVersion {catId, sha}`, `removePromptItem {catId, itemId}`, `setCatCeoSettings {…}` |
+| server → client | `promptHistory {catId, entries[{sha, at, author, subject, taskId?, flag?}]}`, `promptDiff {catId, sha, diff}`                                                     |
+| server → client | `catCeoSettings {enabled, model, effort, maxEditsPerCatPerDay}`                                                                                                   |
+| client → server | `getPromptHistory {catId}`, `getPromptDiff {catId, sha}`                                                                                                          |
+| client → server | `revertPromptEdit {catId, sha}`, `restorePromptVersion {catId, sha}`, `removePromptItem {catId, itemId}`, `setCatCeoSettings {…}`                                 |
 
 ## 11. Cost per review
 
 Prices: Opus 5.5 $4 input, $8 1h cache write, $0.20 cache read, $20 output per MTok ([pricing](https://platform.claude.com/docs/en/about-claude/pricing)). The CLI writes the cache with the 1h TTL (ROADMAP phase 1, measured).
 
-| Part | Tokens | Cost |
-| :- | :- | :- |
-| CLI default prompt without tools (probe: first request wrote 10,216 with `--tools ""`, Haiku) | ~10K, ~6K of it shared across sessions (cache read) | ~$0.03 write + ~$0.001 read |
-| Judge rules + Role | ~1.5K | ~$0.01 |
-| Digest (cap 60,000 chars) | ≤ 15K, typical 8K | $0.06–0.12 (1h write) |
-| Output incl. thinking | 2K–5K | $0.04–0.10 |
-| **Total** | | **≈ $0.15–0.25 per review**, hard cap $1 (`--max-budget-usd`) |
+| Part                                                                                          | Tokens                                              | Cost                                                          |
+| :-------------------------------------------------------------------------------------------- | :-------------------------------------------------- | :------------------------------------------------------------ |
+| CLI default prompt without tools (probe: first request wrote 10,216 with `--tools ""`, Haiku) | ~10K, ~6K of it shared across sessions (cache read) | ~$0.03 write + ~$0.001 read                                   |
+| Judge rules + Role                                                                            | ~1.5K                                               | ~$0.01                                                        |
+| Digest (cap 60,000 chars)                                                                     | ≤ 15K, typical 8K                                   | $0.06–0.12 (1h write)                                         |
+| Output incl. thinking                                                                         | 2K–5K                                               | $0.04–0.10                                                    |
+| **Total**                                                                                     |                                                     | **≈ $0.15–0.25 per review**, hard cap $1 (`--max-budget-usd`) |
 
 At 20 tasks a day: about $3–5 a day. Sonnet 5.5 as judge halves it. Step 8 of the plan measures the real number.
 

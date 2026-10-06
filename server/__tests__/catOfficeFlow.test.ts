@@ -63,6 +63,8 @@ async function startOffice(): Promise<void> {
         cat('murka', 'Murka', 'sonnet', 'boss', 'smokey'),
         cat('pushok', 'Pushok', 'sonnet', 'boss', 'snow'),
       ],
+      // The Cat CEO has its own tests (catCeo*.test.ts): no judge runs here.
+      catCeo: { enabled: false },
     }),
   );
   host = new FakeCatHost();

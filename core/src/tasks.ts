@@ -52,6 +52,21 @@ export interface TaskSummary {
   target?: string;
   /** Cat-office state of a `target` task. */
   flow?: TaskFlow;
+  /** The Cat CEO review of a finished team task. */
+  review?: TaskReview;
+}
+
+/** The Cat CEO review of one task (docs/catavasia/cat-ceo-judge.md). */
+export interface TaskReview {
+  state: 'pending' | 'reviewing' | 'reviewed' | 'failed';
+  reviewId: string;
+  verdict?: 'pass' | 'concerns' | 'fail';
+  summary?: string;
+  /** Lowest and highest assignment score. */
+  minScore?: number;
+  maxScore?: number;
+  costUsd?: number;
+  error?: string;
 }
 
 /** One delegation inside a team task: a cat working on a goal its parent gave it. */
