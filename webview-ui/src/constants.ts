@@ -436,7 +436,9 @@ export const SCENE_BADGE_GLYPH_COLOR = '#ffffff';
 // ── Cat CEO ──────────────────────────────────────────────────
 /** Cat id of the Cat CEO resident (server: CAT_CEO_ID). */
 export const CAT_CEO_ID = 'cat-ceo';
-/** An Area whose label matches holds the Cat CEO's desk. */
+/** Furniture group of the Cat CEO's own chair: reserved for it (no other cat sits there). */
+export const CAT_CEO_CHAIR = 'EXECUTIVE_CHAIR';
+/** Without an executive chair, an Area whose label matches holds the Cat CEO's desk. */
 export const CAT_CEO_AREA_PATTERN = /head|ceo/i;
 /** The Cat CEO walks to at most this many reviewed cats (lowest scores first). */
 export const CAT_CEO_MAX_WALKS = 4;

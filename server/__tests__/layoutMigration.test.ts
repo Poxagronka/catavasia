@@ -47,9 +47,9 @@ afterEach(() => {
 });
 
 describe('default layout upgrade', () => {
-  it('the newest bundled default has the coffee station; revisions 1 to 4 are previous', () => {
+  it('the newest bundled default has the Cat CEO office; revisions 1 to 5 are previous', () => {
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
-    expect(latest.layoutRevision).toBe(5);
+    expect(latest.layoutRevision).toBe(6);
     const count = (type: string) =>
       (latest.furniture as Array<{ type: string }>).filter((f) => f.type === type).length;
     // The calm playroom of revision 4 stays.
@@ -63,12 +63,39 @@ describe('default layout upgrade', () => {
     expect(count('ESPRESSO_MACHINE')).toBe(1);
     expect(count('POUR_OVER')).toBe(1);
     expect(count('DRIP_COFFEE_MAKER')).toBe(1);
-    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 4.
+    // The Cat CEO office: one executive desk and its reserved chair.
+    expect(count('EXECUTIVE_DESK')).toBe(1);
+    expect(count('EXECUTIVE_CHAIR_FRONT')).toBe(1);
+    expect(count('CEO_PLAQUE')).toBe(1);
+    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 5.
     const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
-    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4]);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4, 5]);
   });
 
-  it("upgrades an untouched revision 4 default (the user's office) to the coffee one", () => {
+  it("upgrades an untouched revision 5 default (the user's office) to the Cat CEO one", () => {
+    saveLayout(bundled(5));
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+
+    expect(result).toEqual({ layout: latest, wasReset: true });
+    expect(readLayoutFromFile()).toEqual(latest);
+  });
+
+  it('keeps an edited revision 5 office', () => {
+    const custom = bundled(5);
+    (custom.furniture as unknown[]).pop();
+    saveLayout(custom);
+
+    const result = loadLayout(
+      loadDefaultLayout(ASSETS_ROOT),
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(result).toEqual({ layout: custom, wasReset: false });
+  });
+
+  it('upgrades an untouched revision 4 default to the newest', () => {
     saveLayout(bundled(4));
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
 

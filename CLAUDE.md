@@ -438,6 +438,8 @@ Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Er
 
 **Default layout upgrades**: the newest `assets/default-layout-N.json` is the default. A saved `layout.json` that equals an older bundled default (fingerprint ignores key order, `layoutRevision`, empty optional fields) is upgraded at load; an edited one is kept, and the editor's "Default" button and Settings "Reset layout to default" (both `resetLayoutToDefault`, shared `DefaultLayoutReset` confirm) replace it on request. Keep older default files: they are the fingerprints.
 
+**Cat CEO office**: the `EXECUTIVE_CHAIR` seat is the Cat CEO's desk and is reserved (`OfficeState.ceoChairSeat` / `reservedFor`: every seat picker skips it for other cats). No executive chair: the old "head" Area rule. Art: `node scripts/generate-executive-sprites.mjs`. Decisions: docs/catavasia/ROADMAP.md, "Cat CEO office".
+
 **Layout model**: `{ version: 1, cols, rows, tiles: TileType[], furniture: PlacedFurniture[], tileColors?: ColorValue[] }`. Grid dimensions are dynamic. Persisted via debounced saveLayout message → `writeLayoutToFile()` → `~/.pixel-agents/layout.json`.
 
 ## Asset System
