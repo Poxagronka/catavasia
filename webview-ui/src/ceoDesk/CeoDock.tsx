@@ -8,6 +8,7 @@ import { ConsoleRowView, MessageRow } from '../catTerminal/ChatConsole.js';
 import { toRows } from '../catTerminal/consoleState.js';
 import { EngineNotice } from '../engines/EngineNotice.js';
 import { engineProblem } from '../engines/engineReadiness.js';
+import { engineUi } from '../engines/engineStore.js';
 import { playDoneSound } from '../notificationSound.js';
 import { sessionToken } from '../sessionToken.js';
 import { CEO_DESK_SESSION, ceoDeskApi } from './ceoDeskApi.js';
@@ -204,7 +205,12 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
               </span>
             </div>
           ) : (
-            <ConsoleRowView key={n} row={row} job={jobActions} />
+            <ConsoleRowView
+              key={n}
+              row={row}
+              job={jobActions}
+              onLogin={() => engineUi.openLogin('claude')}
+            />
           ),
         )}
         {chat.status.busy && (
@@ -217,8 +223,8 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
         <DockComposer
           draft={draft}
           onDraft={setDraft}
-          onSend={async (text) => {
-            await ceoDeskApi.send(text);
+          onSend={async (text, attachments) => {
+            await ceoDeskApi.send(text, attachments);
           }}
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}

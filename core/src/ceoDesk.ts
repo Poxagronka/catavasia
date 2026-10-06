@@ -56,6 +56,13 @@ export const CEO_IMAGE_TYPES: readonly string[] = [
   'image/webp',
 ];
 
+/** `12 KB`, `3.4 MB`: attachment sizes in the dock and in the CEO's message. */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 /** A file the user attached to a desk message, as the chat row shows it. */
 export interface CeoAttachment {
   /** The name of the user's file. */

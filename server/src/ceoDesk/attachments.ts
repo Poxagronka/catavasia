@@ -17,6 +17,7 @@ import {
   CEO_IMAGE_MAX_BYTES,
   type CeoAttachment,
   type CeoAttachmentUpload,
+  formatSize,
 } from '../../../core/src/ceoDesk.js';
 import { CAT_CEO_DIR, CEO_DESK_CHATS_DIR } from '../constants.js';
 
@@ -52,13 +53,6 @@ export interface SavedAttachments {
   images: string[];
   /** One `[Attached ...]` line per file, for the CEO's message. */
   lines: string[];
-}
-
-/** `12 KB`, `3.4 MB`. */
-export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function imageExt(data: Buffer): string | undefined {
