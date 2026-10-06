@@ -16,8 +16,6 @@ import type {
   NarratorSummary as NarratorSummaryMessage,
 } from './messages.js';
 
-export type { SetNarratorSettings } from './messages.js';
-
 /** Work state of a cat, as the narrator sees it. */
 export type NarratorState =
   'thinking' | 'reading' | 'editing' | 'testing' | 'waiting' | 'done' | 'error';
