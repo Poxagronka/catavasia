@@ -47,6 +47,9 @@ export function judgeArgs(
     '',
     '--strict-mcp-config',
     '--safe-mode',
+    // The user's `language` setting would win over the judge rules (a real run answered in Russian).
+    '--settings',
+    JSON.stringify({ language: 'en' }),
     '--no-session-persistence',
     '--max-budget-usd',
     String(req.budgetUsd),
