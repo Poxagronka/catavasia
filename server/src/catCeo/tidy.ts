@@ -18,6 +18,7 @@ import {
   CAT_CEO_ID,
   CAT_CEO_TIDY_CAP_SHARE,
   CAT_CEO_TIDY_EVERY_REVIEWS,
+  CAT_CEO_TIDY_QUEUE_RESERVE,
   CAT_CEO_TIDY_SWEEP_CHECK_MS,
   CAT_CEO_TIDY_SWEEP_MS,
   PROMPT_LESSONS_MAX,
@@ -27,7 +28,7 @@ import type { PromptRepo } from '../orchestrator/promptRepo.js';
 import type { CeoSettings } from './ceoSettings.js';
 import type { JudgeResult } from './judgeRunner.js';
 import type { ReviewStore, TidyRecord } from './reviewStore.js';
-import { buildTidyDigest, itemHistory } from './tidyDigest.js';
+import { buildTidyDigest, itemHistory, metaOf } from './tidyDigest.js';
 import { planTidy, type TidyPlan } from './tidyPatch.js';
 import { parseTidyOutput, TIDY_RULES, TIDY_SCHEMA } from './tidySchema.js';
 
@@ -46,6 +47,8 @@ export interface TidyHost {
   catIds(): string[];
   /** Queue a job in the Cat CEO slot; false when the queue is full. */
   enqueue(job: () => Promise<void>): boolean;
+  /** Free places in the Cat CEO queue (reviews and tidies share it). */
+  queueRoom(): number;
   /** One judge run with the Cat CEO's Role + `rules` as the system prompt. */
   judge(rules: string, digest: string, schema: object): Promise<JudgeResult>;
   emit(message: ServerMessage): void;
@@ -99,11 +102,14 @@ export class CatTidy {
     // The first start only sets the clock: an upgrade does not tidy every cat at once.
     if (store.lastSweep === undefined) store.lastSweep = now;
     if (now - store.lastSweep < CAT_CEO_TIDY_SWEEP_MS) return;
-    store.lastSweep = now;
+    let all = true;
     for (const catId of this.host.catIds()) {
       this.host.prompts.commitHandEdit(catId);
-      if (!this.skipReason(catId, 'sweep')) this.request(catId, 'sweep');
+      if (this.pending.has(catId) || this.skipReason(catId, 'sweep')) continue;
+      // A cat that finds no room waits for the next hourly check of this sweep.
+      if (!this.request(catId, 'sweep')) all = false;
     }
+    if (all) store.lastSweep = now;
   }
 
   /** Why an automatic tidy of the cat starts now (cap, reviews), or undefined. */
@@ -140,6 +146,8 @@ export class CatTidy {
 
   private request(catId: string, trigger: TidyTrigger): boolean {
     if (this.pending.has(catId)) return false;
+    // Automatic tidies leave room in the shared queue for task reviews.
+    if (trigger !== 'manual' && this.host.queueRoom() <= CAT_CEO_TIDY_QUEUE_RESERVE) return false;
     const tidyId = `td-${crypto.randomBytes(4).toString('hex')}`;
     if (!this.host.enqueue(() => this.run(catId, trigger, tidyId))) return false;
     this.pending.add(catId);
@@ -190,7 +198,20 @@ export class CatTidy {
       const applied = plan.rows.filter((r) => r.applied);
       let sha: string | undefined;
       if (applied.length) {
-        const { subject, body } = tidyMessage(catId, tidyId, trigger, parsed.value.summary, plan);
+        // A merge of user items stays the user's: the next tidy may not remove it.
+        const userIds = applied
+          .filter(
+            (r) => r.op === 'merge' && r.before.some((i) => metaOf(meta, i.id).owner === 'user'),
+          )
+          .map((r) => r.after!.id);
+        const { subject, body } = tidyMessage(
+          catId,
+          tidyId,
+          trigger,
+          parsed.value.summary,
+          plan,
+          userIds,
+        );
         const error = prompts.write(catId, plan.file, subject, body);
         if (error) throw new Error(error);
         sha = prompts.headSha(catId);
@@ -232,7 +253,8 @@ export class CatTidy {
         catId,
         at,
         trigger,
-        summary: `failed: ${error}`,
+        failed: true,
+        summary: error,
         rows: [],
         rejected: [],
       });
@@ -256,6 +278,7 @@ function tidyMessage(
   trigger: TidyTrigger,
   summary: string,
   plan: TidyPlan,
+  userIds: string[],
 ): { subject: string; body: string } {
   const n = (op: string) => plan.rows.filter((r) => r.applied && r.op === op).length;
   const line = (r: TidyPlan['rows'][number]) =>
@@ -272,6 +295,7 @@ function tidyMessage(
     '',
     'Prompt-Edit-By: cat-ceo',
     `Prompt-Tidy: ${tidyId}`,
+    ...(userIds.length ? [`Prompt-User-Items: ${userIds.join(', ')}`] : []),
   ].join('\n');
   return {
     subject: `cat-ceo(${catId}): tidy — merged ${n('merge')}, rewrote ${n('rewrite')}, removed ${n('remove')}`,

@@ -41,6 +41,8 @@ export interface TidyRecord {
   head?: string;
   /** The tidy commit, when it changed the file. */
   sha?: string;
+  /** The run failed (the summary is the error): no head, no rows. */
+  failed?: boolean;
   summary: string;
   costUsd?: number;
   rows: TidyRow[];

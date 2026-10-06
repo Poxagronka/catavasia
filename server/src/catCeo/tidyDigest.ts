@@ -44,18 +44,28 @@ export function itemHistory(catId: string, repo: HistoryRepo): Map<string, ItemM
   const truncated = log.length > window.length;
   const meta = new Map<string, ItemMeta>();
   const lastText = new Map<string, string>();
+  let present = new Set<string>();
   window.forEach((c, i) => {
     const text = repo.textAt(catId, c.sha);
     const parsed = text === undefined ? undefined : parsePromptFile(text);
     if (!parsed?.ok) return;
     const author = authorOf(c.subject);
-    for (const item of [...parsed.value.rules, ...parsed.value.lessons]) {
-      const seen = meta.get(item.id);
+    // A tidy merge of user items names its new ids here: they stay the user's.
+    const userItems = /^Prompt-User-Items: (.+)$/m.exec(c.body)?.[1].split(', ') ?? [];
+    const items = [...parsed.value.rules, ...parsed.value.lessons];
+    for (const item of items) {
+      let seen = meta.get(item.id);
+      // An id that was gone and comes back with a new text is a new item (a reused id).
+      if (seen && !present.has(item.id) && lastText.get(item.id) !== item.text) {
+        meta.delete(item.id);
+        seen = undefined;
+      }
       if (!seen) {
         const older = truncated && i === 0;
+        const mine = author === 'cat-ceo' && !older && !userItems.includes(item.id);
         meta.set(item.id, {
           // Only an item the Cat CEO itself wrote is its own; the guard restores old text.
-          owner: author === 'cat-ceo' && !older ? 'cat-ceo' : 'user',
+          owner: mine ? 'cat-ceo' : 'user',
           addedBy: author,
           ...(older ? {} : { addedAt: c.at }),
           ...trailer(c.body, /^Prompt-Review: (\S+)/m, 'reviewId'),
@@ -69,6 +79,7 @@ export function itemHistory(catId: string, repo: HistoryRepo): Map<string, ItemM
       }
       lastText.set(item.id, item.text);
     }
+    present = new Set(items.map((x) => x.id));
   });
   return meta;
 }

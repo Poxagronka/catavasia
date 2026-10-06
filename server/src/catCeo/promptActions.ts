@@ -56,9 +56,7 @@ export function promptHistory(
   prompts: PromptRepo,
   store: ReviewStore,
 ): PromptHistory {
-  const t = [...store.tidies]
-    .reverse()
-    .find((x) => x.catId === catId && !x.summary.startsWith('failed:'));
+  const t = [...store.tidies].reverse().find((x) => x.catId === catId && !x.failed);
   return {
     type: 'promptHistory',
     catId,

@@ -95,6 +95,7 @@ export class CatCeo {
       store: this.store,
       settings: () => this.settings,
       catIds: () => opts.cats.list().map((c) => c.id),
+      queueRoom: () => CAT_CEO_QUEUE_MAX - this.waiting,
       enqueue: (job) =>
         this.enqueue(job, (err) => console.error(`[Pixel Agents] Cat CEO: ${errorText(err)}`)),
       judge: (rules, digest, schema) => this.judge(rules, digest, schema),

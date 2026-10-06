@@ -193,6 +193,8 @@ export const CAT_CEO_TIDY_EVERY_REVIEWS = 10;
 /** The sweep tidies every cat once per this period while the office runs. */
 export const CAT_CEO_TIDY_SWEEP_MS = 7 * 24 * 60 * 60 * 1000;
 export const CAT_CEO_TIDY_SWEEP_CHECK_MS = 60 * 60 * 1000;
+/** Automatic tidies leave this many places of the Cat CEO queue to task reviews. */
+export const CAT_CEO_TIDY_QUEUE_RESERVE = 3;
 /** Item changes in one tidy commit. */
 export const CAT_CEO_TIDY_MAX_CHANGES = 8;
 /** Review summaries of the cat in the tidy digest. */

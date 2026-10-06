@@ -49,6 +49,7 @@ let judged: Array<{ rules: string; digest: string; schema: object }>;
 let output: unknown;
 let jobs: Array<Promise<void>>;
 let tidy: CatTidy;
+let room: number;
 
 const FILE: PromptFile = {
   role: 'I am murka.',
@@ -97,6 +98,7 @@ beforeEach(() => {
   judged = [];
   output = OUT;
   jobs = [];
+  room = 10;
   tidy = new CatTidy({
     prompts: repo,
     store,
@@ -106,6 +108,7 @@ beforeEach(() => {
       jobs.push(job());
       return true;
     },
+    queueRoom: () => room,
     judge: async (rulesText, digest, schema): Promise<JudgeResult> => {
       judged.push({ rules: rulesText, digest, schema });
       return { ok: true, output, costUsd: 0.04 };
@@ -153,6 +156,7 @@ describe('tidy run', () => {
     await drain();
     expect(last()).toMatchObject({ state: 'failed' });
     expect(last().text).toContain('bad tidy output: ops[0].reason: not a string');
+    expect(store.tidies.at(-1)).toMatchObject({ failed: true, rows: [] });
     output = OUT;
     const before = repo.headSha('murka');
     const job = tidy.requestManual('murka');
@@ -164,6 +168,43 @@ describe('tidy run', () => {
     expect(last().text).toContain('the prompt changed during the tidy');
     expect(repo.log('murka')[0].subject).toBe('user(murka): manual edit');
     expect(repo.log('murka')[1].sha).toBe(before);
+  });
+});
+
+describe('user items merged by a tidy', () => {
+  it("stay the user's: a later tidy only marks their removal", async () => {
+    settings = { ...settings, tidyUserItems: true };
+    output = {
+      summary: 'merge',
+      ops: [
+        {
+          op: 'merge',
+          section: 'Rules',
+          itemIds: ['R1', 'R2'],
+          text: 'Short commits; run npm test first.',
+          reason: 'r',
+        },
+      ],
+    };
+    tidy.requestManual('murka');
+    await drain();
+    expect(repo.log('murka')[0].body).toContain('Prompt-User-Items: R5');
+    settings = { ...settings, tidyUserItems: false };
+    // A user change after the tidy, so the next one is not skipped.
+    const now1 = repo.read('murka').file;
+    repo.write(
+      'murka',
+      { ...now1, lessons: [{ id: 'L1', text: 'A fact.' }] },
+      'user(murka): add L1',
+    );
+    output = {
+      summary: 'x',
+      ops: [{ op: 'remove', section: 'Rules', itemIds: ['R5'], reason: 'r' }],
+    };
+    tidy.requestManual('murka');
+    await drain();
+    expect(store.lastTidy('murka')?.rows).toMatchObject([{ op: 'remove', applied: false }]);
+    expect(repo.read('murka').file.rules.map((x) => x.id)).toContain('R5');
   });
 });
 
@@ -200,12 +241,23 @@ describe('tidy triggers and limits', () => {
     tidy.sweep();
     expect(store.lastSweep).toBe(now);
     expect(jobs).toHaveLength(0);
+    const start = now;
     now += 7 * DAY;
+    // No room beside the places kept for task reviews: the sweep waits, its clock too.
+    room = 3;
     tidy.sweep();
-    expect(jobs).toHaveLength(2);
+    expect(jobs).toHaveLength(0);
+    expect(store.lastSweep).toBe(start);
+    expect(tidy.requestManual('murka')).toBeUndefined();
     await drain();
+    room = 10;
+    tidy.sweep();
+    // murka was tidied by hand and did not change since: only pushok.
+    expect(jobs).toHaveLength(1);
+    await drain();
+    expect(store.lastSweep).toBe(now);
     expect(repo.log('pushok')[0].subject).toContain('cat-ceo(pushok): tidy');
-    expect(store.tidies.map((t) => t.trigger)).toEqual(['sweep', 'sweep']);
+    expect(store.tidies.map((t) => t.trigger)).toEqual(['manual', 'sweep']);
     tidy.sweep();
     expect(jobs).toHaveLength(0);
   });
