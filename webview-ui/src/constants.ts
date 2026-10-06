@@ -247,8 +247,6 @@ export const INTRO_BUBBLE_OFFSET_X_WORLD = 10;
  *  a tall column (still clamped to the container on narrow panels). */
 export const INTRO_BUBBLE_MAX_WIDTH_PX = 560;
 export const INTRO_BUBBLE_EDGE_MARGIN_PX = 4;
-/** Where the Intro's Claude Code step sends people who don't have it yet. */
-export const CLAUDE_CODE_URL = 'https://claude.com/claude-code';
 export const CLAUDE_CODE_INSTALL_COMMAND = 'npm install -g @anthropic-ai/claude-code';
 /** Speech-tail squares: placed at fraction `t` along the segment from the
  *  bubble's nearest edge point to the greeter's head, shrinking toward the

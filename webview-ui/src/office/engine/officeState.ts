@@ -67,6 +67,7 @@ import {
 } from './characters.js';
 import { CUP_OUT_FRAME } from './coffeeActivities.js';
 import { itemFrameSprite } from './furnitureFrames.js';
+import { advanceGreeterWalk, planGreeterVisit, startGreeterWalk } from './greeterWalk.js';
 import type { ActivitySpotSet, IdleChoice, PropMotion } from './idleActivities.js';
 import { buildActivitySpots, getIdleActivity, propOffset } from './idleActivities.js';
 import { LitterLife } from './litterLife.js';
@@ -170,6 +171,8 @@ export class OfficeState {
   /** Latched by a manual pan during the ask: the user took the camera, so the
    *  overlay's per-frame updates stop re-centering. Reset on spawn/despawn. */
   private greeterCameraCancelled = false;
+  /** Where the greeter looks when its current walk ends (greeterVisit). */
+  private greeterFace: Direction = Direction.DOWN;
 
   setAreaMappings(mappings: Record<string, string[]>): void {
     this.areaMappings = mappings;
@@ -826,6 +829,29 @@ export class OfficeState {
   cancelGreeterCamera(): void {
     this.greeterCameraTarget = null;
     this.greeterCameraCancelled = true;
+  }
+
+  /**
+   * Walk the greeter next to the first item of `kinds` the office has (a tour
+   * step "shows" it). The camera follows again even after a manual pan. False
+   * when no such item exists or none can be reached: the greeter stays where
+   * it stands, so a customized office never breaks the tour.
+   */
+  greeterVisit(kinds: readonly string[]): boolean {
+    const ch = this.greeter;
+    if (!ch || kinds.length === 0) return false;
+    const plan = planGreeterVisit(
+      { col: ch.tileCol, row: ch.tileRow },
+      kinds,
+      this.layout.furniture,
+      this.walkableTiles,
+      (to) => findPath(ch.tileCol, ch.tileRow, to.col, to.row, this.tileMap, this.blockedTiles),
+    );
+    if (!plan) return false;
+    this.greeterFace = plan.face;
+    this.greeterCameraCancelled = false;
+    startGreeterWalk(ch, plan);
+    return true;
   }
 
   removeAgent(id: number): void {
@@ -1619,10 +1645,11 @@ export class OfficeState {
     }
 
     // The greeter materializes and dematerializes like anyone else, but runs
-    // no FSM — it stands where it spawned for as long as the ask is up.
+    // no FSM — it stands still unless a tour step walks it (greeterVisit).
     if (this.greeter && advanceMatrixEffect(this.greeter, dt) === 'despawned') {
       this.greeter = null;
     }
+    if (this.greeter) advanceGreeterWalk(this.greeter, dt, this.greeterFace);
 
     this.life.claims.spots.tick(dt);
     const idleWorld: IdleWorld = {

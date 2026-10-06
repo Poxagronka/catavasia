@@ -136,7 +136,7 @@ Your data stays in `~/.pixel-agents/`. See [INSTALL.md](docs/catavasia/INSTALL.m
 - **`catavasia: command not found`:** add the npm global `bin` folder (`npm prefix -g` + `/bin`) to your `PATH`.
 - **`EACCES` during install:** do not use `sudo`. Use [nvm](https://github.com/nvm-sh/nvm), or set a home prefix with `npm config set prefix "$HOME/.npm-global"`.
 - **"Port N is busy":** start without `--port`, or pick another port.
-- **"Open the office with `pa` to get edit rights":** `pa` is the author's own shortcut. Open the full URL that `catavasia` prints, with its `?token=` part.
+- **"Open the office with `catavasia` to get edit rights":** open the full URL that `catavasia` prints, with its `?token=` part.
 - **The cats do not do tasks:** check that `claude --version` works and that you are logged in to Claude Code.
 - **A Claude session does not show:** turn on **Settings → Show Guests**. **Settings → Debug View** shows the connection state.
 
