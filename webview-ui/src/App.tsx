@@ -257,10 +257,6 @@ function App() {
     editor.handleToggleEditMode,
   );
 
-  const handleCloseAgent = useCallback((id: number) => {
-    transport.send({ type: 'closeAgent', id });
-  }, []);
-
   // A cat whose task-board run finished opens that task instead of a terminal.
   const [clickedTaskId, setClickedTaskId] = useState<string | null>(null);
 
@@ -468,8 +464,7 @@ function App() {
             containerRef={containerRef}
             zoom={editor.zoom}
             panRef={editor.panRef}
-            onCloseAgent={handleCloseAgent}
-            onOpenTerminal={isBrowserRuntime ? setTerminalCatId : undefined}
+            onOpenChat={isBrowserRuntime ? setTerminalCatId : undefined}
             alwaysShowOverlay={alwaysShowOverlay}
           />
 
