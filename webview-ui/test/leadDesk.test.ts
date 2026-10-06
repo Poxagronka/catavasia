@@ -223,12 +223,13 @@ test('revision 10: the whiteboard hangs over the lead desk, framed alike on both
   const l = layout(10);
   const board = l.furniture.find((f) => f.uid === BOARD)!;
   const desk = l.furniture.find((f) => f.uid === 'f-lead-desk')!;
-  // A 2-tile board over a 3-tile desk: it covers the desk's centre column and the one
-  // left of it. The tile grid has no closer fit.
+  // The board is as wide as the desk and hangs right over it: the centres match.
+  const boardW = getCatalogEntry(board.type)!.footprintW;
+  assert.equal(boardW, getCatalogEntry(desk.type)!.footprintW);
   assert.deepEqual([board.col, board.row], [desk.col, 9]);
-  assert.equal(whiteboardAt(board.col * 16 + 16, board.row * 16 + 18, l.furniture)?.uid, BOARD);
+  assert.equal(whiteboardAt(board.col * 16 + 24, board.row * 16 + 18, l.furniture)?.uid, BOARD);
   // The other items on the work-room top wall mirror each other around the board.
-  const centre2 = 2 * board.col + 2;
+  const centre2 = 2 * board.col + boardW;
   const wall = l.furniture
     .filter((f) => f.row === 9 && f.uid !== BOARD && Math.abs(f.col - board.col) <= 5)
     .map((f) => ({ type: f.type, col: f.col, w: getCatalogEntry(f.type)!.footprintW }));

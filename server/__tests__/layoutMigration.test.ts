@@ -123,7 +123,8 @@ describe('default layout upgrade', () => {
       col: painting.col + 8,
       row: painting.row,
     });
-    // The whiteboard hangs over the lead desk, a bookshelf and a hanging plant on each side.
+    // The 3-tile whiteboard hangs right over the 3-tile lead desk, a bookshelf and a
+    // hanging plant on each side.
     const desk = find(rev10, 'f-lead-desk')!;
     expect(find(rev10, 'f-tasks-whiteboard')).toMatchObject({ col: desk.col, row: 9 });
     const wall = items(rev10)
@@ -133,8 +134,8 @@ describe('default layout upgrade', () => {
       [9, 'HANGING_PLANT'],
       [10, 'DOUBLE_BOOKSHELF'],
       [12, 'WHITEBOARD'],
-      [14, 'DOUBLE_BOOKSHELF'],
-      [16, 'HANGING_PLANT'],
+      [15, 'DOUBLE_BOOKSHELF'],
+      [17, 'HANGING_PLANT'],
     ]);
   });
 
