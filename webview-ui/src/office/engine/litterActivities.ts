@@ -8,10 +8,10 @@
  */
 
 import { LITTER_ACTIVITY_WEIGHT } from '../../constants.js';
+import { itemFrame, sideDirection } from '../layout/itemFrame.js';
 import { boxPose, isLitterBoxType } from '../petCare/litterStages.js';
 import { isHoodedLitterBox } from '../sprites/petCareSprites.js';
 import type { ActivitySpot } from '../types.js';
-import { Direction } from '../types.js';
 import type { SpotContext } from './activitySpots.js';
 import type { IdleActivityDef } from './idleActivities.js';
 import {
@@ -24,22 +24,27 @@ import {
 
 export const LITTER_USE_IDS = ['litter', 'litterHood'] as const;
 
-/** The box tile itself, facing right (the side-view dig and squat), drawn per boxPose. */
+/**
+ * The box tile itself, drawn per boxPose: facing the item's right (the
+ * side-view dig and squat; a mirrored box flips it), or out of a hood's door.
+ */
 function boxSpots(ctx: SpotContext, hooded: boolean): ActivitySpot[] {
   return ctx.furniture
     .filter((f) => isLitterBoxType(f.type) && isHoodedLitterBox(f.type) === hooded)
     .map((f) => {
       const { offsetY, peek } = boxPose(f);
+      const frame = itemFrame(f.type);
       return {
         key: `${f.col},${f.row}`,
         col: f.col,
         row: f.row,
-        facing: hooded ? Direction.DOWN : Direction.RIGHT,
+        facing: sideDirection(frame, hooded ? 'front' : 'right'),
         onFurniture: false,
         itemUid: f.uid,
         offsetX: 0,
         offsetY,
         ...(peek ? { peek } : {}),
+        ...(frame.mirrored ? { mirrored: true } : {}),
       };
     });
 }

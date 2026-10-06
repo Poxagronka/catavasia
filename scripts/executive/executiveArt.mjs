@@ -41,6 +41,8 @@ export const EXECUTIVE_ITEMS = [
   },
   {
     id: 'CEO_PLAQUE',
+    // Lettering must not mirror: R keeps it.
+    rotationScheme: 'symmetric',
     name: 'CEO Plaque',
     category: 'wall',
     canPlaceOnWalls: true,

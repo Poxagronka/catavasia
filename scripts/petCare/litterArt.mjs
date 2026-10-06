@@ -139,6 +139,7 @@ const HOOD = [
 export const LITTER_VARIANTS = [
   {
     id: 'LITTER_BOX',
+    rotationScheme: 'symmetric',
     name: 'Litter box (open tray)',
     rows: OPEN,
     lipTop: 9,
@@ -193,6 +194,7 @@ export const LITTER_VARIANTS = [
   },
   {
     id: 'LITTER_BOX_HIGH',
+    rotationScheme: 'symmetric',
     name: 'Litter box (high-sided)',
     rows: HIGH,
     lipTop: 6,

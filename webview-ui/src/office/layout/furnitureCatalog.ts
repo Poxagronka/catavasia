@@ -53,6 +53,15 @@ interface RotationGroup {
 // Maps any member asset ID → its rotation group
 const rotationGroups = new Map<string, RotationGroup>();
 
+// Items without drawn views (docs/catavasia/furniture.md): "symmetric" items
+// look the same turned (R is accepted, nothing changes); every other one gets
+// the "mirror" scheme, its front plus a mirrored `<ID>:left` view.
+const symmetricTypes = new Set<string>();
+const mirrorTypes = new Set<string>();
+
+// Maps every asset ID (and virtual ":left" ID) → its manifest id (groupId).
+const kindByType = new Map<string, string>();
+
 // ── State groups ────────────────────────────────────────────────
 // Maps asset ID → its on/off counterpart (symmetric for toggle)
 const stateGroups = new Map<string, string>();
@@ -125,6 +134,9 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
 
   // Build rotation groups from groupId + orientation metadata
   rotationGroups.clear();
+  symmetricTypes.clear();
+  mirrorTypes.clear();
+  kindByType.clear();
   stateGroups.clear();
   offToOn.clear();
   onToOff.clear();
@@ -200,6 +212,34 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
     for (const [orient, id] of Object.entries(members)) {
       if (orient !== 'front') nonFrontIds.add(id);
     }
+  }
+
+  // Phase 2b: every other placeable item still turns (the user's rule,
+  // 2026-10-06): mirror by default, a no-op for items marked "symmetric".
+  for (const asset of assets.catalog) {
+    if (rotationGroups.has(asset.id) || asset.state === 'on' || asset.frame) continue;
+    if (asset.orientation && asset.orientation !== 'front') continue;
+    const entry = allEntries.find((e) => e.type === asset.id);
+    if (!entry) continue;
+    if (asset.rotationScheme === 'symmetric') {
+      symmetricTypes.add(asset.id);
+      continue;
+    }
+    const leftId = `${asset.id}:left`;
+    allEntries.push({ ...entry, type: leftId, mirrorSide: true });
+    const rg: RotationGroup = {
+      orientations: ['front', 'left'],
+      members: { front: asset.id, left: leftId },
+    };
+    rotationGroups.set(asset.id, rg);
+    rotationGroups.set(leftId, rg);
+    mirrorTypes.add(asset.id).add(leftId);
+    nonFrontIds.add(leftId);
+  }
+  for (const asset of assets.catalog) {
+    if (!asset.groupId) continue;
+    kindByType.set(asset.id, asset.groupId);
+    kindByType.set(`${asset.id}:left`, asset.groupId);
   }
 
   // Phase 3: Build state groups (on ↔ off pairs within same groupId + orientation)
@@ -384,9 +424,24 @@ export function getOnStateType(currentType: string): string {
 //   return onToOff.get(currentType) ?? currentType;
 // }
 
-/** Returns true if the given furniture type is part of a rotation group. */
+/** Every catalog item turns with R (a symmetric one only says it looks the same). */
 export function isRotatable(type: string): boolean {
-  return rotationGroups.has(type);
+  return getCatalogEntry(type) !== undefined;
+}
+
+/** How R turns an item: drawn views, a mirror image, or nothing to see (symmetric). */
+export function getRotationScheme(type: string): 'views' | 'mirror' | 'symmetric' {
+  if (symmetricTypes.has(type)) return 'symmetric';
+  return mirrorTypes.has(type) ? 'mirror' : 'views';
+}
+
+/**
+ * The item a placed type belongs to: its manifest id, the same for every
+ * view, state and frame ("SOFA_SIDE:left" → "SOFA", "PET_BOWL:left" →
+ * "PET_BOWL"). Engine code compares furniture by this, never by `type`.
+ */
+export function furnitureKind(type: string): string {
+  return kindByType.get(type) ?? type.split(':')[0];
 }
 
 /** Get ordered animation frame asset IDs for a given type, or null if not animated. */

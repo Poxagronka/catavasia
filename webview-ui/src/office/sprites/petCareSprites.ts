@@ -1,3 +1,4 @@
+import { furnitureKind } from '../layout/furnitureCatalog.js';
 import type { RequestKind } from '../petCare/petNeeds.js';
 import type { SpriteData } from '../types.js';
 import pack from './petCareSprites.json';
@@ -71,12 +72,12 @@ export const LITTER_BOX_TYPES: readonly string[] = [...LITTER_BOXES.keys()];
 
 /** The hooded box hides a cat inside: only its tail shows at the door. */
 export function isHoodedLitterBox(type: string): boolean {
-  return LITTER_BOXES.get(type)?.hooded === true;
+  return LITTER_BOXES.get(furnitureKind(type))?.hooded === true;
 }
 
 /** A box's sprite for `piles` (clamped 0..5) on sand stage 0 fresh, 1 used, 2 dirty. */
 export function litterBoxSprite(type: string, piles: number, sand: number): SpriteData | undefined {
-  const stages = LITTER_BOXES.get(type)?.stages;
+  const stages = LITTER_BOXES.get(furnitureKind(type))?.stages;
   if (!stages) return undefined;
   const row = stages[Math.max(0, Math.min(stages.length - 1, Math.round(piles)))];
   return row[Math.max(0, Math.min(row.length - 1, sand))];
@@ -91,7 +92,7 @@ const fronts = new WeakMap<SpriteData, SpriteData>();
 export function litterFrontSprite(type: string, sprite: SpriteData): SpriteData {
   let front = fronts.get(sprite);
   if (!front) {
-    const lip = LITTER_BOXES.get(type)?.lipTop ?? sprite.length;
+    const lip = LITTER_BOXES.get(furnitureKind(type))?.lipTop ?? sprite.length;
     front = sprite.map((row, y) => (y < lip ? row.map(() => '') : row));
     fronts.set(sprite, front);
   }

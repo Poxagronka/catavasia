@@ -27,9 +27,17 @@ const FACE_BLINK = ['o....o', 'Fo..oF', 'FFFFFF', 'FFFFFF', 'FoFFoF'];
 
 const cache = new Map<string, SpriteData>();
 
-/** The ears / tail / face sprite in this fur color; `twitch`: the ear folds or the tail flicks. */
-export function peekSprite(kind: HousePeek['kind'], fur: string, twitch = false): SpriteData {
-  const key = `${kind}:${fur}:${twitch}`;
+/**
+ * The ears / tail / face sprite in this fur color; `twitch`: the ear folds or
+ * the tail flicks; `mirrored`: flipped, for a mirrored house (the tail).
+ */
+export function peekSprite(
+  kind: HousePeek['kind'],
+  fur: string,
+  twitch = false,
+  mirrored = false,
+): SpriteData {
+  const key = `${kind}:${fur}:${twitch}:${mirrored}`;
   let s = cache.get(key);
   if (!s) {
     const rows = {
@@ -44,7 +52,10 @@ export function peekSprite(kind: HousePeek['kind'], fur: string, twitch = false)
       p: HOUSE_PEEK_INNER_EAR_COLOR,
       w: HOUSE_PEEK_EYE_COLOR,
     };
-    s = rows.map((r) => [...r].map((c) => color[c] ?? ''));
+    s = rows.map((r) => {
+      const px = [...r].map((c) => color[c] ?? '');
+      return mirrored ? px.reverse() : px;
+    });
     cache.set(key, s);
   }
   return s;
@@ -67,7 +78,7 @@ export function peekDrawable(
   zoom: number,
   twitch = false,
 ): { zY: number; draw: (c: CanvasRenderingContext2D) => void } {
-  const sprite = peekSprite(peek.kind, fur, twitch);
+  const sprite = peekSprite(peek.kind, fur, twitch, peek.mirrored);
   const img = getCachedSprite(sprite, zoom);
   const left = peek.x - Math.floor(sprite[0].length / 2);
   const top = peek.y - sprite.length;

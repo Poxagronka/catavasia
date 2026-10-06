@@ -50,6 +50,7 @@ for (const item of items) {
     height: h,
     footprintW: item.fw,
     footprintH: item.fh,
+    ...(item.rotationScheme ? { rotationScheme: item.rotationScheme } : {}),
   };
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 }

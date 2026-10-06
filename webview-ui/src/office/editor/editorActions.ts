@@ -83,7 +83,10 @@ export function moveFurniture(
   };
 }
 
-/** Rotate furniture to the next orientation. Returns new layout (immutable). */
+/**
+ * Rotate furniture to the next orientation. Returns new layout (immutable),
+ * or the same layout when the turned footprint does not fit where it stands.
+ */
 export function rotateFurniture(
   layout: OfficeLayout,
   uid: string,
@@ -93,6 +96,7 @@ export function rotateFurniture(
   if (!item) return layout;
   const newType = getRotatedType(item.type, direction);
   if (!newType) return layout;
+  if (!canPlaceFurniture(layout, newType, item.col, item.row, uid)) return layout;
   return {
     ...layout,
     furniture: layout.furniture.map((f) => (f.uid === uid ? { ...f, type: newType } : f)),

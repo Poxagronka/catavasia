@@ -5,6 +5,7 @@ import {
   CARPET_DEFAULT_ACCENT_COLOR,
   CARPET_DEFAULT_COLOR,
   LAYOUT_SAVE_DEBOUNCE_MS,
+  ROTATE_NOTE_MS,
   ZOOM_DEFAULT_DPR_FACTOR,
   ZOOM_MAX,
   ZOOM_MIN,
@@ -34,6 +35,7 @@ import type { OfficeState } from '../office/engine/officeState.js';
 import {
   getCatalogEntry,
   getRotatedType,
+  getRotationScheme,
   getToggledType,
 } from '../office/layout/furnitureCatalog.js';
 import type {
@@ -70,6 +72,8 @@ interface EditorActions {
   handleFurnitureTypeChange: (type: string) => void; // FurnitureType enum or asset ID
   handleDeleteSelected: () => void;
   handleRotateSelected: () => void;
+  /** Why the last R changed nothing ("Looks the same turned"), shown briefly; else null. */
+  rotateNote: string | null;
   handleToggleState: () => void;
   handleUndo: () => void;
   handleRedo: () => void;
@@ -469,13 +473,24 @@ export function useEditorActions(
     }
   }, [getOfficeState, editorState, applyEdit]);
 
+  const [rotateNote, setRotateNote] = useState<string | null>(null);
+  const rotateNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showRotateNote = useCallback((note: string) => {
+    setRotateNote(note);
+    if (rotateNoteTimer.current) clearTimeout(rotateNoteTimer.current);
+    rotateNoteTimer.current = setTimeout(() => setRotateNote(null), ROTATE_NOTE_MS);
+  }, []);
+
   const handleRotateSelected = useCallback(() => {
     // If in furniture placement mode, cycle the selected type through the rotation group
     if (editorState.isPlacingFurniture()) {
-      const rotated = getRotatedType(editorState.selectedFurnitureType, 'cw');
+      const type = editorState.selectedFurnitureType;
+      const rotated = getRotatedType(type, 'cw');
       if (rotated) {
         editorState.selectedFurnitureType = rotated;
         setEditorTick((n) => n + 1);
+      } else if (getRotationScheme(type) === 'symmetric') {
+        showRotateNote('Looks the same turned');
       }
       return;
     }
@@ -483,11 +498,18 @@ export function useEditorActions(
     const uid = editorState.selectedFurnitureUid;
     if (!uid) return;
     const os = getOfficeState();
+    const item = os.getLayout().furniture.find((f) => f.uid === uid);
+    if (!item) return;
     const newLayout = rotateFurniture(os.getLayout(), uid, 'cw');
     if (newLayout !== os.getLayout()) {
       applyEdit(newLayout);
+    } else if (getRotationScheme(item.type) === 'symmetric') {
+      showRotateNote('Looks the same turned');
+    } else {
+      // The turned footprint overlaps something or leaves the room: it stays as it was.
+      showRotateNote('No room to turn it here');
     }
-  }, [getOfficeState, editorState, applyEdit]);
+  }, [getOfficeState, editorState, applyEdit, showRotateNote]);
 
   const handleToggleState = useCallback(() => {
     // If in furniture placement mode, toggle the selected type's state
@@ -941,6 +963,7 @@ export function useEditorActions(
     handleFurnitureTypeChange,
     handleDeleteSelected,
     handleRotateSelected,
+    rotateNote,
     handleToggleState,
     handleUndo,
     handleRedo,

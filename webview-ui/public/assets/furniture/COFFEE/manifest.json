@@ -3,6 +3,7 @@
   "name": "Coffee",
   "category": "misc",
   "type": "asset",
+  "rotationScheme": "symmetric",
   "canPlaceOnWalls": false,
   "canPlaceOnSurfaces": true,
   "backgroundTiles": 0,

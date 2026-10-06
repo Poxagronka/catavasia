@@ -5,6 +5,7 @@
   "canPlaceOnWalls": false,
   "canPlaceOnSurfaces": false,
   "backgroundTiles": 0,
+  "rotationScheme": "symmetric",
   "type": "group",
   "groupType": "animation",
   "members": [

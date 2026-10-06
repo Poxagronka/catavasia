@@ -125,6 +125,8 @@ const DONUT = [
 export const BEDS = [
   {
     id: 'BED_CUSHION',
+    // Looks the same turned: R keeps it (docs/catavasia/furniture.md).
+    rotationScheme: 'symmetric',
     name: 'Round Cushion',
     rows: CUSHION,
     fw: 1,
@@ -134,6 +136,8 @@ export const BEDS = [
   },
   {
     id: 'BED_BASKET',
+    // Looks the same turned: R keeps it (docs/catavasia/furniture.md).
+    rotationScheme: 'symmetric',
     name: 'Wicker Basket',
     rows: BASKET,
     fw: 1,
@@ -152,6 +156,8 @@ export const BEDS = [
   },
   {
     id: 'BED_DONUT',
+    // Looks the same turned: R keeps it (docs/catavasia/furniture.md).
+    rotationScheme: 'symmetric',
     name: 'Donut Bed',
     rows: DONUT,
     fw: 1,

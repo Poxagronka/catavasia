@@ -71,6 +71,8 @@ export interface ActivitySpot {
   exit?: { col: number; row: number };
   /** The cat is INSIDE the item (a cat house): only its ears or tail show, here. */
   peek?: HousePeek;
+  /** The item is drawn mirrored: the steps' LEFT and RIGHT swap (poses written for its front view). */
+  mirrored?: boolean;
 }
 
 /** Ears or tail of a cat inside a house: world px of the overlay's bottom-centre. */
@@ -80,6 +82,8 @@ export interface HousePeek {
   y: number;
   /** Z-sort key just in front of the house. */
   zY: number;
+  /** The house is drawn mirrored: so is the peek (a tail out of the door). */
+  mirrored?: boolean;
 }
 
 /** One idle activity in progress. */

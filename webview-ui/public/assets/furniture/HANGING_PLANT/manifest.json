@@ -3,6 +3,7 @@
   "name": "Hanging Plant",
   "category": "wall",
   "type": "asset",
+  "rotationScheme": "symmetric",
   "canPlaceOnWalls": true,
   "canPlaceOnSurfaces": true,
   "backgroundTiles": 0,

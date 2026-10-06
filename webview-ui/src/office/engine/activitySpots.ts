@@ -4,10 +4,12 @@
  */
 
 import { CHARACTER_SITTING_OFFSET_PX } from '../../constants.js';
-import { getCatalogEntry } from '../layout/furnitureCatalog.js';
+import { furnitureKind, getCatalogEntry } from '../layout/furnitureCatalog.js';
+import type { ItemSide } from '../layout/itemFrame.js';
+import { artView, itemFrame, sideDirection, spriteX } from '../layout/itemFrame.js';
 import { isWalkable } from '../layout/tileMap.js';
 import type { ActivitySpot, PlacedFurniture, Seat, TileType as TileTypeVal } from '../types.js';
-import { Direction } from '../types.js';
+import { Direction, TILE_SIZE } from '../types.js';
 
 /** What spot builders read from the office. */
 export interface SpotContext {
@@ -17,6 +19,13 @@ export interface SpotContext {
   blockedTiles: Set<string>;
 }
 
+const OPPOSITE: Record<Direction, Direction> = {
+  [Direction.DOWN]: Direction.UP,
+  [Direction.UP]: Direction.DOWN,
+  [Direction.LEFT]: Direction.RIGHT,
+  [Direction.RIGHT]: Direction.LEFT,
+};
+
 const NEIGHBORS: ReadonlyArray<{ dc: number; dr: number; facing: Direction }> = [
   { dc: 0, dr: 1, facing: Direction.UP }, // spot below the item faces up
   { dc: 0, dr: -1, facing: Direction.DOWN },
@@ -24,14 +33,14 @@ const NEIGHBORS: ReadonlyArray<{ dc: number; dr: number; facing: Direction }> = 
   { dc: 1, dr: 0, facing: Direction.LEFT },
 ];
 
-/** Type without the orientation suffix ("SOFA_SIDE:left" -> "SOFA_SIDE"). */
-function baseType(type: string): string {
-  return type.split(':')[0];
-}
-
-/** Furniture of the given types (orientation suffix ignored: "SOFA_SIDE:left" is SOFA_SIDE). */
+/**
+ * Furniture of the given kinds (manifest ids: every view, state and mirror of
+ * it) or exact view types ("SOFA_SIDE" also matches "SOFA_SIDE:left").
+ */
 export function itemsOfType(ctx: SpotContext, types: readonly string[]): PlacedFurniture[] {
-  return ctx.furniture.filter((f) => types.includes(baseType(f.type)));
+  return ctx.furniture.filter(
+    (f) => types.includes(furnitureKind(f.type)) || types.includes(f.type.split(':')[0]),
+  );
 }
 
 /** Tiles an item blocks: its footprint minus the walk-through background rows. */
@@ -54,8 +63,10 @@ function seatAt(ctx: SpotContext, col: number, row: number): Seat | undefined {
 }
 
 export interface AdjacentOptions {
-  /** Which sides: every side, left/right only (side-view poses), or the left only. */
-  sides?: 'all' | 'horizontal' | 'left';
+  /** Screen sides: every side, or left/right only (side-view poses). */
+  sides?: 'all' | 'horizontal';
+  /** Item-local sides (front view) the cat may use; they turn and mirror with the item. */
+  itemSides?: readonly ItemSide[];
   /** Draw the cat this many px toward the item (paws reach it). */
   nudgePx?: number;
 }
@@ -69,12 +80,14 @@ export function adjacentSpots(
   items: PlacedFurniture[],
   opts: AdjacentOptions = {},
 ): ActivitySpot[] {
-  const { sides = 'all', nudgePx = 0 } = opts;
-  const dirs = NEIGHBORS.filter((n) =>
-    sides === 'all' ? true : sides === 'horizontal' ? n.dr === 0 : n.dc === -1,
-  );
+  const { sides = 'all', itemSides, nudgePx = 0 } = opts;
+  const screenDirs = NEIGHBORS.filter((n) => sides === 'all' || n.dr === 0);
   const out = new Map<string, ActivitySpot>();
   for (const item of items) {
+    // A neighbour faces the item, so it stands on the side opposite its facing.
+    const frame = itemFrame(item.type);
+    const allowed = itemSides && new Set(itemSides.map((s) => sideDirection(frame, s)));
+    const dirs = allowed ? screenDirs.filter((n) => allowed.has(OPPOSITE[n.facing])) : screenDirs;
     const tiles = footprint(item);
     const own = new Set(tiles.map((t) => `${t.col},${t.row}`));
     for (const t of tiles) {
@@ -161,59 +174,94 @@ export function floorNear(ctx: SpotContext, items: PlacedFurniture[]): ActivityS
   return [...out.values()];
 }
 
+/** A pose drawn ON an item: px from the centre of its bottom-left blocked tile. */
+export interface PoseAt {
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Where a pose sits on an item, per art view (numbers of the unflipped art):
+ * `side` is the right view (its mirror serves the left view), `back` the back
+ * view; a view without its own numbers uses `front`. `facing`: the item-local
+ * way the cat faces (default 'front', toward the viewer in the front view).
+ */
+export interface OnItemPose {
+  front: PoseAt;
+  side?: PoseAt;
+  back?: PoseAt;
+  facing?: ItemSide;
+}
+
 /**
  * One spot ON each item (a box to sit in, a bed, the top of a cat tree): the
- * bottom-left blocked tile, drawn shifted by (offsetX, offsetY) px so the
- * pose lands where it belongs on the sprite.
+ * bottom-left blocked tile, drawn shifted so the pose lands where it belongs
+ * on the sprite, however the item is turned or mirrored.
  */
-export function onItemSpots(
-  items: PlacedFurniture[],
-  offsetX: number,
-  offsetY: number,
-): ActivitySpot[] {
+export function onItemSpots(items: PlacedFurniture[], pose: OnItemPose): ActivitySpot[] {
   return items.map((item) => {
+    const frame = itemFrame(item.type);
+    const at = pose[artView(frame)] ?? pose.front;
     const tiles = footprint(item);
     const last = tiles[tiles.length - 1];
     const col = item.col;
     const row = last.row;
+    // The pose centre, in sprite px from the item's left edge, flips with the art.
+    const half = TILE_SIZE / 2;
     return {
       key: `${col},${row}`,
       col,
       row,
-      facing: Direction.DOWN,
+      facing: sideDirection(frame, pose.facing ?? 'front'),
       onFurniture: true,
       itemUid: item.uid,
-      offsetX,
-      offsetY,
+      offsetX: spriteX(frame, half + at.offsetX) - half,
+      offsetY: at.offsetY,
+      ...(frame.mirrored ? { mirrored: true } : {}),
     };
   });
 }
 
 /**
- * Ends of a horizontal tube (play tunnel): a spot at one free end, facing in,
- * with the opposite free end as its exit. Both ends must be floor.
+ * Ends of a tube (play tunnel) along its long axis: a spot at one free end,
+ * facing in, with the opposite free end as its exit. Both ends must be floor.
+ * A turned tunnel (taller than wide) runs up and down.
  */
 export function throughSpots(ctx: SpotContext, items: PlacedFurniture[]): ActivitySpot[] {
   const out: ActivitySpot[] = [];
   for (const item of items) {
     const tiles = footprint(item);
-    const row = tiles[0].row;
-    const left = Math.min(...tiles.map((t) => t.col)) - 1;
-    const right = Math.max(...tiles.map((t) => t.col)) + 1;
-    const walk = (c: number) => isWalkable(c, row, ctx.tileMap, ctx.blockedTiles);
-    if (!walk(left) || !walk(right)) continue;
-    const spot = (col: number, exit: number, facing: Direction): ActivitySpot => ({
-      key: `${col},${row}`,
-      col,
-      row,
+    const cols = tiles.map((t) => t.col);
+    const rows = tiles.map((t) => t.row);
+    const vertical = new Set(rows).size > new Set(cols).size;
+    const a = vertical
+      ? { col: cols[0], row: Math.min(...rows) - 1 }
+      : { col: Math.min(...cols) - 1, row: rows[0] };
+    const b = vertical
+      ? { col: cols[0], row: Math.max(...rows) + 1 }
+      : { col: Math.max(...cols) + 1, row: rows[0] };
+    const walk = (t: { col: number; row: number }) =>
+      isWalkable(t.col, t.row, ctx.tileMap, ctx.blockedTiles);
+    if (!walk(a) || !walk(b)) continue;
+    const spot = (
+      from: { col: number; row: number },
+      exit: { col: number; row: number },
+      facing: Direction,
+    ): ActivitySpot => ({
+      key: `${from.col},${from.row}`,
+      col: from.col,
+      row: from.row,
       facing,
       onFurniture: false,
       itemUid: item.uid,
       offsetX: 0,
       offsetY: 0,
-      exit: { col: exit, row },
+      exit,
     });
-    out.push(spot(left, right, Direction.RIGHT), spot(right, left, Direction.LEFT));
+    out.push(
+      spot(a, b, vertical ? Direction.DOWN : Direction.RIGHT),
+      spot(b, a, vertical ? Direction.UP : Direction.LEFT),
+    );
   }
   return out;
 }

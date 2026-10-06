@@ -3,6 +3,7 @@
   "name": "Small Painting",
   "category": "wall",
   "type": "asset",
+  "rotationScheme": "symmetric",
   "canPlaceOnWalls": true,
   "canPlaceOnSurfaces": false,
   "backgroundTiles": 0,

@@ -44,6 +44,7 @@ for (const toy of TOYS) {
     canPlaceOnWalls: false,
     canPlaceOnSurfaces: false,
     backgroundTiles: toy.bg,
+    ...(toy.rotationScheme ? { rotationScheme: toy.rotationScheme } : {}),
   };
   const size = {
     width: toy.fw * 16,

@@ -9,23 +9,26 @@
  * cat lies on each bed, and where its ears or tail peek out of each house.
  */
 
-import { getCatalogEntry } from '../layout/furnitureCatalog.js';
+import { itemFrame, spriteX } from '../layout/itemFrame.js';
 import type { ActivitySpot, HousePeek } from '../types.js';
 import { TILE_SIZE } from '../types.js';
-import type { SpotContext } from './activitySpots.js';
+import type { OnItemPose, SpotContext } from './activitySpots.js';
 import { itemsOfType, onItemSpots } from './activitySpots.js';
 import type { IdleActivityDef } from './idleActivities.js';
 import { HOUSE_NAP, NAP } from './idleAnims.js';
 
 /** Where a curled cat lies on a bed: px from the bottom tile's centre (see onItemSpots). */
-export const BED_POSES: Readonly<Record<string, { offsetX: number; offsetY: number }>> = {
-  BED_CUSHION: { offsetX: 0, offsetY: 4 },
-  BED_BASKET: { offsetX: 0, offsetY: 4 },
-  BED_HAMMOCK: { offsetX: 0, offsetY: -3 },
-  BED_DONUT: { offsetX: 0, offsetY: 4 },
+export const BED_POSES: Readonly<Record<string, OnItemPose>> = {
+  BED_CUSHION: { front: { offsetX: 0, offsetY: 4 } },
+  BED_BASKET: { front: { offsetX: 0, offsetY: 4 } },
+  BED_HAMMOCK: { front: { offsetX: 0, offsetY: -3 } },
+  BED_DONUT: { front: { offsetX: 0, offsetY: 4 } },
 };
 
-/** What shows of a cat inside a house: its bottom-centre in px from the sprite's top-left. */
+/**
+ * What shows of a cat inside a house: its bottom-centre in px from the
+ * front view's top-left (it flips with a mirrored house).
+ */
 export const HOUSE_PEEKS: Readonly<
   Record<string, { kind: HousePeek['kind']; x: number; y: number }>
 > = {
@@ -39,24 +42,22 @@ export const BED_TYPES = Object.keys(BED_POSES);
 export const HOUSE_TYPES = Object.keys(HOUSE_PEEKS);
 
 function bedSpots(ctx: SpotContext): ActivitySpot[] {
-  return BED_TYPES.flatMap((type) => {
-    const pose = BED_POSES[type];
-    return onItemSpots(itemsOfType(ctx, [type]), pose.offsetX, pose.offsetY);
-  });
+  return BED_TYPES.flatMap((type) => onItemSpots(itemsOfType(ctx, [type]), BED_POSES[type]));
 }
 
 function houseSpots(ctx: SpotContext): ActivitySpot[] {
   return HOUSE_TYPES.flatMap((type) => {
     const p = HOUSE_PEEKS[type];
     const items = itemsOfType(ctx, [type]);
-    return onItemSpots(items, 0, 0).map((spot, i) => {
+    return onItemSpots(items, { front: { offsetX: 0, offsetY: 0 } }).map((spot, i) => {
       const item = items[i];
-      const h = getCatalogEntry(item.type)?.footprintH ?? 1;
+      const frame = itemFrame(item.type);
       const peek: HousePeek = {
         kind: p.kind,
-        x: item.col * TILE_SIZE + p.x,
+        x: item.col * TILE_SIZE + spriteX(frame, p.x),
         y: item.row * TILE_SIZE + p.y,
-        zY: (item.row + h) * TILE_SIZE + 1.5, // furniture sorts at +1
+        zY: (item.row + frame.h) * TILE_SIZE + 1.5, // furniture sorts at +1
+        ...(frame.mirrored ? { mirrored: true } : {}),
       };
       return { ...spot, peek };
     });

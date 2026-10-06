@@ -47,6 +47,7 @@ import {
   ZOOMIES_DASHES_MAX,
   ZOOMIES_DASHES_MIN,
 } from '../../constants.js';
+import { furnitureKind } from '../layout/furnitureCatalog.js';
 import type { Pet, PlacedFurniture } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
 import { boxPose, isLitterBoxType } from './litterStages.js';
@@ -571,7 +572,8 @@ export class PetCareSystem {
     }
     if (action === 'feed' || action === 'water') {
       const kind = action === 'feed' ? 'eat' : 'drink';
-      for (const f of env.furniture) if (f.type === PET_BOWL_TYPE) this.refillBowl(f);
+      for (const f of env.furniture)
+        if (furnitureKind(f.type) === PET_BOWL_TYPE) this.refillBowl(f);
       if (this.seekBowl(pet, kind, env)) return;
       r.dish = true;
       this.pose(pet, kind, ANIM_SEC[kind], () => {

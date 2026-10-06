@@ -20,7 +20,12 @@ import {
   SPOT_CLAIM_RETRIES,
   WAITING_BUBBLE_DURATION_SEC,
 } from '../../constants.js';
-import { getAnimationFrames, getCatalogEntry, getOnStateType } from '../layout/furnitureCatalog.js';
+import {
+  furnitureKind,
+  getAnimationFrames,
+  getCatalogEntry,
+  getOnStateType,
+} from '../layout/furnitureCatalog.js';
 import {
   createDefaultLayout,
   getBlockedTiles,
@@ -521,7 +526,7 @@ export class OfficeState {
    * Null when the office has no executive chair (an edited office).
    */
   ceoChairSeat(): string | null {
-    const chair = this.layout.furniture.find((f) => f.type.startsWith(CAT_CEO_CHAIR));
+    const chair = this.layout.furniture.find((f) => furnitureKind(f.type) === CAT_CEO_CHAIR);
     return chair && this.seats.has(chair.uid) ? chair.uid : null;
   }
 
