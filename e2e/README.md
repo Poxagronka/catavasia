@@ -230,7 +230,7 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 - `e2e/claude/hooks-on/lifecycle.spec.ts:1504` — permission bubble auto-clears when a fresh PreToolUse arrives (Hooks ON / lifecycle)
 - `e2e/claude/hooks-on/lifecycle.spec.ts:1578` — settings toggles persist across a webview reload (Hooks ON / lifecycle)
 - `e2e/claude/hooks-on/lifecycle.spec.ts:1626` — layout editor enter paint save persist and exit round-trip (Hooks ON / lifecycle)
-- `e2e/claude/hooks-on/lifecycle.spec.ts:1707` — hook uninstall preserves a pre-existing third-party hook entry (Hooks ON / lifecycle)
+- `e2e/claude/hooks-on/lifecycle.spec.ts:1706` — hook uninstall preserves a pre-existing third-party hook entry (Hooks ON / lifecycle)
 
 ### `@area:teams` (7 tests)
 
@@ -254,16 +254,16 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 ### `@area:standalone` (11 tests)
 
 - `e2e/standalone/hooks.spec.ts:17` — propagates hook-driven lifecycle into the browser UI (Standalone / hooks)
-- `e2e/standalone/hooks.spec.ts:134` — the tokened page shows the Intro and Install writes the hooks (Standalone / hooks consent)
-- `e2e/standalone/hooks.spec.ts:161` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)
-- `e2e/standalone/hooks.spec.ts:190` — the hooks checkbox reflects install state and its click is the consent grant (Standalone / hooks consent)
+- `e2e/standalone/hooks.spec.ts:138` — the tokened page shows the Intro and Install writes the hooks (Standalone / hooks consent)
+- `e2e/standalone/hooks.spec.ts:165` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)
+- `e2e/standalone/hooks.spec.ts:194` — the hooks checkbox reflects install state and its click is the consent grant (Standalone / hooks consent)
 - `e2e/standalone/multi-server-hooks.spec.ts:31` — extension and standalone both stay hook-driven without cross-contamination (Standalone / multi-server hooks)
-- `e2e/standalone/ui.spec.ts:29` — closeAgent despawns the character (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:69` — Debug View renders JSONL diagnostics in standalone (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:103` — adding an external asset directory triggers a live asset reload (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:133` — browser Export Layout downloads the layout file (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:148` — browser Import Layout applies the chosen file (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:183` — ConnectionIndicator appears when the WebSocket connection drops (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:31` — closeAgent despawns the character (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:78` — Debug View renders JSONL diagnostics in standalone (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:117` — adding an external asset directory triggers a live asset reload (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:147` — browser Export Layout downloads the layout file (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:162` — browser Import Layout applies the chosen file (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:197` — ConnectionIndicator appears when the WebSocket connection drops (Standalone / UI)
 
 ### `@area:areas` (8 tests)
 

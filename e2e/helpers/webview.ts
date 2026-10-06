@@ -18,6 +18,8 @@ export interface WebviewSettings {
   alwaysShowLabels?: boolean;
   ghostHeadlessAgents?: boolean;
   debugView?: boolean;
+  /** Standalone cat office only: external sessions (guests) stay hidden while off. */
+  showGuests?: boolean;
 }
 
 export async function runCommand(window: Page, command: string, attempts = 3): Promise<void> {
@@ -519,6 +521,9 @@ export async function setSettings(frame: WebviewSurface, settings: WebviewSettin
   }
   if (settings.debugView !== undefined) {
     await setCheckbox(settingsModal, 'Debug View', settings.debugView);
+  }
+  if (settings.showGuests !== undefined) {
+    await setCheckbox(settingsModal, 'Show Guests', settings.showGuests);
   }
 
   await closeSettingsModal(settingsModal);
