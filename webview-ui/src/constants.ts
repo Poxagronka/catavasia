@@ -671,18 +671,6 @@ export const ACTIVITY_FX_COLORS = {
 /** The empty slot of a book taken from a shelf (the bookshelf art's darkest line). */
 export const SHELF_BACK_COLOR = '#301c1c';
 
-// ── Tasks whiteboard (office/engine/whiteboardNotes.ts) ──────
-/** Sticky note per task status: paper and its adhesive strip / folded corner. */
-export const WHITEBOARD_NOTE_COLORS = {
-  running: { paper: '#f6d24a', strip: '#dcb42c' },
-  waiting: { paper: '#f39ac0', strip: '#d9729e' },
-  done: { paper: '#93d67e', strip: '#6cb85a' },
-} as const;
-/** Marker ink of the counts on the notes. */
-export const WHITEBOARD_INK = '#2e3040';
-/** Soft shadow a note casts on the board. */
-export const WHITEBOARD_NOTE_SHADOW = '#c9c9c4';
-
 // ── Litter boxes and floor poop (all cats, see engine/litterLife.ts) ──
 /** Relative weight of a litter box visit in an agent cat's idle pick (low: a rare need). */
 export const LITTER_ACTIVITY_WEIGHT = 0.2;
