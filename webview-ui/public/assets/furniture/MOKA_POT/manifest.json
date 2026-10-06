@@ -1,0 +1,82 @@
+{
+  "id": "MOKA_POT",
+  "name": "Moka Pot",
+  "category": "coffee",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0,
+  "type": "group",
+  "groupType": "animation",
+  "members": [
+    {
+      "type": "asset",
+      "id": "MOKA_POT",
+      "file": "MOKA_POT.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 0
+    },
+    {
+      "type": "asset",
+      "id": "MOKA_POT_1",
+      "file": "MOKA_POT_1.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 1
+    },
+    {
+      "type": "asset",
+      "id": "MOKA_POT_2",
+      "file": "MOKA_POT_2.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 2
+    },
+    {
+      "type": "asset",
+      "id": "MOKA_POT_3",
+      "file": "MOKA_POT_3.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 3
+    },
+    {
+      "type": "asset",
+      "id": "MOKA_POT_4",
+      "file": "MOKA_POT_4.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 4
+    },
+    {
+      "type": "asset",
+      "id": "MOKA_POT_5",
+      "file": "MOKA_POT_5.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 5
+    },
+    {
+      "type": "asset",
+      "id": "MOKA_POT_6",
+      "file": "MOKA_POT_6.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 6
+    }
+  ]
+}

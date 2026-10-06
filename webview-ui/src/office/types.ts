@@ -94,6 +94,14 @@ export interface IdleActivityRun {
   /** Run-through activities: 0..1 along the current pass, and passes done. */
   progress?: number;
   passes?: number;
+  /** Animation: which part plays (see engine/activityAnim.ts), its step and seconds in it. */
+  part?: 'intro' | 'loop' | 'outro';
+  step?: number;
+  stepT?: number;
+  /** Seconds since the 'doing' phase began (effects that rise over time). */
+  elapsed?: number;
+  /** Coffee chain: uid of the machine whose cup the cat carries. */
+  cupFrom?: string;
 }
 
 export interface Seat {
@@ -292,6 +300,8 @@ export interface Character {
   customSprites?: CharacterSprites;
 
   // -- Idle activities (see engine/idleActivities.ts) --
+  /** Seconds left of reading a skill at the desk (no reachable bookshelf). */
+  deskReadSec?: number;
   /** Current idle activity, or null between activities and while working. */
   activity: IdleActivityRun | null;
   /** Last finished activity id: the next pick avoids repeating it. */
@@ -329,8 +339,12 @@ export type SocialIcon = 'fish' | 'heart' | 'question' | 'exclaim' | 'meow' | 'm
 
 /** Per-frame render view of one cat in a social scene. */
 export interface CharacterSocialView {
-  /** Sprite override: talking mouth, puffed-up fur, or hidden inside the dust cloud. */
-  pose: 'talk' | 'angry' | 'hidden' | null;
+  /**
+   * Sprite override: talking mouth, puffed-up fur, hidden inside the dust
+   * cloud, or an activity pose (engine/socialRender.ts SOCIAL_FRAMES): a nose
+   * boop, a head rub, the arched-back hiss, a happy tail flick.
+   */
+  pose: 'talk' | 'angry' | 'hidden' | 'boop' | 'rub' | 'hiss' | 'flick' | null;
   /** Animation frame index for the pose. */
   frame: number;
   /** Pictogram bubble; drawn only while no permission / waiting bubble is up. */

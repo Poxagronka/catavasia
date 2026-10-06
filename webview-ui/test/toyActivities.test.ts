@@ -11,6 +11,7 @@ import { beforeAll, test } from 'vitest';
 
 import { OfficeState } from '../src/office/engine/officeState.js';
 import { isHiddenInRunThrough } from '../src/office/engine/runThrough.js';
+import { YARN } from '../src/office/engine/toyAnims.js';
 import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
 import type { OfficeLayout } from '../src/office/types.js';
 import { CharacterState, Direction, TileType } from '../src/office/types.js';
@@ -144,20 +145,23 @@ test('tunnel: runs through, hidden inside, and ends back on a floor tile', () =>
   assert.equal(ch.x, ch.tileCol * 16 + 8);
 });
 
-test('a toy in use moves: the yarn rolls while a cat bats it', () => {
+test('a toy in use moves: the yarn rolls away when batted and comes back', () => {
   const os = playroom();
   const ch = idleCat(os, 1);
   assert.ok(os.forceIdleActivity(1, 'yarn'));
   runUntil(os, () => ch.state === CharacterState.ACTIVITY);
   const still = os.furniture.find((f) => f.uid === 'yarn')!;
-  const xs = new Set(
-    [0.3, 0.9, 1.5, 2.1].map((t) => os.getFurnitureForRender(t).find((f) => f.uid === 'yarn')!.x),
-  );
-  assert.ok(xs.size > 1, 'the yarn shifts between frames');
+  const xs = new Set<number>();
+  runFor(os, 5, () => xs.add(os.getFurnitureForRender().find((f) => f.uid === 'yarn')!.x));
+  assert.ok(xs.size > 1, 'the yarn shifts while the cat bats it');
   assert.ok(
-    [...xs].every((x) => Math.abs(x - still.x) <= 2),
-    'only a little',
+    [...xs].every((x) => Math.abs(x - still.x) <= 7),
+    'only a few px',
   );
+  // Its stripes turn as it rolls: the rolling steps pick the ball's animation frames.
+  const frames = new Set(YARN.loop.filter((s) => s.px).map((s) => s.item ?? 0));
+  assert.ok(frames.size >= 3, `roll frames: ${[...frames].join(',')}`);
+  assert.ok(xs.has(still.x), 'and rolls back to its place');
 });
 
 test('toys join the same pool: with every toy free, idle cats end up playing', () => {

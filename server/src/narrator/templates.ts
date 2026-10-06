@@ -27,6 +27,8 @@ export const PHASES = {
   testing: { state: 'testing', line: 'batting at bugs' },
   reviewing: { state: 'reading', line: 'grooming the code' },
   delivering: { state: 'editing', line: 'bringing you a mouse' },
+  // A skill (Claude's Skill tool): the cat reads a book from the office shelf.
+  skill: { state: 'reading', line: 'reading the cat manual' },
   briefing: { state: 'thinking', line: 'holding a cat meeting' },
   delegating: { state: 'thinking', line: 'herding cats' },
   teammate: { state: 'thinking', line: 'nosing a teammate' },
@@ -60,6 +62,7 @@ const OFFICE_TOOLS: Record<string, Template> = {
 const FIXED_TOOLS: Record<string, Template> = {
   Task: PHASES.delegating,
   Agent: PHASES.delegating,
+  Skill: PHASES.skill,
   TodoWrite: PHASES.planning,
   AskUserQuestion: PHASES.input,
   ExitPlanMode: PHASES.input,

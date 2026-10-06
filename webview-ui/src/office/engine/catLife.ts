@@ -20,6 +20,7 @@ import { isCatPet } from '../sprites/petSpriteData.js';
 import type {
   ActivitySpot,
   Character,
+  IdleActivityRun,
   Pet,
   PlacedFurniture,
   Seat,
@@ -129,12 +130,15 @@ export class CatLife {
     return claim !== 'repick' && this.w.petCare.startClaim(pet, claim, this.w.petCareEnv());
   }
 
-  private resumeAgent(id: number, choice: IdleChoice): void {
+  private resumeAgent(id: number, choice: IdleChoice, cupFrom?: string): void {
     const ch = this.w.characters.get(id);
     if (!ch || ch.isActive || ch.matrixEffect) return;
     ch.activity = null;
     ch.path = ch.path.slice(0, ch.moveProgress > 0 ? 1 : 0);
     if (ch.path.length === 0) this.w.beginActivity(ch, choice);
+    // A coffee chain step keeps the machine its cup came from.
+    const run = ch.activity as IdleActivityRun | null; // set again by beginActivity
+    if (run && cupFrom) run.cupFrom = cupFrom;
   }
 
   // ── Who is who ────────────────────────────────────────────────
@@ -169,7 +173,8 @@ export class CatLife {
       const def = getIdleActivity(run?.id);
       if (!run?.spot || !def) return null;
       const choice: IdleChoice = { def, spot: run.spot };
-      return () => this.resumeAgent(id, choice);
+      const cupFrom = run.cupFrom;
+      return () => this.resumeAgent(id, choice, cupFrom);
     }
     const pet = this.petOf(id);
     const claim = pet ? this.w.petCare.currentClaim(pet.id) : null;

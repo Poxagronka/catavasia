@@ -150,6 +150,11 @@ const base = {
   mug: [236, 92, 72],
   mugShade: [186, 58, 52],
   coffee: [92, 56, 36],
+  mouthIn: [128, 44, 60],
+  tongue: [244, 128, 150],
+  book: [184, 67, 73],
+  bookShade: [138, 46, 54],
+  steam: [236, 236, 244],
   collar: null,
 };
 
@@ -358,6 +363,11 @@ export function colorize(breed, cell, dir) {
     case 'ink':
     case 'pupil':
     case 'tag':
+    case 'mouthIn':
+    case 'tongue':
+    case 'book':
+    case 'bookShade':
+    case 'steam':
       return pick(cell.label);
     default:
       break;

@@ -177,7 +177,7 @@ export class ActivitySocial {
 }
 
 function groupOf(activityId: string): 'coffee' | 'playroom' | null {
-  if (activityId === 'coffee') return 'coffee';
+  if (activityId === 'coffee' || activityId === 'coffeeSip') return 'coffee';
   return PLAYROOM.has(activityId) ? 'playroom' : null;
 }
 

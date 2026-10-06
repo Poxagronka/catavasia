@@ -1,0 +1,82 @@
+{
+  "id": "ELECTRIC_KETTLE",
+  "name": "Electric Kettle",
+  "category": "coffee",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 0,
+  "type": "group",
+  "groupType": "animation",
+  "members": [
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE",
+      "file": "ELECTRIC_KETTLE.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 0
+    },
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE_1",
+      "file": "ELECTRIC_KETTLE_1.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 1
+    },
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE_2",
+      "file": "ELECTRIC_KETTLE_2.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 2
+    },
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE_3",
+      "file": "ELECTRIC_KETTLE_3.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 3
+    },
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE_4",
+      "file": "ELECTRIC_KETTLE_4.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 4
+    },
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE_5",
+      "file": "ELECTRIC_KETTLE_5.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 5
+    },
+    {
+      "type": "asset",
+      "id": "ELECTRIC_KETTLE_6",
+      "file": "ELECTRIC_KETTLE_6.png",
+      "width": 16,
+      "height": 16,
+      "footprintW": 1,
+      "footprintH": 1,
+      "frame": 6
+    }
+  ]
+}

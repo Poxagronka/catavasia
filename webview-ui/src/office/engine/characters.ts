@@ -17,8 +17,16 @@ import {
 import { findPath } from '../layout/tileMap.js';
 import type { CharacterSprites } from '../sprites/spriteData.js';
 import { isReadingToolName } from '../toolUtils.js';
-import type { Character, Seat, SpriteData, TileType as TileTypeVal } from '../types.js';
+import type {
+  Character,
+  IdleActivityRun,
+  Seat,
+  SpriteData,
+  TileType as TileTypeVal,
+} from '../types.js';
 import { CharacterState, Direction, TILE_SIZE } from '../types.js';
+import type { AnimParts, AnimStep } from './activityAnim.js';
+import { advanceAnim, currentStep, pose, startAnim } from './activityAnim.js';
 import type { ActivitySpotSet, IdleChoice } from './idleActivities.js';
 import { chooseIdleActivity, getIdleActivity } from './idleActivities.js';
 import { advanceRunThrough } from './runThrough.js';
@@ -34,6 +42,8 @@ export interface IdleWorld {
    * Omitted: every spot is free (unit tests).
    */
   claim?: (ch: Character, choice: IdleChoice) => 'ok' | 'repick' | 'fight';
+  /** Start the activity chained after one that just ended. True: the cat walks there. */
+  startNext?: (ch: Character, id: string, from?: string) => boolean;
 }
 
 /** Whether a tool should show the reading animation (vs typing). Taxonomy comes
@@ -247,7 +257,8 @@ export function updateCharacter(
     case CharacterState.ACTIVITY: {
       const def = getIdleActivity(ch.activity?.id);
       // Work comes first: leave at once, the IDLE branch walks to the desk.
-      if (ch.isActive || !ch.activity || !def) {
+      // A work activity (reading a skill) plays to its end.
+      if ((ch.isActive && !def?.work) || !ch.activity || !def) {
         snapToTile(ch); // out of a tunnel run, back on a real tile
         ch.activity = null;
         ch.state = CharacterState.IDLE;
@@ -255,15 +266,14 @@ export function updateCharacter(
         ch.frameTimer = 0;
         break;
       }
-      let done = false;
-      if (def.walkAnim) {
-        done = advanceRunThrough(ch, ch.activity, dt);
-      } else if (ch.frameTimer >= def.frameSec) {
-        ch.frameTimer -= def.frameSec;
-        ch.frame = (ch.frame + 1) % Math.max(1, def.frames.length);
-      }
       ch.activity.timer -= dt;
-      if (done || ch.activity.timer <= 0) {
+      const done =
+        def.walkAnim && ch.activity.part === 'loop'
+          ? runThroughDone(ch, ch.activity, def, dt)
+          : advanceAnim(ch.activity, def, dt);
+      if (done) {
+        // The cup a coffee chain carries comes from this machine.
+        const from = ch.activity.cupFrom ?? ch.activity.spot?.itemUid;
         // A run-through cut short by the timer snaps back to a real tile.
         const center = tileCenter(ch.tileCol, ch.tileRow);
         ch.x = center.x;
@@ -272,6 +282,8 @@ export function updateCharacter(
         ch.frame = 0;
         ch.frameTimer = 0;
         ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+        // A chained activity (coffee: brew, then sip, then bring the cup back) starts at once.
+        if (def.next && idle?.startNext?.(ch, def.next, from)) break;
       }
       break;
     }
@@ -289,7 +301,10 @@ export function updateCharacter(
         ch.x = center.x;
         ch.y = center.y;
 
-        if (ch.isActive) {
+        if (ch.activity?.phase === 'going' && isWorkRun(ch)) {
+          arriveAtActivity(ch);
+          break;
+        } else if (ch.isActive) {
           if (!ch.seatId) {
             // No seat — type in place
             ch.state = CharacterState.TYPE;
@@ -340,7 +355,7 @@ export function updateCharacter(
       stepAlongPath(ch, dt);
 
       // If became active while wandering, repath to seat
-      if (ch.isActive && ch.seatId) {
+      if (ch.isActive && ch.seatId && !isWorkRun(ch)) {
         const seat = seats.get(ch.seatId);
         if (seat) {
           const lastStep = ch.path[ch.path.length - 1];
@@ -393,14 +408,48 @@ export function stepAlongPath(ch: Character, dt: number): void {
 /** Px the sprite is drawn below ch.y: seated at a desk, or an activity spot on a sofa. */
 export function characterDrawOffsetY(ch: Character): number {
   if (ch.state === CharacterState.TYPE) return CHARACTER_SITTING_OFFSET_PX;
-  if (ch.state === CharacterState.ACTIVITY) return ch.activity?.spot?.offsetY ?? 0;
+  if (ch.state === CharacterState.ACTIVITY) {
+    return (ch.activity?.spot?.offsetY ?? 0) + (activityStep(ch)?.dy ?? 0);
+  }
   return 0;
 }
 
 /** Px the sprite is drawn right of ch.x: an activity pose reaching toward its toy. */
 export function characterDrawOffsetX(ch: Character): number {
-  return ch.state === CharacterState.ACTIVITY ? (ch.activity?.spot?.offsetX ?? 0) : 0;
+  if (ch.state !== CharacterState.ACTIVITY) return 0;
+  const dx = activityStep(ch)?.dx ?? 0;
+  return (ch.activity?.spot?.offsetX ?? 0) + (ch.dir === Direction.LEFT ? -dx : dx);
 }
+
+/** The animation step a cat at its activity plays now. */
+export function activityStep(ch: Character): AnimStep | undefined {
+  if (ch.state !== CharacterState.ACTIVITY || !ch.activity) return undefined;
+  const def = getIdleActivity(ch.activity.id);
+  if (!def || (def.walkAnim && ch.activity.part === 'loop')) return undefined;
+  return currentStep(ch.activity, def);
+}
+
+/**
+ * One tick of a run-through (tunnel). When the passes (or the time) are
+ * over the cat is back on a tile and the outro plays; true when there is none.
+ */
+function runThroughDone(ch: Character, run: IdleActivityRun, def: AnimParts, dt: number): boolean {
+  if (!advanceRunThrough(ch, run, dt) && run.timer > 0) return false;
+  ch.x = tileCenter(ch.tileCol, ch.tileRow).x;
+  if (!def.outro?.length) return true;
+  run.part = 'outro';
+  run.step = 0;
+  run.stepT = 0;
+  return false;
+}
+
+/** True while the cat does (or walks to) an activity that runs during work. */
+export function isWorkRun(ch: Character): boolean {
+  return !!getIdleActivity(ch.activity?.id)?.work;
+}
+
+/** Walk cycle poses with a mug in the paws (sheet order walk1 walk2 walk3 walk2). */
+const CARRY_WALK = ['carryWalk1', 'carryWalk2', 'carryWalk3', 'carryWalk2'] as const;
 
 /** Px an activity pose's head sits below a standing head (0 outside activities). */
 export function activityHeadDropY(ch: Character): number {
@@ -412,18 +461,29 @@ export function activityHeadDropY(ch: Character): number {
 export function getCharacterSprite(ch: Character, sprites: CharacterSprites): SpriteData {
   switch (ch.state) {
     case CharacterState.TYPE:
-      if (isReadingTool(ch.currentTool)) {
+      if (isReadingTool(ch.currentTool) || (ch.deskReadSec ?? 0) > 0) {
         return sprites.reading[ch.dir][ch.frame % 2];
       }
       return sprites.typing[ch.dir][ch.frame % 2];
-    case CharacterState.WALK:
-      return sprites.walk[ch.dir][ch.frame % 4];
+    case CharacterState.WALK: {
+      // Walking to an activity that starts with a mug in the paws: carry it.
+      const carry =
+        ch.activity?.phase === 'going' && getIdleActivity(ch.activity.id)?.carry
+          ? sprites.idle[ch.dir][pose(CARRY_WALK[ch.frame % 4])]
+          : undefined;
+      return carry ?? sprites.walk[ch.dir][ch.frame % 4];
+    }
     case CharacterState.ACTIVITY: {
       const def = getIdleActivity(ch.activity?.id);
-      if (def?.walkAnim) return sprites.walk[ch.dir][ch.frame % 4];
-      const frames = def?.frames ?? [];
-      const idx = frames[ch.frame % Math.max(1, frames.length)];
-      return (idx !== undefined ? sprites.idle[ch.dir][idx] : undefined) ?? sprites.walk[ch.dir][1];
+      if (def?.walkAnim && ch.activity?.part === 'loop') return sprites.walk[ch.dir][ch.frame % 4];
+      const step = activityStep(ch);
+      if (!step) return sprites.walk[ch.dir][1];
+      const dir = step.dir ?? ch.dir;
+      if (step.walk) {
+        const n = Math.floor((ch.activity?.elapsed ?? 0) / WALK_FRAME_DURATION_SEC) % 4;
+        return sprites.walk[dir][n];
+      }
+      return sprites.idle[dir][step.f] ?? sprites.walk[ch.dir][1];
     }
     case CharacterState.IDLE:
       return sprites.walk[ch.dir][1];
@@ -475,6 +535,26 @@ export function beginIdleActivity(
   tileMap: TileTypeVal[][],
   blockedTiles: Set<string>,
 ): boolean {
+  if (!choice.spot && choice.def.inPlace) {
+    // Right here, facing the viewer or to a random side.
+    const facing =
+      choice.def.inPlace === 'front'
+        ? Direction.DOWN
+        : Math.random() < 0.5
+          ? Direction.LEFT
+          : Direction.RIGHT;
+    const key = `${ch.tileCol},${ch.tileRow}`;
+    const here = { key, col: ch.tileCol, row: ch.tileRow, facing, onFurniture: false };
+    ch.activity = {
+      id: choice.def.id,
+      spot: { ...here, offsetX: 0, offsetY: 0 },
+      phase: 'going',
+      timer: 0,
+    };
+    ch.path = [];
+    arriveAtActivity(ch);
+    return true;
+  }
   if (!choice.spot) {
     ch.activity = { id: choice.def.id, spot: null, phase: 'doing', timer: 0 };
     ch.wanderCount = 0;
@@ -520,6 +600,7 @@ function arriveAtActivity(ch: Character): void {
     return;
   }
   run.phase = 'doing';
+  startAnim(run, def);
   run.timer = randomRange(def.durationSec[0], def.durationSec[1]);
   ch.dir = run.spot.facing;
   ch.state = CharacterState.ACTIVITY;

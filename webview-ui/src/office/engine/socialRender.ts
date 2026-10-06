@@ -17,6 +17,7 @@ import {
   socialPoseOf,
 } from '../sprites/socialSprites.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
+import type { CharacterSprites } from '../sprites/spriteData.js';
 import type {
   Character,
   CharacterSocialView,
@@ -24,14 +25,30 @@ import type {
   SpriteData,
 } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
+import { pose } from './activityAnim.js';
 import { socialBubbleVisible } from './catSocial.js';
 
+/** Social poses drawn from the cat's activity frames (scripts/cats/socialPoses.mjs). */
+const SOCIAL_FRAMES = {
+  boop: ['socBoop'],
+  rub: ['socRub'],
+  hiss: ['socHissA', 'socHissB'],
+  flick: ['socFlickA', 'socFlickB'],
+} as const;
+
 /** The sprite to draw for a cat: its social pose, the base sprite, or null when hidden in the cloud. */
-export function socialSpriteFor(ch: Character, base: SpriteData): SpriteData | null {
+export function socialSpriteFor(
+  ch: Character,
+  base: SpriteData,
+  sprites?: CharacterSprites,
+): SpriteData | null {
   const v = ch.social;
   if (!v || v.pose === null) return base;
   if (v.pose === 'hidden') return null;
-  return socialPoseOf(ch, v.pose, v.frame) ?? base;
+  if (v.pose === 'talk' || v.pose === 'angry') return socialPoseOf(ch, v.pose, v.frame) ?? base;
+  const names = SOCIAL_FRAMES[v.pose];
+  const idx = pose(names[v.frame % names.length]);
+  return sprites?.idle[ch.dir][idx] ?? base;
 }
 
 /** Anything that carries a social view: an agent cat, or a pet (mirrored from its actor). */

@@ -17,14 +17,14 @@ import { PALETTE, TOYS } from './toys/toyArt.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const furnitureDir = path.join(root, 'webview-ui', 'public', 'assets', 'furniture');
 
-for (const toy of TOYS) {
-  const h = toy.rows.length;
-  const w = toy.rows[0].length;
+function writeFrame(file, rows, toy) {
+  const h = rows.length;
+  const w = rows[0].length;
   if (w !== toy.fw * 16 || h !== toy.fh * 16) {
     throw new Error(`${toy.id}: ${w}x${h} does not match footprint ${toy.fw}x${toy.fh}`);
   }
   const png = new PNG({ width: w, height: h });
-  toy.rows.forEach((row, y) => {
+  rows.forEach((row, y) => {
     if (row.length !== w) throw new Error(`${toy.id}: row ${y} is ${row.length} px, not ${w}`);
     [...row].forEach((ch, x) => {
       const rgba = PALETTE[ch];
@@ -32,22 +32,46 @@ for (const toy of TOYS) {
       png.data.set(rgba, (y * w + x) * 4);
     });
   });
+  fs.writeFileSync(file, PNG.sync.write(png));
+}
+
+for (const toy of TOYS) {
   const dir = path.join(furnitureDir, toy.id);
+  fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, `${toy.id}.png`), PNG.sync.write(png));
-  const manifest = {
-    id: toy.id,
-    name: toy.name,
+  const common = {
     category: 'toys',
-    type: 'asset',
     canPlaceOnWalls: false,
     canPlaceOnSurfaces: false,
     backgroundTiles: toy.bg,
-    width: w,
-    height: h,
+  };
+  const size = {
+    width: toy.fw * 16,
+    height: toy.fh * 16,
     footprintW: toy.fw,
     footprintH: toy.fh,
   };
+  let manifest;
+  if (!toy.frames) {
+    writeFrame(path.join(dir, `${toy.id}.png`), toy.rows, toy);
+    const { category, ...placing } = common;
+    manifest = { id: toy.id, name: toy.name, category, type: 'asset', ...placing, ...size };
+  } else {
+    // An animation group: frame 0 is the placed toy, the rest its motion.
+    const members = toy.frames.map((rows, i) => {
+      const id = i === 0 ? toy.id : `${toy.id}_${i}`;
+      writeFrame(path.join(dir, `${id}.png`), rows, toy);
+      return { type: 'asset', id, file: `${id}.png`, ...size, frame: i };
+    });
+    manifest = {
+      id: toy.id,
+      name: toy.name,
+      ...common,
+      type: 'group',
+      groupType: 'animation',
+      members,
+    };
+  }
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 }
 
