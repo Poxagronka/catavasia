@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
  */
 
 const INLINE =
-  /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"]|\*[^*\s][^*]*\*|\b_[^_\s][^_]*_\b)/g;
+  /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"]|\*[^*\s/](?:[^*]*[^*\s])?\*(?![\w/])|\b_[^_\s][^_]*_\b)/g;
 const MD_LINK = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/;
 
 function Link({ href, children }: { href: string; children: ReactNode }) {

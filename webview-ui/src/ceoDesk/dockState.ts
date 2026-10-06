@@ -58,8 +58,8 @@ export function dockFrame(state: DockState, frame: CatSessionFrame): DockState {
   const chat = applyFrame(state.chat, frame);
   let { seen, jobChanges } = state;
   if (frame.type === 'snapshot') {
-    // A New chat (or a reset history) starts the count again.
-    if (seen > chat.entries.length) seen = 0;
+    // A New chat (or a history the server cut) has fewer rows: clamp the count.
+    seen = Math.min(seen, chat.entries.length);
     jobChanges = 0;
   }
   if (state.collapsed && frame.type === 'job') {

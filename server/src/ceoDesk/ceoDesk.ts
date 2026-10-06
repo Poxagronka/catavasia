@@ -286,7 +286,12 @@ export class CeoDesk implements OfficeToolHandler {
     }
     if (entry.kind !== 'tool' && entry.kind !== 'error') return;
     // Desk tools get a readable row when they run (callTool), not the raw input.
-    if (entry.kind === 'tool' && entry.name?.startsWith(DESK_TOOL_PREFIX)) return;
+    if (entry.kind === 'tool' && entry.name?.startsWith(DESK_TOOL_PREFIX)) {
+      // The text before the call explains it: write it before the tool's row.
+      if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
+      turn.held = undefined;
+      return;
+    }
     if (turn.held !== undefined) this.add({ kind: 'text', text: turn.held });
     turn.held = undefined;
     this.add(toConsoleEntry(entry));

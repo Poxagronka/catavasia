@@ -76,6 +76,7 @@ describe('CEO desk turns', () => {
       log: [
         { kind: 'text', text: 'Let me look.' },
         { kind: 'tool', name: 'Read', text: 'README.md' },
+        { kind: 'text', text: 'Asking the team.' },
         // A desk tool's raw input: callTool writes its readable row instead.
         { kind: 'tool', name: 'mcp__desk__list_team', text: '{}' },
         { kind: 'text', text: 'FULL fin… (cut)' },
@@ -90,6 +91,7 @@ describe('CEO desk turns', () => {
       { kind: 'user', text: 'look' },
       { kind: 'text', text: 'Let me look.' },
       { kind: 'tool', name: 'Read', text: 'README.md' },
+      { kind: 'text', text: 'Asking the team.' },
       { kind: 'text', text: 'FULL final answer' },
     ]);
     expect(frames.some((f) => f.type === 'status' && f.status.busy)).toBe(true);

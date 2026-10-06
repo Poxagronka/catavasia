@@ -39,6 +39,12 @@ describe('Markdown', () => {
     expect(out.match(/<em>/g)).toHaveLength(2);
   });
 
+  it('leaves glob paths alone', () => {
+    const out = html('Match src/**/*.ts, then *.ts and *.js files.');
+    expect(out).not.toContain('<em>');
+    expect(out).toContain('src/**/*.ts, then *.ts and *.js files.');
+  });
+
   it('keeps bold, inline code, lists and code blocks', () => {
     const out = html(
       [
