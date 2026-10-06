@@ -486,8 +486,9 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (message.type === 'resetAllToDefault') {
         // No cat office in VS Code: the layout and the pet-care state only.
-        this.layoutWatcher?.markOwnWrite();
-        const result = resetAll(this.defaultLayout);
+        const result = resetAll(this.defaultLayout, undefined, () =>
+          this.layoutWatcher?.markOwnWrite(),
+        );
         if (result.backupDir) {
           this.webview?.postMessage({ type: 'layoutLoaded', layout: this.defaultLayout });
           this.webview?.postMessage({ type: 'petCareLoaded', state: null });

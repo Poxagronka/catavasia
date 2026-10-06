@@ -48,6 +48,7 @@ export function backupState(now = new Date()): string {
 export function resetAll(
   defaultLayout: Record<string, unknown> | null | undefined,
   office?: Orchestrator,
+  beforeLayoutWrite?: () => void,
 ): ResetAllOutcome {
   if (!defaultLayout) return { error: 'No bundled default layout to reset to.' };
   if (office?.busy()) {
@@ -61,9 +62,14 @@ export function resetAll(
   } catch (err) {
     return { error: `Backup failed, nothing was reset: ${String(err)}` };
   }
-  const error = office?.resetToDefaults();
-  if (error) return { error: `${error} (backup: ${backupDir})` };
-  writeLayoutToFile(defaultLayout);
-  clearPetCareState();
+  try {
+    const error = office?.resetToDefaults();
+    if (error) return { error: `${error} (backup: ${backupDir})` };
+    beforeLayoutWrite?.();
+    writeLayoutToFile(defaultLayout);
+    clearPetCareState();
+  } catch (err) {
+    return { error: `Reset failed part-way: ${String(err)} (backup: ${backupDir})` };
+  }
   return { backupDir };
 }

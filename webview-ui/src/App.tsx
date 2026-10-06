@@ -634,7 +634,8 @@ function App() {
         onClose={() => setIsSettingsOpen(false)}
         isDebugMode={isDebugMode}
         onToggleDebugMode={handleToggleDebugMode}
-        onResetLayoutToDefault={editor.handleResetToDefault}
+        onResetLayoutToDefault={() => editor.handleResetToDefault()}
+        onResetAll={() => editor.handleResetToDefault('resetAllToDefault')}
         alwaysShowOverlay={alwaysShowOverlay}
         onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
         ghostHeadlessAgents={ghostHeadlessAgents}

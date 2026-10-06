@@ -46,6 +46,8 @@ interface SettingsModalProps {
   onChangeCatOffice: (next: CatOfficeSettings) => void;
   /** Same action as the editor's Default button (sends resetLayoutToDefault). */
   onResetLayoutToDefault: () => void;
+  /** Settings "Reset everything" (sends resetAllToDefault after cleaning the editor). */
+  onResetAll: () => void;
 }
 
 /** Choices for "Cats working at once" (server range 1..12). */
@@ -73,6 +75,7 @@ export function SettingsModal({
   catOffice,
   onChangeCatOffice,
   onResetLayoutToDefault,
+  onResetAll,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +165,7 @@ export function SettingsModal({
           onTypedChange={setResetAllTyped}
           onReset={() => {
             setResetAllResult(null);
-            transport.send({ type: 'resetAllToDefault' });
+            onResetAll();
           }}
           result={resetAllResult}
         />
