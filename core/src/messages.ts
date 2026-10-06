@@ -41,6 +41,7 @@ export type ServerMessage =
   | ReviewFailed
   | PromptHistory
   | PromptDiff
+  | PromptTidy
   | NarratorLine
   | NarratorSummary
   | NarratorSettings
@@ -99,7 +100,8 @@ export type ClientMessage =
   | RevertPromptEdit
   | RestorePromptVersion
   | RemovePromptItem
-  | SavePromptItem;
+  | SavePromptItem
+  | TidyPrompt;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -375,6 +377,7 @@ export interface CatCeoSettings {
   model: string;
   effort: string;
   maxEditsPerCatPerDay: number;
+  tidyUserItems: boolean;
   systemPrompt: string;
 }
 
@@ -429,6 +432,7 @@ export interface PromptHistory {
   type: 'promptHistory';
   catId: string;
   entries: PromptHistoryEntry[];
+  lastTidy?: PromptTidyInfo;
 }
 
 export interface PromptHistoryEntry {
@@ -440,11 +444,36 @@ export interface PromptHistoryEntry {
   flag?: PromptFlag;
   scoreBefore?: number;
   scoreAfter?: number;
+  tidy?: TidyRow[];
 }
 
 export type PromptAuthor = 'cat-ceo' | 'user' | 'guard';
 
 export type PromptFlag = 'reverted' | 'watch' | 'manual review';
+
+export interface TidyRow {
+  op: TidyOp;
+  applied: boolean;
+  section: PromptSection;
+  before: PromptItem[];
+  after?: PromptItem;
+  reason: string;
+}
+
+export type TidyOp = 'merge' | 'rewrite' | 'remove';
+
+export type PromptSection = 'Rules' | 'Lessons';
+
+export interface PromptTidyInfo {
+  at: number;
+  trigger: TidyTrigger;
+  summary: string;
+  sha?: string;
+  costUsd?: number;
+  rows: TidyRow[];
+}
+
+export type TidyTrigger = 'cap' | 'reviews' | 'manual' | 'sweep';
 
 export interface PromptDiff {
   type: 'promptDiff';
@@ -452,6 +481,18 @@ export interface PromptDiff {
   sha: string;
   diff: string;
 }
+
+export interface PromptTidy {
+  type: 'promptTidy';
+  catId: string;
+  state: TidyState;
+  text: string;
+  sha?: string;
+  changed?: number;
+  costUsd?: number;
+}
+
+export type TidyState = 'queued' | 'done' | 'skipped' | 'failed';
 
 export interface NarratorLine {
   type: 'narratorLine';
@@ -787,6 +828,7 @@ export interface SetCatCeoSettings {
   model?: string;
   effort?: string;
   maxEditsPerCatPerDay?: number;
+  tidyUserItems?: boolean;
   systemPrompt?: string;
 }
 
@@ -827,4 +869,7 @@ export interface SavePromptItem {
   text: string;
 }
 
-export type PromptSection = 'Rules' | 'Lessons';
+export interface TidyPrompt {
+  type: 'tidyPrompt';
+  catId: string;
+}

@@ -5,7 +5,7 @@
  * Rules or Lessons item. Every change is one commit `user(<cat>): ...`.
  */
 
-import type { PromptHistoryEntry } from '../../../core/src/messages.js';
+import type { PromptHistory, PromptHistoryEntry } from '../../../core/src/messages.js';
 import { PROMPT_ITEM_MAX_CHARS } from '../constants.js';
 import type { PromptFile, PromptItem } from '../orchestrator/promptFile.js';
 import { parsePromptFile } from '../orchestrator/promptFile.js';
@@ -21,7 +21,7 @@ const mean = (xs: number[]) =>
   xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : undefined;
 
 /** The commits of a cat's prompt file, newest first, with the mean score of each version. */
-export function promptHistory(
+function historyEntries(
   catId: string,
   prompts: PromptRepo,
   store: ReviewStore,
@@ -33,6 +33,7 @@ export function promptHistory(
   return log.map((c, i) => {
     const taskId = /^Task: (\S+)/m.exec(c.body)?.[1];
     const flag = store.flag(c.sha);
+    const tidy = store.tidies.find((t) => t.sha === c.sha)?.rows;
     const before = meanOf(log[i + 1]?.sha);
     const after = meanOf(c.sha);
     return {
@@ -42,10 +43,39 @@ export function promptHistory(
       subject: c.subject,
       ...(taskId ? { taskId } : {}),
       ...(flag ? { flag } : {}),
+      ...(tidy ? { tidy } : {}),
       ...(before !== undefined ? { scoreBefore: before } : {}),
       ...(after !== undefined ? { scoreAfter: after } : {}),
     };
   });
+}
+
+/** The `promptHistory` message of a cat: its commits, and its newest tidy (with the marked rows). */
+export function promptHistory(
+  catId: string,
+  prompts: PromptRepo,
+  store: ReviewStore,
+): PromptHistory {
+  const t = [...store.tidies]
+    .reverse()
+    .find((x) => x.catId === catId && !x.summary.startsWith('failed:'));
+  return {
+    type: 'promptHistory',
+    catId,
+    entries: historyEntries(catId, prompts, store),
+    ...(t
+      ? {
+          lastTidy: {
+            at: t.at,
+            trigger: t.trigger,
+            summary: t.summary,
+            ...(t.sha ? { sha: t.sha } : {}),
+            ...(t.costUsd !== undefined ? { costUsd: t.costUsd } : {}),
+            rows: t.rows,
+          },
+        }
+      : {}),
+  };
 }
 
 /** The sha belongs to the cat's file history (no arbitrary refs reach git). */

@@ -1,13 +1,14 @@
 /**
  * `~/.pixel-agents/cat-ceo/reviews.json`: the Cat CEO's review records (all
  * scores with the prompt version each cat used), the regression-guard flags
- * of its commits, and the cats it may not edit for a while. Atomic writes.
+ * of its commits, the cats it may not edit for a while, and its tidy runs.
+ * Atomic writes.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 
-import type { PromptFlag } from '../../../core/src/messages.js';
+import type { PromptFlag, TidyRow, TidyTrigger } from '../../../core/src/messages.js';
 import { CAT_CEO_RECORDS_MAX } from '../constants.js';
 import type { JudgeAnomaly, JudgeScore, Verdict } from './judgeSchema.js';
 
@@ -30,6 +31,22 @@ export interface ReviewRecord {
   rejected: Array<{ catId: string; reason: string }>;
 }
 
+/** One tidy run of a cat's Rules and Lessons (cat-ceo-judge.md §14). */
+export interface TidyRecord {
+  tidyId: string;
+  catId: string;
+  at: number;
+  trigger: TidyTrigger;
+  /** The prompt version after the tidy (its commit, or the unchanged head): "nothing changed" is this sha. */
+  head?: string;
+  /** The tidy commit, when it changed the file. */
+  sha?: string;
+  summary: string;
+  costUsd?: number;
+  rows: TidyRow[];
+  rejected: Array<{ op: string; itemIds: string[]; reason: string }>;
+}
+
 interface StoreFile {
   version: 1;
   reviews: ReviewRecord[];
@@ -37,6 +54,9 @@ interface StoreFile {
   flags: Record<string, PromptFlag>;
   /** Cat id -> epoch ms until which the Cat CEO does not edit it. */
   blockedUntil: Record<string, number>;
+  tidies: TidyRecord[];
+  /** Epoch ms of the last weekly tidy sweep (set on the first start). */
+  lastSweep?: number;
 }
 
 export class ReviewStore {
@@ -62,6 +82,29 @@ export class ReviewStore {
         .filter((s) => s.catId === catId)
         .map((s) => ({ ...s, at: r.at, taskId: r.taskId, verdict: r.verdict })),
     );
+  }
+
+  get tidies(): readonly TidyRecord[] {
+    return this.data.tidies;
+  }
+
+  addTidy(record: TidyRecord): void {
+    this.data.tidies = [...this.data.tidies, record].slice(-CAT_CEO_RECORDS_MAX);
+    this.write();
+  }
+
+  /** The newest tidy of a cat. */
+  lastTidy(catId: string): TidyRecord | undefined {
+    return [...this.data.tidies].reverse().find((t) => t.catId === catId);
+  }
+
+  get lastSweep(): number | undefined {
+    return this.data.lastSweep;
+  }
+
+  set lastSweep(at: number) {
+    this.data.lastSweep = at;
+    this.write();
   }
 
   flag(sha: string): PromptFlag | undefined {
@@ -91,12 +134,14 @@ export class ReviewStore {
           reviews: parsed.reviews,
           flags: parsed.flags ?? {},
           blockedUntil: parsed.blockedUntil ?? {},
+          tidies: parsed.tidies ?? [],
+          ...(parsed.lastSweep ? { lastSweep: parsed.lastSweep } : {}),
         };
       }
     } catch {
       /* missing or unreadable: start empty */
     }
-    return { version: 1, reviews: [], flags: {}, blockedUntil: {} };
+    return { version: 1, reviews: [], flags: {}, blockedUntil: {}, tidies: [] };
   }
 
   private write(): void {

@@ -14,6 +14,8 @@ export interface CeoSettings {
   model: string;
   effort: string;
   maxEditsPerCatPerDay: number;
+  /** A tidy may rewrite and merge the user's items (never remove them). */
+  tidyUserItems: boolean;
 }
 
 /** A tuxedo cat with a gold collar: the boss of the boss. */
@@ -24,6 +26,7 @@ export const CEO_DEFAULTS: CeoSettings = {
   model: 'opus',
   effort: 'high',
   maxEditsPerCatPerDay: CAT_CEO_EDITS_PER_DAY_DEFAULT,
+  tidyUserItems: false,
 };
 
 export const CEO_DEFAULT_ROLE =
@@ -87,6 +90,12 @@ export function checkCeoPatch(
     if (typeof patch.enabled !== 'boolean')
       return { ok: false, error: 'enabled must be true or false' };
     next.enabled = patch.enabled;
+  }
+  if (patch.tidyUserItems !== undefined) {
+    if (typeof patch.tidyUserItems !== 'boolean') {
+      return { ok: false, error: 'tidyUserItems must be true or false' };
+    }
+    next.tidyUserItems = patch.tidyUserItems;
   }
   if (patch.maxEditsPerCatPerDay !== undefined) {
     const n = patch.maxEditsPerCatPerDay;

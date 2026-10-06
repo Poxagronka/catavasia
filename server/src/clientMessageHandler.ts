@@ -279,7 +279,8 @@ export function handleClientMessage(
     case 'revertPromptEdit':
     case 'restorePromptVersion':
     case 'removePromptItem':
-    case 'savePromptItem': {
+    case 'savePromptItem':
+    case 'tidyPrompt': {
       const office = ctx.orchestrator;
       if (!office) break;
       const id = typeof msg.catId === 'string' ? msg.catId : undefined;

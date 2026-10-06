@@ -118,6 +118,7 @@ components:
         - $ref: '#/components/schemas/ReviewFailed'
         - $ref: '#/components/schemas/PromptHistory'
         - $ref: '#/components/schemas/PromptDiff'
+        - $ref: '#/components/schemas/PromptTidy'
         # Narrator
         - $ref: '#/components/schemas/NarratorLine'
         - $ref: '#/components/schemas/NarratorSummary'
@@ -186,6 +187,7 @@ components:
         - $ref: '#/components/schemas/RestorePromptVersion'
         - $ref: '#/components/schemas/RemovePromptItem'
         - $ref: '#/components/schemas/SavePromptItem'
+        - $ref: '#/components/schemas/TidyPrompt'
       discriminator: type
 
     # ── Server message variants ────────────────────────────────────
@@ -1069,7 +1071,18 @@ components:
         every change. `systemPrompt` is the Role & conduct of `prompts/cat-ceo.md`.
       type: object
       additionalProperties: false
-      required: [type, enabled, name, appearance, model, effort, maxEditsPerCatPerDay, systemPrompt]
+      required:
+        [
+          type,
+          enabled,
+          name,
+          appearance,
+          model,
+          effort,
+          maxEditsPerCatPerDay,
+          tidyUserItems,
+          systemPrompt,
+        ]
       properties:
         type:
           const: catCeoSettings
@@ -1085,6 +1098,9 @@ components:
           type: string
         maxEditsPerCatPerDay:
           type: integer
+        tidyUserItems:
+          type: boolean
+          description: A tidy may rewrite and merge the items the user wrote (default false). It never removes them.
         systemPrompt:
           type: string
 
@@ -1164,6 +1180,87 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PromptHistoryEntry'
+        lastTidy:
+          $ref: '#/components/schemas/PromptTidyInfo'
+
+    PromptTidy:
+      description: |
+        A tidy of one cat's Rules and Lessons by the Cat CEO changed state.
+        `done` with `sha`: the tidy commit. `skipped`: nothing to do (no
+        change since the last tidy, limit, or too few items).
+      type: object
+      additionalProperties: false
+      required: [type, catId, state, text]
+      properties:
+        type:
+          const: promptTidy
+        catId:
+          type: string
+        state:
+          $ref: '#/components/schemas/TidyState'
+        text:
+          type: string
+        sha:
+          type: string
+        changed:
+          type: integer
+          description: Items merged, rewritten or removed by the tidy commit.
+        costUsd:
+          type: number
+
+    PromptTidyInfo:
+      description: The newest tidy of a cat, with the changes it marked but did not apply.
+      type: object
+      additionalProperties: false
+      required: [at, trigger, summary, rows]
+      properties:
+        at:
+          type: integer
+        trigger:
+          $ref: '#/components/schemas/TidyTrigger'
+        summary:
+          type: string
+        sha:
+          type: string
+        costUsd:
+          type: number
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/TidyRow'
+
+    TidyState:
+      type: string
+      enum: [queued, done, skipped, failed]
+
+    TidyTrigger:
+      type: string
+      enum: [cap, reviews, manual, sweep]
+
+    TidyOp:
+      type: string
+      enum: [merge, rewrite, remove]
+
+    TidyRow:
+      description: One change of a tidy. `applied` false = marked for the user only (an item the user wrote).
+      type: object
+      additionalProperties: false
+      required: [op, applied, section, before, reason]
+      properties:
+        op:
+          $ref: '#/components/schemas/TidyOp'
+        applied:
+          type: boolean
+        section:
+          $ref: '#/components/schemas/PromptSection'
+        before:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptItem'
+        after:
+          $ref: '#/components/schemas/PromptItem'
+        reason:
+          type: string
 
     PromptDiff:
       description: The unified diff of one commit of a cat's prompt file (answer to getPromptDiff).
@@ -1627,11 +1724,14 @@ components:
           type: string
         maxEditsPerCatPerDay:
           type: integer
+        tidyUserItems:
+          type: boolean
+          description: A tidy may rewrite and merge the items the user wrote (default false). It never removes them.
         systemPrompt:
           type: string
 
     GetPromptHistory:
-      description: 'Ask for the commits of a cat''s prompt file (needs the server token). Answer: promptHistory.'
+      description: "Ask for the commits of a cat's prompt file (needs the server token). Answer: promptHistory."
       type: object
       additionalProperties: false
       required: [type, catId]
@@ -1678,6 +1778,17 @@ components:
         catId:
           type: string
         sha:
+          type: string
+
+    TidyPrompt:
+      description: "Tidy now: the Cat CEO reviews one cat's Rules and Lessons (needs the server token). Answer: promptTidy."
+      type: object
+      additionalProperties: false
+      required: [type, catId]
+      properties:
+        type:
+          const: tidyPrompt
+        catId:
           type: string
 
     RemovePromptItem:
@@ -1763,7 +1874,7 @@ components:
           type: string
         assignmentId:
           type: string
-          description: '`root` for the lead''s own work.'
+          description: "`root` for the lead's own work."
         score:
           type: integer
         bubble:
@@ -1826,6 +1937,11 @@ components:
         scoreAfter:
           type: number
           description: Mean score of the cat with this version.
+        tidy:
+          type: array
+          description: The per-item changes of a Cat CEO tidy commit.
+          items:
+            $ref: '#/components/schemas/TidyRow'
 
     CatProfile:
       description: |
