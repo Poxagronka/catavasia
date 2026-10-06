@@ -91,8 +91,6 @@ export interface TaskManagerOptions {
   host: TaskAgentHost;
   /** ~/.pixel-agents (tasks.json and worktrees/ live here). */
   stateDir: string;
-  /** Folder the server was started in: the board form's default folder. */
-  defaultCwd: string;
   /** CLI binary override (tests). Default: the provider's launch command. */
   claudeBin?: string;
   /** Runs tasks that target the team or one cat. */
@@ -192,10 +190,6 @@ export class TaskManager {
     }
   }
 
-  get defaultCwd(): string {
-    return this.opts.defaultCwd;
-  }
-
   list(): TaskSummary[] {
     return Object.values(this.allTasks())
       .sort((a, b) => b.createdAt - a.createdAt)
@@ -217,6 +211,22 @@ export class TaskManager {
       .filter((t) => t.chatId === chatId)
       .sort((a, b) => b.createdAt - a.createdAt)
       .map(toDetail);
+  }
+
+  /**
+   * Board migration: interrupted team tasks that no chat owns (the old Tasks
+   * board started them) join this CEO desk chat, so its dock shows them with
+   * Resume and Cancel. Returns their ids, oldest first.
+   */
+  adoptInterrupted(chatId: string): string[] {
+    const orphans = Object.values(this.allTasks())
+      .filter((t) => !t.chatId && t.flow?.state === 'interrupted')
+      .sort((a, b) => a.createdAt - b.createdAt);
+    for (const task of orphans) {
+      task.chatId = chatId;
+      this.store.save(task);
+    }
+    return orphans.map((t) => t.id);
   }
 
   /**

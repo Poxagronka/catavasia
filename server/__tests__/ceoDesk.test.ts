@@ -5,8 +5,9 @@ import { WebSocket } from 'ws';
 
 import type { CatSessionEntry, CatSessionFrame } from '../../core/src/catSession.js';
 import { OfficeCatSource } from '../src/catTerminal/officeCatSource.js';
-import { RESTARTED_TEXT } from '../src/ceoDesk/ceoDesk.js';
+import { BUDGET_HIT_TEXT, RESTARTED_TEXT } from '../src/ceoDesk/ceoDesk.js';
 import { DESK_RULES } from '../src/ceoDesk/deskPrompt.js';
+import { ADOPTED_TEXT } from '../src/ceoDesk/deskStore.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
 import { waitFor } from './catOfficeHarness.js';
 import {
@@ -87,13 +88,19 @@ describe('CEO desk turns', () => {
     env.desk.send('look');
     await deskIdle(env.desk);
     const rows = env.desk.snapshot().entries;
-    expect(rows).toEqual([
+    expect(rows).toMatchObject([
       { kind: 'user', text: 'look' },
       { kind: 'text', text: 'Let me look.' },
       { kind: 'tool', name: 'Read', text: 'README.md' },
       { kind: 'text', text: 'Asking the team.' },
       { kind: 'text', text: 'FULL final answer' },
     ]);
+    // `at` marks each row (the dock's unread mark): unique and rising, also on the wire.
+    const ats = rows.map((r) => r.at!);
+    expect(ats).toEqual([...ats].sort((a, b) => a - b));
+    expect(new Set(ats).size).toBe(rows.length);
+    const sent = frames.flatMap((f) => (f.type === 'entries' ? f.entries : []));
+    expect(sent.map((r) => r.at)).toEqual(ats);
     expect(frames.some((f) => f.type === 'status' && f.status.busy)).toBe(true);
   });
 
@@ -105,12 +112,28 @@ describe('CEO desk turns', () => {
     expect(desk.send('second')).toBe(1);
     expect(desk.send('third')).toBe(2);
     expect(desk.snapshot().status.queued).toBe(2);
-    expect(desk.stop()).toBe('second\n\nthird');
+    expect(desk.stop()).toEqual({ draft: 'second\n\nthird' });
     await deskIdle(desk);
     const rows = desk.snapshot().entries;
-    expect(rows.at(-1)).toEqual({ kind: 'text', text: 'Stopped.' });
+    expect(rows.at(-1)).toMatchObject({ kind: 'text', text: 'Stopped.' });
     expect(rows.some((e) => e.kind === 'error')).toBe(false);
     expect(env.ceo.turns).toHaveLength(1);
+  });
+
+  it('says so when a turn hits the budget cap, after the text it wrote', async () => {
+    env = await startDeskOffice(() => ({
+      ok: false,
+      budgetHit: true,
+      error: 'The turn reported an error',
+      log: [{ kind: 'text', text: 'Half an answer' }],
+    }));
+    env.desk.send('a big question');
+    await deskIdle(env.desk);
+    expect(env.desk.snapshot().entries.slice(-2)).toMatchObject([
+      { kind: 'text', text: 'Half an answer' },
+      { kind: 'error', text: BUDGET_HIT_TEXT },
+    ]);
+    expect(BUDGET_HIT_TEXT).toBe('This turn hit the $5 budget limit. Ask again to continue.');
   });
 
   it('shows a failed turn as an error row', async () => {
@@ -130,7 +153,7 @@ describe('CEO desk turns', () => {
     env = await startDeskOffice(() => ({ text: 'never' }));
     env.ceo.unavailable = 'Claude Code CLI not found';
     env.desk.send('hi');
-    expect(env.desk.snapshot().entries.at(-1)).toEqual({
+    expect(env.desk.snapshot().entries.at(-1)).toMatchObject({
       kind: 'error',
       text: 'The CEO cannot answer: Claude Code CLI not found.',
     });
@@ -196,7 +219,7 @@ describe('CEO desk jobs', () => {
     ]);
     const rows = desk.snapshot().entries;
     const started = rows.findIndex((e) => e.kind === 'tool');
-    expect(rows[started]).toEqual({
+    expect(rows[started]).toMatchObject({
       kind: 'tool',
       name: 'mcp__desk__start_job',
       text: `Started job ${job.id} → Team (Oliver)`,
@@ -263,7 +286,7 @@ describe('CEO desk jobs', () => {
     await waitFor(() => (env!.ceo.turns.length === 1 ? true : undefined));
     await deskIdle(env.desk);
     const rows = env.desk.snapshot().entries;
-    expect(rows).toContainEqual({ kind: 'error', text: RESTARTED_TEXT });
+    expect(rows).toContainEqual(expect.objectContaining({ kind: 'error', text: RESTARTED_TEXT }));
     expect(texts(rows).at(-1)).toBe('seen true');
     // The cut first turn may have made the session: the next one starts a fresh id.
     expect(env.ceo.turns[0].resume).toBe(false);
@@ -318,6 +341,42 @@ describe('CEO desk jobs across a restart', () => {
       env!.ceo.turns.some((t) => t.message.includes(`[Job ${jobId} cancelled]`)) ? true : undefined,
     );
     expect(env.ceo.turns.filter((t) => t.message.includes(`[Job ${jobId} `))).toHaveLength(1);
+  });
+});
+
+describe('board migration', () => {
+  it('an interrupted task of the old board gets a job card with Resume and Cancel, once', async () => {
+    process.env.FAKE_HANG_CAT = 'murka';
+    env = await startDeskOffice(() => ({ text: 'ok' }));
+    const { tmp, stateDir } = env;
+    // The old board: a team task with no chat.
+    const board = await env.tasks.create(
+      'old board work',
+      makeRepo(path.join(tmp, 'repo')),
+      'team',
+    );
+    await waitFor(() => (env!.office.hasPendingTurn('murka') ? true : undefined), 30_000);
+    await env.close();
+    delete process.env.FAKE_HANG_CAT;
+    // A desk saved before this version has no boardAdopted flag.
+    const deskFile = path.join(stateDir, 'cat-ceo', 'desk.json');
+    const { boardAdopted: _flag, ...saved } = JSON.parse(fs.readFileSync(deskFile, 'utf-8'));
+    fs.writeFileSync(deskFile, JSON.stringify(saved));
+
+    env = await startDeskOffice(() => ({ text: 'ok' }), { tmp });
+    expect(env.tasks.get(board.id)?.flow?.state).toBe('interrupted');
+    const rows = env.desk.snapshot().entries;
+    expect(rows.slice(-2)).toMatchObject([
+      { kind: 'text', text: ADOPTED_TEXT },
+      { kind: 'job', job: { jobId: board.id, state: 'interrupted' } },
+    ]);
+    expect(env.tasks.chatJobs(saved.chatId).map((t) => t.id)).toEqual([board.id]);
+    // A New chat keeps the flag: the next start adds nothing either way.
+    env.desk.newChat();
+    expect(JSON.parse(fs.readFileSync(deskFile, 'utf-8')).boardAdopted).toBe(true);
+    await env.close();
+    env = await startDeskOffice(() => ({ text: 'ok' }), { tmp });
+    expect(env.desk.snapshot().entries.filter((r) => r.kind === 'job')).toHaveLength(0);
   });
 });
 

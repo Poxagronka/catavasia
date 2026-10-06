@@ -15,6 +15,7 @@ import * as path from 'path';
 
 import type { CatProfile, ReviewFinished, ServerMessage } from '../../../core/src/messages.js';
 import type { TaskReview } from '../../../core/src/tasks.js';
+import { editPrompt, isChatCommit, type PromptEdit } from '../ceoDesk/promptEditTool.js';
 import {
   CAT_CEO_BUDGET_USD,
   CAT_CEO_DIR,
@@ -30,7 +31,6 @@ import { reduce } from '../orchestrator/machine/taskReducer.js';
 import type { TaskEvent, TaskState } from '../orchestrator/machine/types.js';
 import type { TurnScheduler } from '../orchestrator/turnScheduler.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
-import { CeoChat, isChatCommit } from './ceoChat.js';
 import {
   CEO_DEFAULT_ROLE,
   ceoProfile,
@@ -78,8 +78,6 @@ export class CatCeo {
   readonly running = new Set<Promise<void>>();
   /** Prompt hygiene: tidies of the cats' Rules and Lessons (§14). */
   readonly tidy: CatTidy;
-  /** Chat with the user (§15). */
-  readonly chat: CeoChat;
 
   constructor(private readonly opts: CatCeoOptions) {
     this.store = new ReviewStore(path.join(opts.stateDir, CAT_CEO_DIR, 'reviews.json'));
@@ -109,23 +107,6 @@ export class CatCeo {
       now: () => this.now,
     });
     this.tidy.start();
-    this.chat = new CeoChat(
-      {
-        prompts,
-        store: this.store,
-        settings: () => this.settings,
-        roster: () => opts.cats.list(),
-        enqueue: (job) =>
-          this.enqueue(job, (err) => console.error(`[catavasia] Cat CEO: ${errorText(err)}`)),
-        judge: (rules, digest, schema) => this.judge(rules, digest, schema),
-        push: (entries) => opts.consoles.push(CAT_CEO_ID, ...entries),
-        statusChanged: () => opts.consoles.statusChanged(),
-        working: (on) => opts.residents().setWorking(CAT_CEO_ID, on),
-        promptsChanged: opts.promptsChanged,
-        now: () => this.now,
-      },
-      path.join(opts.stateDir, CAT_CEO_DIR, 'chat.json'),
-    );
   }
 
   dispose(): void {
@@ -175,6 +156,21 @@ export class CatCeo {
     }
     this.opts.cats.setCatCeo(checked.value);
     return undefined;
+  }
+
+  /** A prompt edit the user asked for in the CEO desk chat (edit_prompts, §15). */
+  editPrompt(edit: PromptEdit, chatId: string, request: string): ReturnType<typeof editPrompt> {
+    return editPrompt(
+      {
+        prompts: this.opts.cats.prompts,
+        roster: this.opts.cats.list(),
+        now: this.now,
+        promptsChanged: this.opts.promptsChanged,
+      },
+      edit,
+      chatId,
+      request,
+    );
   }
 
   /** Review commits still allowed for a cat now (D7, and the guard's 24 h block). */

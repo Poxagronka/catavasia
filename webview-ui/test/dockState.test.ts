@@ -8,7 +8,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { CatSessionFrame, CatSessionStatus } from '../../core/src/catSession.js';
+import type {
+  CatSessionEntry,
+  CatSessionFrame,
+  CatSessionStatus,
+} from '../../core/src/catSession.js';
 import type { JobCard } from '../../core/src/ceoDesk.js';
 import { toRows } from '../src/catTerminal/consoleState.js';
 import {
@@ -96,10 +100,15 @@ describe('collapse and unread', () => {
     expect(initialDock(null).collapsed).toBe(false);
     expect(parseSavedDock(null)).toBeNull();
     expect(parseSavedDock('{oops')).toBeNull();
-    expect(parseSavedDock('{"collapsed":"yes","seen":1}')).toBeNull();
-    expect(initialDock(parseSavedDock('{"collapsed":true,"seen":3}'))).toMatchObject({
+    expect(parseSavedDock('{"collapsed":"yes","seenAt":1}')).toBeNull();
+    expect(initialDock(parseSavedDock('{"collapsed":true,"seenAt":30}'))).toMatchObject({
       collapsed: true,
-      seen: 3,
+      seenAt: 30,
+    });
+    // An older dock saved a row count: it means "seen up to now".
+    expect(parseSavedDock('{"collapsed":true,"seen":3}', 500)).toEqual({
+      collapsed: true,
+      seenAt: 500,
     });
   });
 
@@ -107,43 +116,82 @@ describe('collapse and unread', () => {
     let s = run(initialDock(null), snapshot(), {
       type: 'entries',
       entries: [
-        { kind: 'user', text: 'hi' },
-        { kind: 'text', text: 'hello' },
+        { kind: 'user', text: 'hi', at: 1 },
+        { kind: 'text', text: 'hello', at: 2 },
       ],
     });
     expect(unreadCount(s)).toBe(0);
-    s = run(setCollapsed(s, true), jobFrame('a1b2', 'working'));
+    s = run(setCollapsed(s, true), {
+      type: 'entries',
+      entries: [{ kind: 'job', text: '[Job a1b2]', job: job('a1b2', 'working'), at: 3 }],
+    });
     expect(unreadCount(s)).toBe(1); // a new card
     s = run(
       s,
-      { type: 'entries', entries: [{ kind: 'tool', name: 'Read', text: 'x' }] },
-      { type: 'entries', entries: [{ kind: 'text', text: 'Started.' }] },
+      { type: 'entries', entries: [{ kind: 'tool', name: 'Read', text: 'x', at: 4 }] },
+      { type: 'entries', entries: [{ kind: 'text', text: 'Started.', at: 5 }] },
       jobFrame('a1b2', 'working'), // same state: no change
       jobFrame('a1b2', 'done'),
     );
     expect(unreadCount(s)).toBe(3);
+    // The card keeps its `at` when a job frame replaces it.
+    expect(s.chat.entries.find((e) => e.kind === 'job')?.at).toBe(3);
     s = setCollapsed(s, false);
     expect(unreadCount(s)).toBe(0);
-    expect(s.seen).toBe(s.chat.entries.length);
+    expect(s.seenAt).toBe(5);
     // Rows that arrive while open are seen.
-    s = run(s, { type: 'entries', entries: [{ kind: 'text', text: 'more' }] });
+    s = run(s, { type: 'entries', entries: [{ kind: 'text', text: 'more', at: 6 }] });
     expect(unreadCount(setCollapsed(s, true))).toBe(0);
   });
 
-  it('a reload while collapsed counts the rows after the saved seen count', () => {
-    const s = run(initialDock({ collapsed: true, seen: 1 }), {
+  it('a reload while collapsed counts the rows after the saved seen row', () => {
+    const s = run(initialDock({ collapsed: true, seenAt: 11 }), {
       type: 'snapshot',
       title: 'Cat CEO',
       entries: [
-        { kind: 'user', text: 'hi' },
-        { kind: 'text', text: 'one' },
-        { kind: 'text', text: 'two' },
+        { kind: 'user', text: 'hi', at: 10 },
+        { kind: 'text', text: 'one', at: 11 },
+        { kind: 'text', text: 'two', at: 12 },
+        { kind: 'text', text: 'three', at: 13 },
       ],
       status: idle,
     });
     expect(unreadCount(s)).toBe(2);
-    // New chat: a shorter history resets the count.
-    expect(run(s, snapshot()).seen).toBe(0);
+    // New chat: every row of the new history is newer than the mark.
+    const fresh = run(s, {
+      type: 'snapshot',
+      title: 'Cat CEO',
+      entries: [{ kind: 'text', text: 'new chat answer', at: 20 }],
+      status: idle,
+    });
+    expect(unreadCount(fresh)).toBe(1);
+  });
+
+  it('the 500-row cap does not hide new rows (the mark is the row, not its index)', () => {
+    const rows = (from: number, to: number): CatSessionEntry[] =>
+      Array.from({ length: to - from }, (_, i) => ({
+        kind: 'text' as const,
+        text: `row ${from + i}`,
+        at: from + i,
+      }));
+    // Seen up to row 599; the server keeps rows 100..599 (500).
+    let s = run(initialDock({ collapsed: true, seenAt: 599 }), {
+      type: 'snapshot',
+      title: 'Cat CEO',
+      entries: rows(100, 600),
+      status: idle,
+    });
+    expect(unreadCount(s)).toBe(0);
+    // A reload later: two new rows came and the cap dropped the two oldest. A row
+    // count (500) would see nothing new here.
+    s = run(initialDock({ collapsed: true, seenAt: 599 }), {
+      type: 'snapshot',
+      title: 'Cat CEO',
+      entries: rows(102, 602),
+      status: idle,
+    });
+    expect(s.chat.entries).toHaveLength(500);
+    expect(unreadCount(s)).toBe(2);
   });
 });
 

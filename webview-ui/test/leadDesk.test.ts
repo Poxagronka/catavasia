@@ -1,8 +1,8 @@
 /**
- * The team lead desk and the Tasks whiteboard of default revision 9: the lead
- * chair reserved for the root of the cat tree (the desk follows a new root),
- * the old behavior in an office with no lead chair, the whiteboard hit test
- * and its plain board art, and the Hierarchy hint.
+ * The team lead desk and the whiteboard of default revision 9: the lead chair
+ * reserved for the root of the cat tree (the desk follows a new root), the old
+ * behavior in an office with no lead chair, the whiteboard as plain decor, and
+ * the Hierarchy hint.
  *
  * Run with: npm test
  */
@@ -21,11 +21,6 @@ import { leadHint } from '../src/cats/hierarchy.js';
 import type { ResidentCat } from '../src/office/engine/officeState.js';
 import { OfficeState } from '../src/office/engine/officeState.js';
 import { mulberry32 } from '../src/office/engine/socialMoves.js';
-import {
-  countTasks,
-  whiteboardAt,
-  whiteboardTooltip,
-} from '../src/office/engine/whiteboardNotes.js';
 import { buildDynamicCatalog, getCatalogEntry } from '../src/office/layout/furnitureCatalog.js';
 import { findPath } from '../src/office/layout/tileMap.js';
 import type { OfficeLayout } from '../src/office/types.js';
@@ -207,16 +202,10 @@ test('the server lead flag reaches the office through the cat feed', () => {
   );
 });
 
-test('the whiteboard hangs where the clock was and takes the click', () => {
-  const l = layout();
-  const board = l.furniture.find((f) => f.uid === BOARD)!;
+test('the whiteboard hangs where the clock was', () => {
+  const board = layout().furniture.find((f) => f.uid === BOARD)!;
   const clock8 = layout(8).furniture.find((f) => f.type === 'CLOCK')!;
   assert.deepEqual([board.col, board.row], [clock8.col, clock8.row]);
-  assert.equal(whiteboardAt(board.col * 16 + 20, board.row * 16 + 18, l.furniture)?.uid, BOARD);
-  // A click on the clock, the bookshelf or the floor is not a board click.
-  const clock = l.furniture.find((f) => f.type === 'CLOCK')!;
-  assert.equal(whiteboardAt(clock.col * 16 + 8, clock.row * 16 + 18, l.furniture), undefined);
-  assert.equal(whiteboardAt(5 * 16, 15 * 16, l.furniture), undefined);
 });
 
 test('revision 10: the whiteboard hangs over the lead desk, framed alike on both sides', () => {
@@ -227,7 +216,6 @@ test('revision 10: the whiteboard hangs over the lead desk, framed alike on both
   const boardW = getCatalogEntry(board.type)!.footprintW;
   assert.equal(boardW, getCatalogEntry(desk.type)!.footprintW);
   assert.deepEqual([board.col, board.row], [desk.col, 9]);
-  assert.equal(whiteboardAt(board.col * 16 + 24, board.row * 16 + 18, l.furniture)?.uid, BOARD);
   // The other items on the work-room top wall mirror each other around the board.
   const centre2 = 2 * board.col + boardW;
   const wall = l.furniture
@@ -248,28 +236,10 @@ test('revision 10: the whiteboard hangs over the lead desk, framed alike on both
   );
 });
 
-test('the board counts running, waiting and done tasks', () => {
-  const counts = countTasks([
-    { status: 'running' },
-    { status: 'running', flow: { root: 'boss', state: 'working', nodes: [], turns: 1 } },
-    { status: 'error', flow: { root: 'boss', state: 'interrupted', nodes: [], turns: 3 } },
-    { status: 'done' },
-    { status: 'done' },
-    { status: 'done' },
-    { status: 'error' },
-  ]);
-  assert.deepEqual(counts, { running: 2, waiting: 1, done: 3 });
-  assert.deepEqual(whiteboardTooltip(counts), ['Tasks', '2 running · 1 waiting · 3 done']);
-  assert.deepEqual(whiteboardTooltip(null), ['Tasks']);
-});
-
-test('the board stays a plain drawing whatever the counts', () => {
+test('the board is a plain drawing', () => {
   const os = new OfficeState(layout());
-  const base = () => os.furniture.find((f) => f.uid === BOARD)!.sprite;
-  const drawn = () => os.getFurnitureForRender().find((f) => f.uid === BOARD)!.sprite;
-  assert.equal(drawn(), base(), 'no counts yet: the plain board');
-  os.taskCounts = { running: 1, waiting: 2, done: 3 };
-  assert.equal(drawn(), base(), 'the counts arrive: still the plain board');
+  const base = os.furniture.find((f) => f.uid === BOARD)!.sprite;
+  assert.equal(os.getFurnitureForRender().find((f) => f.uid === BOARD)!.sprite, base);
 });
 
 test('the Hierarchy hint: a lead role off the top, or a root that is no lead', () => {

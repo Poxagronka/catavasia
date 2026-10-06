@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { CEO_IMAGE_MAX_BYTES } from '../../core/src/ceoDesk.js';
 import { attachmentFile, saveAttachments } from '../src/ceoDesk/attachments.js';
-import { deskIdle, type DeskOffice, startDeskOffice } from './ceoDeskHarness.js';
+import { waitFor } from './catOfficeHarness.js';
+import { deskIdle, type DeskOffice, HANG, startDeskOffice } from './ceoDeskHarness.js';
 
 const PNG = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(24, 1)]);
 const JPEG = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), Buffer.alloc(24, 2)]);
@@ -135,6 +136,27 @@ describe('desk messages with attachments', () => {
       url: '/api/ceo/attachments/c-ab12/..%2F..%2Fdesk.json?token=tok',
     });
     expect(sneaky.statusCode).toBe(404);
+  });
+
+  it('Stop gives queued messages back with their files, which stay stored', async () => {
+    env = await startDeskOffice(() => HANG);
+    const { app } = env.server;
+    const auth = { authorization: 'Bearer tok' };
+    env.desk.send('first');
+    await waitFor(() => (env!.desk.snapshot().status.busy ? true : undefined));
+    const queued = await app.inject({
+      method: 'POST',
+      url: '/api/ceo/messages',
+      headers: auth,
+      payload: { text: 'look at this', attachments: [upload('red.png', PNG, 'image/png')] },
+    });
+    expect(queued.statusCode).toBe(202);
+    const stopped = await app.inject({ method: 'POST', url: '/api/ceo/stop', headers: auth });
+    const body = stopped.json() as { draft: string; attachments: Array<{ url: string }> };
+    // The draft is the user's own text, without the [Attached image: ...] line.
+    expect(body).toMatchObject({ draft: 'look at this', attachments: [{ name: 'red.png' }] });
+    const got = await app.inject({ method: 'GET', url: `${body.attachments[0].url}?token=tok` });
+    expect(got.rawPayload.equals(PNG)).toBe(true);
   });
 
   it('refuses an empty message and a big image with the reason', async () => {

@@ -121,6 +121,19 @@ describe('gitWorktree', () => {
 });
 
 describe('parseStreamLine', () => {
+  it('marks a result that stopped at --max-budget-usd (shape of claude 2.1.x)', () => {
+    const parsed = parseStreamLine(
+      JSON.stringify({
+        type: 'result',
+        subtype: 'error_max_budget_usd',
+        is_error: true,
+        errors: ['Reached maximum budget ($0.0001)'],
+        total_cost_usd: 0.049,
+      }),
+    );
+    expect(parsed.result).toMatchObject({ isError: true, budgetHit: true });
+  });
+
   it('flags an is_error result even when subtype is success', () => {
     const parsed = parseStreamLine(
       JSON.stringify({
@@ -160,9 +173,9 @@ describe('TaskManager', () => {
   it('runs a task in a worktree and records result, diff and branch', async () => {
     const repo = makeRepo();
     const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir, defaultCwd: repo, claudeBin: fakeBin });
+    const manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
 
-    const created = await manager.create('create meow.txt\nwith the word meow', manager.defaultCwd);
+    const created = await manager.create('create meow.txt\nwith the word meow', repo);
     expect(created).toMatchObject({ status: 'running', title: 'create meow.txt', palette: 4 });
     const task = await waitSettled(manager, created.id);
 
@@ -194,12 +207,11 @@ describe('TaskManager', () => {
     const manager = new TaskManager({
       host,
       stateDir,
-      defaultCwd: folder,
       claudeBin: fakeBin,
       narrate: (input) => narrated.push(input),
     });
 
-    const task = await waitSettled(manager, (await manager.create('hello', manager.defaultCwd)).id);
+    const task = await waitSettled(manager, (await manager.create('hello', folder)).id);
 
     expect(task.status).toBe('done');
     expect(task.branch).toBeUndefined();
@@ -215,12 +227,9 @@ describe('TaskManager', () => {
 
   it('marks a failing run as error with the stderr tail', async () => {
     const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir, defaultCwd: tmp, claudeBin: fakeBin });
+    const manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
 
-    const task = await waitSettled(
-      manager,
-      (await manager.create('please FAIL', manager.defaultCwd)).id,
-    );
+    const task = await waitSettled(manager, (await manager.create('please FAIL', tmp)).id);
 
     expect(task.status).toBe('error');
     expect(task.error).toContain('Exit code 3');
@@ -232,10 +241,9 @@ describe('TaskManager', () => {
     const manager = new TaskManager({
       host: new FakeHost(),
       stateDir,
-      defaultCwd: tmp,
       claudeBin: path.join(tmp, 'no-such-claude'),
     });
-    const task = await waitSettled(manager, (await manager.create('hi', manager.defaultCwd)).id);
+    const task = await waitSettled(manager, (await manager.create('hi', tmp)).id);
     expect(task.status).toBe('error');
     expect(task.error).toContain('ENOENT');
   });
@@ -246,7 +254,7 @@ describe('TaskManager', () => {
     const tasks = { dead0001: { ...orphan, createdAt: 1, ownerPid: 2 ** 22 + 7, log: [] } };
     fs.writeFileSync(path.join(stateDir, 'tasks.json'), JSON.stringify({ version: 1, tasks }));
 
-    const manager = new TaskManager({ host: new FakeHost(), stateDir, defaultCwd: tmp });
+    const manager = new TaskManager({ host: new FakeHost(), stateDir });
 
     expect(manager.get('dead0001')).toMatchObject({ status: 'error' });
     expect(manager.get('dead0001')?.error).toContain('Interrupted');
@@ -281,7 +289,7 @@ describe('TaskManager', () => {
     const tasks = Object.fromEntries(list.map((t) => [t.id, t]));
     fs.writeFileSync(path.join(stateDir, 'tasks.json'), JSON.stringify({ version: 1, tasks }));
     const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir, defaultCwd: tmp });
+    const manager = new TaskManager({ host, stateDir });
 
     manager.restoreFinishedCats();
 
@@ -309,7 +317,6 @@ describe('/api/tasks', () => {
     const manager = new TaskManager({
       host: new FakeHost(),
       stateDir,
-      defaultCwd: tmp,
       claudeBin: fakeBin,
     });
     const { app, port } = await createHttpServer({
@@ -331,18 +338,19 @@ describe('/api/tasks', () => {
   it('requires the session token to create a task but not to read the board', async () => {
     const { app, base, manager } = await startServer();
     try {
-      expect((await post(base, { prompt: 'hi' })).status).toBe(401);
-      expect((await post(`${base}?token=wrong`, { prompt: 'hi' })).status).toBe(401);
+      expect((await post(base, { prompt: 'hi', cwd: tmp })).status).toBe(401);
+      expect((await post(`${base}?token=wrong`, { prompt: 'hi', cwd: tmp })).status).toBe(401);
       expect(manager.list()).toHaveLength(0);
 
-      const res = await post(`${base}?token=${token}`, { prompt: 'hi' });
+      const res = await post(`${base}?token=${token}`, { prompt: 'hi', cwd: tmp });
       expect(res.status).toBe(201);
       const created = (await res.json()) as { id: string };
       await waitSettled(manager, created.id);
 
-      const list = (await (await fetch(base)).json()) as { tasks: unknown[]; defaultCwd: string };
+      const list = (await (await fetch(base)).json()) as { tasks: unknown[]; defaultCwd?: string };
       expect(list.tasks).toHaveLength(1);
-      expect(list.defaultCwd).toBe(tmp);
+      // No default folder: the server's own folder is never offered.
+      expect(list.defaultCwd).toBeUndefined();
       const detail = (await (await fetch(`${base}/${created.id}`)).json()) as { log: unknown[] };
       expect(detail.log.length).toBeGreaterThan(0);
       expect((await fetch(`${base}/nope`)).status).toBe(404);
@@ -351,10 +359,13 @@ describe('/api/tasks', () => {
     }
   });
 
-  it('rejects an empty prompt and a folder that does not exist', async () => {
-    const { app, base } = await startServer();
+  it('rejects an empty prompt, a missing folder and a folder that does not exist', async () => {
+    const { app, base, manager } = await startServer();
     try {
-      expect((await post(`${base}?token=${token}`, { prompt: '   ' })).status).toBe(400);
+      expect((await post(`${base}?token=${token}`, { prompt: '   ', cwd: tmp })).status).toBe(400);
+      // The folder is required: no fallback to the server's folder.
+      expect((await post(`${base}?token=${token}`, { prompt: 'hi' })).status).toBe(400);
+      expect(manager.list()).toHaveLength(0);
       const missing = { prompt: 'hi', cwd: path.join(tmp, 'missing') };
       expect((await post(`${base}?token=${token}`, missing)).status).toBe(400);
     } finally {

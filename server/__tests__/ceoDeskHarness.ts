@@ -42,6 +42,8 @@ export interface CeoReply {
   text?: string;
   ok?: boolean;
   error?: string;
+  /** The turn stopped at its budget cap. */
+  budgetHit?: boolean;
   /** Activity-log lines streamed before the turn ends. */
   log?: TaskLogEntry[];
 }
@@ -109,6 +111,7 @@ export class FakeCeoAdapter implements EngineAdapter {
         sessionStarted: true,
         sessionCostUsd: 0.01 * this.turns.length,
         ...(ok ? {} : { error: reply.error ?? 'failed' }),
+        ...(reply.budgetHit ? { budgetHit: true } : {}),
       };
     })();
     return { done, kill };
@@ -184,7 +187,7 @@ export async function startDeskOffice(
     emit: () => {},
     turnConcurrency: 6,
   });
-  const tasks = new TaskManager({ host, stateDir, defaultCwd: tmp, flows: office });
+  const tasks = new TaskManager({ host, stateDir, flows: office });
   const ceo = new FakeCeoAdapter(script);
   const desk = new CeoDesk({ stateDir, office, tasks, adapter: ceo });
   const server = await createHttpServer({

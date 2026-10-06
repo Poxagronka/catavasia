@@ -57,6 +57,8 @@ interface IntroBubbleProps {
    *  ladder. Escape aborts the tour only when the tour is topmost; without
    *  this gate it silently aborted UNDER an open modal. */
   escapeSuppressed: boolean;
+  /** The `ceo` step expands the CEO dock it talks about (standalone only). */
+  onShowCeo?: () => void;
 }
 
 const WELCOME_STEP = 0;
@@ -67,8 +69,8 @@ const WELCOME_STEP = 0;
  * same component off the same server message). The steps and what each one
  * shows live in introSteps.ts; their copy in IntroStepBody.tsx.
  *
- * Steps: welcome → engines → hooks consent → CEO → lead + Cats → tasks →
- * office → all set. The consent step is the same first-run ask as before; its
+ * Steps: welcome → engines → hooks consent → CEO (opens the dock) → lead +
+ * Cats → office → all set. The consent step is the same first-run ask as before; its
  * copy still arrives from the server and its buttons still send
  * `hooksConsentResponse` the moment they are clicked. A choice moves on to the
  * step after the ask; Back to the consent step re-opens it for a genuine
@@ -111,6 +113,7 @@ export function IntroBubble({
   onChoice,
   onClose,
   escapeSuppressed,
+  onShowCeo,
 }: IntroBubbleProps) {
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [, setTick] = useState(0);
@@ -126,7 +129,8 @@ export function IntroBubble({
   // item leaves the greeter where it stands (greeterVisit returns false).
   useEffect(() => {
     officeState.greeterVisit(INTRO_STEPS[step].visit);
-  }, [officeState, step]);
+    if (INTRO_STEPS[step].id === 'ceo') onShowCeo?.();
+  }, [officeState, step, onShowCeo]);
 
   useEffect(() => {
     if (escapeSuppressed) return;

@@ -21,10 +21,9 @@ import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
 import { narratorHover } from '../../narratorStore.js';
 import { activityHeadDropY, characterDrawOffsetX } from '../engine/characters.js';
 import type { OfficeState } from '../engine/officeState.js';
-import { whiteboardTooltip } from '../engine/whiteboardNotes.js';
 import { overlayProjection } from '../projection.js';
 import type { ToolActivity } from '../types.js';
-import { CharacterState, TILE_SIZE } from '../types.js';
+import { CharacterState } from '../types.js';
 
 // Both turn-end states show the green checkmark bubble. A finished turn (Stop)
 // shows ONLY the checkmark (the label falls through to its normal idle text);
@@ -143,12 +142,6 @@ export function ToolOverlay({
 
   // All character IDs
   const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
-
-  // The hovered whiteboard: "Tasks" above its top edge, then the live counts.
-  const board = officeState
-    .getLayout()
-    .furniture.find((f) => f.uid === officeState.hoveredWhiteboardUid);
-  const boardLines = board ? whiteboardTooltip(officeState.taskCounts) : [];
 
   return (
     <>
@@ -346,23 +339,6 @@ export function ToolOverlay({
           </div>
         );
       })}
-      {board && (
-        <div
-          className="absolute -translate-x-1/2 -translate-y-full pixel-panel px-8 pt-2 pb-4 whitespace-nowrap flex flex-col items-center"
-          style={{
-            left: project.toScreenX((board.col + 1) * TILE_SIZE),
-            top: project.toScreenY(board.row * TILE_SIZE + 4),
-            pointerEvents: 'none',
-            zIndex: 43,
-          }}
-          data-testid="whiteboard-tooltip"
-        >
-          <span className="leading-none" style={{ fontSize: '22px' }}>
-            {boardLines[0]}
-          </span>
-          {boardLines[1] && <span className="text-2xs leading-none">{boardLines[1]}</span>}
-        </div>
-      )}
     </>
   );
 }

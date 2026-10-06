@@ -16,7 +16,7 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
-import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
+import type { CeoAttachmentUpload, CeoStopResponse } from '../../../core/src/ceoDesk.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import {
   CAT_CEO_DIR,
@@ -24,6 +24,7 @@ import {
   CAT_CEO_TIMEOUT_MS,
   CEO_DESK_CARD_THROTTLE_MS,
   CEO_DESK_HISTORY_MAX,
+  CEO_DESK_TURN_BUDGET_USD,
 } from '../constants.js';
 import type { EngineAdapter, TurnOutcome } from '../orchestrator/engineAdapter.js';
 import { isAuthError } from '../orchestrator/engineStatus.js';
@@ -32,13 +33,14 @@ import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
 import { saveAttachments, type SavedAttachments } from './attachments.js';
 import { jobNotice } from './deskPrompt.js';
-import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
+import { ADOPTED_TEXT, type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, cardLine, DESK_MCP_NAME, type DeskToolHost, jobCard } from './deskTools.js';
 import { logRows, spawnDeskTurn, type Turn } from './deskTurn.js';
 import { recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
 export const RESTARTED_TEXT = 'The server restarted during this turn; send again.';
+export const BUDGET_HIT_TEXT = `This turn hit the $${CEO_DESK_TURN_BUDGET_USD} budget limit. Ask again to continue.`;
 
 export interface CeoDeskOptions {
   stateDir: string;
@@ -73,6 +75,7 @@ export class CeoDesk implements OfficeToolHandler {
     }
     // Jobs that ended while the server was down get their notice now.
     for (const id of [...this.state.liveJobs]) this.taskChanged(id, true);
+    if (!this.state.boardAdopted) this.adoptBoardTasks();
     this.store.save(this.state);
     opts.tasks.events.on('status', this.onTaskStatus);
   }
@@ -101,7 +104,7 @@ export class CeoDesk implements OfficeToolHandler {
   snapshot(): { title: string; entries: CatSessionEntry[]; status: CatSessionStatus } {
     return {
       title: this.opts.office.ceo.settings.name,
-      entries: this.rows.map(({ at: _at, ...e }) => e as CatSessionEntry),
+      entries: this.rows.slice(),
       status: this.status(),
     };
   }
@@ -128,6 +131,7 @@ export class CeoDesk implements OfficeToolHandler {
       kind: 'user',
       text: [text, ...(files?.lines ?? [])].filter(Boolean).join('\n'),
       ...(files?.images.length ? { images: files.images } : {}),
+      ...(files?.attachments.length ? { draft: text, ...attachments } : {}),
     });
     this.store.save(this.state);
     this.statusChanged();
@@ -135,12 +139,17 @@ export class CeoDesk implements OfficeToolHandler {
     return this.state.pending.length;
   }
 
-  /** Kill the turn, drop queued notices; queued user messages go back to the draft. */
-  stop(): string {
-    const draft = this.state.pending
-      .filter((p) => p.kind === 'user')
-      .map((p) => p.text)
+  /**
+   * Kill the turn, drop queued notices; queued user messages go back to the
+   * draft, their files too (the stored files stay where they are).
+   */
+  stop(): CeoStopResponse {
+    const queued = this.state.pending.filter((p) => p.kind === 'user');
+    const draft = queued
+      .map((p) => p.draft ?? p.text)
+      .filter(Boolean)
       .join('\n\n');
+    const attachments = queued.flatMap((p) => p.attachments ?? []);
     const had = !!this.turn || this.state.pending.length > 0;
     this.state.pending = [];
     this.store.save(this.state);
@@ -150,7 +159,7 @@ export class CeoDesk implements OfficeToolHandler {
     }
     if (had) this.add({ kind: 'text', text: 'Stopped.' });
     this.statusChanged();
-    return draft;
+    return { draft, ...(attachments.length ? { attachments } : {}) };
   }
 
   /** Archive this chat and start a new one. Live jobs go on; their notices are dropped. */
@@ -158,7 +167,8 @@ export class CeoDesk implements OfficeToolHandler {
     this.stop();
     for (const timer of this.cardTimers.values()) clearTimeout(timer);
     this.cardTimers.clear();
-    this.state = freshDesk();
+    // The board's tasks were adopted once; a New chat never adopts them again.
+    this.state = { ...freshDesk(), boardAdopted: true };
     this.rows = [];
     this.reworkCount = 0;
     this.store.save(this.state);
@@ -194,9 +204,10 @@ export class CeoDesk implements OfficeToolHandler {
     args: Record<string, unknown>,
   ): Promise<OfficeToolResult> {
     const chatId = this.state.chatId;
-    const { row, jobId, ...result } = await callDeskTool(this.toolHost(), name, args);
+    const { row, jobId, edits, ...result } = await callDeskTool(this.toolHost(), name, args);
     if (chatId !== this.state.chatId) return result;
     if (row) this.add({ kind: 'tool', name: `mcp__${DESK_MCP_NAME}__${name}`, text: row });
+    if (edits) this.add({ kind: 'edits', ...edits });
     // The job's card follows the row that started it.
     if (jobId) this.updateCard(jobId);
     return result;
@@ -215,6 +226,7 @@ export class CeoDesk implements OfficeToolHandler {
       setFolder: (folder) => this.setFolder(folder),
       liveJobs: () => this.state.liveJobs,
       reworks: () => this.reworkCount,
+      request: () => this.turn?.request ?? '',
       jobStarted: (task, rework, chatId) => {
         // New chat while start_job waited: the job stays with the old chat.
         if (chatId !== this.state.chatId) return;
@@ -243,6 +255,10 @@ export class CeoDesk implements OfficeToolHandler {
     }
     const parts = this.state.pending.splice(0);
     if (parts.some((p) => p.kind === 'user')) this.reworkCount = 0;
+    const request = parts
+      .filter((p) => p.kind === 'user')
+      .map((p) => p.text)
+      .join('\n\n');
     const handle = spawnDeskTurn({
       adapter,
       office,
@@ -255,6 +271,7 @@ export class CeoDesk implements OfficeToolHandler {
     const turn: Turn = {
       chatId: this.state.chatId,
       handle,
+      request,
       stopped: false,
       timer: setTimeout(() => handle.kill(), CAT_CEO_TIMEOUT_MS),
     };
@@ -284,7 +301,9 @@ export class CeoDesk implements OfficeToolHandler {
       if (!turn.stopped) {
         const text = outcome.ok ? (outcome.text ?? turn.held) : turn.held;
         if (text) this.add({ kind: 'text', text });
-        if (!outcome.ok) {
+        if (!outcome.ok && outcome.budgetHit) {
+          this.add({ kind: 'error', text: BUDGET_HIT_TEXT });
+        } else if (!outcome.ok) {
           const auth = isAuthError(outcome.error);
           const fix = auth ? ` ${this.opts.office.engineDown('claude', true)}` : '';
           const text = `The CEO could not answer: ${outcome.error}${fix}`;
@@ -333,6 +352,18 @@ export class CeoDesk implements OfficeToolHandler {
     this.pump();
   }
 
+  /** First start after the board: its interrupted team tasks get cards with Resume and Cancel. */
+  private adoptBoardTasks(): void {
+    this.state.boardAdopted = true;
+    const ids = this.opts.tasks.adoptInterrupted(this.state.chatId);
+    if (!ids.length) return;
+    this.add({ kind: 'text', text: ADOPTED_TEXT });
+    for (const id of ids) {
+      this.state.liveJobs.push(id);
+      this.updateCard(id);
+    }
+  }
+
   /** Replace the job's card row (or add it) and tell the open chats. */
   private updateCard(id: string): void {
     const task = this.opts.tasks.get(id);
@@ -374,11 +405,13 @@ export class CeoDesk implements OfficeToolHandler {
   }
 
   private add(entry: CatSessionEntry): void {
-    this.rows.push({ ...entry, at: Date.now() } as DeskRow);
+    // `at` is the row's id for the dock's unread mark: unique and rising.
+    const row = { ...entry, at: Math.max(Date.now(), (this.rows.at(-1)?.at ?? 0) + 1) } as DeskRow;
+    this.rows.push(row);
     if (this.rows.length > CEO_DESK_HISTORY_MAX)
       this.rows.splice(0, this.rows.length - CEO_DESK_HISTORY_MAX);
     this.store.writeHistory(this.state.chatId, this.rows);
-    this.emit({ type: 'entries', entries: [entry] });
+    this.emit({ type: 'entries', entries: [row] });
   }
 
   private statusChanged(): void {

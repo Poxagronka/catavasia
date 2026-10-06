@@ -3,6 +3,8 @@ import type { EngineProblem } from './engineReadiness.js';
 
 interface EngineNoticeViewProps {
   problem: EngineProblem;
+  /** Show "<engine> is not logged in." (off when the caller shows its own status line). */
+  showReason?: boolean;
   /** The page has the server token: the Log in terminal can open. */
   privileged: boolean;
   checking: boolean;
@@ -13,6 +15,7 @@ interface EngineNoticeViewProps {
 /** What is wrong with one engine and how to fix it. Pure: the tests read its element tree. */
 export function EngineNoticeView({
   problem,
+  showReason = true,
   privileged,
   checking,
   onLogIn,
@@ -20,7 +23,9 @@ export function EngineNoticeView({
 }: EngineNoticeViewProps) {
   return (
     <div className="flex flex-col gap-6 text-xs" data-testid={`engine-notice-${problem.engine}`}>
-      <span className="prose-body prose-small text-status-permission">{problem.reason}.</span>
+      {showReason && (
+        <span className="prose-body prose-small text-status-permission">{problem.reason}.</span>
+      )}
       {problem.installCommand && (
         <>
           <span className="prose-body prose-small text-text-muted">Install it in a terminal:</span>

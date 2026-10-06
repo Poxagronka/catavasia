@@ -13,7 +13,6 @@ import { beforeAll, test } from 'vitest';
 
 import type { ServerMessage } from '../../core/src/messages.js';
 import { CatOfficeFeed, type FeedWorld } from '../src/catOfficeFeed.js';
-import { defaultTarget, startBlocker } from '../src/components/taskBoard/taskFormat.js';
 import { OfficeState, type ResidentCat } from '../src/office/engine/officeState.js';
 import { buildDynamicCatalog } from '../src/office/layout/furnitureCatalog.js';
 import { CharacterState, TileType } from '../src/office/types.js';
@@ -247,37 +246,4 @@ test('queue: queued cats line up by the coffee with a marker, then go back to th
   runFor(os, 0.1);
   assert.deepEqual(os.scenes.queuedCats(), []);
   assert.equal(os.scenes.owns(3), false, 'back to its idle life');
-});
-
-test('task form: a new task goes to the team when there are cats', () => {
-  assert.equal(defaultTarget([]), '');
-  assert.equal(
-    defaultTarget([
-      { id: 'team', label: 'Team: Oliver leads' },
-      { id: 'boss', label: 'Oliver' },
-    ]),
-    'team',
-  );
-  // A team that cannot run stays chosen: the form shows why (no silent plain run).
-  assert.equal(
-    defaultTarget([{ id: 'team', label: 'Team', disabled: 'Codex: not logged in' }]),
-    'team',
-  );
-});
-
-test('task form: Start is blocked while the chosen engine is missing or logged out', () => {
-  const targets = [
-    { id: 'team', label: 'Team', engine: 'codex' as const, disabled: 'Codex: not logged in' },
-    { id: 'boss', label: 'Oliver', engine: 'claude' as const },
-  ];
-  assert.deepEqual(startBlocker(targets, 'team', null), {
-    reason: 'Codex: not logged in',
-    engine: 'codex',
-  });
-  assert.equal(startBlocker(targets, 'boss', null), null);
-  assert.equal(startBlocker(targets, '', null), null);
-  assert.deepEqual(startBlocker(targets, '', 'Claude Code is not logged in'), {
-    reason: 'Claude Code is not logged in',
-    engine: 'claude',
-  });
 });

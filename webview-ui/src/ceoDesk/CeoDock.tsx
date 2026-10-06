@@ -44,6 +44,8 @@ interface CeoDockProps {
   expandKey: number;
   onOpenTask(taskId: string): void;
   onOpenCat(catId: string): void;
+  /** An edit row (edit_prompts) links each cat's Prompt history in the Cats menu. */
+  onOpenPromptHistory(catId: string): void;
 }
 
 /**
@@ -52,11 +54,12 @@ interface CeoDockProps {
  * `cat-ceo` session socket, which needs the server token; a page without it
  * shows the read-only note.
  */
-export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
+export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory }: CeoDockProps) {
   useCats(); // re-render when the engine status changes
   const { settings } = useCatCeo();
   const [dock, setDock] = useState(loadDock);
   const [draft, setDraft] = useState('');
+  const [restored, setRestored] = useState<File[]>();
   const [gone, setGone] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const prevChat = useRef(dock.chat);
@@ -80,12 +83,12 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
     try {
       window.localStorage.setItem(
         DOCK_STORAGE_KEY,
-        JSON.stringify({ collapsed: dock.collapsed, seen: dock.seen }),
+        JSON.stringify({ collapsed: dock.collapsed, seenAt: dock.seenAt }),
       );
     } catch {
       /* no storage: the dock opens expanded next time */
     }
-  }, [dock.collapsed, dock.seen]);
+  }, [dock.collapsed, dock.seenAt]);
 
   // The open dock publishes its place: --dock-width (cat chats stand left of
   // it) and --dock-space (the office narrows by it when the window is wide).
@@ -155,6 +158,12 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
     void ceoDeskApi.stop().then(
       (r) => {
         if (r.draft) setDraft((d) => [r.draft, d].filter(Boolean).join('\n\n'));
+        // The files of the queued messages come back too (a file that fails to load is skipped).
+        if (r.attachments?.length) {
+          void Promise.allSettled(r.attachments.map(ceoDeskApi.fetchAttachment)).then((got) =>
+            setRestored(got.flatMap((g) => (g.status === 'fulfilled' ? [g.value] : []))),
+          );
+        }
       },
       () => {},
     );
@@ -209,6 +218,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
               key={n}
               row={row}
               job={jobActions}
+              onOpenPromptHistory={onOpenPromptHistory}
               onLogin={() => engineUi.openLogin('claude')}
             />
           ),
@@ -228,6 +238,8 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat }: CeoDockProps) {
           }}
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
+          restored={restored}
+          onRestored={() => setRestored(undefined)}
         />
       )}
     </div>

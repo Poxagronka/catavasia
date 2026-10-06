@@ -30,6 +30,7 @@ export const changelogEntries: ChangelogEntry[] = [
       {
         title: 'Features',
         items: [
+          'CEO chat on the right edge: talk to the CEO, paste screenshots, files and links, and it hands the work to the cat team and brings back the result (it replaces the Tasks board; the whiteboard is decor now)',
           'Claude Code Agent Teams visualization with lead badges, role labels, and coordinated lifecycle',
           'Claude Code 2.1.220 support: named spawns become seated teammates, unnamed spawns stay watched sub-agents',
           'Context gauge on every agent, sized to the model its session runs',

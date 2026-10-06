@@ -18,6 +18,8 @@ const DESK_TOOL_PREFIX = `mcp__${DESK_MCP_NAME}__`;
 export interface Turn {
   chatId: string;
   handle: TurnHandle;
+  /** The user's messages this turn answers (edit_prompts checks `dictated` in them). */
+  request: string;
   /** The newest text row: the turn's full final text replaces it at the end. */
   held?: string;
   stopped: boolean;

@@ -41,7 +41,7 @@ test.describe('Standalone / engines', () => {
   test.skip(process.platform === 'win32', 'the fake engine CLIs are POSIX sh scripts');
   test.use({ pathPrepend: BIN });
 
-  test('a logged-out Claude Code: notice, blocked Start, and Log in in the terminal @area:standalone', async ({
+  test('a logged-out Claude Code: notice, blocked Send, and Log in in the terminal @area:standalone', async ({
     page,
     standalone,
   }) => {
@@ -52,12 +52,11 @@ test.describe('Standalone / engines', () => {
     });
     await expect(banner).not.toContainText('Codex');
 
-    await page.getByRole('button', { name: 'Tasks' }).click();
-    await page.getByTitle('New task').click();
-    await page.getByPlaceholder('What should the cat do?').fill('weather in Rhodes tomorrow');
-    await expect(page.getByTestId('task-start')).toBeDisabled();
-    await expect(page.getByTestId('task-start-blocker')).toContainText(
-      'Claude Code is not logged in',
+    // The CEO chat keeps the draft and turns Send off until Claude Code is ready.
+    await page.getByTestId('dock-input').fill('weather in Rhodes tomorrow');
+    await expect(page.getByTestId('dock-send')).toBeDisabled();
+    await expect(page.getByTestId('dock-blocked')).toContainText(
+      'Send is off until Claude Code is ready',
     );
 
     await banner.getByTestId('engine-login-claude').click();
@@ -66,6 +65,7 @@ test.describe('Standalone / engines', () => {
     // The login process exits: the server probes again and every notice goes away.
     await expect(banner).toBeHidden({ timeout: PROBE_TIMEOUT_MS });
     await expect(panel.getByText('logged in', { exact: true })).toBeVisible();
-    await expect(page.getByTestId('task-start')).toBeEnabled({ timeout: PROBE_TIMEOUT_MS });
+    await expect(page.getByTestId('dock-send')).toBeEnabled({ timeout: PROBE_TIMEOUT_MS });
+    await expect(page.getByTestId('dock-input')).toHaveValue('weather in Rhodes tomorrow');
   });
 });

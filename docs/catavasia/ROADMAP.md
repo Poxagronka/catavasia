@@ -319,6 +319,8 @@ User requests: no Russian default cat names; a Settings button that resets cats 
 
 ## Team lead desk and Tasks whiteboard (feat/lead-desk, agent-made 2026-10-06)
 
+> **Superseded in part** by "CEO desk replaces the task board" (phase 4, feat/board-to-decor): the Tasks panel, the whiteboard click, its hover tooltip and the task count poll are gone. The whiteboard is decor. The lead desk, the lead chair and the Hierarchy hint stay.
+
 User requirements: "Give the team lead its own desk in the cats' room too, so it is visually clear who is the boss." "Tasks should also open by clicking a real object in the default layout — a white board with markers." "Hang it on the top wall instead of the clock, and move the clock somewhere else."
 
 - **Who is the lead.** The root of the cat tree (`parentId: null` in cats.json; the Cat CEO lives outside the tree). The server resolves it with `catTree.bossOf` and sends `lead: true` on that cat's `CatCharacter` (`core/asyncapi.yaml`). Every profile change re-sends `catCharacters`, so a promote or a deleted root moves the flag. No id is hard-coded.
@@ -381,10 +383,14 @@ User requirements: "Remove the clock from this wall (the top wall of the cats' m
 
 ## Plain whiteboard (feat/plain-whiteboard, agent-made 2026-10-06)
 
+> **Superseded in part** by "CEO desk replaces the task board" (phase 4): the art stays, but the click and the tooltip are gone. The board is decor.
+
 - **Art** (`scripts/executive/whiteboardArt.mjs`): a clean white board with one doodle of a mouse in dark marker (round ear with a red inside, dot eye, red nose, dome body on two feet, curly tail). The scribbles are gone; the tray keeps three markers and the eraser.
 - **No live notes.** The board no longer draws sticky notes with counts. A click still opens the Tasks panel, and the hover tooltip still shows "Tasks" and the counts line. The note code and its colors are removed.
 
 ## Onboarding tour (feat/onboarding-tour, agent-made 2026-10-06)
+
+> **Changed** by "CEO desk replaces the task board" (phase 4): seven steps (no Tasks step), and the CEO step opens the CEO chat.
 
 User requirement: "Change the onboarding to match the changed logic, and tell AND SHOW what you can do and how. Both Claude and Codex are needed for optimal work, since cat agents can use Codex too."
 
@@ -434,8 +440,8 @@ User bug: on a new machine a team task failed after 12 s and 2 turns with "Olive
 - **Auth error in a turn**: an error that contains "Please run /login", or starts with "Not logged in", `authentication_failed`, "Invalid API key" or "OAuth token has expired", sets `engineDown` on the turn result. No A14 retry. The whole task fails, also for a worker cat (no cat can fix a login). The engine is marked logged out. The raw lines are dropped from the log, and the error row shows the fix once. The codex auth error text is not verified (no headless codex call was made): the probe covers codex before the task.
 - **Login help**: the Log in button opens a docked in-game terminal (`WheelTerminal` with `engine`) on `WS /api/engines/:engine/login` (server token, same-origin). It runs `claude auth login` (it exists per `claude auth --help`, so no interactive `/login`) or `codex login`, in the home folder. The CLI opens the browser login. Without the server token, the notice shows the command to run instead.
 - **Where the notice shows**: a top banner for every needed engine (Claude Code always, plus the engines of the cats) that is missing or logged out, the task form (Start disabled, the notice under it), and the onboarding engines step (status line per engine, and the notice when logged out). Settings has no engines area, so nothing was added there.
-- **Task form default**: the team stays the default target even when it cannot run now. Before, a disabled team switched the form to a plain run in silence. The options are no longer disabled: Start is.
-- **Folder default (not changed)**: the form's Folder is the server's `process.cwd()`. The Desktop launcher runs `cd ~ && exec catavasia`, so the default is the home folder. A non-git folder runs in place by design ("Non-git folders run in place"), and the task card then shows no branch. Possible follow-up: default to the last used folder.
+- **Task form default** (the form is gone since phase 4 of the CEO desk): the team stays the default target even when it cannot run now. Before, a disabled team switched the form to a plain run in silence. The options are no longer disabled: Start is.
+- **Folder default** (fixed by the CEO desk: no default folder anywhere, `POST /api/tasks` needs `cwd`): the form's Folder is the server's `process.cwd()`. The Desktop launcher runs `cd ~ && exec catavasia`, so the default is the home folder. A non-git folder runs in place by design ("Non-git folders run in place"), and the task card then shows no branch. Possible follow-up: default to the last used folder.
 
 ## CEO desk replaces the task board (feat/ceo-desk-core and later, agent-made 2026-10-06)
 
@@ -486,7 +492,7 @@ User requirement: remove the Tasks board (the whiteboard becomes decor). The CEO
 - The composer is text only. Its attachment strip and attach button have marked slots for phase 3 (done: see phase 3 decisions).
 - Typography tokens live once in `index.css` (`--font-body`, `--font-code`, `--text-body-size` 15 px, `--text-body-small` 14 px, `--text-code-size` 13 px, `--leading-body` 1.55, `--color-text-body` #E6E6EE, `--measure-body` 680 px) with the classes `prose-body`, `prose-small`, `prose-code` and `prose-measure`. They apply to the dock, the cat chats, Markdown, TaskDetailModal, the engine notice, the Reset everything warning and the Instant Detection modal. Headings, labels, buttons and status pills keep the pixel font. The onboarding bubble keeps the pixel font (phase 4 rewrites its steps).
 - Markdown links open in a new tab with `rel="noopener noreferrer"`, only for http(s) URLs; a bare URL loses its trailing punctuation. `*x*` and `_x_` are italics, but not inside snake_case words. Numbered lists render as ordered lists.
-- The old Tasks board keeps working until phase 4.
+- The old Tasks board keeps working until phase 4 (removed there).
 
 **Phase 3 decisions** (attachments, agent-made 2026-10-07, the user was asleep):
 
@@ -501,6 +507,24 @@ User requirement: remove the Tasks board (the whiteboard becomes decor). The CEO
 - **Codex**: `-i <path>` per image goes right after `exec` / `exec resume <id>`: `-i` takes a list and must not meet the `-` prompt (verified in `codex exec --help` and `codex exec resume --help`). Only Codex cats use it today; the CEO always runs on Claude.
 - **Auth error row**: an error entry has `login: true` when the turn failed with an auth error; the dock shows a Log in button on it that opens the engine login terminal.
 - Refactor: `ceoDesk.ts` was at the 400-line limit, so the turn request and the log rows moved to `deskTurn.ts` first (pure move).
+
+**Phase 4 decisions** (feat/board-to-decor, agent-made 2026-10-07, the user was asleep):
+
+- **Removed**: the Tasks panel (`TaskBoard.tsx`, `NewTaskForm.tsx`), the Tasks toolbar button, the task count poll, `whiteboardNotes.ts`, the whiteboard hover cursor, tooltip and click, `officeState.taskCounts` / `hoveredWhiteboardUid`, the task form helpers (`defaultTarget`, `startBlocker`), `fetchTasks` / `createTask`, `TaskListResponse` / `CreateTaskRequest`, `TaskManager.defaultCwd`, and the judge chat (`ceoChat.ts`, `ceoChatSchema.ts`, `CEO_OFF_TEXT`, the chat constants). The whiteboard stays in the layout and the catalog as decor.
+- **Kept**: TaskDetailModal (Details on a job card, and a cat linked to a finished task), TaskControls, `taskApi` (`fetchTask`, `taskAction`), Markdown, CatAvatar, the task store and `GET /api/tasks`, `/:id`, `/resume`, `/cancel`. The CEO review moved from the board card badge into the TaskDetailModal facts ("Review"), so the judge reviews stay visible.
+- **`POST /api/tasks`** stays privileged and now needs `cwd` (400 without it). No code path falls back to `process.cwd()` for a task folder. `GET /api/tasks` drops `defaultCwd`.
+- **Numeric id of the CEO character**: its console still shows the review and tidy log, but a message there gets 400 "Talk to the CEO in the CEO chat on the right". The webview never sends one: the CEO cat opens the dock.
+- **`edit_prompts`** (`server/src/ceoDesk/promptEditTool.ts`, through `CatCeo.editPrompt`): one item per call, the same `planEdits` checks and `cat-ceo(<cat>): chat — …` commit as the judge chat (cat-ceo-judge.md §15). `dictated` holds only when the user's messages of the running turn hold the item. A refused edit returns "Not applied: <reason>". The chat gets an `edits` row with a Prompt history button (the dock now passes `onOpenPromptHistory`). `list_team` takes an optional `catId` and lists that cat's Rules and Lessons with ids, so the CEO can replace or remove an item. No separate read tool.
+- **Onboarding**: seven steps; the `ceo` step expands the dock (`IntroBubble.onShowCeo`); the `lead` step names the CEO-to-lead hand-off. Body text uses `prose-body` (15 px system sans); the title, the step dots and the buttons keep the pixel font. The engine status lines use `prose-small`, the install command `prose-code`.
+- **Engine banner vs the tour**: the banner is hidden while the tour is open (the tour has its own engines step), not only on the engines step: the bubble moves with the greeter and can reach the banner on any step. In the engines step a logged-out engine shows its status line ("installed 2.1.291, not logged in") and the notice without its reason line (`EngineNotice showReason={false}`).
+- **Top banners stack**: the update offer and the engine notice share one top column (App), so they never cover each other (they did before, both at the top centre). The column is centred in the room the dock leaves.
+- **Budget row**: a desk turn whose result has `subtype: error_max_budget_usd` (verified with a real `claude -p --max-budget-usd 0.0001` call: `is_error: true`, `errors: ["Reached maximum budget ($0.0001)"]`, no `result` text) ends with the row "This turn hit the $5 budget limit. Ask again to continue." after the text the turn wrote. `StreamResult.budgetHit` / `TurnOutcome.budgetHit`.
+- **Stop keeps files**: a queued message saves the user's own text (`draft`) and its attachments in `pending`. Stop returns `{draft, attachments}`; the dock fetches each stored file back (`GET /api/ceo/attachments/...` with the token) and puts it in the composer as a file again. The stored files stay; a resend uploads a copy. A file that fails to load is skipped.
+- **Sweep**: an archived chat goes as one unit: `chats/<id>.json` and `chats/<id>/` (attachments, sandbox work) are removed together when the newer of the two is older than 30 days.
+- **Unread mark**: every desk row has `at` (ms, unique and rising within a chat, sent on the wire). The dock saves `seenAt` (the `at` of the newest seen row) instead of a row count, so the 500-row cap no longer hides new rows. An older saved count becomes "seen up to now".
+- **Migration**: on the first start of this version (`desk.json` without `boardAdopted`), interrupted team tasks with no chat (the old board's) join the live chat: a row "Team tasks the server stopped (from the old Tasks board). Resume or cancel them here." and one job card each with Resume and Cancel. Their end sends a job notice to the CEO like any job. The version 1 `chat.json` import under the "Earlier chat" divider (phase 1) is verified by `ceoDeskStore.test.ts`.
+- **e2e**: `decor.spec.ts` (no Tasks button, whiteboard hover and click do nothing, a click on the CEO cat opens the dock; seven onboarding steps, the CEO step opens the dock, the engines step has one status line and no banner). It uses a new e2e hook `worldToClient` (OfficeCanvas). `engines.spec.ts` checks the dock's Send block instead of the task form.
+- **Known limits**: `ceoDesk.ts` is 423 lines (an existing file; the next change should split it). The one-time hooks tooltip ("Instant Detection Active", top right) can sit under the update offer in a narrow office (not changed). A job card shows the full temp path of a folder outside the home folder.
 
 ## Pet interactions (feat/pet-interactions, agent-made 2026-10-07)
 

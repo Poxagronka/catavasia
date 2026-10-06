@@ -207,7 +207,6 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
   // the board.
   app.get('/api/tasks', async () => ({
     tasks: tasks.list(),
-    defaultCwd: tasks.defaultCwd,
     targets: tasks.targets(),
   }));
 
@@ -247,7 +246,7 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
     );
   }
 
-  app.post<{ Body: { prompt: string; cwd?: string; target?: string } }>(
+  app.post<{ Body: { prompt: string; cwd: string; target?: string } }>(
     '/api/tasks',
     {
       onRequest,
@@ -259,20 +258,19 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
             cwd: { type: 'string', minLength: 1 },
             target: { type: 'string', minLength: 1, maxLength: 64 },
           },
-          required: ['prompt'],
+          required: ['prompt', 'cwd'],
         },
       },
     },
     async (request, reply) => {
       const { prompt, cwd, target } = request.body;
       if (!prompt.trim()) return reply.code(400).send({ error: 'Prompt is empty' });
-      if (cwd !== undefined && !isDirectory(cwd)) {
+      if (!isDirectory(cwd)) {
         return reply.code(400).send({ error: `Not a folder: ${cwd}` });
       }
       try {
-        // The board form's empty folder falls back to the server folder until
-        // the board goes (the CEO desk never defaults a folder).
-        return reply.code(201).send(await tasks.create(prompt, cwd ?? tasks.defaultCwd, target));
+        // No default folder: the CEO desk sends work through start_job.
+        return reply.code(201).send(await tasks.create(prompt, cwd, target));
       } catch (err) {
         if (err instanceof TaskInputError) return reply.code(400).send({ error: err.message });
         throw err;

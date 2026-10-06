@@ -7,8 +7,8 @@ const STEP_MARK = { pending: ' ', running: '>', done: 'x', failed: '!' } as cons
 /** Log lines shown in the progress panel (the server keeps more). */
 const LOG_TAIL_SHOWN = 12;
 
-const panel =
-  'absolute top-8 left-1/2 -translate-x-1/2 z-30 pixel-panel py-8 px-12 flex flex-col gap-6 text-sm w-[min(560px,calc(100%-32px))]';
+// Placed by the App's top banner stack (above the engine notice).
+const panel = 'pixel-panel py-8 px-12 flex flex-col gap-6 text-sm w-full';
 
 /**
  * Self-update in the game UI: the "new version" offer, the install progress

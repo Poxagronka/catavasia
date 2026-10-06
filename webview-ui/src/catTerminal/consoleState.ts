@@ -45,10 +45,11 @@ export function upsertJob(
   update: Omit<JobEntry, 'kind'>,
 ): CatSessionEntry[] {
   const row: JobEntry = { kind: 'job', text: update.text, job: update.job };
-  const at = entries.findIndex((e) => e.kind === 'job' && e.job.jobId === update.job.jobId);
-  if (at < 0) return [...entries, row];
+  const i = entries.findIndex((e) => e.kind === 'job' && e.job.jobId === update.job.jobId);
+  if (i < 0) return [...entries, row];
   const next = entries.slice();
-  next[at] = row;
+  // The card keeps its place and its `at` (the dock's unread mark).
+  next[i] = { ...row, ...(entries[i].at !== undefined ? { at: entries[i].at } : {}) };
   return next;
 }
 

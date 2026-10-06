@@ -62,6 +62,8 @@ export interface TurnOutcome {
   usage?: StreamUsage;
   /** Process or CLI error, when not ok. */
   error?: string;
+  /** The turn stopped at its --max-budget-usd cap (Claude only). */
+  budgetHit?: boolean;
   /** The CLI created or resumed the session (a later turn can resume it). */
   sessionStarted: boolean;
   /** The engine chose the session id itself (Codex): later turns resume this one. */

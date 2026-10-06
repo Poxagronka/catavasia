@@ -17,10 +17,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { CatSessionEntry } from '../../../core/src/catSession.js';
+import type { CeoAttachment } from '../../../core/src/ceoDesk.js';
 import { CEO_DESK_CHATS_DIR, CEO_DESK_FILE, CEO_DESK_HISTORY_MAX } from '../constants.js';
 
 const ARCHIVE_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
+export const ADOPTED_TEXT =
+  'Team tasks the server stopped (from the old Tasks board). Resume or cancel them here.';
 export const LEGACY_DIVIDER = 'Earlier chat (before the CEO desk). The CEO does not remember it.';
 
 export interface DeskState {
@@ -35,15 +38,24 @@ export interface DeskState {
   mcpToken: string;
   /** Session cost so far (the CLI reports it cumulative). */
   costUsd: number;
+  /** The interrupted tasks of the old Tasks board joined a chat (once, on the first start). */
+  boardAdopted?: boolean;
   /** Jobs of this chat whose end the CEO has not been told yet. */
   liveJobs: string[];
   /** A turn was running when the state was saved (a restart cut it). */
   turnRunning: boolean;
   /**
    * User messages and job notices that wait for the next turn (they survive a
-   * restart). `images`: attached image files of a user message.
+   * restart). `images`: attached image files of a user message. `draft` and
+   * `attachments`: the user's own text and files, which Stop gives back.
    */
-  pending: Array<{ kind: 'user' | 'notice'; text: string; images?: string[] }>;
+  pending: Array<{
+    kind: 'user' | 'notice';
+    text: string;
+    images?: string[];
+    draft?: string;
+    attachments?: CeoAttachment[];
+  }>;
 }
 
 export type DeskRow = CatSessionEntry & { at: number };
@@ -144,7 +156,11 @@ export class DeskStore {
     ];
   }
 
-  /** Remove archived chats (folder and history) untouched for 30 days. */
+  /**
+   * Remove archived chats untouched for 30 days: the history and the chat
+   * folder (attachments, sandbox work) go together. The age is the newer of
+   * the two, so a folder never outlives its history or the other way round.
+   */
   private sweep(liveChatId: string, now: number): void {
     let names: string[];
     try {
@@ -152,17 +168,29 @@ export class DeskStore {
     } catch {
       return;
     }
-    for (const name of names) {
-      if (name === liveChatId || name === `${liveChatId}.json`) continue;
-      const file = path.join(this.chatsDir, name);
-      try {
-        if (now - fs.statSync(file).mtimeMs > ARCHIVE_KEEP_MS) {
-          fs.rmSync(file, { recursive: true, force: true });
+    const ids = new Set(names.map((n) => n.replace(/\.json$/, '')));
+    ids.delete(liveChatId);
+    for (const id of ids) {
+      const paths = [path.join(this.chatsDir, `${id}.json`), this.chatDir(id)];
+      const touched = Math.max(...paths.map(mtimeOf));
+      if (now - touched <= ARCHIVE_KEEP_MS) continue;
+      for (const p of paths) {
+        try {
+          fs.rmSync(p, { recursive: true, force: true });
+        } catch {
+          // A locked or read-only file: the next start tries again.
         }
-      } catch {
-        // Gone already.
       }
     }
+  }
+}
+
+/** Modification time, or 0 when the path is gone. */
+function mtimeOf(file: string): number {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return 0;
   }
 }
 

@@ -336,7 +336,11 @@ Per op: the ids exist in the op's section and appear in no other op. A merge cit
 
 ## 15. Chat with the Cat CEO
 
-User decision (2026-10-06): a message to the Cat CEO in its console Chat tab means "the CEO answers". Built in 1.4.1-cats.21. Code: `server/src/catCeo/ceoChat.ts`, `ceoChatSchema.ts`; routing in `server/src/catTerminal/officeCatSource.ts`.
+**Now: the CEO desk** (feat/board-to-decor, 2026-10-07). The user talks to the CEO in the CEO desk chat (`server/src/ceoDesk/`, ROADMAP "CEO desk replaces the task board"). The CEO is a normal Claude session there, not a one-off judge run. The judge chat below (`ceoChat.ts`, `ceoChatSchema.ts`) is removed. Its `cat-ceo/chat.json` is only read once, for the desk's "Earlier chat" divider. The reviews (§3-§8) and the tidies (§14) still run as judge runs.
+
+Prompt edits move to the desk tool `edit_prompts({catId, op, section, itemId?, text?, dictated})` in `server/src/ceoDesk/promptEditTool.ts`. One call is one item edit. C5-C8 below still hold word for word: the same `planEdits` checks, the commit `cat-ceo(<cat>): chat — <first change>` with the same trailers (`Prompt-Chat: <desk chat id>`), `dictated` kept only when the user's message of that turn holds the item, and 10 chat commits per cat per day. `list_team` with a `catId` shows that cat's Rules and Lessons with their ids. The chat shows an edit row with a "Prompt history: <cat>" button. A refused edit returns "Not applied: <reason>" to the CEO. C1-C4 and C9-C11 are superseded: the desk has its own turn, queue, history and persona, and a message to the CEO character's agent id gets 400 "Talk to the CEO in the CEO chat on the right". The CEO desk ignores `catCeo.enabled` (it only turns reviews, tidies and walks on or off), so "The Cat CEO is turned off" is gone.
+
+History: the judge chat, built in 1.4.1-cats.21. User decision (2026-10-06): a message to the Cat CEO in its console Chat tab means "the CEO answers". Code then: `server/src/catCeo/ceoChat.ts`, `ceoChatSchema.ts`; routing in `server/src/catTerminal/officeCatSource.ts`.
 
 Bug fixed on the way: before, a message to the Cat CEO with no live task became a one-cat board task, and `TaskManager.create` refused it with "Unknown target: cat-ceo" (the Cat CEO is the judge, not a team target).
 

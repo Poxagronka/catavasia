@@ -272,7 +272,6 @@ async function main(): Promise<void> {
     const tasks = new TaskManager({
       host: runtime,
       stateDir,
-      defaultCwd: process.cwd(),
       flows: orchestrator,
       narrate: (input) => narrator.push(input),
     });

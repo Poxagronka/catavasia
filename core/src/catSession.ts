@@ -10,21 +10,26 @@
 
 import type { CeoAttachment, JobCard } from './ceoDesk.js';
 
-/** One row of the chat console. */
-export type CatSessionEntry =
+/**
+ * One row of the chat console. `at` (CEO desk): when the row was added, in ms,
+ * unique and rising within a chat; the dock marks the last row seen by it.
+ */
+export type CatSessionEntry = { at?: number } &
   /** `attachments`: files the user sent with the message (CEO desk). */
-  | { kind: 'user'; text: string; attachments?: CeoAttachment[] }
-  | { kind: 'text'; text: string }
-  | { kind: 'tool'; name: string; text: string }
-  /** `login`: the engine is logged out; the console offers its login (CEO desk). */
-  | { kind: 'error'; text: string; login?: boolean }
-  /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */
-  | { kind: 'edits'; text: string; catIds: string[] }
-  /**
-   * A job the CEO started (CEO desk): a later `job` frame updates it in place
-   * by jobId. `text` is the card as one line, for a console that has no card.
-   */
-  | { kind: 'job'; text: string; job: JobCard };
+  (
+    | { kind: 'user'; text: string; attachments?: CeoAttachment[] }
+    | { kind: 'text'; text: string }
+    | { kind: 'tool'; name: string; text: string }
+    /** `login`: the engine is logged out; the console offers its login (CEO desk). */
+    | { kind: 'error'; text: string; login?: boolean }
+    /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */
+    | { kind: 'edits'; text: string; catIds: string[] }
+    /**
+     * A job the CEO started (CEO desk): a later `job` frame updates it in place
+     * by jobId. `text` is the card as one line, for a console that has no card.
+     */
+    | { kind: 'job'; text: string; job: JobCard }
+  );
 
 /** Whether a cat can hand its session to an interactive terminal right now. */
 export interface CatSessionStatus {

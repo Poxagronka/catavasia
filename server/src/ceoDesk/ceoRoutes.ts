@@ -87,9 +87,9 @@ export function registerCeoRoutes(
     },
   );
 
-  app.post(`${CEO_API_PREFIX}/stop`, { onRequest }, async (): Promise<CeoStopResponse> => ({
-    draft: desk.stop(),
-  }));
+  app.post(`${CEO_API_PREFIX}/stop`, { onRequest }, async (): Promise<CeoStopResponse> =>
+    desk.stop(),
+  );
 
   app.post(`${CEO_API_PREFIX}/new`, { onRequest }, async () => ({ chatId: desk.newChat() }));
 

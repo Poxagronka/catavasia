@@ -23,6 +23,10 @@ interface DockComposerProps {
   blocked: string | null;
   /** Shown above the box: the engine notice when Claude Code is not ready. */
   notice?: ReactNode;
+  /** Files that come back to the box (Stop returns the queued messages). */
+  restored?: File[];
+  /** The restored files are in the box: the dock forgets them (no second add on a remount). */
+  onRestored?(): void;
 }
 
 let nextId = 1;
@@ -33,7 +37,15 @@ let nextId = 1;
  * Files come from paste, drag and drop, or the paperclip; a big image is
  * downscaled first, and a limit problem shows at once, before Send.
  */
-export function DockComposer({ draft, onDraft, onSend, blocked, notice }: DockComposerProps) {
+export function DockComposer({
+  draft,
+  onDraft,
+  onSend,
+  blocked,
+  notice,
+  restored,
+  onRestored,
+}: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +80,13 @@ export function DockComposer({ draft, onDraft, onSend, blocked, notice }: DockCo
       setPreparing((n) => n - 1);
     }
   };
+
+  useEffect(() => {
+    if (!restored?.length) return;
+    void addFiles(restored);
+    onRestored?.();
+    // addFiles reads the newest files through filesRef: only a new list matters.
+  }, [restored]);
 
   const remove = (id: number) => {
     const gone = files.find((f) => f.id === id);
