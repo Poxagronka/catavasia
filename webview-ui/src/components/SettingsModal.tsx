@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import { setNarratorSettings, useNarratorSettings } from '../narratorStore.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
@@ -61,6 +62,7 @@ export function SettingsModal({
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assetDirDraft, setAssetDirDraft] = useState('');
+  const narrator = useNarratorSettings();
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings">
@@ -205,6 +207,21 @@ export function SettingsModal({
       )}
       {showAreasAvailable && (
         <Checkbox label="Show Areas" checked={showAreas} onChange={onToggleShowAreas} />
+      )}
+      {/* The narrator runs in the standalone server only (task board cats). */}
+      {isBrowserRuntime && (
+        <>
+          <Checkbox
+            label="AI summaries (Haiku)"
+            checked={narrator.aiSummaries}
+            onChange={() => setNarratorSettings({ aiSummaries: !narrator.aiSummaries })}
+          />
+          <Checkbox
+            label="Raw tool status"
+            checked={narrator.rawToolStatus}
+            onChange={() => setNarratorSettings({ rawToolStatus: !narrator.rawToolStatus })}
+          />
+        </>
       )}
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
     </Modal>
