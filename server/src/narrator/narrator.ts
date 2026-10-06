@@ -43,7 +43,10 @@ export class Narrator {
   /** When the current line of a cat was broadcast (epoch ms). */
   private readonly shownAt = new Map<number, number>();
   /** A work phase that waits for the current one to reach PHASE_MIN_MS. */
-  private readonly pending = new Map<number, ReturnType<typeof setTimeout>>();
+  private readonly pending = new Map<
+    number,
+    { timer: ReturnType<typeof setTimeout>; line: NarratorLine }
+  >();
   private readonly batcher: HaikuBatcher;
 
   constructor(private readonly opts: NarratorOptions) {
@@ -92,7 +95,7 @@ export class Narrator {
           ? 'input'
           : undefined;
     if (waiting) {
-      const prev = this.beforeWait.get(id) ?? this.lines.get(id);
+      const prev = this.beforeWait.get(id) ?? this.pending.get(id)?.line ?? this.lines.get(id);
       this.push({ catId: id, ts: Date.now(), kind: 'state', text: waiting });
       if (prev) this.beforeWait.set(id, prev);
       return;
@@ -115,7 +118,7 @@ export class Narrator {
    */
   private show(line: NarratorLine): void {
     const { catId } = line;
-    clearTimeout(this.pending.get(catId));
+    clearTimeout(this.pending.get(catId)?.timer);
     this.pending.delete(catId);
     const prev = this.lines.get(catId);
     if (prev?.line === line.line && prev.state === line.state) return;
@@ -124,10 +127,7 @@ export class Narrator {
         ? (this.shownAt.get(catId) ?? 0) + PHASE_MIN_MS - Date.now()
         : 0;
     if (hold > 0) {
-      this.pending.set(
-        catId,
-        setTimeout(() => this.show(line), hold),
-      );
+      this.pending.set(catId, { timer: setTimeout(() => this.show(line), hold), line });
       return;
     }
     this.lines.set(catId, line);
@@ -136,7 +136,7 @@ export class Narrator {
   }
 
   forget(catId: number): void {
-    clearTimeout(this.pending.get(catId));
+    clearTimeout(this.pending.get(catId)?.timer);
     this.pending.delete(catId);
     this.shownAt.delete(catId);
     this.lines.delete(catId);
@@ -153,7 +153,7 @@ export class Narrator {
   }
 
   dispose(): void {
-    for (const timer of this.pending.values()) clearTimeout(timer);
+    for (const p of this.pending.values()) clearTimeout(p.timer);
     this.pending.clear();
     this.batcher.dispose();
   }

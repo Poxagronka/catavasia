@@ -226,6 +226,15 @@ describe('Narrator facade', () => {
     ]);
   });
 
+  it('a hook wait restores the held phase, not the older shown one', () => {
+    const { n, sent } = make();
+    n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Read' });
+    n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'Edit' });
+    n.observeBroadcast({ type: 'agentToolPermission', id: 4 });
+    n.observeBroadcast({ type: 'agentToolPermissionClear', id: 4 });
+    expect(lines(sent)).toEqual(['sniffing around', 'pawing at the door', 'kneading the code']);
+  });
+
   it('forget drops a held phase', () => {
     const { n, sent } = make();
     n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Read' });
