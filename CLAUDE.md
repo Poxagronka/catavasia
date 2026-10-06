@@ -456,6 +456,8 @@ Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Er
 
 **Auto-state**: `officeState.rebuildFurnitureInstances()` swaps electronics to ON sprites when an active agent faces a desk with that item nearby (3 tiles deep in facing direction, 1 tile to each side). Operates at render time without modifying the saved layout.
 
+**Tall sprites**: a sprite's bottom meets its footprint's bottom (`furnitureSpriteTop`), so a sprite taller than its footprint rises into the tiles behind. The coffee items use this: 16x32 on a 1x1 footprint, base 6 px into the tile like the PC, so they stand on a table top.
+
 **Background tiles**: `backgroundTiles?: number` — top N footprint rows allow other furniture to be placed on them AND characters to walk through. Z-sort places bg-row items behind the host furniture.
 
 **Surface placement**: `canPlaceOnSurfaces?: boolean` — items like laptops, monitors, mugs can overlap with all tiles of `isDesk` furniture. `canPlaceFurniture()` builds a desk-tile set and excludes it from collision checks. Z-sort: surface items get `zY = max(spriteBottom, deskZY + 0.5)`.

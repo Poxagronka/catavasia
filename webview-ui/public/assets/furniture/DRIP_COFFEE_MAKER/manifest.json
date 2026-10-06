@@ -6,77 +6,240 @@
   "canPlaceOnSurfaces": true,
   "backgroundTiles": 0,
   "type": "group",
-  "groupType": "animation",
+  "groupType": "rotation",
+  "rotationScheme": "3-way-mirror",
   "members": [
     {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER",
-      "file": "DRIP_COFFEE_MAKER.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 0
+      "type": "group",
+      "groupType": "animation",
+      "orientation": "front",
+      "members": [
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER",
+          "file": "DRIP_COFFEE_MAKER.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 0
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_1",
+          "file": "DRIP_COFFEE_MAKER_1.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 1
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_2",
+          "file": "DRIP_COFFEE_MAKER_2.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 2
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_3",
+          "file": "DRIP_COFFEE_MAKER_3.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 3
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_4",
+          "file": "DRIP_COFFEE_MAKER_4.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 4
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_5",
+          "file": "DRIP_COFFEE_MAKER_5.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 5
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_6",
+          "file": "DRIP_COFFEE_MAKER_6.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 6
+        }
+      ]
     },
     {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER_1",
-      "file": "DRIP_COFFEE_MAKER_1.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 1
+      "type": "group",
+      "groupType": "animation",
+      "orientation": "side",
+      "members": [
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE",
+          "file": "DRIP_COFFEE_MAKER_SIDE.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 0,
+          "mirrorSide": true
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE_1",
+          "file": "DRIP_COFFEE_MAKER_SIDE_1.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 1
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE_2",
+          "file": "DRIP_COFFEE_MAKER_SIDE_2.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 2
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE_3",
+          "file": "DRIP_COFFEE_MAKER_SIDE_3.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 3
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE_4",
+          "file": "DRIP_COFFEE_MAKER_SIDE_4.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 4
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE_5",
+          "file": "DRIP_COFFEE_MAKER_SIDE_5.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 5
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_SIDE_6",
+          "file": "DRIP_COFFEE_MAKER_SIDE_6.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 6
+        }
+      ]
     },
     {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER_2",
-      "file": "DRIP_COFFEE_MAKER_2.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 2
-    },
-    {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER_3",
-      "file": "DRIP_COFFEE_MAKER_3.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 3
-    },
-    {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER_4",
-      "file": "DRIP_COFFEE_MAKER_4.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 4
-    },
-    {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER_5",
-      "file": "DRIP_COFFEE_MAKER_5.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 5
-    },
-    {
-      "type": "asset",
-      "id": "DRIP_COFFEE_MAKER_6",
-      "file": "DRIP_COFFEE_MAKER_6.png",
-      "width": 16,
-      "height": 16,
-      "footprintW": 1,
-      "footprintH": 1,
-      "frame": 6
+      "type": "group",
+      "groupType": "animation",
+      "orientation": "back",
+      "members": [
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK",
+          "file": "DRIP_COFFEE_MAKER_BACK.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 0
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK_1",
+          "file": "DRIP_COFFEE_MAKER_BACK_1.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 1
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK_2",
+          "file": "DRIP_COFFEE_MAKER_BACK_2.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 2
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK_3",
+          "file": "DRIP_COFFEE_MAKER_BACK_3.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 3
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK_4",
+          "file": "DRIP_COFFEE_MAKER_BACK_4.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 4
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK_5",
+          "file": "DRIP_COFFEE_MAKER_BACK_5.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 5
+        },
+        {
+          "type": "asset",
+          "id": "DRIP_COFFEE_MAKER_BACK_6",
+          "file": "DRIP_COFFEE_MAKER_BACK_6.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 1,
+          "frame": 6
+        }
+      ]
     }
   ]
 }
