@@ -36,6 +36,33 @@ tree and tunnel were not pet claims, so pets never met agents there.
 Orientation: pet claims already use the agent spot sets, which `itemFrame`
 turns. The guard test did not check pet ids or pet poses.
 
-## After
+## After (feat/pet-interactions)
 
-Filled in by the implementing change (see the section below the decisions).
+| Object kinds               | Pet activity   | Pet animation (steps in `engine/petPlayAnims.ts`)                  |
+| -------------------------- | -------------- | ------------------------------------------------------------------ |
+| `SCRATCHING_POST`          | `scratch`      | rear up on the post, paws rake (claw marks), fur flies, reach      |
+| `YARN_BALL`                | `yarn`         | crouch, wiggle, wind up, bat: the ball rolls out and back, sparkle |
+| `TOY_MOUSE`                | `mouse`        | stalk, wiggle, pounce, pin (dust), proud sparkle; the mouse moves  |
+| `FEATHER_TEASER`           | `teaser`       | rear up, reach and bat at the feather, hops                        |
+| `CARDBOARD_BOX`            | `box`          | hop in, only the head above the rim, look left/right, hop out      |
+| `CAT_TREE`                 | `catTree`      | climb the post (back view), loaf on top, look around, drop (dust)  |
+| `PLAY_TUNNEL` (both views) | `tunnel`       | wiggle, run through six passes hidden (fabric rustles), sparkle    |
+| `CAT_BED`, `BED_*`         | `catBed`/`bed` | curled on the side, breathing, Zzz                                 |
+| `HOUSE_*`                  | `house`        | inside, ears or tail peek (unchanged)                              |
+| `SOFA` (all views)         | `sleep`        | front loaf on a seat or the floor (unchanged)                      |
+| `PET_BOWL`, `LITTER_BOX*`  | care loop      | eat, drink, dig, squat, cover, zoomies (unchanged)                 |
+| coffee, bookshelf, desks   | none           | by design (see the audit)                                          |
+
+Joint play: a pet's turn at yarn, mouse or teaser plays the toy's own pose
+and moves the toy. Box, cat tree and tunnel claims put pets in the
+playroom group, so they talk to and chase agent cats there too.
+
+New derived poses (`sprites/petPlayFrames.ts`, from the pet's own sheet):
+`crouch`, `wiggle`, `pounce`, `bat`, `windup`, `rear`, `scratchA/B`,
+`reach`, `pin`, `curlA/B`, `boxLow`, `boxPeek`, `boxLookL/R`, `climbA/B`,
+`perch`, `perchL/R` (plus `stand`). Each has a side view; most have a front
+and a back view.
+
+Orientation: the guard test claims every pet activity at every catalog
+item in every view and draws each step. Preview: `npx tsx scripts/preview-pets.ts`.
+Decisions: `ROADMAP.md`, "Pet interactions".

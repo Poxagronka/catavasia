@@ -328,9 +328,9 @@ test('every pet activity of an item works in every view: a claim, its pose, the 
             const v = petPlayView(pet, sprites);
             if (!v) continue; // 'sleep' / 'play': the care poses
             // The pose stays at the item (the tunnel run: along it, up to the far end).
-            const run = pet.rest.exit ?? { dx: 0, dy: 0 };
-            const nearX = Math.abs(v.x - spot.offsetX) <= 40 + Math.abs(run.dx);
-            assert.ok(nearX && Math.abs(v.y) <= 48 + Math.abs(run.dy), `${where}: far`);
+            const far: { dx: number; dy: number } = pet.rest.exit ?? { dx: 0, dy: 0 };
+            const nearX = Math.abs(v.x - spot.offsetX) <= 40 + Math.abs(far.dx);
+            assert.ok(nearX && Math.abs(v.y) <= 48 + Math.abs(far.dy), `${where}: far`);
             if (v.step.pose !== 'run' && !spot.exit) {
               // A side pose faces the spot's way: its own facing, flipped for LEFT.
               assert.equal(v.dir, spot.facing, `${where}: faces ${v.dir}`);

@@ -31,10 +31,12 @@ import {
 } from '../src/office/engine/petPlayAnims.js';
 import type { PetCareEnv } from '../src/office/petCare/petCareNav.js';
 import { PetCareSystem } from '../src/office/petCare/petCareSystem.js';
+import { freshNeeds } from '../src/office/petCare/petNeeds.js';
 import { buildPlayPoses, PET_POSE_NAMES } from '../src/office/sprites/petPlayFrames.js';
 import type { PetSpriteFrames } from '../src/office/sprites/petSpriteData.js';
 import type {
   ActivitySpot,
+  Pet,
   PetPlayAnim,
   SpriteData,
   TileType as TileTypeVal,
@@ -107,13 +109,7 @@ test('a content pet picks every toy, bed and house the agent cats use', () => {
   const pet = createPet('p', 0, 0, 0);
   const seen = new Set<string>();
   for (let i = 0; i < 4000; i++) {
-    const claim = provider.claimIdle(pet, {
-      hunger: 80,
-      thirst: 80,
-      fun: 80,
-      hygiene: 80,
-      energy: 50,
-    });
+    const claim = provider.claimIdle(pet, { ...freshNeeds(), energy: 50 });
     if (claim) seen.add(claim.kind);
   }
   for (const id of ALL_IDS) assert.ok(seen.has(id), `never picked "${id}"`);
@@ -247,5 +243,5 @@ test('a joint-play turn plays the toy pose at the pet side, the hop elsewhere', 
   assert.equal(pet.rest, null);
   care.playTurn(pet, 2, 'yarn', spot({ col: 6 }));
   care.update(0.1, env);
-  assert.equal(pet.careAnim?.kind, 'play', 'away from its side: the hop');
+  assert.equal((pet as Pet).careAnim?.kind, 'play', 'away from its side: the hop');
 });
