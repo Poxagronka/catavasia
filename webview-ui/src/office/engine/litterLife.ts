@@ -9,12 +9,15 @@
  *   or on the floor; a visit cut short by work leaves nothing.
  * - After a visit the cat steps proudly off the box, and now and then gets
  *   the zoomies: two or three sprints to far tiles, each ending in a skid.
+ * - A cat not at a box for LITTER_DUE_SEC goes at its next idle pick
+ *   (startDue), so a visit never depends on the rare roll alone.
  * - Floor poops: every path goes around them where it can (setAvoidTiles),
  *   and a cat passing one may grimace.
  *
  * Pets do the same through petCare/petCareSystem.ts.
  */
 import {
+  LITTER_DUE_SEC,
   LITTER_ZOOMIES_CHANCE,
   POOP_GRIMACE_CHANCE,
   POOP_GRIMACE_COOLDOWN_SEC,
@@ -64,6 +67,8 @@ export class LitterLife {
   private dashes = new Map<number, number>();
   /** Per walker ("c:<id>" / "p:<id>"): the tile it last rolled a grimace on, and its cooldown. */
   private passing = new Map<string, { tile: string; cooldown: number }>();
+  /** Seconds since each cat's last pile (starts at a random point of LITTER_DUE_SEC). */
+  private sinceVisit = new Map<number, number>();
 
   private readonly w: LitterWorld;
   private readonly rand: () => number;
@@ -78,6 +83,8 @@ export class LitterLife {
     const world = this.w.petCare.world;
     for (const ch of this.w.characters.values()) {
       if (ch.grimaceSec) ch.grimaceSec = Math.max(0, ch.grimaceSec - dt);
+      const since = this.sinceVisit.get(ch.id) ?? this.rand() * LITTER_DUE_SEC;
+      this.sinceVisit.set(ch.id, since + dt);
       const run = ch.activity;
       if (run?.spot) this.watchRun(run);
     }
@@ -115,6 +122,7 @@ export class LitterLife {
    * when the cat now does something new (another box, the floor, a dash).
    */
   finished(ch: Character, run: IdleActivityRun): boolean {
+    if (isUse(run.id) || run.id === 'litterFloor') this.sinceVisit.set(ch.id, 0);
     if (isUse(run.id)) {
       this.refused.delete(ch.id);
       if (this.rand() < LITTER_ZOOMIES_CHANCE) {
@@ -142,6 +150,12 @@ export class LitterLife {
       default:
         return false;
     }
+  }
+
+  /** An idle pick: a cat due for a box walks to the nearest free one. False: not due, or none. */
+  startDue(ch: Character): boolean {
+    if ((this.sinceVisit.get(ch.id) ?? 0) < LITTER_DUE_SEC) return false;
+    return this.nextBox(ch, new Set());
   }
 
   /** The nearest box this cat has not refused yet, free for it. */
