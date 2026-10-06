@@ -48,7 +48,7 @@ import {
   ZOOMIES_DASHES_MIN,
 } from '../../constants.js';
 import { furnitureKind } from '../layout/furnitureCatalog.js';
-import type { Pet, PlacedFurniture } from '../types.js';
+import type { ActivitySpot, Pet, PetRest, PlacedFurniture } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
 import { boxPose, isLitterBoxType } from './litterStages.js';
 import type { CareTarget, PetCareEnv } from './petCareNav.js';
@@ -284,8 +284,9 @@ export class PetCareSystem {
     const anim = r.anim!;
     anim.t += dt;
     const frame = Math.floor(anim.t / PET_ANIM_FRAME_SEC);
-    pet.careAnim = anim.kind === 'wait' ? null : { kind: anim.kind, frame };
-    if (anim.kind === 'sleep') {
+    pet.careAnim =
+      anim.kind === 'wait' ? null : { kind: anim.kind, frame, t: anim.t, dur: anim.dur };
+    if (anim.kind === 'sleep' || anim.kind === 'curl') {
       const needs = this.world.entry(pet.id).needs;
       raiseNeed(needs, 'energy', PET_SLEEP_ENERGY_PER_SEC * dt);
       // Wake early once rested (but nap at least a few seconds).
@@ -359,13 +360,24 @@ export class PetCareSystem {
     if (anim) anim.dur += sec;
   }
 
-  /** Joint toy play: the pet's turn — the hop pose for `sec` where it stands. */
-  playTurn(pet: Pet, sec: number): void {
-    if (this.rt(pet.id).anim) return;
-    this.pose(pet, 'play', sec, () => {
+  /**
+   * Joint toy play: the pet's turn for `sec`. At its side of the toy it plays
+   * the toy's own pose (`anim`, the toy moving with it); elsewhere the hop.
+   */
+  playTurn(pet: Pet, sec: number, anim?: PetActivityClaim['anim'], spot?: ActivitySpot): void {
+    const r = this.rt(pet.id);
+    if (r.anim) return;
+    const there = spot && pet.tileCol === spot.col && pet.tileRow === spot.row;
+    const kind = there && anim ? anim : 'play';
+    this.pose(pet, kind, sec, () => {
       raiseNeed(this.world.entry(pet.id).needs, 'fun', PET_TOY_FUN_GAIN / 2);
       this.touch();
     });
+    if (!there || !anim) return;
+    pet.dir = spot.facing;
+    pet.rest = restAt(spot, false);
+    // The toy moves with the pose (OfficeState reads the claim's spot); no keys: the scene holds them.
+    r.claim = { kind: anim, col: spot.col, row: spot.row, durationSec: sec, spot, anim };
   }
 
   /** Tiles this pet may target (free or contestable); everything without a broker. */
@@ -421,13 +433,7 @@ export class PetCareSystem {
       });
       r.keys = s.keys;
       r.claim = claim;
-      const spot = claim.spot;
-      pet.rest = {
-        offsetX: spot?.offsetX ?? 0,
-        offsetY: spot?.offsetY ?? 0,
-        zzz: claim.sleep === true,
-        peek: spot?.peek,
-      };
+      pet.rest = restAt(claim.spot, claim.sleep === true);
       return;
     }
     r.keys = [];
@@ -708,4 +714,23 @@ export class PetCareSystem {
   private effect(kind: Effect['kind'], col: number, row: number, life: number): void {
     this.effects.push({ ...this.at(col, row), kind, age: 0, life });
   }
+}
+
+/** The pose's place on a spot: its draw offset, Zzz, a house peek, a mirrored item, a tunnel end. */
+function restAt(spot: ActivitySpot | undefined, zzz: boolean): PetRest {
+  return {
+    offsetX: spot?.offsetX ?? 0,
+    offsetY: spot?.offsetY ?? 0,
+    zzz,
+    peek: spot?.peek,
+    ...(spot?.mirrored ? { mirrored: true } : {}),
+    ...(spot?.exit
+      ? {
+          exit: {
+            dx: (spot.exit.col - spot.col) * TILE_SIZE,
+            dy: (spot.exit.row - spot.row) * TILE_SIZE,
+          },
+        }
+      : {}),
+  };
 }

@@ -6,12 +6,15 @@
  * must all exist in every other view, each spot on walkable floor (or on the
  * item / a seat), in the item's ring, facing the item; the sprite, mirror flag,
  * animation frames and on-state of every view must resolve. A new furniture
- * folder is covered without touching this file.
+ * folder is covered without touching this file. Pets too: every activity a
+ * pet claims there resolves to its own pose in every view, facing and
+ * mirrored like the spot.
  *
  * Run with: npm test
  */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,11 +22,20 @@ import { beforeAll, test } from 'vitest';
 
 import { buildFurnitureCatalog } from '../../core/src/assets/build.ts';
 import { decodeAllFurniture } from '../../core/src/assets/loader.ts';
+import { decodePetPng } from '../../core/src/assets/pngDecoder.ts';
 import { canPlaceFurniture, rotateFurniture } from '../src/office/editor/editorActions.js';
 import type { SpotContext } from '../src/office/engine/activitySpots.js';
 import { stepDirection } from '../src/office/engine/characters.js';
 import { itemFrameSprite } from '../src/office/engine/furnitureFrames.js';
 import { IDLE_ACTIVITIES } from '../src/office/engine/idleActivities.js';
+import {
+  PET_NAP_IDS,
+  PET_TOY_IDS,
+  PetActivities,
+  petAnimFor,
+} from '../src/office/engine/petActivities.js';
+import { createPet, getPetSpriteData } from '../src/office/engine/petEntity.js';
+import { petPlayStep, petPlayView } from '../src/office/engine/petPlayAnims.js';
 import {
   buildDynamicCatalog,
   FURNITURE_CATEGORIES,
@@ -44,6 +56,7 @@ import {
   layoutToTileMap,
 } from '../src/office/layout/layoutSerializer.js';
 import { isWalkable } from '../src/office/layout/tileMap.js';
+import { getPetSprites, setPetTemplates } from '../src/office/sprites/petSpriteData.js';
 import type {
   ActivitySpot,
   Character,
@@ -259,4 +272,78 @@ test('a mirrored item swaps the LEFT/RIGHT of its activity steps', () => {
   assert.equal(stepDirection(ch, { f: 0, sec: 1, dir: Direction.RIGHT }), Direction.LEFT);
   assert.equal(stepDirection(ch, { f: 0, sec: 1, dir: Direction.UP }), Direction.UP);
   assert.equal(stepDirection(ch, { f: 0, sec: 1 }), Direction.LEFT);
+});
+
+/** Every activity a pet claims (the sofa nap is 'sleep'). */
+const PET_IDS = [...PET_TOY_IDS, ...PET_NAP_IDS, 'sleep'];
+
+test('every pet activity of an item works in every view: a claim, its pose, the toy moving', () => {
+  const sheet = decodePetPng(fs.readFileSync(path.join(ASSETS, 'pets', 'gitcat', 'pet.png')));
+  setPetTemplates([sheet], ['Gitcat'], ['cat']);
+  const sprites = getPetSprites(0)!;
+  let checked = 0;
+  for (const type of paletteTypes()) {
+    const front = activitySpots(spotContext(room(type).layout));
+    for (const view of views(type)) {
+      const { layout } = room(view);
+      const ctx = spotContext(layout);
+      const got = activitySpots(ctx);
+      for (const id of PET_IDS) {
+        if (!front.has(id)) continue;
+        assert.ok(got.get(id)?.length, `${view}: pet activity "${id}" has no spot (front has)`);
+        assert.ok(petAnimFor(id), `${id}: no pet pose`);
+        const provider = new PetActivities({
+          spotSets: () => new Map([[id, { spots: got.get(id)!, fallback: [] }]]),
+          furniture: () => layout.furniture,
+          canTarget: () => true,
+          claim: () => 'ok',
+          start: () => true,
+          rng: () => 0.5,
+        });
+        for (const spot of got.get(id)!) {
+          const where = `${view} pet ${id} @${spot.key}`;
+          const claim = provider.claimAt(createPet('p', 0, spot.col, spot.row), id, spot);
+          assert.ok(typeof claim === 'object', `${where}: no claim`);
+          assert.equal(claim.anim, petAnimFor(id), `${where}: pose`);
+          const pet = createPet('p', 0, spot.col, spot.row);
+          pet.dir = spot.facing;
+          pet.rest = {
+            offsetX: spot.offsetX,
+            offsetY: spot.offsetY,
+            zzz: false,
+            ...(spot.mirrored ? { mirrored: true } : {}),
+            ...(spot.exit
+              ? {
+                  exit: {
+                    dx: (spot.exit.col - spot.col) * 16,
+                    dy: (spot.exit.row - spot.row) * 16,
+                  },
+                }
+              : {}),
+          };
+          // Every step of the play draws a sprite (the tunnel hides it only inside the toy).
+          for (let t = 0; t < claim.durationSec; t += 0.1) {
+            pet.careAnim = { kind: claim.anim!, frame: 0, t, dur: claim.durationSec };
+            assert.ok(getPetSpriteData(pet, sprites)?.length, `${where}: no sprite at ${t}s`);
+            const v = petPlayView(pet, sprites);
+            if (!v) continue; // 'sleep' / 'play': the care poses
+            // The pose stays at the item (the tunnel run: along it, up to the far end).
+            const run = pet.rest.exit ?? { dx: 0, dy: 0 };
+            const nearX = Math.abs(v.x - spot.offsetX) <= 40 + Math.abs(run.dx);
+            assert.ok(nearX && Math.abs(v.y) <= 48 + Math.abs(run.dy), `${where}: far`);
+            if (v.step.pose !== 'run' && !spot.exit) {
+              // A side pose faces the spot's way: its own facing, flipped for LEFT.
+              assert.equal(v.dir, spot.facing, `${where}: faces ${v.dir}`);
+            }
+          }
+          if (spot.exit) {
+            const run = petPlayStep('tunnel', claim.durationSec / 2, claim.durationSec);
+            assert.equal(run.step.pose, 'run', `${where}: no run through`);
+          }
+          checked++;
+        }
+      }
+    }
+  }
+  assert.ok(checked >= 30, `only ${checked} pet spots checked`);
 });

@@ -38,7 +38,7 @@ import { findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
 import type { PetCareEnv } from '../petCare/petCareNav.js';
 import { PetCareSystem } from '../petCare/petCareSystem.js';
 import { appearanceSprites } from '../sprites/appearanceSprites.js';
-import { getPetCount, getPetName, isCatPet } from '../sprites/petSpriteData.js';
+import { getPetCount, getPetName, getPetSpritesFor, isCatPet } from '../sprites/petSpriteData.js';
 import { getLoadedCharacterCount } from '../sprites/spriteData.js';
 import type {
   ActivitySpot,
@@ -76,6 +76,7 @@ import type { MeetingPlan } from './meetingRoom.js';
 import { planMeetingRoom } from './meetingRoom.js';
 import { OfficeScenes } from './officeScenes.js';
 import { createPet, updatePet } from './petEntity.js';
+import { petToyMotion } from './petPlayAnims.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
 import { DESK_READ_SEC, SKILL_READ, SKILL_TOOL } from './skillReading.js';
@@ -1507,6 +1508,22 @@ export class OfficeState {
   }
 
   /**
+   * Send a content cat pet to an activity now (screenshots, tests): it claims
+   * the spot (`spotKey`, else the first free one) and walks there like an
+   * idle pick. False when the pet, the activity or a free spot is missing.
+   */
+  forcePetActivity(petId: string, activityId: string, spotKey?: string): boolean {
+    const pet = this.pets.find((p) => p.id === petId);
+    const set = this.activitySpots.get(activityId);
+    if (!pet || !set || this.petCare.isBusy(pet.id)) return false;
+    const spot = [...set.spots, ...set.fallback].find((sp) => !spotKey || sp.key === spotKey);
+    if (!spot) return false;
+    this.petCare.interrupt(pet);
+    const claim = this.life.petActivities.claimAt(pet, activityId, spot);
+    return typeof claim === 'object' && this.petCare.startClaim(pet, claim, this.petCareEnv());
+  }
+
+  /**
    * Send an idle cat to one activity right now, on a free spot (or a free
    * fallback spot). Used by tests and the e2e/screenshot hooks; the FSM picks
    * activities on its own otherwise. Returns false when it cannot start.
@@ -1589,12 +1606,19 @@ export class OfficeState {
       const cupFrom = ch.activity?.cupFrom;
       if (cupFrom && !frames.has(cupFrom)) frames.set(cupFrom, CUP_OUT_FRAME);
     }
-    // A pet batting a toy moves it too.
+    // A pet playing with a toy moves it too: by its play steps, else freely (the hop).
     for (const pet of this.pets) {
-      if (pet.careAnim?.kind !== 'play') continue;
       const claim = this.petCare.currentClaim(pet.id);
-      const prop = getIdleActivity(claim?.kind)?.prop;
-      if (claim?.spot?.itemUid && prop) moving.set(claim.spot.itemUid, prop);
+      const uid = claim?.spot?.itemUid;
+      if (!uid || !pet.careAnim) continue;
+      const toy = petToyMotion(pet, getPetSpritesFor(pet));
+      if (toy) {
+        if (toy.item) frames.set(uid, toy.item);
+        if (toy.dx || toy.dy) moving.set(uid, { dx: toy.dx, dy: toy.dy });
+        continue;
+      }
+      const prop = getIdleActivity(claim.kind)?.prop;
+      if (pet.careAnim.kind === 'play' && prop) moving.set(uid, prop);
     }
     if (moving.size === 0 && frames.size === 0) return this.furniture;
     const typeOf = new Map(

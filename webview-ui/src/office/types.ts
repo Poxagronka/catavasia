@@ -404,7 +404,13 @@ export interface Pet {
   /** Countdown timer for the heart bubble (mirrors character waiting bubble). */
   bubbleTimer: number;
   /** Pet-care pose the cat is playing (set by PetCareSystem), or null/absent. */
-  careAnim?: { kind: PetCareAnim; frame: number } | null;
+  careAnim?: {
+    kind: PetCareAnim | PetPlayAnim;
+    frame: number;
+    /** Seconds into the pose and its length (play poses pick their step by time). */
+    t?: number;
+    dur?: number;
+  } | null;
   /** Resting on a spot (set by PetCareSystem): draw offset, Zzz, a house hiding it. */
   rest?: PetRest | null;
   /** Social scene view, mirrored from the pet's stand-in actor (see petActors.ts). */
@@ -427,10 +433,18 @@ export interface PetRest {
   zzz: boolean;
   /** The house the pet sleeps inside (only ears or tail show), if any. */
   peek?: HousePeek;
+  /** The item is drawn mirrored: a front-view pose flips with it. */
+  mirrored?: boolean;
+  /** A run-through toy (the tunnel): px from the spot to the far end. */
+  exit?: { dx: number; dy: number };
 }
 
 /** Care poses a cat pet can play (see office/sprites/petCareFrames.ts). */
 export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play' | 'sleep' | 'grimace';
+
+/** Play poses a cat pet plays at the office's toys and beds (see engine/petPlayAnims.ts). */
+export type PetPlayAnim =
+  'scratch' | 'yarn' | 'mouse' | 'teaser' | 'box' | 'catTree' | 'tunnel' | 'curl';
 
 /** Persisted record (lives on OfficeLayout). */
 export interface PlacedPet {

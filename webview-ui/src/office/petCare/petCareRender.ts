@@ -11,6 +11,7 @@ import {
 } from '../../constants.js';
 import type { FxDrawable } from '../engine/activityFx.js';
 import { fxDrawables } from '../engine/activityFx.js';
+import { petPlayFx } from '../engine/petPlayAnims.js';
 import { furnitureKind, getCatalogEntry } from '../layout/furnitureCatalog.js';
 import { itemFrame } from '../layout/itemFrame.js';
 import {
@@ -30,6 +31,7 @@ import {
   STINK_FRAMES,
   YARN_FRAMES,
 } from '../sprites/petCareSprites.js';
+import { getPetSpritesFor } from '../sprites/petSpriteData.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
 import type { FurnitureInstance, Pet, PlacedFurniture, SpriteData } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
@@ -307,7 +309,8 @@ function careAnimFx(pet: Pet, time: number): FxDrawable[] {
     case 'petted':
       return fxDrawables('hearts', at(0, -TILE_SIZE + 2), time);
     default:
-      return [];
+      // A play pose at a toy: claw marks, sparkles, the tunnel's rustle.
+      return petPlayFx(pet, getPetSpritesFor(pet));
   }
 }
 

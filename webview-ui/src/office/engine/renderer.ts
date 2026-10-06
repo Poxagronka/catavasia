@@ -85,6 +85,7 @@ import {
 import { dominantFur, peekDrawable, peekTwitch } from './housePeek.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
+import { petPlayView } from './petPlayAnims.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { renderSocialBubbles, socialCloudDrawable, socialSpriteFor } from './socialRender.js';
 import { renderPetZzz, renderZzz } from './zzzOverlay.js';
@@ -530,11 +531,14 @@ export function renderScene(
       continue;
     }
 
+    // A play pose (a toy, the cat tree, the tunnel) carries its own offsets.
+    const play = petSprites ? petPlayView(pet, petSprites) : null;
+    if (play?.hidden) continue; // inside the play tunnel
     const cached = getCachedSprite(spriteData, zoom);
     // Anchor at bottom-center at (pet.x, pet.y) — round to integer device pixels,
     // shifted onto its spot while it rests there (a bed, a sofa seat).
-    const restX = pet.rest?.offsetX ?? 0;
-    const restY = pet.rest?.offsetY ?? 0;
+    const restX = play ? play.x : (pet.rest?.offsetX ?? 0);
+    const restY = play ? play.y : (pet.rest?.offsetY ?? 0);
     const drawX = Math.round(offsetX + (pet.x + restX) * zoom - cached.width / 2);
     const drawY = Math.round(offsetY + (pet.y + restY) * zoom - cached.height);
 

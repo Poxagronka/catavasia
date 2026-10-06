@@ -33,7 +33,7 @@ import type { CatSocial } from './catSocial.js';
 import { snapToTile, updateCharacter } from './characters.js';
 import type { ActivitySpotSet, IdleChoice } from './idleActivities.js';
 import { getIdleActivity } from './idleActivities.js';
-import { PetActivities } from './petActivities.js';
+import { PetActivities, petAnimFor } from './petActivities.js';
 import { PetActors } from './petActors.js';
 import { stopAfterStep } from './socialMoves.js';
 import { mulberry32 } from './socialMoves.js';
@@ -347,7 +347,7 @@ export class CatLife {
   private playTurn(id: number, toyId: string, spot: ActivitySpot, sec: number): void {
     const pet = this.petOf(id);
     if (pet) {
-      this.w.petCare.playTurn(pet, sec);
+      this.w.petCare.playTurn(pet, sec, petAnimFor(toyId), spot);
       return;
     }
     const ch = this.w.characters.get(id);
