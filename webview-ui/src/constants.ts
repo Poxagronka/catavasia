@@ -501,8 +501,15 @@ export const PET_SEEK_THRESHOLD = 55;
 export const PET_BOWEL_PER_MEAL = 40;
 export const PET_BOWEL_PER_HOUR = 6;
 export const PET_BOWEL_MAX = 100;
-/** Poops a litter box holds before it reads "full" (cats then go on the floor). */
-export const PET_LITTER_CAPACITY = 3;
+/**
+ * Litter box fill: piles 0 clean, 1, 2-3, PET_LITTER_FULL full (stink lines),
+ * PET_LITTER_CAPACITY overflowing with flies: cats grimace and refuse it.
+ */
+export const PET_LITTER_FULL = 4;
+export const PET_LITTER_CAPACITY = 5;
+/** Litter wear: uses since the last change before it looks used / dirty. */
+export const PET_LITTER_USED_AFTER = 4;
+export const PET_LITTER_DIRTY_AFTER = 10;
 /** Hygiene hit for a poop in the box / on the floor. */
 export const PET_POOP_HYGIENE_COST_BOX = 5;
 export const PET_POOP_HYGIENE_COST_FLOOR = 15;
@@ -518,6 +525,7 @@ export const PET_GAIN_SCRATCH = 35;
 export const PET_GAIN_PLAY = 40;
 export const PET_GAIN_CLEAN_BOX = 35;
 export const PET_GAIN_CLEAN_FLOOR_POOP = 20;
+export const PET_GAIN_CHANGE_LITTER = 45;
 /** Offline catch-up: decay runs at this fraction while the office is closed, capped. */
 export const PET_OFFLINE_DECAY_FACTOR = 0.1;
 export const PET_OFFLINE_MAX_CATCHUP_HOURS = 2;
@@ -535,7 +543,7 @@ export const PET_MEOW_GLOBAL_COOLDOWN_SEC = 20;
 /** Care animation lengths (real seconds) and frame length. */
 export const PET_ANIM_EAT_SEC = 4;
 export const PET_ANIM_DRINK_SEC = 3.5;
-export const PET_ANIM_POOP_SEC = 3;
+export const PET_ANIM_POOP_SEC = 3.75;
 export const PET_ANIM_PETTED_SEC = 2.5;
 export const PET_ANIM_PLAY_SEC = 3.5;
 export const PET_ANIM_FRAME_SEC = 0.25;
@@ -594,6 +602,8 @@ export const ACTIVITY_TALK_EXTEND_SEC = 10;
 export const PET_ACTOR_ID_BASE = 1_000_000;
 /** Ears / tail of a cat asleep inside a cat house: outline and inner-ear colors. */
 export const HOUSE_PEEK_OUTLINE_COLOR = '#2E1C20';
+/** Eye shine of a cat looking out of a hooded litter box's dark doorway. */
+export const HOUSE_PEEK_EYE_COLOR = '#f4f0a8';
 export const HOUSE_PEEK_INNER_EAR_COLOR = '#E89AA8';
 /** Social bubble height above a pet's feet (pets are shorter than agent cats). */
 export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;
@@ -656,3 +666,37 @@ export const ACTIVITY_FX_COLORS = {
 } as const;
 /** The empty slot of a book taken from a shelf (the bookshelf art's darkest line). */
 export const SHELF_BACK_COLOR = '#301c1c';
+
+// ── Litter boxes and floor poop (all cats, see engine/litterLife.ts) ──
+/** Relative weight of a litter box visit in an agent cat's idle pick (low: a rare need). */
+export const LITTER_ACTIVITY_WEIGHT = 0.2;
+/** Px a cat in an open box is drawn lower: the front wall hides its paws. */
+export const LITTER_SPOT_OFFSET_Y = 3;
+/** Chance of zoomies after a box visit, the dashes they last, and how far a dash runs (tiles). */
+export const LITTER_ZOOMIES_CHANCE = 0.35;
+export const ZOOMIES_DASHES_MIN = 2;
+export const ZOOMIES_DASHES_MAX = 3;
+export const ZOOMIES_MIN_TILES = 4;
+export const ZOOMIES_MAX_TILES = 9;
+/** Random dash targets tried until one is reachable (many lie behind a wall). */
+export const ZOOMIES_PICKS = 12;
+/** Walk speed and walk-frame rate multiplier while a cat has the zoomies. */
+export const ZOOMIES_SPEED_MUL = 2.6;
+/** A cat passing a floor poop may grimace: how long, how often per cat, how likely. */
+export const POOP_GRIMACE_SEC = 1.3;
+export const POOP_GRIMACE_COOLDOWN_SEC = 25;
+export const POOP_GRIMACE_CHANCE = 0.6;
+/** Flies circling an overflowing box or a floor poop. */
+export const LITTER_FLY_COUNT = 3;
+/** Seconds a just-changed box glints, and the clean-up effects last. */
+export const LITTER_FRESH_GLINT_SEC = 6;
+export const CARE_CLEANUP_FX_SEC = 1.2;
+/** Effect colors of the litter animations (sand kick, grimace face, speed lines). */
+export const LITTER_FX_COLORS = {
+  sand: '#e8d9a8',
+  sandDark: '#b59a63',
+  face: '#9ccc5a',
+  faceDark: '#3f3740',
+  tongue: '#ff8fa8',
+  speed: '#f4f4f8',
+} as const;

@@ -34,7 +34,22 @@ export function getWalkableTiles(
   return tiles;
 }
 
-/** BFS pathfinding on 4-connected grid (no diagonals). Returns path excluding start, including end. */
+/** Tiles walkers go around when they can (floor poops): see setAvoidTiles. */
+let avoidTiles: ReadonlySet<string> = new Set();
+
+/**
+ * Tiles every path avoids where another way exists ("col,row" keys). The
+ * office sets the floor poops here each frame; a path that cannot avoid one
+ * (it is the only way, or the start or the goal) still goes through.
+ */
+export function setAvoidTiles(keys: ReadonlySet<string>): void {
+  avoidTiles = keys;
+}
+
+/**
+ * BFS pathfinding on 4-connected grid (no diagonals). Returns path excluding
+ * start, including end. Goes around avoided tiles (setAvoidTiles) if it can.
+ */
 export function findPath(
   startCol: number,
   startRow: number,
@@ -42,6 +57,23 @@ export function findPath(
   endRow: number,
   tileMap: TileType[][],
   blockedTiles: Set<string>,
+): Array<{ col: number; row: number }> {
+  if (avoidTiles.size > 0) {
+    const around = bfs(startCol, startRow, endCol, endRow, tileMap, blockedTiles, avoidTiles);
+    if (around.length > 0) return around;
+  }
+  return bfs(startCol, startRow, endCol, endRow, tileMap, blockedTiles);
+}
+
+function bfs(
+  startCol: number,
+  startRow: number,
+  endCol: number,
+  endRow: number,
+  tileMap: TileType[][],
+  blockedTiles: Set<string>,
+  /** Tiles stepped on only as the goal (floor poops). */
+  avoid: ReadonlySet<string> = new Set(),
 ): Array<{ col: number; row: number }> {
   if (startCol === endCol && startRow === endRow) return [];
 
@@ -93,6 +125,7 @@ export function findPath(
 
       if (visited.has(nk)) continue;
       if (!isWalkable(nc, nr, tileMap, blockedTiles)) continue;
+      if (nk !== endKey && avoid.has(nk)) continue;
 
       visited.add(nk);
       parent.set(nk, currKey);

@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import {
-  PET_MENU_BUTTON_PX,
-  PET_MENU_ICON_SCALE,
-  PET_MENU_RADIUS_PX,
-  TILE_SIZE,
-} from '../constants.js';
+import { PET_MENU_BUTTON_PX, PET_MENU_RADIUS_PX, TILE_SIZE } from '../constants.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { PetMenuAction } from '../office/petCare/petCareTypes.js';
 import type { NeedKey } from '../office/petCare/petNeeds.js';
@@ -13,7 +8,7 @@ import { moodLabel, moodScore, NEED_KEYS, NEED_LABELS } from '../office/petCare/
 import { overlayProjection } from '../office/projection.js';
 import type { PetMenuIcon } from '../office/sprites/petCareSprites.js';
 import { MENU_ICONS } from '../office/sprites/petCareSprites.js';
-import type { SpriteData } from '../office/types.js';
+import { barColor, iconUrl } from './pixelIcon.js';
 
 interface PetRadialMenuProps {
   officeState: OfficeState;
@@ -30,40 +25,6 @@ const ACTIONS: Array<{ action: PetMenuAction; icon: PetMenuIcon; label: string }
   { action: 'clean', icon: 'clean', label: 'Clean' },
   { action: 'info', icon: 'info', label: 'Info' },
 ];
-
-/** Bar color per need value: the request threshold reads red. */
-const NEED_BAR_LOW = 35;
-const NEED_BAR_MID = 60;
-
-const iconUrls = new Map<SpriteData, string>();
-
-/** A sprite as a data URL at PET_MENU_ICON_SCALE, cached per sprite. */
-function iconUrl(sprite: SpriteData): string {
-  let url = iconUrls.get(sprite);
-  if (url) return url;
-  const k = PET_MENU_ICON_SCALE;
-  const canvas = document.createElement('canvas');
-  canvas.width = sprite[0].length * k;
-  canvas.height = sprite.length * k;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-  sprite.forEach((row, y) =>
-    row.forEach((px, x) => {
-      if (!px) return;
-      ctx.fillStyle = px;
-      ctx.fillRect(x * k, y * k, k, k);
-    }),
-  );
-  url = canvas.toDataURL();
-  iconUrls.set(sprite, url);
-  return url;
-}
-
-function barColor(value: number): string {
-  if (value < NEED_BAR_LOW) return 'var(--color-danger)';
-  if (value < NEED_BAR_MID) return 'var(--color-warning)';
-  return 'var(--color-status-success)';
-}
 
 /**
  * Radial care menu over a cat pet: six pixel buttons on a ring (Feed, Water,

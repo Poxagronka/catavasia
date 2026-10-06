@@ -10,10 +10,11 @@ import type { PetSpriteFrames } from './petSpriteData.js';
  *
  * - eat / drink: the head (front ~40 % of the side view) dips into the bowl;
  *   drink adds a lapping tongue.
- * - poop: the rear half settles onto the hind legs (squat).
+ * - poop: dig, the rear settles onto the hind legs (squat), cover, a proud hop.
  * - petted: the front view squashes down one pixel under the hand.
  * - play: the side walk cycle with a hop.
  * - sleep: the front view settles low (a loaf), breathing one pixel.
+ * - grimace: the front view shakes its head (an overflowing litter box).
  *
  * Side poses face right; callers flip them for left, like the walk cycle.
  */
@@ -26,6 +27,8 @@ export interface PetCarePoses {
   petted: SpriteData[];
   playRight: SpriteData[];
   sleep: SpriteData[];
+  /** A head shake facing the viewer (an overflowing box). */
+  grimace: SpriteData[];
 }
 
 /** Lapping tongue color. */
@@ -220,6 +223,10 @@ export function buildCarePoses(p: PetSpriteFrames): PetCarePoses {
       dig(side, -1),
       dig(side, 1),
       dig(side, -1),
+      // The proud exit: up tall, a little hop.
+      side,
+      hop(side, 1),
+      side,
     ],
     eatDown: [frontDip(front, 2), frontDip(front, 3), frontDip(front, 2), frontDip(front, 1)],
     eatUp: [frontDip(p.idleUp[0], 1), frontDip(p.idleUp[0], 2)],
@@ -237,6 +244,7 @@ export function buildCarePoses(p: PetSpriteFrames): PetCarePoses {
       ...PLAY_HOPS.map((h, i) => hop(p.walkRight[i % 3], h)),
     ],
     sleep: [frontDip(front, 3), frontDip(front, 3), frontDip(front, 4)],
+    grimace: [purr, shiftX(purr, 1), purr, shiftX(purr, -1), purr, front],
   };
 }
 
@@ -284,5 +292,7 @@ export function careSpriteFor(pet: Pet, sprites: PetSpriteFrames): SpriteData | 
       return side(poses.playRight);
     case 'sleep':
       return pick(poses.sleep);
+    case 'grimace':
+      return pick(poses.grimace);
   }
 }

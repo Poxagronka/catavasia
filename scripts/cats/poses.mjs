@@ -5,6 +5,7 @@
 
 import { Frame } from './canvas.mjs';
 import { IDLE_POSES } from './idlePoses.mjs';
+import { LITTER_POSES } from './litterPoses.mjs';
 import { down, right } from './officePoses.mjs';
 import { REST_POSES } from './restPoses.mjs';
 import { SOCIAL_POSES } from './socialPoses.mjs';
@@ -16,7 +17,14 @@ import { TOY_POSES } from './toyPoses.mjs';
  * frame for a row direction; side poses ignore it (left is mirrored at runtime).
  * The webview names frames through POSE_NAMES, so new poses append freely.
  */
-export const POSES = [...IDLE_POSES, ...TOY_POSES, ...REST_POSES, ...WORK_POSES, ...SOCIAL_POSES];
+export const POSES = [
+  ...IDLE_POSES,
+  ...TOY_POSES,
+  ...REST_POSES,
+  ...WORK_POSES,
+  ...SOCIAL_POSES,
+  ...LITTER_POSES,
+];
 
 /** Pose names in sheet order: sheet frame = 7 + index. */
 export const POSE_NAMES = POSES.map((p) => p.name);

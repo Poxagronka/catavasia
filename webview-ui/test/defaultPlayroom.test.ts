@@ -86,6 +86,6 @@ test('every playroom toy and house spot is reachable from the lounge', () => {
       used.set(spot.key, activity);
     }
   }
-  // Calm room: the scratching post, the ball of yarn and one house, nothing else.
-  assert.deepEqual([...new Set(used.values())].sort(), ['house', 'scratch', 'yarn']);
+  // Calm room: the scratching post, the ball of yarn, one house, and (revision 7) a litter box.
+  assert.deepEqual([...new Set(used.values())].sort(), ['house', 'litter', 'scratch', 'yarn']);
 });

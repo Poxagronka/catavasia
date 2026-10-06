@@ -8,10 +8,15 @@
  * Pure module: no DOM.
  */
 
-import { ACTIVITY_FX_COLORS } from '../../constants.js';
+import { ACTIVITY_FX_COLORS, LITTER_FX_COLORS, POOP_GRIMACE_SEC } from '../../constants.js';
 import type { Character, Direction as DirectionT, SpriteData } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
-import { activityStep, characterDrawOffsetX, characterDrawOffsetY } from './characters.js';
+import {
+  activityStep,
+  characterDrawOffsetX,
+  characterDrawOffsetY,
+  isSprinting,
+} from './characters.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 
 export type FxKind =
@@ -26,7 +31,11 @@ export type FxKind =
   | 'page'
   | 'rustle'
   | 'ripple'
-  | 'crumbs';
+  | 'crumbs'
+  | 'sand'
+  | 'grimace'
+  | 'speed'
+  | 'effort';
 
 export interface FxDrawable {
   sprite: SpriteData;
@@ -84,6 +93,50 @@ const RIPPLE_S = [
   grid(['.ww.', 'w..w', '.ww.'], { w: WATER }),
   grid(['.www.', 'w...w', '.www.'], { w: WATER }),
 ];
+
+const SAND_DOT = [[LITTER_FX_COLORS.sand]];
+const SAND_DARK_DOT = [[LITTER_FX_COLORS.sandDark]];
+const SPEED_S = grid(['sss'], { s: LITTER_FX_COLORS.speed });
+const SAND_CLUMP = grid(['dd'], { d: LITTER_FX_COLORS.sandDark });
+const TICK_S = grid(['l', 'l'], { l: LINE });
+const TICK_SLANT_L = grid(['l.', '.l'], { l: LINE });
+const TICK_SLANT_R = grid(['.l', 'l.'], { l: LINE });
+
+/** A green "bleh" face, eyes squeezed shut (> <), wavy mouth, outlined. */
+const GRIMACE_S = outlined(
+  [
+    '..ggggg..',
+    '.ggggggg.',
+    'ggdgggdgg',
+    'gggdgdggg',
+    'ggdgggdgg',
+    'ggggggggg',
+    'ggdgdgdgg',
+    '.gdgdgdg.',
+    '..ggtgg..',
+  ],
+  { g: LITTER_FX_COLORS.face, d: LITTER_FX_COLORS.faceDark, t: LITTER_FX_COLORS.tongue },
+);
+
+/** The template with a 1 px dark outline around it (it reads on any floor). */
+function outlined(rows: string[], colors: Record<string, string>): SpriteData {
+  const w = rows[0].length + 2;
+  const filled = (x: number, y: number) =>
+    rows[y - 1]?.[x - 1] !== undefined && rows[y - 1][x - 1] !== '.';
+  const out: SpriteData = [];
+  for (let y = 0; y < rows.length + 2; y++) {
+    const row: string[] = [];
+    for (let x = 0; x < w; x++) {
+      if (filled(x, y)) row.push(colors[rows[y - 1][x - 1]] ?? '');
+      else {
+        const near = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => filled(x + dx, y + dy)));
+        row.push(near ? LITTER_FX_COLORS.faceDark : '');
+      }
+    }
+    out.push(row);
+  }
+  return out;
+}
 
 /** 0..1 phase of a repeating cycle. */
 const cyc = (t: number, sec: number, off = 0) => (((t / sec + off) % 1) + 1) % 1;
@@ -165,6 +218,36 @@ export function fxDrawables(kind: FxKind, at: FxAnchor, t: number): FxDrawable[]
       add(RIPPLE_S[p < 0.5 ? 0 : 1], p < 0.5 ? -2 : -3, -1, 1 - p * 0.7);
       break;
     }
+    case 'sand':
+      // Litter flung back behind the cat: grains and a clump arc up and fall.
+      for (let i = 0; i < 4; i++) {
+        const p = cyc(t, 0.45, i / 4);
+        const sprite = i === 0 ? SAND_CLUMP : i % 2 ? SAND_DARK_DOT : SAND_DOT;
+        add(sprite, -1 - p * (4 + i * 1.5), -p * (7 + i) + p * p * 9, 1 - p * 0.5);
+      }
+      break;
+    case 'effort': {
+      // Strain marks around the head, pulsing.
+      if (cyc(t, 0.4) > 0.65) break;
+      add(TICK_SLANT_L, -7, -1, 1);
+      add(TICK_S, -1, -4, 1);
+      add(TICK_SLANT_R, 5, -1, 1);
+      break;
+    }
+    case 'grimace': {
+      // The face pops up over the head and bobs, a stink wisp beside it.
+      const pop = Math.min(1, t / 0.15);
+      add(GRIMACE_S, -5, -10 - Math.round(pop * 2 + Math.sin(t * 9)), 1);
+      break;
+    }
+    case 'speed':
+      // Speed lines streaming behind a cat with the zoomies, dust at its heels.
+      for (let i = 0; i < 3; i++) {
+        const p = cyc(t, 0.3, i / 3);
+        add(SPEED_S, -7 - p * 5, -12 + i * 4, 1 - p);
+      }
+      add(DUST_S, -6 - cyc(t, 0.4) * 3, -1, 1 - cyc(t, 0.4));
+      break;
     case 'crumbs':
       for (let i = 0; i < 2; i++) {
         const p = cyc(t, 0.6, i * 0.5);
@@ -203,6 +286,34 @@ const ABOVE_HEAD: readonly [number, number] = [8, 4];
 
 /** The effects of a cat's current activity step, in world px. */
 export function characterFx(ch: Character): FxDrawable[] {
+  const out = litterFx(ch);
+  return out.length > 0 ? [...out, ...activityFx(ch)] : activityFx(ch);
+}
+
+/** Litter extras: the grimace face over the head, speed lines on a zoomies dash. */
+function litterFx(ch: Character): FxDrawable[] {
+  const out: FxDrawable[] = [];
+  const top = Math.round(ch.y + characterDrawOffsetY(ch) - 32);
+  const left = Math.round(ch.x + characterDrawOffsetX(ch) - 8);
+  if (ch.grimaceSec && ch.grimaceSec > 0) {
+    const [fx, fy] = ABOVE_HEAD;
+    out.push(
+      ...fxDrawables(
+        'grimace',
+        frameAnchor(left, top, fx, fy, ch.dir, frontOf(ch) + 1),
+        POOP_GRIMACE_SEC - ch.grimaceSec,
+      ),
+    );
+  }
+  if (isSprinting(ch) && (ch.dir === Direction.LEFT || ch.dir === Direction.RIGHT)) {
+    out.push(
+      ...fxDrawables('speed', frameAnchor(left, top, 6, 30, ch.dir, frontOf(ch)), ch.x / 20),
+    );
+  }
+  return out;
+}
+
+function activityFx(ch: Character): FxDrawable[] {
   // Inside the play tunnel: the fabric rustles where the cat runs.
   if (isHiddenInRunThrough(ch)) {
     const at = { x: Math.round(ch.x) - 1, y: Math.round(ch.y) - 5, mirror: false, zY: frontOf(ch) };

@@ -773,23 +773,33 @@ export function OfficeCanvas({
         return;
       }
 
-      if (care.menuPetId !== null) {
-        care.closeMenu();
-        return;
-      }
-      // Bowl click refills it; a litter box or floor poop click cleans it.
+      // Bowl click refills it; a litter box or a floor poop opens its care menu.
       const careHit = hitTestCare(
         pos.worldX,
         pos.worldY,
         officeState.getLayout().furniture,
         care.world,
       );
+      const open = care.careMenu;
+      const same =
+        (careHit?.kind === 'box' && open?.kind === 'box' && open.uid === careHit.item.uid) ||
+        (careHit?.kind === 'poop' && open?.kind === 'poop' && open.id === careHit.id);
+      if (care.menuPetId !== null || (open && (!careHit || same))) {
+        care.closeMenu();
+        return;
+      }
       if (careHit?.kind === 'bowl') {
         care.refillBowl(careHit.item);
         return;
       }
-      if (careHit?.kind === 'box' && care.cleanBox(careHit.item)) return;
-      if (careHit?.kind === 'poop' && care.cleanFloorPoop(careHit.id)) return;
+      if (careHit?.kind === 'box') {
+        care.openCareMenu({ kind: 'box', uid: careHit.item.uid });
+        return;
+      }
+      if (careHit?.kind === 'poop') {
+        care.openCareMenu({ kind: 'poop', id: careHit.id });
+        return;
+      }
 
       // No agent hit — check seat click while agent is selected
       if (officeState.selectedAgentId !== null) {

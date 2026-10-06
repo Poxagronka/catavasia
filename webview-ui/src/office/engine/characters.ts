@@ -13,12 +13,14 @@ import {
   WANDER_MOVES_BEFORE_REST_MIN,
   WANDER_PAUSE_MAX_SEC,
   WANDER_PAUSE_MIN_SEC,
+  ZOOMIES_SPEED_MUL,
 } from '../../constants.js';
 import { findPath } from '../layout/tileMap.js';
 import type { CharacterSprites } from '../sprites/spriteData.js';
 import { isReadingToolName } from '../toolUtils.js';
 import type {
   Character,
+  HousePeek,
   IdleActivityRun,
   Seat,
   SpriteData,
@@ -44,6 +46,8 @@ export interface IdleWorld {
   claim?: (ch: Character, choice: IdleChoice) => 'ok' | 'repick' | 'fight';
   /** Start the activity chained after one that just ended. True: the cat walks there. */
   startNext?: (ch: Character, id: string, from?: string) => boolean;
+  /** An activity played to its end (not cut by work). True: something new started. */
+  finished?: (ch: Character, run: IdleActivityRun) => boolean;
 }
 
 /** Whether a tool should show the reading animation (vs typing). Taxonomy comes
@@ -272,6 +276,7 @@ export function updateCharacter(
           ? runThroughDone(ch, ch.activity, def, dt)
           : advanceAnim(ch.activity, def, dt);
       if (done) {
+        const run = ch.activity;
         // The cup a coffee chain carries comes from this machine.
         const from = ch.activity.cupFrom ?? ch.activity.spot?.itemUid;
         // A run-through cut short by the timer snaps back to a real tile.
@@ -282,6 +287,8 @@ export function updateCharacter(
         ch.frame = 0;
         ch.frameTimer = 0;
         ch.wanderTimer = randomRange(IDLE_ACTIVITY_PAUSE_MIN_SEC, IDLE_ACTIVITY_PAUSE_MAX_SEC);
+        // A follow-up (a litter visit: zoomies, another box) may start right away.
+        if (idle?.finished?.(ch, run)) break;
         // A chained activity (coffee: brew, then sip, then bring the cup back) starts at once.
         if (def.next && idle?.startNext?.(ch, def.next, from)) break;
       }
@@ -290,8 +297,9 @@ export function updateCharacter(
 
     case CharacterState.WALK: {
       // Walk animation
-      if (ch.frameTimer >= WALK_FRAME_DURATION_SEC) {
-        ch.frameTimer -= WALK_FRAME_DURATION_SEC;
+      const frameSec = WALK_FRAME_DURATION_SEC / walkSpeedMul(ch);
+      if (ch.frameTimer >= frameSec) {
+        ch.frameTimer -= frameSec;
         ch.frame = (ch.frame + 1) % 4;
       }
 
@@ -386,7 +394,7 @@ export function stepAlongPath(ch: Character, dt: number): void {
   const nextTile = ch.path[0];
   ch.dir = directionBetween(ch.tileCol, ch.tileRow, nextTile.col, nextTile.row);
 
-  ch.moveProgress += ((WALK_SPEED_PX_PER_SEC * (ch.speedMul ?? 1)) / TILE_SIZE) * dt;
+  ch.moveProgress += ((WALK_SPEED_PX_PER_SEC * walkSpeedMul(ch)) / TILE_SIZE) * dt;
 
   const fromCenter = tileCenter(ch.tileCol, ch.tileRow);
   const toCenter = tileCenter(nextTile.col, nextTile.row);
@@ -441,6 +449,20 @@ function runThroughDone(ch: Character, run: IdleActivityRun, def: AnimParts, dt:
   run.step = 0;
   run.stepT = 0;
   return false;
+}
+
+/** True while the cat dashes to a zoomies spot (a sprint activity's walk). */
+export function isSprinting(ch: Character): boolean {
+  return (
+    ch.state === CharacterState.WALK &&
+    ch.activity?.phase === 'going' &&
+    !!getIdleActivity(ch.activity.id)?.sprint
+  );
+}
+
+/** Walk speed multiplier: a social chase sets one, the zoomies sprint, else 1. */
+function walkSpeedMul(ch: Character): number {
+  return ch.speedMul ?? (isSprinting(ch) ? ZOOMIES_SPEED_MUL : 1);
 }
 
 /** True while the cat does (or walks to) an activity that runs during work. */
@@ -612,4 +634,14 @@ function randomRange(min: number, max: number): number {
 
 function randomInt(min: number, max: number): number {
   return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+/**
+ * The peek to draw instead of the cat now, if any: always inside a house; in
+ * a hooded litter box (`peekOnHide`) only on the steps it is inside (`hide`).
+ */
+export function peekNow(ch: Character): HousePeek | undefined {
+  if (ch.state !== CharacterState.ACTIVITY || !ch.activity?.spot?.peek) return undefined;
+  if (getIdleActivity(ch.activity.id)?.peekOnHide && !activityStep(ch)?.hide) return undefined;
+  return ch.activity.spot.peek;
 }

@@ -252,6 +252,9 @@ test('with no box the cat poops on the floor; a click on it cleans it', () => {
   const hit = hitTestCare(p.col * 16 + 8, p.row * 16 + 8, env.furniture, care.world);
   assert.equal(hit?.kind, 'poop');
   assert.ok(hit?.kind === 'poop' && care.cleanFloorPoop(hit.id));
+  // The bag comes down first; the pile is gone once it is in the bag.
+  assert.equal(care.world.floorPoops.length, 1);
+  run(care, env, pet, 1);
   assert.equal(care.world.floorPoops.length, 0);
 });
 
@@ -297,9 +300,11 @@ test('Clean empties boxes and floor; Info toggles the panel and keeps the menu',
   assert.equal(care.infoOpen, true);
   assert.equal(care.menuPetId, pet.id);
   care.act(pet, 'clean', env);
+  assert.equal(care.menuPetId, null);
+  // The scoop and the bag take their piles out a moment later.
+  run(care, env, pet, 1);
   assert.equal(care.world.boxCount(BOX.uid), 0);
   assert.equal(care.world.floorPoops.length, 0);
-  assert.equal(care.menuPetId, null);
 });
 
 test('saves only after load, through onSave', () => {

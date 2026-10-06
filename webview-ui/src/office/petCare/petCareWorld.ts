@@ -5,6 +5,7 @@ import {
   PET_BOWL_FOOD_PER_MEAL,
   PET_BOWL_MAX,
   PET_BOWL_WATER_PER_DRINK,
+  PET_GAIN_CHANGE_LITTER,
   PET_GAIN_CLEAN_BOX,
   PET_GAIN_CLEAN_FLOOR_POOP,
   PET_GAIN_DRINK,
@@ -13,6 +14,8 @@ import {
   PET_GAIN_SCRATCH,
   PET_GAIN_TREAT,
   PET_LITTER_CAPACITY,
+  PET_LITTER_DIRTY_AFTER,
+  PET_LITTER_FULL,
   PET_POOP_HYGIENE_COST_BOX,
   PET_POOP_HYGIENE_COST_FLOOR,
 } from '../../constants.js';
@@ -57,6 +60,8 @@ export interface PetCareSnapshot {
   bowls: Record<string, BowlState>;
   /** Litter box uid → poops inside. */
   boxes: Record<string, number>;
+  /** Litter box uid → uses since the litter was last changed (optional: added later). */
+  litter?: Record<string, number>;
   floorPoops: FloorPoop[];
 }
 
@@ -68,6 +73,8 @@ export class PetCareWorld {
   pets = new Map<string, PetCareEntry>();
   bowls = new Map<string, BowlState>();
   boxes = new Map<string, number>();
+  /** Uses since the litter was changed (the sand look: fresh, used, dirty). */
+  litter = new Map<string, number>();
   floorPoops: FloorPoop[] = [];
   private nextPoopId = 1;
 
@@ -95,8 +102,33 @@ export class PetCareWorld {
     return this.boxes.get(uid) ?? 0;
   }
 
+  litterUses(uid: string): number {
+    return this.litter.get(uid) ?? 0;
+  }
+
+  /** Full: it stinks (and lowers hygiene), but a cat still uses it once more. */
   isBoxFull(uid: string): boolean {
+    return this.boxCount(uid) >= PET_LITTER_FULL;
+  }
+
+  /** Overflowing with flies: every cat grimaces and refuses it. */
+  isBoxRefused(uid: string): boolean {
     return this.boxCount(uid) >= PET_LITTER_CAPACITY;
+  }
+
+  /** One more pile in a box (an agent cat, or a pet via poop()). False when refused. */
+  deposit(uid: string): boolean {
+    if (this.isBoxRefused(uid)) return false;
+    this.boxes.set(uid, this.boxCount(uid) + 1);
+    this.litter.set(uid, Math.min(PET_LITTER_DIRTY_AFTER, this.litterUses(uid) + 1));
+    return true;
+  }
+
+  /** A pile on the floor at (col, row); returns its id. */
+  floorPoop(col: number, row: number): string {
+    const id = `poop-${Date.now()}-${this.nextPoopId++}`;
+    this.floorPoops.push({ id, col, row });
+    return id;
   }
 
   /** Advance `hours` of office time for every known cat. */
@@ -154,12 +186,11 @@ export class PetCareWorld {
   poop(petId: string, boxUid: string | null, col: number, row: number): 'box' | 'floor' {
     const e = this.entry(petId);
     e.bowel = 0;
-    if (boxUid !== null && !this.isBoxFull(boxUid)) {
-      this.boxes.set(boxUid, this.boxCount(boxUid) + 1);
+    if (boxUid !== null && this.deposit(boxUid)) {
       raiseNeed(e.needs, 'hygiene', -PET_POOP_HYGIENE_COST_BOX);
       return 'box';
     }
-    this.floorPoops.push({ id: `poop-${Date.now()}-${this.nextPoopId++}`, col, row });
+    this.floorPoop(col, row);
     raiseNeed(e.needs, 'hygiene', -PET_POOP_HYGIENE_COST_FLOOR);
     return 'floor';
   }
@@ -171,6 +202,15 @@ export class PetCareWorld {
     this.boxes.set(uid, 0);
     this.raiseAll('hygiene', PET_GAIN_CLEAN_BOX);
     return n;
+  }
+
+  /** New litter: no piles, fresh sand. False when there is nothing to change. */
+  changeLitter(uid: string): boolean {
+    if (this.boxCount(uid) === 0 && this.litterUses(uid) === 0) return false;
+    this.boxes.set(uid, 0);
+    this.litter.set(uid, 0);
+    this.raiseAll('hygiene', PET_GAIN_CHANGE_LITTER);
+    return true;
   }
 
   cleanFloorPoop(id: string): boolean {
@@ -202,6 +242,7 @@ export class PetCareWorld {
       ),
       bowls: Object.fromEntries([...this.bowls].map(([uid, b]) => [uid, { ...b }])),
       boxes: Object.fromEntries(this.boxes),
+      litter: Object.fromEntries(this.litter),
       floorPoops: this.floorPoops.map((p) => ({ ...p })),
     };
   }
@@ -225,6 +266,9 @@ export class PetCareWorld {
     }
     for (const [uid, n] of Object.entries(s.boxes ?? {})) {
       w.boxes.set(uid, Math.round(clamp(n, PET_LITTER_CAPACITY, 0)));
+    }
+    for (const [uid, n] of Object.entries(s.litter ?? {})) {
+      w.litter.set(uid, Math.round(clamp(n, PET_LITTER_DIRTY_AFTER, 0)));
     }
     if (Array.isArray(s.floorPoops)) {
       w.floorPoops = s.floorPoops

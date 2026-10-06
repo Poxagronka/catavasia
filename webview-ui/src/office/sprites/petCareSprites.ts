@@ -19,8 +19,17 @@ const s = pack.sprites;
 
 /** Bowl combo by food level × water level (each 0..3). */
 const BOWLS: SpriteData[][] = s.bowl.map((byWater) => byWater.map(resolve));
-/** Litter box: clean, used, full. */
-const LITTER: SpriteData[] = s.litter.map(resolve);
+/** Litter boxes by catalog type: sprites[piles 0..5][sand 0 fresh, 1 used, 2 dirty]. */
+const LITTER_BOXES = new Map(
+  Object.entries(s.litterBoxes).map(([type, b]) => [
+    type,
+    {
+      stages: b.stages.map((bySand) => bySand.map(resolve)),
+      lipTop: b.lipTop,
+      hooded: b.hooded,
+    },
+  ]),
+);
 
 export const POOP_SPRITE: SpriteData = resolve(s.poop);
 export const STINK_FRAMES: SpriteData[] = s.stink.map(resolve);
@@ -29,6 +38,10 @@ export const SPARKLE_FRAMES: SpriteData[] = s.sparkle.map(resolve);
 export const HAND_FRAMES: SpriteData[] = s.hand.map(resolve);
 export const YARN_FRAMES: SpriteData[] = s.yarn.map(resolve);
 export const DISH_SPRITE: SpriteData = resolve(s.dish);
+export const FLY_FRAMES: SpriteData[] = s.fly.map(resolve);
+export const SCOOP_FRAMES: SpriteData[] = s.scoop.map(resolve);
+export const BAG_FRAMES: SpriteData[] = s.bag.map(resolve);
+export const POUR_FRAMES: SpriteData[] = s.pour.map(resolve);
 
 export const REQUEST_BUBBLES: Record<RequestKind, SpriteData> = {
   food: resolve(s.requests.food),
@@ -53,7 +66,34 @@ export function bowlSprite(food: number, water: number, max: number): SpriteData
   return BOWLS[step(food, max)][step(water, max)];
 }
 
-export function litterSprite(count: number, capacity: number): SpriteData {
-  if (count <= 0) return LITTER[0];
-  return count >= capacity ? LITTER[2] : LITTER[1];
+/** Catalog types that are litter boxes (one per art variant). */
+export const LITTER_BOX_TYPES: readonly string[] = [...LITTER_BOXES.keys()];
+
+/** The hooded box hides a cat inside: only its tail shows at the door. */
+export function isHoodedLitterBox(type: string): boolean {
+  return LITTER_BOXES.get(type)?.hooded === true;
+}
+
+/** A box's sprite for `piles` (clamped 0..5) on sand stage 0 fresh, 1 used, 2 dirty. */
+export function litterBoxSprite(type: string, piles: number, sand: number): SpriteData | undefined {
+  const stages = LITTER_BOXES.get(type)?.stages;
+  if (!stages) return undefined;
+  const row = stages[Math.max(0, Math.min(stages.length - 1, Math.round(piles)))];
+  return row[Math.max(0, Math.min(row.length - 1, sand))];
+}
+
+const fronts = new WeakMap<SpriteData, SpriteData>();
+
+/**
+ * The front wall of a box sprite (its rows from the variant's lip down), drawn
+ * once more in front of a cat on the tile so the cat stands IN the box.
+ */
+export function litterFrontSprite(type: string, sprite: SpriteData): SpriteData {
+  let front = fronts.get(sprite);
+  if (!front) {
+    const lip = LITTER_BOXES.get(type)?.lipTop ?? sprite.length;
+    front = sprite.map((row, y) => (y < lip ? row.map(() => '') : row));
+    fronts.set(sprite, front);
+  }
+  return front;
 }
