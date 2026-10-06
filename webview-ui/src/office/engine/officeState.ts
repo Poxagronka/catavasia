@@ -54,6 +54,9 @@ import {
 import type { ActivitySpotSet, IdleChoice, PropMotion } from './idleActivities.js';
 import { buildActivitySpots, getIdleActivity, propOffset } from './idleActivities.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
+import type { MeetingPlan } from './meetingRoom.js';
+import { planMeetingRoom } from './meetingRoom.js';
+import { OfficeScenes } from './officeScenes.js';
 import { createPet, updatePet } from './petEntity.js';
 import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
@@ -80,7 +83,10 @@ export class OfficeState {
   /** Talk / play / fight scenes between idle cats (see catSocial.ts for the API). */
   social = new CatSocial({
     onSceneEnd: (id, kind, reason) => this.life.claims.onSceneEnd(id, kind, reason),
+    isHeld: (id) => this.scenes.owns(id),
   });
+  /** Work talks and briefing meetings (see officeScenes.ts). */
+  readonly scenes: OfficeScenes = new OfficeScenes(this);
   /** Tamagotchi needs, bowls and litter for cat pets (see petCareSystem.ts). */
   readonly petCare = new PetCareSystem();
   /** Spot reservations, contests, pet actors, activity social (see catLife.ts). */
@@ -338,6 +344,27 @@ export class OfficeState {
       }
     }
     return out;
+  }
+
+  /** Where a briefing meeting happens now (see meetingRoom.ts). */
+  planMeeting(): MeetingPlan | null {
+    return planMeetingRoom({
+      cols: this.layout.cols,
+      areaTiles: this.layout.areaTiles,
+      furniture: this.layout.furniture,
+      tableSize: (type) => {
+        const e = getCatalogEntry(type);
+        return e?.isDesk ? { w: e.footprintW, h: e.footprintH } : undefined;
+      },
+      seats: this.seats,
+      tileMap: this.tileMap,
+      blockedTiles: this.blockedTiles,
+    });
+  }
+
+  /** Meeting chairs, reserved like assigned seats (CatLifeWorld). */
+  meetingSeats(): Array<[string, number]> {
+    return this.scenes.meetingSeats();
   }
 
   /** Find the area label assigned to a seat's tile, or null. Public for e2e
@@ -1269,19 +1296,22 @@ export class OfficeState {
         continue; // skip normal FSM while the effect is (or just was) active
       }
 
-      // Temporarily unblock own seat so character can pathfind to it
-      this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(
-          ch,
-          dt,
-          this.walkableTiles,
-          this.seats,
-          this.tileMap,
-          this.blockedTiles,
-          // A cat in a social scene picks no idle activity until the scene ends.
-          this.social.isInScene(ch.id) ? undefined : idleWorld,
-        ),
-      );
+      // Temporarily unblock own seat so character can pathfind to it.
+      // A cat in an office scene is moved by the scene (scenes.update).
+      if (!this.scenes.owns(ch.id)) {
+        this.withOwnSeatUnblocked(ch, () =>
+          updateCharacter(
+            ch,
+            dt,
+            this.walkableTiles,
+            this.seats,
+            this.tileMap,
+            this.blockedTiles,
+            // A cat in a social scene picks no idle activity until the scene ends.
+            this.social.isInScene(ch.id) ? undefined : idleWorld,
+          ),
+        );
+      }
 
       // Tick bubble timer for waiting bubbles. "Waiting for input" has no
       // timer: it lasts until the agent works again, through any idle activity.
@@ -1297,6 +1327,8 @@ export class OfficeState {
     for (const id of toDelete) {
       this.characters.delete(id);
     }
+
+    this.scenes.update(dt);
 
     // Cat social scenes run after the FSM: a cat that got work has already
     // started for its desk, and the scene just lets it go. Pets take part
