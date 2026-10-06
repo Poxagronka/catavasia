@@ -10,6 +10,8 @@ import {
   closeAgent,
   expectOverlayCount,
   expectOverlayVisible,
+  getAgentOverlays,
+  getOverlayByAgentId,
   getOverlayByText,
   selectCharacter,
 } from '../../helpers/office';
@@ -32,6 +34,7 @@ test.describe('Standalone / UI', () => {
       hooksEnabled: true,
       watchAllSessions: true,
       debugView: false,
+      showGuests: true,
     });
     await standalone.drainMessages();
 
@@ -49,19 +52,25 @@ test.describe('Standalone / UI', () => {
       tool_input: { file_path: filePath },
     });
 
-    await expectOverlayCount(page, 1);
+    // The hook session is a guest: it shows only with Show Guests on. Resident
+    // cats (CEO, lead, ...) also show labels with alwaysShowLabels, so check
+    // the hook-session cat by its own overlay, not the total count.
+    const overlay = getOverlayByText(page, 'Reading close-agent.ts');
+    await expect(overlay).toHaveCount(1, { timeout: 15_000 });
     await expectOverlayVisible(page, 'Reading close-agent.ts');
+    const agentId = Number(await overlay.getAttribute('data-agent-id'));
+    const overlaysWithSession = await getAgentOverlays(page).count();
     await standalone.drainMessages();
 
     // The selected cat label offers only the Chat button: no close/delete.
-    const overlay = getOverlayByText(page, 'Reading close-agent.ts').first();
-    await selectCharacter(page, Number(await overlay.getAttribute('data-agent-id')));
+    await selectCharacter(page, agentId);
     await expect(overlay.locator('button[title="Chat"]')).toBeVisible();
     await expect(overlay.locator('button[title="Close agent"]')).toHaveCount(0);
 
-    await closeAgent(page, { text: 'Reading close-agent.ts' });
+    await closeAgent(page, { agentId });
 
-    await expectOverlayCount(page, 0);
+    await expect(getOverlayByAgentId(page, agentId)).toHaveCount(0, { timeout: 15_000 });
+    await expectOverlayCount(page, overlaysWithSession - 1);
     const messages = await standalone.drainMessages();
     expect(messages.some((message) => message.type === 'agentClosed')).toBe(true);
   });
@@ -75,6 +84,7 @@ test.describe('Standalone / UI', () => {
       hooksEnabled: true,
       watchAllSessions: true,
       alwaysShowLabels: true,
+      showGuests: true,
     });
 
     const sessionId = 'standalone-debug-view-session';
@@ -94,8 +104,12 @@ test.describe('Standalone / UI', () => {
     // Presence of the diagnostics block (either branch) is the proof that the
     // agentDiagnostics reply reached the webview via transport.onMessage; do
     // not assert a specific jsonlExists branch (a hook-only session may or may
-    // not have a materialized transcript file).
-    await expect(page.getByText(/JSONL (connected|not found)/)).toBeVisible({
+    // not have a materialized transcript file). Resident cats have their own
+    // agent cards, so look only inside the hook session's card.
+    const sessionCard = page
+      .locator('div.border-2.cursor-pointer')
+      .filter({ hasText: 'Reading debug-view.ts' });
+    await expect(sessionCard.getByText(/JSONL (connected|not found)/)).toBeVisible({
       timeout: DIAGNOSTICS_POLL_TIMEOUT_MS,
     });
   });
