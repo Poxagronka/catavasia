@@ -36,7 +36,7 @@ const CATALOG: EngineCatalog = { claude: parseClaudeHelp(HELP) };
 
 const profile = (over: Partial<CatProfile> = {}): Record<string, unknown> => ({
   id: 'murka',
-  name: ' Murka ',
+  name: ' Luna ',
   role: 'Developer',
   systemPrompt: 'Be kind.',
   engine: 'claude',
@@ -102,7 +102,7 @@ describe('engine choices', () => {
 describe('profile validation', () => {
   it('normalizes a valid cat and drops unknown fields', () => {
     const result = validateCat({ ...profile(), extra: 1, effort: 'high' }, CATALOG);
-    expect(result).toEqual({ ok: true, value: { ...profile(), name: 'Murka', effort: 'high' } });
+    expect(result).toEqual({ ok: true, value: { ...profile(), name: 'Luna', effort: 'high' } });
   });
 
   it.each([
@@ -137,9 +137,9 @@ describe('profile validation', () => {
 
   it('keeps breed ids in char_N order of scripts/cats/breeds.mjs', async () => {
     const { BREEDS } = (await import('../../scripts/cats/breeds.mjs')) as {
-      BREEDS: Array<{ name: string }>;
+      BREEDS: Array<{ name: string; id?: string }>;
     };
-    expect([...CAT_BREED_IDS]).toEqual(BREEDS.map((b) => b.name.toLowerCase()));
+    expect([...CAT_BREED_IDS]).toEqual(BREEDS.map((b) => b.id ?? b.name.toLowerCase()));
   });
 });
 

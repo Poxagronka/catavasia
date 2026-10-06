@@ -168,7 +168,7 @@ test('the Cat CEO takes the desk in the head Area, walks to the reviewed cat and
     ch.wanderTimer = 100;
   }
   os.setResidentCats([
-    { id: 1, name: 'Murka', appearance: {}, working: false },
+    { id: 1, name: 'Luna', appearance: {}, working: false },
     { id: 9, name: 'Cat CEO', appearance: {}, working: false, ceo: true },
   ]);
   assert.equal(os.characters.get(9)!.seatId, 'head');

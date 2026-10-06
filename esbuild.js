@@ -9,8 +9,25 @@ const watch = process.argv.includes('--watch');
 const pkgVersion = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8'),
 ).version;
+/** Git commit of this build, for the self-update "What's new" list (empty
+ *  outside a git checkout). CATAVASIA_COMMIT overrides it (manual tests). */
+function buildCommit() {
+  if (process.env.CATAVASIA_COMMIT) return process.env.CATAVASIA_COMMIT;
+  try {
+    return require('child_process')
+      .execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: __dirname,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      .trim();
+  } catch {
+    return '';
+  }
+}
 const versionDefine = {
   'process.env.PIXEL_AGENTS_VERSION': JSON.stringify(pkgVersion),
+  'process.env.CATAVASIA_COMMIT': JSON.stringify(buildCommit()),
 };
 
 /**

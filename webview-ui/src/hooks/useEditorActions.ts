@@ -79,7 +79,8 @@ interface EditorActions {
   handleRedo: () => void;
   handleReset: () => void;
   /** Replace the layout with the bundled default office (the host answers with layoutLoaded). */
-  handleResetToDefault: () => void;
+  /** Sends resetLayoutToDefault, or resetAllToDefault (Settings "Reset everything"). */
+  handleResetToDefault: (message?: 'resetLayoutToDefault' | 'resetAllToDefault') => void;
   handleSave: () => void;
   handleZoomChange: (zoom: number) => void;
   handleEditorTileAction: (col: number, row: number) => void;
@@ -565,17 +566,20 @@ export function useEditorActions(
     setIsDirty(false);
   }, [editorState, applyEdit]);
 
-  const handleResetToDefault = useCallback(() => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
-    // Clean first: layoutLoaded is ignored while the editor has unsaved changes.
-    editorState.reset();
-    editorState.isDirty = false;
-    setIsDirty(false);
-    transport.send({ type: 'resetLayoutToDefault' });
-  }, [editorState]);
+  const handleResetToDefault = useCallback(
+    (message: 'resetLayoutToDefault' | 'resetAllToDefault' = 'resetLayoutToDefault') => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      // Clean first: layoutLoaded is ignored while the editor has unsaved changes.
+      editorState.reset();
+      editorState.isDirty = false;
+      setIsDirty(false);
+      transport.send({ type: message });
+    },
+    [editorState],
+  );
 
   const handleSave = useCallback(() => {
     // Flush any pending debounced save immediately

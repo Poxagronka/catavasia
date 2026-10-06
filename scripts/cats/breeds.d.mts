@@ -17,6 +17,8 @@ export type Pattern = (cell: Cell, dir: string) => string | null;
 /** A breed: palette keys (fur, shade, belly, stripe...) plus silhouette traits. */
 export interface Breed {
   name: string;
+  /** Preset id when it is not the lower-case name (a renamed breed keeps its saved id). */
+  id?: string;
   breed: string;
   pattern?: Pattern;
   ears: string;

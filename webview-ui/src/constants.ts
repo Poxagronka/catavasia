@@ -215,7 +215,7 @@ export const CAT_NAMES = [
   'Patches',
   'Tortie',
   'Mochi',
-  'Nikolai',
+  'Biscuit',
   'Butterscotch',
   'Leo',
   'Dobby',
