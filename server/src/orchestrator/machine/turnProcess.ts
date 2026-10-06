@@ -13,6 +13,7 @@ import { taskLogInput } from '../../narrator/narrator.js';
 import type { StoredTask } from '../../taskBoard/taskStore.js';
 import { breedPalette } from '../catResidents.js';
 import type { CompactInfo, TurnHandle } from '../engineAdapter.js';
+import { chatLines } from '../flowPrompts.js';
 import type { RunnerHost } from './interpreter.js';
 import type { Effect, TaskEvent } from './types.js';
 
@@ -59,7 +60,10 @@ export function spawnTurn(
   }
   // The resident cat walks to its desk and watches this turn's transcript.
   const agentId = residents.turnStarted(cat, fx.sessionId, fx.cwd);
-  consoles.push(fx.catId, { kind: 'user', text: fx.message });
+  consoles.push(
+    fx.catId,
+    ...chatLines(fx.message).map((text) => ({ kind: 'user' as const, text })),
+  );
   const started: TaskEvent = { type: 'TurnStarted', catId: fx.catId, turnId: fx.turnId, agentId };
   let handle: TurnHandle;
   try {

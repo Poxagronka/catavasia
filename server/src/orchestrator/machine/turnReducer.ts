@@ -4,7 +4,7 @@
  */
 
 import { FLOW_MAX_TURNS, SESSION_LOCK_RETRY_MS, TURN_TIMEOUT_MS } from '../../constants.js';
-import { catLabel, mergeNote, unfinishedMergeNote } from '../flowPrompts.js';
+import { catLabel, mergeNote, TURN_PART_SEPARATOR, unfinishedMergeNote } from '../flowPrompts.js';
 import { afterTurn } from './assignmentReducer.js';
 import {
   catOf,
@@ -137,7 +137,7 @@ function startTurn(d: Draft, m: MemberState): void {
     sessionId: m.sessionId!,
     resume: m.started,
     cwd: m.cwd!,
-    message: parts.join('\n\n---\n\n'),
+    message: parts.join(TURN_PART_SEPARATOR),
   });
   d.fx.push({ type: 'StartTimer', id: `turn:${m.turnId}`, ms: TURN_TIMEOUT_MS });
 }
