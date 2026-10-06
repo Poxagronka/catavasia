@@ -103,7 +103,8 @@ export class CodexAdapter implements EngineAdapter {
       } catch (err) {
         const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
         if (!missing) console.error(`[Pixel Agents] Cats: \`${this.bin} debug models\`: ${err}`);
-        return {
+        // Cached too: adapterFor() asks on every turn; a restart probes again.
+        this.cachedChoices = {
           models: [],
           efforts: [],
           ...(missing ? { unavailable: 'Codex CLI not found' } : {}),

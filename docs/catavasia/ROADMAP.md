@@ -213,7 +213,7 @@ Decisions:
 - Usage: `inputTokens = input_tokens - cached_input_tokens`, `cacheReadTokens = cached_input_tokens`. Cost stays 0 (Codex reports none).
 - Not mapped yet: compaction events (Codex compacts by itself; `model_auto_compact_token_limit` exists but is not set), so `onCompact` never fires for Codex cats.
 - **Gating:** an adapter whose CLI is not on PATH (`ENOENT`) reports `unavailable` ("Codex CLI not found", "Claude Code CLI not found"). `Orchestrator.adapterFor` then returns none: the task form disables the cat with that text, `EngineOptions.unavailable` (wire) disables the engine in the Cats menu as "Codex (Codex CLI not found)". An engine the server does not list at all says "no adapter on this server".
-- The wheel of a Codex cat uses `EngineAdapter.interactiveResumeCommand` (via `WheelSession.launch`). Claude cats keep the old launch command (no behavior change).
+- The wheel of a Codex cat uses `EngineAdapter.interactiveResumeCommand` (via `WheelSession.launch`). Claude cats keep the old launch command (no behavior change). The wheel loads the user's own Codex config and has no office MCP tools, like the Claude wheel. Not verified end to end: the wheel PTY probe stopped at the TUI update prompt (see the update-check override above).
 
 Evidence (2026-10-06, built app, temp HOME, port 3217, real `codex` with `CODEX_HOME=~/.codex`): (1) one Codex cat, task "create hello.txt": events `catTurnStarted`, `agentToolStart` Bash, `agentToolStart mcp__office__report`, `catTurnFinished ok`, narrator "sniffing around", task `done`, branch commit with `hello.txt`. (2) Codex boss + Codex worker, team task: brief, delegate, worker report, boss resumed the same thread (`thread_id` equal on turns 1 and 3), task `done` after 3 turns.
 
