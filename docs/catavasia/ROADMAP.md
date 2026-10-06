@@ -38,6 +38,17 @@ Design research and evidence: [orchestration-spec.md](orchestration-spec.md).
 - The Cats menu: Agents tab (look, name, prompt, role, model, effort: passed as `--model` / `--effort`; list the values the installed `claude --help` accepts, do not hardcode from memory), Hierarchy tab (tree editor), Pets tab (create, name, colour/pattern from the shared editor with more colours).
 - A task flows boss → briefing meeting (all cats gather in one room) → delegation down → work → reports up → result to the user. Cats walk to each other for every conversation. Speech bubbles appear, and hover shows the narrator summary.
 
+### Cats menu UI (phase 2a, feat/cats-menu-ui, agent decisions 2026-10-06)
+
+- The toolbar has **Cats** (tabs Agents, Pets) and **Hierarchy** buttons. Nothing talks to the server yet.
+- The UI talks only to `webview-ui/src/cats/catsApi.ts` (`CatsApi`). Today `localCatsAdapter.ts` implements it in memory and mirrors it to `localStorage` key `catavasia.cats.v1`. Phase 1 had pushed no `core` types when this landed, so the names are ours.
+- Types: `CatProfile {id, name, appearance, role, systemPrompt, engine: 'claude'|'codex', model, effort, parentId: string|null, isDefault?}`, `PetProfile {id, name, species: 'cat', appearance}`, `Appearance {breed?, colors?: {fur, belly, stripe, patchA, patchB, point}, pattern?, eyes?, collar?: hex|'none'}`. Colours are `#rrggbb`. Breed ids are the lower-case breed names (`marmalade` … `bear`).
+- Methods: `getSnapshot()`, `subscribe()`, `saveCat()`, `deleteCat()`, `setParent(id, parentId)`, `promoteToBoss(id)`, `savePet()`, `deletePet()`, `engineOptions(engine)`. Mutations are fire-and-forget. The new state arrives through `subscribe`, so a transport adapter can apply them after a server round trip.
+- Phase 1 mapping (thin adapter): `catProfilesLoaded` / `catProfileSaved` → replace the snapshot and notify. `hierarchy` → set `parentId` on each cat. `saveCat`, `deleteCat`, `setParent`, `promoteToBoss` → the matching client messages. `CatProfile.persona` in the spec = `systemPrompt` here. `engineOptions` must come from the server (it reads `claude --help`). The static lists in the local adapter are marked TODO-phase1, and the Codex values are unverified.
+- Hierarchy rule: exactly one boss (`parentId === null`). The server must enforce the same rules as `cats/hierarchy.ts`: no cycles, a deleted cat's reports move up, a deleted boss hands over to its first report, "promote to boss" puts the old boss under the new one.
+- Sprites: the webview reuses `scripts/cats/breeds.mjs` + `poses.mjs` directly (typed by `.d.mts` files), so custom looks render at runtime with no server round trip. `cats/catArt.ts` turns an `Appearance` into a breed object. 13 breed presets plus 18 coat presets for both agents and pets. Pets are cats only (`species: 'cat'`).
+- Delete uses an inline confirm button: VS Code webviews block `window.confirm`.
+
 ## Resource budget (RAM) — plan to reach the goal cheaper
 
 Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB peak RSS, 15.6 s wall time incl. the model reply. The research measured 300–850 MB per long-lived session.

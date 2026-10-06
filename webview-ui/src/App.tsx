@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
+import { CatsModal } from './components/cats/CatsModal.js';
+import { HierarchyModal } from './components/cats/HierarchyModal.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
 import { ConnectionIndicator } from './components/ConnectionIndicator.js';
 import { DebugView } from './components/DebugView.js';
@@ -111,6 +113,8 @@ function App() {
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTasksOpen, setIsTasksOpen] = useState(false);
+  const [isCatsOpen, setIsCatsOpen] = useState(false);
+  const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
   const [isHooksInfoOpen, setIsHooksInfoOpen] = useState(false);
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -538,10 +542,16 @@ function App() {
         onToggleSettings={() => setIsSettingsOpen((v) => !v)}
         isTasksOpen={isTasksOpen}
         onToggleTasks={() => setIsTasksOpen((v) => !v)}
+        isCatsOpen={isCatsOpen}
+        onToggleCats={() => setIsCatsOpen((v) => !v)}
+        isHierarchyOpen={isHierarchyOpen}
+        onToggleHierarchy={() => setIsHierarchyOpen((v) => !v)}
         workspaceFolders={workspaceFolders}
       />
 
       <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
+      <CatsModal isOpen={isCatsOpen} onClose={() => setIsCatsOpen(false)} />
+      <HierarchyModal isOpen={isHierarchyOpen} onClose={() => setIsHierarchyOpen(false)} />
       {clickedTaskId && (
         <TaskDetailModal taskId={clickedTaskId} onClose={() => setClickedTaskId(null)} />
       )}
@@ -621,6 +631,8 @@ function App() {
           escapeSuppressed={
             isSettingsOpen ||
             isTasksOpen ||
+            isCatsOpen ||
+            isHierarchyOpen ||
             isChangelogOpen ||
             isHooksInfoOpen ||
             showMigrationNotice ||

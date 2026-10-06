@@ -14,6 +14,10 @@ interface BottomToolbarProps {
   onToggleSettings: () => void;
   isTasksOpen: boolean;
   onToggleTasks: () => void;
+  isCatsOpen: boolean;
+  onToggleCats: () => void;
+  isHierarchyOpen: boolean;
+  onToggleHierarchy: () => void;
   workspaceFolders: WorkspaceFolder[];
 }
 
@@ -25,6 +29,10 @@ export function BottomToolbar({
   onToggleSettings,
   isTasksOpen,
   onToggleTasks,
+  isCatsOpen,
+  onToggleCats,
+  isHierarchyOpen,
+  onToggleHierarchy,
   workspaceFolders,
 }: BottomToolbarProps) {
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -134,6 +142,20 @@ export function BottomToolbar({
           Tasks
         </Button>
       )}
+      <Button
+        variant={isCatsOpen ? 'active' : 'default'}
+        onClick={onToggleCats}
+        title="Agent cats and pets"
+      >
+        Cats
+      </Button>
+      <Button
+        variant={isHierarchyOpen ? 'active' : 'default'}
+        onClick={onToggleHierarchy}
+        title="Who reports to whom"
+      >
+        Hierarchy
+      </Button>
       <Button
         variant={isEditMode ? 'active' : 'default'}
         onClick={onToggleEditMode}
