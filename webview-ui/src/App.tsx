@@ -24,6 +24,8 @@ import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
 import { TASK_POLL_INTERVAL_MS } from './constants.js';
+import { EngineLoginPanel } from './engines/EngineLoginPanel.js';
+import { EngineBanner } from './engines/EngineNotice.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
@@ -601,6 +603,8 @@ function App() {
       />
 
       <TaskBoard isOpen={isTasksOpen} onClose={() => setIsTasksOpen(false)} />
+      <EngineBanner />
+      <EngineLoginPanel />
       <CatsModal
         isOpen={isCatsOpen}
         focusCatId={catsFocusId}

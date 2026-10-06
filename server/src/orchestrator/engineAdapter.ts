@@ -8,7 +8,7 @@
  * Adapters: Claude Code (`claudeAdapter.ts`) and Codex (`codexAdapter.ts`).
  */
 
-import type { CatEngine } from '../../../core/src/messages.js';
+import type { CatEngine, EngineStatus } from '../../../core/src/messages.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import type { StreamUsage } from '../taskBoard/streamJson.js';
 import type { EngineChoices } from './catProfiles.js';
@@ -77,6 +77,8 @@ export interface EngineAdapter {
   readonly engine: CatEngine;
   /** Model and effort values the installed CLI accepts. */
   choices(): EngineChoices;
+  /** Installed, version, logged in (engineStatus.ts). None: always taken as ready. */
+  probeStatus?(): Promise<EngineStatus>;
   /** File content of the MCP config that attaches the office tools. */
   mcpConfig(endpoint: OfficeMcpEndpoint): string;
   spawnTurn(req: TurnRequest): TurnHandle;

@@ -190,6 +190,7 @@ components:
         - $ref: '#/components/schemas/RemovePromptItem'
         - $ref: '#/components/schemas/SavePromptItem'
         - $ref: '#/components/schemas/TidyPrompt'
+        - $ref: '#/components/schemas/CheckEngines'
       discriminator: type
 
     # ── Server message variants ────────────────────────────────────
@@ -1833,6 +1834,18 @@ components:
         catId:
           type: string
 
+    CheckEngines:
+      description: |
+        Probe every engine CLI again now (installed, version, logged in), for
+        "Check again" after an install or a login. Every client then gets
+        catProfilesLoaded with the new `engineOptions[].status`.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: checkEngines
+
     RemovePromptItem:
       description: Remove one Rules or Lessons item (`R3`, `L2`) of a cat's prompt file (needs the server token).
       type: object
@@ -2065,6 +2078,27 @@ components:
             type: string
         unavailable:
           description: Why cats of this engine cannot run on this server (e.g. "Codex CLI not found").
+          type: string
+        status:
+          $ref: '#/components/schemas/EngineStatus'
+
+    EngineStatus:
+      description: |
+        The engine CLI as the last probe saw it (`claude --version` +
+        `claude auth status`, `codex --version` + `codex login status`).
+        No `loggedIn` = the probe could not tell. Absent before the first probe.
+      type: object
+      additionalProperties: false
+      required: [installed]
+      properties:
+        installed:
+          type: boolean
+        version:
+          type: string
+        loggedIn:
+          type: boolean
+        detail:
+          description: Short human text ("not logged in", "logged in (claude.ai)").
           type: string
 
     CatAppearance:

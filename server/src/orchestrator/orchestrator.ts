@@ -15,7 +15,8 @@
 
 import * as path from 'path';
 
-import type { CatProfile, ServerMessage } from '../../../core/src/messages.js';
+import { ENGINE_LOGIN_COMMANDS } from '../../../core/src/constants.js';
+import type { CatEngine, CatProfile, ServerMessage } from '../../../core/src/messages.js';
 import type { NarratorInput } from '../../../core/src/narrator.js';
 import type { TaskTarget } from '../../../core/src/tasks.js';
 import { CatCeo } from '../catCeo/catCeo.js';
@@ -29,6 +30,7 @@ import { CatStore, type EngineCatalog } from './catProfiles.js';
 import { CatResidents, type ResidentHost } from './catResidents.js';
 import { bossOf, hierarchyOf } from './catTree.js';
 import type { EngineAdapter } from './engineAdapter.js';
+import { actionableMessage, EngineStatusProbe, notReadyReason } from './engineStatus.js';
 import { personaText } from './flowPrompts.js';
 import { EventLog, pruneFlowLogs } from './machine/eventLog.js';
 import { isActive } from './machine/helpers.js';
@@ -71,6 +73,8 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   /** Folder of each cat's newest finished task: a console message to an idle cat starts a task there. */
   private readonly lastCwd = new Map<string, string>();
   private baseMcpUrl = '';
+  /** Installed / logged-in status per engine (engineStatus.ts); probed now, re-probed when stale. */
+  private readonly probes = new Map<CatEngine, EngineStatusProbe>();
 
   constructor(readonly opts: OrchestratorOptions) {
     this.stateDir = opts.stateDir;
@@ -109,16 +113,75 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     );
     this.residents.sync();
     pruneFlowLogs(opts.stateDir, Date.now());
+    for (const a of opts.adapters) {
+      if (!a.probeStatus) continue;
+      const probe = new EngineStatusProbe(
+        () => a.probeStatus!(),
+        () => {
+          for (const message of this.profileMessages()) opts.emit(message);
+        },
+      );
+      this.probes.set(a.engine, probe);
+      void probe.refresh();
+    }
   }
 
   catalog(): EngineCatalog {
     return Object.fromEntries(this.opts.adapters.map((a) => [a.engine, a.choices()]));
   }
 
-  /** The adapter that runs this cat's engine; none when its CLI is missing here. */
+  /** The adapter that runs this cat's engine; none when its CLI is missing or logged out. */
   adapterFor(cat: CatProfile): EngineAdapter | undefined {
     const adapter = this.opts.adapters.find((a) => a.engine === cat.engine);
-    return adapter && !adapter.choices().unavailable ? adapter : undefined;
+    return adapter && !this.notReady(cat.engine) ? adapter : undefined;
+  }
+
+  /** Why this engine cannot run now (no adapter, no CLI, logged out); undefined when ready. */
+  notReady(engine: CatEngine): string | undefined {
+    const adapter = this.opts.adapters.find((a) => a.engine === engine);
+    if (!adapter) return `${engine} has no adapter`;
+    return (
+      adapter.choices().unavailable ?? notReadyReason(engine, this.probes.get(engine)?.current())
+    );
+  }
+
+  /** The engine login PTY (catTerminalRoutes.ts): its command, and a re-probe when it ends. */
+  readonly engineLogin = {
+    command: (engine: string): { command: string; args: string[] } | undefined => {
+      if (!this.probes.has(engine as CatEngine)) return undefined;
+      const [command, ...args] = ENGINE_LOGIN_COMMANDS[engine as CatEngine];
+      return { command, args };
+    },
+    ended: (): void => void this.checkEngines(),
+  };
+
+  /** "Check again": probe every engine now; every client gets the result. */
+  async checkEngines(): Promise<void> {
+    await Promise.all([...this.probes.values()].map((p) => p.refresh(true)));
+    for (const message of this.profileMessages()) this.opts.emit(message);
+  }
+
+  /**
+   * Before a task spawns anything: the engine of its lead (`claude` for a
+   * plain run) must be installed and logged in. Returns what is wrong and
+   * how to fix it, or undefined when the task may start.
+   */
+  async preflight(target?: string): Promise<string | undefined> {
+    const engine = target === undefined ? 'claude' : this.resolveTarget(target)?.engine;
+    if (!engine) return undefined;
+    const status = await this.probes.get(engine)?.refresh();
+    if (this.opts.adapters.find((a) => a.engine === engine)?.choices().unavailable)
+      return actionableMessage(engine, { installed: false });
+    return notReadyReason(engine, status) ? actionableMessage(engine, status) : undefined;
+  }
+
+  /**
+   * A turn failed because the engine is logged out (or cannot start): mark it,
+   * and return the message the task shows. No retry follows.
+   */
+  engineDown(engine: CatEngine, authFailed: boolean): string {
+    if (authFailed) this.probes.get(engine)?.markLoggedOut();
+    return actionableMessage(engine, this.probes.get(engine)?.current());
   }
 
   /** The server is listening: cats reach the office MCP tools here. */
@@ -167,7 +230,14 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     const cats = this.cats.list().map((c) => ({ ...c, ...this.cats.promptView(c.id) }));
     const engineOptions = this.opts.adapters.map((a) => {
       const { models, efforts, unavailable } = a.choices();
-      return { engine: a.engine, models, efforts, ...(unavailable ? { unavailable } : {}) };
+      const status = this.probes.get(a.engine)?.current();
+      return {
+        engine: a.engine,
+        models,
+        efforts,
+        ...(unavailable ? { unavailable } : {}),
+        ...(status ? { status } : {}),
+      };
     });
     return [
       { type: 'catProfilesLoaded', cats, engineOptions },
@@ -275,10 +345,10 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   targets(): TaskTarget[] {
     const cats = this.cats.list();
     const boss = bossOf(cats);
-    const blocked = (c: CatProfile) =>
-      this.adapterFor(c)
-        ? {}
-        : { disabled: this.catalog()[c.engine]?.unavailable ?? `${c.engine} has no adapter` };
+    const blocked = (c: CatProfile) => {
+      const reason = this.notReady(c.engine);
+      return { engine: c.engine, ...(reason ? { disabled: reason } : {}) };
+    };
     return [
       ...(boss ? [{ id: 'team', label: `Team: ${boss.name} leads`, ...blocked(boss) }] : []),
       ...cats.map((c) => ({

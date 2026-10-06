@@ -7,7 +7,7 @@
  * board is a standalone-only surface and polls while it is open.
  */
 
-import type { FlowState } from './messages.js';
+import type { CatEngine, FlowState } from './messages.js';
 
 export type TaskStatus = 'running' | 'done' | 'error';
 
@@ -96,8 +96,10 @@ export interface TaskTarget {
   /** `team` or a cat id. */
   id: string;
   label: string;
-  /** Why this choice cannot run now (its engine CLI is missing: "Codex CLI not found"). */
+  /** Why this choice cannot run now ("Codex CLI not found", "Claude Code: not logged in"). */
   disabled?: string;
+  /** The engine of the cat that leads it (the boss for `team`). */
+  engine?: CatEngine;
 }
 
 /** What GET /api/tasks/:id returns. */

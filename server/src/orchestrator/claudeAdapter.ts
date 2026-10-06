@@ -8,6 +8,7 @@
 
 import { execFileSync, spawn } from 'child_process';
 
+import type { EngineStatus } from '../../../core/src/messages.js';
 import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import type { EngineChoices } from './catProfiles.js';
@@ -19,6 +20,7 @@ import type {
   TurnOutcome,
   TurnRequest,
 } from './engineAdapter.js';
+import { probeEngine } from './engineStatus.js';
 
 const STDERR_TAIL_CHARS = 2000;
 /** `claude --help` says the CLI also takes "a model's full name". */
@@ -104,6 +106,10 @@ export class ClaudeAdapter implements EngineAdapter {
       }
     }
     return this.cachedChoices;
+  }
+
+  probeStatus(): Promise<EngineStatus> {
+    return probeEngine('claude', this.bin);
   }
 
   mcpConfig(endpoint: OfficeMcpEndpoint): string {
