@@ -47,7 +47,8 @@ export const SUMMARY_SYSTEM_PROMPT = [
   'For each block write one short summary in English: who asked or answered what.',
   `Each summary is at most ${NARRATOR_SUMMARY_MAX_CHARS} characters, one or two sentences, present or past tense.`,
   'Mention only facts from the lines of that block. Do not invent results, files, numbers, saves, commits or successes.',
-  'Do not write commands, paths, flags or code. No emoji and no checkmarks.',
+  'Do not write file names, commands, paths, flags or code. No emoji and no checkmarks.',
+  'A light, playful cat tone is fine, but every summary stays factual.',
   'Return JSON by the schema: {"summaries":[{"conversationId":"<id>","summary":"<text>"}]}. One item per conversationId.',
 ].join('\n');
 

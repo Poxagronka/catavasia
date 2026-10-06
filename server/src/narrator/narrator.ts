@@ -1,6 +1,6 @@
 /**
  * Narrator facade. Event sources push NarratorInput; the narrator broadcasts
- * English status lines (templates, at once) and conversation summaries
+ * English phase lines (templates, held PHASE_MIN_MS) and conversation summaries
  * (HaikuBatcher, every 10 s when material is pending).
  *
  * Sources today: the task board stream-json (taskLogInput) and the hook-derived
@@ -12,6 +12,7 @@ import type {
   NarratorInput,
   NarratorLine,
   NarratorServerMessage,
+  NarratorState,
   NarratorSummary,
 } from '../../../core/src/narrator.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
@@ -20,6 +21,11 @@ import { templateFor } from './templates.js';
 
 /** Characters of a result / message body that go into a summary prompt. */
 const PROMPT_TEXT_MAX_CHARS = 600;
+
+/** Minimum time a work phase stays on the label. */
+export const PHASE_MIN_MS = 3000;
+/** States that replace the label at once and are never held back. */
+const URGENT = new Set<NarratorState>(['waiting', 'done', 'error']);
 
 export interface NarratorOptions {
   broadcast: (message: NarratorServerMessage) => void;
@@ -34,6 +40,10 @@ export class Narrator {
   private readonly summaries = new Map<string, NarratorSummary>();
   /** The line a hook-derived wait replaced, restored when the wait clears. */
   private readonly beforeWait = new Map<number, NarratorLine>();
+  /** When the current line of a cat was broadcast (epoch ms). */
+  private readonly shownAt = new Map<number, number>();
+  /** A work phase that waits for the current one to reach PHASE_MIN_MS. */
+  private readonly pending = new Map<number, ReturnType<typeof setTimeout>>();
   private readonly batcher: HaikuBatcher;
 
   constructor(private readonly opts: NarratorOptions) {
@@ -53,13 +63,8 @@ export class Narrator {
   push(input: NarratorInput): void {
     const t = templateFor(input);
     if (t) {
-      const prev = this.lines.get(input.catId);
       this.beforeWait.delete(input.catId);
-      if (prev?.line !== t.line || prev.state !== t.state) {
-        const line: NarratorLine = { catId: input.catId, ...t };
-        this.lines.set(input.catId, line);
-        this.opts.broadcast({ type: 'narratorLine', ...line });
-      }
+      this.show({ catId: input.catId, ...t });
     }
     if (!this.opts.aiSummariesEnabled() || !input.text?.trim()) return;
     const text = clip(input.text.trim());
@@ -99,12 +104,41 @@ export class Narrator {
     const prev = this.beforeWait.get(id);
     if (cleared && prev) {
       this.beforeWait.delete(id);
-      this.lines.set(id, prev);
-      this.opts.broadcast({ type: 'narratorLine', ...prev });
+      this.show(prev);
     }
   }
 
+  /**
+   * Broadcast a phase change. A work phase holds for PHASE_MIN_MS, so the label
+   * does not flicker on every tool call: a newer work phase waits for the rest
+   * of that time (the latest one wins). Waits, done and errors show at once.
+   */
+  private show(line: NarratorLine): void {
+    const { catId } = line;
+    clearTimeout(this.pending.get(catId));
+    this.pending.delete(catId);
+    const prev = this.lines.get(catId);
+    if (prev?.line === line.line && prev.state === line.state) return;
+    const hold =
+      prev && !URGENT.has(prev.state) && !URGENT.has(line.state)
+        ? (this.shownAt.get(catId) ?? 0) + PHASE_MIN_MS - Date.now()
+        : 0;
+    if (hold > 0) {
+      this.pending.set(
+        catId,
+        setTimeout(() => this.show(line), hold),
+      );
+      return;
+    }
+    this.lines.set(catId, line);
+    this.shownAt.set(catId, Date.now());
+    this.opts.broadcast({ type: 'narratorLine', ...line });
+  }
+
   forget(catId: number): void {
+    clearTimeout(this.pending.get(catId));
+    this.pending.delete(catId);
+    this.shownAt.delete(catId);
     this.lines.delete(catId);
     this.beforeWait.delete(catId);
     for (const [key, s] of this.summaries) if (s.catIds.includes(catId)) this.summaries.delete(key);
@@ -119,6 +153,8 @@ export class Narrator {
   }
 
   dispose(): void {
+    for (const timer of this.pending.values()) clearTimeout(timer);
+    this.pending.clear();
     this.batcher.dispose();
   }
 }

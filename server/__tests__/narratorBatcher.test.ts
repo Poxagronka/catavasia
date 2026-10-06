@@ -9,7 +9,7 @@ import {
   HaikuBatcher,
   runClaudeHaiku,
 } from '../src/narrator/haikuBatcher.js';
-import { Narrator } from '../src/narrator/narrator.js';
+import { Narrator, PHASE_MIN_MS } from '../src/narrator/narrator.js';
 import type { ValidSummary } from '../src/narrator/schema.js';
 
 /** Fake runner: records prompts, answers with the queued replies. */
@@ -175,12 +175,65 @@ describe('Narrator facade', () => {
     const { n, sent } = make();
     n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Read', file: 'a.ts' });
     n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'Grep' });
+    vi.advanceTimersByTime(PHASE_MIN_MS);
     n.push({ catId: 4, ts: 2, kind: 'tool', tool: 'Edit', file: '/x/b.ts' });
     expect(sent).toEqual([
-      { type: 'narratorLine', catId: 4, state: 'reading', line: 'reading code' },
-      { type: 'narratorLine', catId: 4, state: 'editing', line: 'editing b.ts' },
+      { type: 'narratorLine', catId: 4, state: 'reading', line: 'sniffing around' },
+      { type: 'narratorLine', catId: 4, state: 'editing', line: 'kneading the code' },
     ]);
     expect(n.snapshot()).toEqual([sent[1]]);
+  });
+
+  const lines = (sent: NarratorServerMessage[]) =>
+    sent.map((m) => (m.type === 'narratorLine' ? m.line : ''));
+
+  it('holds a work phase for PHASE_MIN_MS, then shows the latest one', () => {
+    const { n, sent } = make();
+    n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Read' });
+    vi.advanceTimersByTime(1000);
+    n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'Edit' });
+    n.push({ catId: 4, ts: 2, kind: 'tool', tool: 'Bash', text: 'npm test' });
+    expect(lines(sent)).toEqual(['sniffing around']);
+    vi.advanceTimersByTime(PHASE_MIN_MS - 1001);
+    expect(lines(sent)).toEqual(['sniffing around']);
+    vi.advanceTimersByTime(1);
+    expect(lines(sent)).toEqual(['sniffing around', 'batting at bugs']);
+    expect(n.snapshot()).toEqual([sent[1]]);
+  });
+
+  it('a return to the shown phase cancels the held one', () => {
+    const { n, sent } = make();
+    n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Read' });
+    n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'Edit' });
+    n.push({ catId: 4, ts: 2, kind: 'tool', tool: 'Grep' });
+    vi.advanceTimersByTime(PHASE_MIN_MS * 2);
+    expect(lines(sent)).toEqual(['sniffing around']);
+  });
+
+  it('waiting, done and error show at once, and so does the next phase after them', () => {
+    const { n, sent } = make();
+    n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Edit' });
+    n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'AskUserQuestion' });
+    n.push({ catId: 4, ts: 2, kind: 'tool', tool: 'Read' });
+    n.push({ catId: 4, ts: 3, kind: 'state', text: 'error' });
+    n.push({ catId: 4, ts: 4, kind: 'result', text: 'ok' });
+    expect(lines(sent)).toEqual([
+      'kneading the code',
+      'meowing for you',
+      'sniffing around',
+      'hissing at a bug',
+      'purring, all done',
+    ]);
+  });
+
+  it('forget drops a held phase', () => {
+    const { n, sent } = make();
+    n.push({ catId: 4, ts: 0, kind: 'tool', tool: 'Read' });
+    n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'Edit' });
+    n.forget(4);
+    vi.advanceTimersByTime(PHASE_MIN_MS);
+    expect(lines(sent)).toEqual(['sniffing around']);
+    expect(n.snapshot()).toEqual([]);
   });
 
   it('summarizes results and messages through Haiku, validated', async () => {
@@ -214,11 +267,7 @@ describe('Narrator facade', () => {
     n.push({ catId: 9, ts: 0, kind: 'tool', tool: 'Bash', text: 'rm -rf build' });
     n.observeBroadcast({ type: 'agentToolPermission', id: 9 });
     n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'waiting', awaitingInput: true });
-    expect(sent.map((m) => (m.type === 'narratorLine' ? m.line : ''))).toEqual([
-      'running a command',
-      'waiting for permission',
-      'waiting for your input',
-    ]);
+    expect(lines(sent)).toEqual(['kneading the code', 'pawing at the door', 'meowing for you']);
     n.forget(9);
     expect(n.snapshot()).toEqual([]);
   });
@@ -230,12 +279,12 @@ describe('Narrator facade', () => {
     n.observeBroadcast({ type: 'agentToolPermissionClear', id: 9 });
     n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'waiting', awaitingInput: true });
     n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'active' });
-    expect(sent.map((m) => (m.type === 'narratorLine' ? m.line : ''))).toEqual([
-      'running tests',
-      'waiting for permission',
-      'running tests',
-      'waiting for your input',
-      'running tests',
+    expect(lines(sent)).toEqual([
+      'batting at bugs',
+      'pawing at the door',
+      'batting at bugs',
+      'meowing for you',
+      'batting at bugs',
     ]);
   });
 
