@@ -89,6 +89,7 @@ export class CatOfficeFeed {
       bossId: (team && this.agentOf.get(team.root)) ?? -1,
       participants: this.ids(team?.cats ?? []),
     });
+    if (['done', 'error'].includes(state)) this.teams.delete(taskId);
   }
 
   private onMessage(taskId: string, from: string, to: string, kind: string, text: string): void {

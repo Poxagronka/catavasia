@@ -23,11 +23,13 @@ import type {
 } from '../../../core/src/messages.js';
 import type { NarratorInput } from '../../../core/src/narrator.js';
 import type { TaskLogEntry, TaskTarget } from '../../../core/src/tasks.js';
+import { sessionLockHolder } from '../catTerminal/sessionLocks.js';
 import {
   CATS_FILE_NAME,
   FLOW_MAX_TURNS,
   OFFICE_MCP_PATH,
   ORCHESTRATOR_DIR,
+  SESSION_LOCK_RETRY_MS,
   TASK_LOG_MAX_ENTRIES,
   TASK_LOG_TEXT_MAX_CHARS,
 } from '../constants.js';
@@ -348,6 +350,10 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
       [...flow.members.values()].flatMap((m) => (m !== caller && m.busy ? [m.busy] : [])),
     );
 
+    // The user drives a cat's session in a terminal (its worktree): wait for it.
+    while ([...flow.members.values()].some((m) => sessionLockHolder(m.sessionId) === 'wheel')) {
+      await new Promise((r) => setTimeout(r, SESSION_LOCK_RETRY_MS));
+    }
     const worktreeError = await endFlowWorkspaces(flow);
     // Persona and MCP config files: the tokens in them die with the task.
     fs.rmSync(path.join(this.opts.stateDir, ORCHESTRATOR_DIR, task.id), {

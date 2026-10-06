@@ -79,6 +79,10 @@ describe('AgentRuntime resident cats', () => {
     expect(store.get(id)!.sessionId).toBe('session-b');
     runtime.linkAgentTask(id, 'task-9');
     expect(broadcasts.at(-1)).toEqual({ type: 'agentTaskFinished', id, taskId: 'task-9' });
+
+    // The profile is deleted: the character and its session routing go.
+    runtime.removeResidentAgent(id);
+    expect(store.get(id)).toBeUndefined();
   });
 
   it('restores a finished task cat that opens its task after a restart', () => {
@@ -89,6 +93,9 @@ describe('AgentRuntime resident cats', () => {
       isWaiting: true,
       palette: 3,
     });
+    // Before the first connect: writing the agents now would drop the
+    // persisted external agents that connect is about to restore.
+    expect(persisted.saved).toEqual([]);
     const sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((m) => sent.push(m), store);
     expect(sent).toContainEqual({ type: 'agentTaskFinished', id: agent.id, taskId: 'task-1' });

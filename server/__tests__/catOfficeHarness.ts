@@ -96,7 +96,7 @@ export class FakeCatHost implements CatAgentHost {
   linkAgentTask(id: number, taskId: string) {
     this.linked.push({ id, taskId });
   }
-  removeAgent(id: number) {
+  removeResidentAgent(id: number) {
     this.removed.push(id);
   }
   // Task board host (plain runs).

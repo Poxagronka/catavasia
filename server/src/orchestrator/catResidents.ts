@@ -19,7 +19,7 @@ export interface ResidentHost {
   endResidentTurn(id: number): void;
   /** Clicking the cat opens this task. */
   linkAgentTask(id: number, taskId: string): void;
-  removeAgent(id: number): void;
+  removeResidentAgent(id: number): void;
 }
 
 /** The office character palette of a cat: its breed preset. */
@@ -30,6 +30,8 @@ export function breedPalette(cat: CatProfile): number | undefined {
 
 export class CatResidents {
   private readonly ids = new Map<string, number>();
+  /** The profile each character was spawned for: a cat deleted mid-task keeps its look. */
+  private readonly spawnedFor = new Map<string, CatProfile>();
   private readonly working = new Set<string>();
 
   constructor(
@@ -45,7 +47,8 @@ export class CatResidents {
       if (cats.some((c) => c.id === catId)) continue;
       this.ids.delete(catId);
       this.working.delete(catId);
-      this.host.removeAgent(id);
+      this.spawnedFor.delete(catId);
+      this.host.removeResidentAgent(id);
     }
     for (const cat of cats) this.ensure(cat);
     this.emit(this.message());
@@ -61,6 +64,7 @@ export class CatResidents {
       );
       this.ids.set(cat.id, id);
     }
+    this.spawnedFor.set(cat.id, cat);
     return id;
   }
 
@@ -96,7 +100,7 @@ export class CatResidents {
   message(): CatCharacters {
     const byId = new Map(this.cats().map((c) => [c.id, c]));
     const characters = [...this.ids].flatMap(([catId, id]) => {
-      const cat = byId.get(catId);
+      const cat = byId.get(catId) ?? this.spawnedFor.get(catId);
       if (!cat) return [];
       const { name, appearance } = cat;
       return [{ catId, id, name, appearance, working: this.working.has(catId) }];

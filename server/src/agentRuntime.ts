@@ -344,8 +344,19 @@ export class AgentRuntime {
     look?: { palette?: number; hueShift?: number },
   ): AgentState {
     this.reserveRestoredIds();
-    const agent = this.launchHeadlessAgent(sessionId, cwd, look);
-    this.finishHeadlessAgent(agent.id, taskId);
+    const id = this.store.nextAgentId.current++;
+    const agent = this.headlessState(id, look);
+    this.pointAt(agent, sessionId, cwd);
+    // A follow-up resumes the session: watch only what it appends.
+    try {
+      agent.fileOffset = fs.statSync(agent.jsonlFile).size;
+    } catch {
+      agent.fileOffset = 0;
+    }
+    assignPaletteIfNeeded(agent, this.store);
+    // No persist: it runs before the first connect restores the external agents.
+    this.store.set(id, agent);
+    this.finishHeadlessAgent(id, taskId);
     return agent;
   }
 
@@ -397,6 +408,15 @@ export class AgentRuntime {
     agent.isWaiting = true;
     this.store.broadcast({ type: 'agentToolsClear', id });
     this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
+  }
+
+  /** The profile was deleted: forget its session too, so late hooks make no guest. */
+  removeResidentAgent(id: number): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    if (agent.sessionId) this.unregisterAgent(agent.sessionId);
+    if (agent.jsonlFile) this.dismissalTracker.dismiss(agent.jsonlFile);
+    this.removeAgent(id);
   }
 
   /** Clicking the cat opens this task (its last finished one). */

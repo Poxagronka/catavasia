@@ -114,24 +114,29 @@ async function runLockedTurn(office: Orchestrator, flow: Flow, member: Member, n
   office.opts.emit({ type: 'catTurnStarted', catId, taskId, id: agentId });
   office.consoles.push(catId, { kind: 'user', text: message });
 
-  member.handle = adapter.spawnTurn({
-    sessionId: member.sessionId,
-    resume: member.started,
-    cwd: member.cwd!,
-    model: member.cat.model,
-    effort: member.cat.effort,
-    systemPromptFile: member.systemPromptFile,
-    mcpConfigFile: member.mcpConfigFile,
-    message,
-    onLog: (entry) => {
-      office.log(flow, {
-        ...entry,
-        name: entry.kind === 'tool' ? `${member.cat.name}: ${entry.name}` : member.cat.name,
-      });
-      office.consoles.push(catId, toConsoleEntry(entry));
-      office.opts.narrate?.(taskLogInput(agentId, entry, Date.now()));
-    },
-  });
+  try {
+    member.handle = adapter.spawnTurn({
+      sessionId: member.sessionId,
+      resume: member.started,
+      cwd: member.cwd!,
+      model: member.cat.model,
+      effort: member.cat.effort,
+      systemPromptFile: member.systemPromptFile,
+      mcpConfigFile: member.mcpConfigFile,
+      message,
+      onLog: (entry) => {
+        office.log(flow, {
+          ...entry,
+          name: entry.kind === 'tool' ? `${member.cat.name}: ${entry.name}` : member.cat.name,
+        });
+        office.consoles.push(catId, toConsoleEntry(entry));
+        office.opts.narrate?.(taskLogInput(agentId, entry, Date.now()));
+      },
+    });
+  } catch (err) {
+    office.residents.turnEnded(catId);
+    throw err;
+  }
   const outcome = await member.handle.done;
   member.handle = undefined;
   member.started ||= outcome.sessionStarted;
