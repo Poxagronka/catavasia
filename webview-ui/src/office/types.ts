@@ -102,6 +102,8 @@ export interface IdleActivityRun {
   elapsed?: number;
   /** Coffee chain: uid of the machine whose cup the cat carries. */
   cupFrom?: string;
+  /** Litter visit: the pile is down (in the box or on the floor), the cat covers it now. */
+  deposited?: boolean;
 }
 
 export interface Seat {
@@ -306,6 +308,8 @@ export interface Character {
   activity: IdleActivityRun | null;
   /** Last finished activity id: the next pick avoids repeating it. */
   lastActivityId: string | null;
+  /** Seconds left of a grimace face over the head (an overflowing box, a floor poop). */
+  grimaceSec?: number;
 
   // -- Agent Teams --
   /** Team name this agent belongs to */
@@ -407,6 +411,10 @@ export interface Pet {
   customName?: string;
   /** Coat chosen in the Cats menu (cat pets only), else the template sheet as is. */
   appearance?: Appearance;
+  /** Zoomies: the pet dashes at a sprint (set by PetCareSystem, cleared on arrival). */
+  sprint?: boolean;
+  /** Seconds left of a grimace face over the head (an overflowing box, a floor poop). */
+  grimaceSec?: number;
 }
 
 export interface PetRest {
@@ -418,7 +426,7 @@ export interface PetRest {
 }
 
 /** Care poses a cat pet can play (see office/sprites/petCareFrames.ts). */
-export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play' | 'sleep';
+export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play' | 'sleep' | 'grimace';
 
 /** Persisted record (lives on OfficeLayout). */
 export interface PlacedPet {

@@ -1,6 +1,6 @@
 {
-  "id": "LITTER_BOX",
-  "name": "Litter box (open tray)",
+  "id": "LITTER_BOX_HIGH",
+  "name": "Litter box (high-sided)",
   "category": "misc",
   "type": "asset",
   "canPlaceOnWalls": false,

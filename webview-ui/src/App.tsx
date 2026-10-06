@@ -5,6 +5,7 @@ import { CatOfficeFeed } from './catOfficeFeed.js';
 import { CatTerminalPanel } from './catTerminal/CatTerminalPanel.js';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
+import { CareRadialMenu } from './components/CareRadialMenu.js';
 import { CatsModal } from './components/cats/CatsModal.js';
 import { HierarchyModal } from './components/cats/HierarchyModal.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
@@ -480,6 +481,13 @@ function App() {
           />
 
           <PetRadialMenu
+            officeState={officeState}
+            containerRef={containerRef}
+            zoom={editor.zoom}
+            panRef={editor.panRef}
+          />
+
+          <CareRadialMenu
             officeState={officeState}
             containerRef={containerRef}
             zoom={editor.zoom}

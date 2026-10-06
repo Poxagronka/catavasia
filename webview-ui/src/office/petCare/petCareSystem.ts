@@ -28,6 +28,9 @@
  * reports what the pet should keep holding; the office releases the rest.
  */
 import {
+  CARE_CLEANUP_FX_SEC,
+  LITTER_FRESH_GLINT_SEC,
+  LITTER_ZOOMIES_CHANCE,
   PET_ANIM_FRAME_SEC,
   PET_BOWEL_MAX,
   PET_CARE_DECIDE_INTERVAL_SEC,
@@ -41,20 +44,26 @@ import {
   PET_SLEEP_ENERGY_PER_SEC,
   PET_TIRED_THRESHOLD,
   PET_TOY_FUN_GAIN,
+  ZOOMIES_DASHES_MAX,
+  ZOOMIES_DASHES_MIN,
 } from '../../constants.js';
 import type { Pet, PlacedFurniture } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
+import { boxPose, isLitterBoxType } from './litterStages.js';
 import type { CareTarget, PetCareEnv } from './petCareNav.js';
 import {
   faceTowards,
   findBowlSpot,
   findLitterBox,
-  LITTER_BOX_TYPE,
+  floorSpotNear,
   pathTo,
   PET_BOWL_TYPE,
+  zoomiesTarget,
 } from './petCareNav.js';
 import type {
   Anim,
+  CareMenu,
+  CareMenuAction,
   Effect,
   Goal,
   PetActivityClaim,
@@ -64,7 +73,13 @@ import type {
   PetSpotBroker,
   Seek,
 } from './petCareTypes.js';
-import { ANIM_SEC, EFFECT_MAX_AGE_SEC, FORBIDDEN_CLAIM_TYPES } from './petCareTypes.js';
+import {
+  ANIM_SEC,
+  BAG_PICKUP_SEC,
+  EFFECT_MAX_AGE_SEC,
+  FORBIDDEN_CLAIM_TYPES,
+  SCOOP_LIFT_SEC,
+} from './petCareTypes.js';
 import { PetCareWorld } from './petCareWorld.js';
 import type { Needs, RequestKind } from './petNeeds.js';
 import { NEED_KEYS, pickRequest, raiseNeed } from './petNeeds.js';
@@ -75,6 +90,8 @@ export class PetCareSystem {
   speed = 1;
   menuPetId: string | null = null;
   infoOpen = false;
+  /** The menu over a litter box or a floor poop (one menu at a time with the cat menu). */
+  careMenu: CareMenu | null = null;
   effects: Effect[] = [];
   onSave: ((snapshot: unknown) => void) | null = null;
   onMeow: (() => void) | null = null;
@@ -110,6 +127,8 @@ export class PetCareSystem {
         dish: false,
         keys: [],
         claim: null,
+        refused: new Set(),
+        dashes: 0,
       };
       this.runtime.set(petId, r);
     }
@@ -157,8 +176,10 @@ export class PetCareSystem {
     r.keys = [];
     r.claim = null;
     r.dish = false;
+    r.dashes = 0;
     pet.careAnim = null;
     pet.rest = null;
+    pet.sprint = false;
     if (walking) {
       pet.path = pet.path.slice(0, pet.moveProgress > 0 ? 1 : 0);
     }
@@ -169,20 +190,38 @@ export class PetCareSystem {
     const cats = env.pets.filter((p) => env.isCat(p));
     for (const pet of cats) this.world.entry(pet.id);
     const fullBoxes = env.furniture.filter(
-      (f) => f.type === LITTER_BOX_TYPE && this.world.isBoxFull(f.uid),
+      (f) => isLitterBoxType(f.type) && this.world.isBoxFull(f.uid),
     ).length;
     this.world.tick((dt * this.speed) / 3600, fullBoxes);
     this.dirty = this.dirty || cats.length > 0;
     for (const pet of cats) this.updatePet(pet, dt, env);
-    for (const e of this.effects) e.age += dt;
-    this.effects = this.effects.filter((e) => e.age < EFFECT_MAX_AGE_SEC);
+    for (const e of this.effects) {
+      e.age += dt;
+      // The bag is down over the pile: now it is gone from the floor.
+      if (e.poopId && e.age >= BAG_PICKUP_SEC) {
+        this.world.cleanFloorPoop(e.poopId);
+        e.poopId = undefined;
+        this.touch(true);
+      }
+      // The scoop lifts the clumps out: now the box is clean.
+      if (e.boxUid && e.age >= SCOOP_LIFT_SEC) {
+        this.world.cleanBox(e.boxUid);
+        e.boxUid = undefined;
+        this.touch(true);
+      }
+    }
+    this.effects = this.effects.filter((e) => e.age < (e.life ?? EFFECT_MAX_AGE_SEC));
+    for (const pet of env.pets) {
+      if (pet.grimaceSec) pet.grimaceSec = Math.max(0, pet.grimaceSec - dt);
+    }
     if (this.menuPetId && !cats.some((p) => p.id === this.menuPetId)) this.closeMenu();
+    if (this.careMenu && !this.careMenuTargetExists(env)) this.careMenu = null;
     this.saveTimer -= dt;
     if (this.saveTimer <= 0) this.flush();
   }
 
-  /** Mark changed; `soon` saves within a second (after user actions). */
-  private touch(soon = false): void {
+  /** Mark changed; `soon` saves within a second (after user actions, a new pile). */
+  touch(soon = false): void {
     this.dirty = true;
     if (soon) this.saveTimer = Math.min(this.saveTimer, 1);
   }
@@ -266,9 +305,18 @@ export class PetCareSystem {
   /** Autonomous choice: poop > drink > eat > sleep when tired > a provider's idle activity. */
   private decide(pet: Pet, needs: Needs, env: PetCareEnv): void {
     if (this.world.entry(pet.id).bowel >= PET_BOWEL_MAX) {
-      const box = findLitterBox(pet, env, this.world, this.canTarget(pet));
-      if (box && this.reserve(pet, box, env, 'poop')) return;
-      if (!box) this.startPoop(pet, null);
+      const r = this.rt(pet.id);
+      const box = findLitterBox(pet, env, this.canTarget(pet), r.refused);
+      if (box) {
+        this.reserve(pet, box, env, 'poop');
+        return;
+      }
+      // Every box refused (or none reachable): an accident on the floor, off the boxes.
+      const spot = floorSpotNear(pet.tileCol, pet.tileRow, env, this.world, this.canTarget(pet));
+      const path = spot ? pathTo(pet, spot.col, spot.row, env) : null;
+      if (spot && path && path.length > 0)
+        this.reserve(pet, { uid: '', ...spot, path }, env, 'poop');
+      else this.startPoop(pet, null, env);
       return;
     }
     if (needs.thirst < PET_SEEK_THRESHOLD && this.seekBowl(pet, 'drink', env)) return;
@@ -380,9 +428,25 @@ export class PetCareSystem {
       return;
     }
     r.keys = [];
+    if (s.goal === 'zoom') {
+      pet.sprint = false;
+      if (r.dashes > 0) this.dash(pet, env);
+      else this.pose(pet, 'play', ANIM_SEC.play / 2, () => this.hearts(pet));
+      return;
+    }
     if (s.goal === 'poop') {
       r.keys = s.keys;
-      this.startPoop(pet, s.uid);
+      if (s.uid && this.world.isBoxRefused(s.uid)) {
+        // Flies: a sniff, a grimace, and off to another box (or the floor).
+        r.refused.add(s.uid);
+        pet.dir = Direction.DOWN;
+        pet.grimaceSec = ANIM_SEC.grimace;
+        this.pose(pet, 'grimace', ANIM_SEC.grimace, () => {
+          r.decideTimer = 0;
+        });
+        return;
+      }
+      this.startPoop(pet, s.uid, env);
       return;
     }
     const bowl = env.furniture.find((f) => f.uid === s.uid);
@@ -398,12 +462,46 @@ export class PetCareSystem {
     });
   }
 
-  private startPoop(pet: Pet, boxUid: string | null): void {
+  private startPoop(pet: Pet, boxUid: string | null, env: PetCareEnv): void {
     if (pet.dir === Direction.UP || pet.dir === Direction.DOWN) pet.dir = Direction.RIGHT;
+    const r = this.rt(pet.id);
     this.pose(pet, 'poop', ANIM_SEC.poop, () => {
-      this.world.poop(pet.id, boxUid, pet.tileCol, pet.tileRow);
+      const where = this.world.poop(pet.id, boxUid, pet.tileCol, pet.tileRow);
+      r.refused.clear();
       this.touch(true);
+      if (where === 'floor') {
+        pet.grimaceSec = ANIM_SEC.grimace;
+        return;
+      }
+      // A proud exit, and now and then the zoomies.
+      this.sparkle(pet.tileCol, pet.tileRow - 1);
+      if (Math.random() < LITTER_ZOOMIES_CHANCE) {
+        r.dashes =
+          ZOOMIES_DASHES_MIN +
+          Math.floor(Math.random() * (ZOOMIES_DASHES_MAX - ZOOMIES_DASHES_MIN + 1));
+        this.dash(pet, env);
+      }
     });
+    // In the box: the front wall hides its paws, a hood hides all but the tail.
+    const box = boxUid ? env.furniture.find((f) => f.uid === boxUid) : undefined;
+    if (box) {
+      const { offsetY, peek } = boxPose(box);
+      pet.rest = { offsetX: 0, offsetY, zzz: false, peek };
+    }
+  }
+
+  /** One zoomies dash to a far tile at a sprint (r.dashes counts them down). */
+  private dash(pet: Pet, env: PetCareEnv): void {
+    const r = this.rt(pet.id);
+    const t = zoomiesTarget(pet.tileCol, pet.tileRow, env);
+    const path = t ? pathTo(pet, t.col, t.row, env) : null;
+    if (!t || !path || path.length === 0) {
+      r.dashes = 0;
+      return;
+    }
+    r.dashes--;
+    pet.sprint = true;
+    this.walk(pet, { uid: '', col: t.col, row: t.row, path }, 'zoom');
   }
 
   private pose(pet: Pet, kind: Anim['kind'], dur: number, done: () => void): void {
@@ -429,20 +527,16 @@ export class PetCareSystem {
     }
   }
 
-  private sparkle(col: number, row: number): void {
-    const half = TILE_SIZE / 2;
-    this.effects.push({
-      kind: 'sparkle',
-      x: col * TILE_SIZE + half,
-      y: row * TILE_SIZE + half,
-      age: 0,
-    });
+  /** A sparkle over a tile, `delay` seconds from now. */
+  private sparkle(col: number, row: number, delay = 0): void {
+    this.effects.push({ ...this.at(col, row), kind: 'sparkle', age: -delay });
   }
 
   // ── User actions ────────────────────────────────────────────
 
   /** Open the radial menu: the cat stops on its tile and faces the viewer. */
   openMenu(pet: Pet): void {
+    this.careMenu = null;
     this.menuPetId = pet.id;
     this.infoOpen = false;
     const r = this.rt(pet.id);
@@ -459,6 +553,7 @@ export class PetCareSystem {
   closeMenu(): void {
     this.menuPetId = null;
     this.infoOpen = false;
+    this.careMenu = null;
   }
 
   /** Radial menu action on a cat. Closes the menu except for Info. */
@@ -503,23 +598,110 @@ export class PetCareSystem {
     this.touch(true);
   }
 
+  /** Clean a box: the scoop sifts it, lifts the piles out (SCOOP_LIFT_SEC), a sparkle. */
   cleanBox(f: PlacedFurniture): boolean {
-    if (this.world.cleanBox(f.uid) === 0) return false;
-    this.sparkle(f.col, f.row);
+    if (this.world.boxCount(f.uid) === 0 || this.effects.some((e) => e.boxUid === f.uid)) {
+      return false;
+    }
+    this.effects.push({
+      ...this.at(f.col, f.row),
+      kind: 'scoop',
+      age: 0,
+      life: CARE_CLEANUP_FX_SEC,
+      boxUid: f.uid,
+    });
+    this.sparkle(f.col, f.row, SCOOP_LIFT_SEC);
+    return true;
+  }
+
+  /** Change the litter: a bag of fresh litter pours in, and the new sand glints a while. */
+  changeLitter(f: PlacedFurniture): boolean {
+    if (!this.world.changeLitter(f.uid)) return false;
+    this.effect('pour', f.col, f.row, CARE_CLEANUP_FX_SEC);
+    this.sparkle(f.col, f.row, CARE_CLEANUP_FX_SEC * 0.7);
+    this.effect('glint', f.col, f.row, LITTER_FRESH_GLINT_SEC);
     this.touch(true);
     return true;
   }
 
+  /** Clean up a floor poop: the bag comes down, picks it up (BAG_PICKUP_SEC) and lifts away. */
   cleanFloorPoop(id: string): boolean {
     const p = this.world.floorPoops.find((x) => x.id === id);
-    if (!p || !this.world.cleanFloorPoop(id)) return false;
-    this.sparkle(p.col, p.row);
-    this.touch(true);
+    if (!p || this.effects.some((e) => e.poopId === id)) return false;
+    this.effects.push({
+      ...this.at(p.col, p.row),
+      kind: 'bag',
+      age: 0,
+      life: CARE_CLEANUP_FX_SEC,
+      poopId: id,
+    });
+    this.sparkle(p.col, p.row, BAG_PICKUP_SEC + 0.3);
     return true;
   }
 
   cleanAll(env: PetCareEnv): void {
-    for (const f of env.furniture) if (f.type === LITTER_BOX_TYPE) this.cleanBox(f);
+    for (const f of env.furniture) if (isLitterBoxType(f.type)) this.cleanBox(f);
     for (const p of [...this.world.floorPoops]) this.cleanFloorPoop(p.id);
+  }
+
+  // ── Litter box and floor poop menu ───────────────────────────
+
+  openCareMenu(menu: CareMenu): void {
+    this.closeMenu();
+    this.careMenu = menu;
+  }
+
+  closeCareMenu(): void {
+    this.careMenu = null;
+    this.infoOpen = false;
+  }
+
+  private careMenuTargetExists(env: PetCareEnv): boolean {
+    const m = this.careMenu;
+    if (!m) return false;
+    if (m.kind === 'poop') return this.world.floorPoops.some((p) => p.id === m.id);
+    return env.furniture.some((f) => f.uid === m.uid);
+  }
+
+  /** A care menu button. Info toggles its panel; the others act and close the menu. */
+  careAct(action: CareMenuAction, env: PetCareEnv): void {
+    const m = this.careMenu;
+    if (!m) return;
+    if (action === 'info') {
+      this.infoOpen = !this.infoOpen;
+      return;
+    }
+    this.closeCareMenu();
+    if (m.kind === 'poop') {
+      if (action === 'cleanup') this.cleanFloorPoop(m.id);
+      return;
+    }
+    const box = env.furniture.find((f) => f.uid === m.uid);
+    if (!box) return;
+    if (action === 'clean') this.cleanBox(box);
+    else if (action === 'change') this.changeLitter(box);
+  }
+
+  // ── Agent cats (engine/litterLife.ts) ─────────────────────────
+
+  /** An agent cat used a box: one more pile. False when it overflows (refused). */
+  catUsedBox(uid: string): boolean {
+    const ok = this.world.deposit(uid);
+    if (ok) this.touch(true);
+    return ok;
+  }
+
+  /** An agent cat had an accident at (col, row). */
+  catFloorPoop(col: number, row: number): void {
+    this.world.floorPoop(col, row);
+    this.touch(true);
+  }
+
+  private at(col: number, row: number): { x: number; y: number } {
+    return { x: col * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
+  }
+
+  private effect(kind: Effect['kind'], col: number, row: number, life: number): void {
+    this.effects.push({ ...this.at(col, row), kind, age: 0, life });
   }
 }

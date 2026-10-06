@@ -87,26 +87,6 @@ export const WATER_FILL = [
   { 1: 'WwWW', 2: 'WWWw', 3: 'WWWW' },
 ];
 
-// ── Litter box (16x16 furniture), 3 fill states ───────────────
-const LITTER_BASE = [
-  '................',
-  '................',
-  '................',
-  '.OOOOOOOOOOOOOO.',
-  'OTTTTTTTTTTTTTTO',
-  'OTSSSSsSSSSsSSTO',
-  'OTSsSSSSSsSSSSTO',
-  'OTSSSSSsSSSSSsTO',
-  'OPPPPPPPPPPPPPPO',
-  'OppppppppppppppO',
-  'OppppppppppppppO',
-  '.OOOOOOOOOOOOOO.',
-  '................',
-  '................',
-  '................',
-  '................',
-];
-
 /** Overlay a template onto a base at (ox, oy); '.' cells keep the base. */
 export function overlay(base, top, ox, oy) {
   const out = base.map((row) => [...row]);
@@ -120,20 +100,6 @@ export function overlay(base, top, ox, oy) {
   );
   return out.map((row) => row.join(''));
 }
-
-const CLUMP = ['.dd.', 'dDhd'];
-const MINI_POOP = ['.Dd.', 'DhDd', 'dDDd'];
-
-export const LITTER = [
-  LITTER_BASE,
-  overlay(overlay(LITTER_BASE, CLUMP, 3, 6), MINI_POOP, 9, 4),
-  overlay(
-    overlay(overlay(overlay(LITTER_BASE, MINI_POOP, 2, 4), MINI_POOP, 7, 5), MINI_POOP, 11, 4),
-    CLUMP,
-    5,
-    6,
-  ),
-];
 
 // ── Floor poop pile (8x7) + stink lines ───────────────────────
 export const POOP = [
@@ -177,6 +143,9 @@ export const ICONS = {
   clean: ['....OO.', '...OnO.', '..OnO..', '.OnO...', 'OqqO...', 'OqqqO..', '.OOOO..'],
   info: ['..OOO..', '..OQO..', '..OOO..', '.OOQO..', '..OQO..', '..OQO..', '.OOOOO.'],
   heart: ['.......', '.OO.OO.', 'OHLOHHO', 'OHHHHHO', '.OHHHO.', '..OHO..', '...O...'],
+  // A bag of fresh litter (Change litter) and a poop bag (Clean up).
+  change: ['.OOOOO.', 'OQQQQQO', 'OQBBBQO', 'OQBQBQO', 'OQBBBQO', 'OQQQQQO', '.OOOOO.'],
+  bag: ['...O...', '..OgO..', '..OgO..', '.OgggO.', 'OggDggO', 'OgggggO', '.OOOOO.'],
 };
 
 export function requestBubble(icon) {

@@ -63,6 +63,7 @@ import { CUP_OUT_FRAME } from './coffeeActivities.js';
 import { itemFrameSprite } from './furnitureFrames.js';
 import type { ActivitySpotSet, IdleChoice, PropMotion } from './idleActivities.js';
 import { buildActivitySpots, getIdleActivity, propOffset } from './idleActivities.js';
+import { LitterLife } from './litterLife.js';
 import { advanceMatrixEffect, startMatrixEffect } from './matrixEffectState.js';
 import type { MeetingPlan } from './meetingRoom.js';
 import { planMeetingRoom } from './meetingRoom.js';
@@ -112,6 +113,8 @@ export class OfficeState {
   readonly petCare = new PetCareSystem();
   /** Spot reservations, contests, pet actors, activity social (see catLife.ts). */
   readonly life: CatLife = new CatLife(this);
+  /** Litter visits of agent cats: refusals, accidents, zoomies, poop-avoiding paths. */
+  readonly litter: LitterLife = new LitterLife(this);
   /** Accumulated time for furniture animation frame cycling */
   furnitureAnimTimer = 0;
   selectedAgentId: number | null = null;
@@ -1454,6 +1457,25 @@ export class OfficeState {
     return started || !def.spots;
   }
 
+  /** Spot keys a cat must not pick now (held by other cats or pets). */
+  takenBy(ch: Character): Set<string> {
+    return this.life.takenBy(ch);
+  }
+
+  /**
+   * Reserve `spot` for an idle cat and start activity `id` there (litter
+   * follow-ups: another box, an accident, a zoomies dash). False when the
+   * spot is taken or the cat works.
+   */
+  startActivityAt(ch: Character, id: string, spot: ActivitySpot): boolean {
+    const def = getIdleActivity(id);
+    if (!def || ch.isActive) return false;
+    const choice = { def, spot };
+    const outcome = this.life.claimIdle(ch, choice);
+    if (outcome !== 'ok') return outcome === 'fight';
+    return beginIdleActivity(ch, choice, this.tileMap, this.blockedTiles);
+  }
+
   /** Furniture to draw this frame: toys in use (yarn, feather, mouse) moved by their motion. */
   getFurnitureForRender(nowSec: number = performance.now() / 1000): FurnitureInstance[] {
     const moving = new Map<string, PropMotion | { dx: number; dy: number }>();
@@ -1549,6 +1571,7 @@ export class OfficeState {
       takenBy: (ch) => this.life.takenBy(ch),
       claim: (ch, choice) => this.life.claimIdle(ch, choice),
       startNext: (ch, id, from) => this.startChained(ch, id, from),
+      finished: (ch, run) => this.litter.finished(ch, run),
     };
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {
@@ -1591,6 +1614,7 @@ export class OfficeState {
     for (const id of toDelete) {
       this.characters.delete(id);
     }
+    this.litter.update(dt);
 
     this.scenes.update(dt);
 

@@ -1,6 +1,6 @@
 {
-  "id": "LITTER_BOX",
-  "name": "Litter box (open tray)",
+  "id": "LITTER_BOX_HOODED",
+  "name": "Litter box (hooded)",
   "category": "misc",
   "type": "asset",
   "canPlaceOnWalls": false,

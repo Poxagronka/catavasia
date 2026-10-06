@@ -32,6 +32,8 @@ export interface AnimStep {
   item?: number;
   /** Draw the walk cycle instead of a pose (a carried mug, a dash). */
   walk?: boolean;
+  /** Inside a hooded box: only the peek shows (see housePeek.ts peekNow). */
+  hide?: boolean;
 }
 
 /** Frame px of an effect: one point, or one per facing (front, back, side). */

@@ -1,37 +1,60 @@
 import { useEffect, useState } from 'react';
 
-import { PET_MENU_BUTTON_PX, PET_MENU_RADIUS_PX, TILE_SIZE } from '../constants.js';
+import {
+  PET_LITTER_CAPACITY,
+  PET_MENU_BUTTON_PX,
+  PET_MENU_RADIUS_PX,
+  TILE_SIZE,
+} from '../constants.js';
 import type { OfficeState } from '../office/engine/officeState.js';
-import type { PetMenuAction } from '../office/petCare/petCareTypes.js';
-import type { NeedKey } from '../office/petCare/petNeeds.js';
-import { moodLabel, moodScore, NEED_KEYS, NEED_LABELS } from '../office/petCare/petNeeds.js';
+import { getCatalogEntry } from '../office/layout/furnitureCatalog.js';
+import {
+  LITTER_STAGE_LABELS,
+  litterFreshness,
+  litterStage,
+} from '../office/petCare/litterStages.js';
+import type { CareMenuAction } from '../office/petCare/petCareTypes.js';
 import { overlayProjection } from '../office/projection.js';
 import type { PetMenuIcon } from '../office/sprites/petCareSprites.js';
 import { MENU_ICONS } from '../office/sprites/petCareSprites.js';
 import { barColor, iconUrl } from './pixelIcon.js';
 
-interface PetRadialMenuProps {
+interface CareRadialMenuProps {
   officeState: OfficeState;
   containerRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
 }
 
-const ACTIONS: Array<{ action: PetMenuAction; icon: PetMenuIcon; label: string }> = [
-  { action: 'feed', icon: 'food', label: 'Feed' },
-  { action: 'water', icon: 'water', label: 'Water' },
-  { action: 'scratch', icon: 'scratch', label: 'Scratch' },
-  { action: 'play', icon: 'play', label: 'Play' },
+type Button = { action: CareMenuAction; icon: PetMenuIcon; label: string };
+
+const BOX_BUTTONS: Button[] = [
   { action: 'clean', icon: 'clean', label: 'Clean' },
+  { action: 'change', icon: 'change', label: 'Change litter' },
   { action: 'info', icon: 'info', label: 'Info' },
 ];
+const POOP_BUTTONS: Button[] = [{ action: 'cleanup', icon: 'bag', label: 'Clean up' }];
+
+function Bar({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-6">
+      <span className="w-64">{label}</span>
+      <span className="inline-block w-80 h-8 bg-bg-dark border-2 border-border">
+        <span
+          className="block h-full"
+          style={{ width: `${Math.round(value)}%`, background: barColor(value) }}
+        />
+      </span>
+    </div>
+  );
+}
 
 /**
- * Radial care menu over a cat pet: six pixel buttons on a ring (Feed, Water,
- * Scratch, Play, Clean, Info) and an Info panel with the needs bars. Opened
- * by a canvas click on a cat (OfficeCanvas); state lives in PetCareSystem.
+ * Radial menu over a litter box (Clean, Change litter, Info with the fill
+ * stage) or a floor poop (Clean up). Opened by a canvas click on the box or
+ * the poop (OfficeCanvas); state lives in PetCareSystem.careMenu.
  */
-export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRadialMenuProps) {
+export function CareRadialMenu({ officeState, containerRef, zoom, panRef }: CareRadialMenuProps) {
   const care = officeState.petCare;
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -39,7 +62,7 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
     let wasOpen = false;
     const tick = () => {
       // Re-render only while a menu is open (plus one frame to remove it).
-      const open = care.menuPetId !== null;
+      const open = care.careMenu !== null;
       if (open || wasOpen) setTick((n) => n + 1);
       wasOpen = open;
       rafId = requestAnimationFrame(tick);
@@ -50,15 +73,23 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && care.menuPetId) care.closeMenu();
+      if (e.key === 'Escape' && care.careMenu) care.closeCareMenu();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [care]);
 
-  const pet = officeState.pets.find((p) => p.id === care.menuPetId);
+  const menu = care.careMenu;
   const el = containerRef.current;
-  if (!pet || !el) return null;
+  if (!menu || !el) return null;
+  const box =
+    menu.kind === 'box'
+      ? officeState.getLayout().furniture.find((f) => f.uid === menu.uid)
+      : undefined;
+  const poop =
+    menu.kind === 'poop' ? care.world.floorPoops.find((p) => p.id === menu.id) : undefined;
+  const at = box ?? poop;
+  if (!at) return null;
   const project = overlayProjection(
     officeState.getLayout(),
     el.getBoundingClientRect(),
@@ -66,27 +97,27 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
     panRef.current,
     window.devicePixelRatio || 1,
   );
-  // Ring center: the middle of the cat's body (half a tile above its feet).
-  const cx = project.toScreenX(pet.x);
-  const cy = project.toScreenY(pet.y - TILE_SIZE / 2);
-  const needs = care.world.entry(pet.id).needs;
-  const mood = moodLabel(moodScore(needs));
+  const cx = project.toScreenX(at.col * TILE_SIZE + TILE_SIZE / 2);
+  const cy = project.toScreenY(at.row * TILE_SIZE + TILE_SIZE / 2);
   const half = PET_MENU_BUTTON_PX / 2;
-  // The ring clears the cat at any zoom: at least one tile from its center.
   const radius = Math.max(PET_MENU_RADIUS_PX, (TILE_SIZE * zoom) / (window.devicePixelRatio || 1));
+  const buttons = box ? BOX_BUTTONS : POOP_BUTTONS;
+  const piles = box ? care.world.boxCount(box.uid) : 0;
+  const uses = box ? care.world.litterUses(box.uid) : 0;
+  const name = box ? (getCatalogEntry(box.type)?.label ?? 'Litter box') : 'Poop';
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 45 }}>
-      {ACTIONS.map(({ action, icon, label }, i) => {
-        const angle = -Math.PI / 2 + (i * 2 * Math.PI) / ACTIONS.length;
+      {buttons.map(({ action, icon, label }, i) => {
+        const angle = -Math.PI / 2 + (i * 2 * Math.PI) / buttons.length;
         const active = action === 'info' && care.infoOpen;
         return (
           <button
             key={action}
             title={label}
             aria-label={label}
-            data-pet-action={action}
-            onClick={() => care.act(pet, action, officeState.petCareEnv())}
+            data-care-action={action}
+            onClick={() => care.careAct(action, officeState.petCareEnv())}
             className={`absolute pointer-events-auto flex items-center justify-center p-0 border-2 rounded-none shadow-pixel cursor-pointer ${
               active ? 'bg-active-bg border-accent' : 'bg-bg border-border hover:bg-btn-hover'
             }`}
@@ -110,28 +141,21 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
         className="absolute pixel-panel px-4 text-xs whitespace-nowrap"
         style={{ left: cx, top: cy + radius + half + 6, transform: 'translateX(-50%)' }}
       >
-        {pet.name}
+        {name}
       </div>
-      {care.infoOpen && (
+      {box && care.infoOpen && (
         <div
           className="absolute pixel-panel pointer-events-auto px-8 py-6 text-xs"
-          data-pet-info
+          data-care-info
           style={{ left: cx + radius + half + 10, top: cy - radius }}
         >
-          <div className="text-sm">{pet.name}</div>
-          <div className="text-text-muted mb-4">Mood: {mood}</div>
-          {NEED_KEYS.map((k: NeedKey) => (
-            <div key={k} className="flex items-center gap-6">
-              <span className="w-48">{NEED_LABELS[k]}</span>
-              <span className="inline-block w-80 h-8 bg-bg-dark border-2 border-border">
-                <span
-                  className="block h-full"
-                  style={{ width: `${Math.round(needs[k])}%`, background: barColor(needs[k]) }}
-                />
-              </span>
-              <span className="w-28 text-right text-text-muted">{Math.round(needs[k])}</span>
-            </div>
-          ))}
+          <div className="text-sm">{name}</div>
+          <div className="text-text-muted mb-4">{LITTER_STAGE_LABELS[litterStage(piles)]}</div>
+          <Bar
+            label={`Piles ${piles}/${PET_LITTER_CAPACITY}`}
+            value={100 - (100 * piles) / PET_LITTER_CAPACITY}
+          />
+          <Bar label="Fresh litter" value={litterFreshness(uses)} />
         </div>
       )}
     </div>

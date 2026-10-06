@@ -1,6 +1,6 @@
 {
-  "id": "LITTER_BOX",
-  "name": "Litter box (open tray)",
+  "id": "LITTER_BOX_SMART",
+  "name": "Litter box (smart)",
   "category": "misc",
   "type": "asset",
   "canPlaceOnWalls": false,

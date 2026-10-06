@@ -1,11 +1,12 @@
+import { ZOOMIES_MAX_TILES, ZOOMIES_MIN_TILES } from '../../constants.js';
 import { findPath, isWalkable } from '../layout/tileMap.js';
 import type { Pet, PlacedFurniture, TileType as TileTypeVal } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
+import { isLitterBoxType } from './litterStages.js';
 import type { PetCareWorld } from './petCareWorld.js';
 
-/** Furniture types the pet-care system works with. */
+/** Furniture types the pet-care system works with (litter boxes: isLitterBoxType). */
 export const PET_BOWL_TYPE = 'PET_BOWL';
-export const LITTER_BOX_TYPE = 'LITTER_BOX';
 
 /** What OfficeState hands the pet-care system each frame. */
 export interface PetCareEnv {
@@ -81,20 +82,77 @@ export function findBowlSpot(
   return best;
 }
 
-/** The first reachable litter box with room (its tile is walkable). */
+/**
+ * The nearest reachable litter box (its tile is walkable), whatever its fill:
+ * the cat finds out at the box that it overflows, and refuses it there.
+ * `refused`: boxes this cat already turned down this time.
+ */
 export function findLitterBox(
   pet: Pet,
   env: PetCareEnv,
-  world: PetCareWorld,
   canUse: (key: string) => boolean = () => true,
+  refused: ReadonlySet<string> = new Set(),
 ): CareTarget | null {
+  let best: CareTarget | null = null;
   for (const f of env.furniture) {
-    if (f.type !== LITTER_BOX_TYPE || world.isBoxFull(f.uid)) continue;
+    if (!isLitterBoxType(f.type) || refused.has(f.uid)) continue;
     if (!canUse(`${f.col},${f.row}`)) continue;
     const path = pathTo(pet, f.col, f.row, env);
-    if (path) return { uid: f.uid, col: f.col, row: f.row, path };
+    if (path && (!best || path.length < best.path.length)) {
+      best = { uid: f.uid, col: f.col, row: f.row, path };
+    }
   }
-  return null;
+  return best;
+}
+
+/**
+ * The nearest floor tile for an accident (every box refused): walkable, not
+ * a litter box, no poop there yet, within two tiles of (col, row).
+ */
+export function floorSpotNear(
+  col: number,
+  row: number,
+  env: Pick<PetCareEnv, 'furniture' | 'tileMap' | 'blockedTiles'>,
+  world: PetCareWorld,
+  canUse: (key: string) => boolean = () => true,
+): { col: number; row: number } | null {
+  const boxes = new Set(
+    env.furniture.filter((f) => isLitterBoxType(f.type)).map((f) => `${f.col},${f.row}`),
+  );
+  const poops = new Set(world.floorPoops.map((p) => `${p.col},${p.row}`));
+  const tiles: Array<{ col: number; row: number; d: number }> = [];
+  for (let dr = -2; dr <= 2; dr++) {
+    for (let dc = -2; dc <= 2; dc++) {
+      const c = col + dc;
+      const r = row + dr;
+      const key = `${c},${r}`;
+      if (boxes.has(key) || poops.has(key) || !canUse(key)) continue;
+      if (!isWalkable(c, r, env.tileMap, env.blockedTiles)) continue;
+      tiles.push({ col: c, row: r, d: Math.abs(dc) + Math.abs(dr) });
+    }
+  }
+  tiles.sort((a, b) => a.d - b.d);
+  return tiles[0] ? { col: tiles[0].col, row: tiles[0].row } : null;
+}
+
+/** A random floor tile ZOOMIES_MIN..MAX_TILES away (manhattan) for a zoomies dash. */
+export function zoomiesTarget(
+  col: number,
+  row: number,
+  env: Pick<PetCareEnv, 'tileMap' | 'blockedTiles'>,
+  rand: () => number = Math.random,
+): { col: number; row: number } | null {
+  const out: Array<{ col: number; row: number }> = [];
+  for (let dr = -ZOOMIES_MAX_TILES; dr <= ZOOMIES_MAX_TILES; dr++) {
+    for (let dc = -ZOOMIES_MAX_TILES; dc <= ZOOMIES_MAX_TILES; dc++) {
+      const d = Math.abs(dc) + Math.abs(dr);
+      if (d < ZOOMIES_MIN_TILES || d > ZOOMIES_MAX_TILES) continue;
+      if (isWalkable(col + dc, row + dr, env.tileMap, env.blockedTiles)) {
+        out.push({ col: col + dc, row: row + dr });
+      }
+    }
+  }
+  return out.length > 0 ? out[Math.floor(rand() * out.length)] : null;
 }
 
 export type CareHit =
@@ -114,7 +172,9 @@ export function hitTestCare(
   // A bowl may stand on a (walkable) litter box tile: the bowl wins the click.
   const at = (type: string) =>
     furniture.find((f) => f.col === col && f.row === row && f.type === type);
-  const item = at(PET_BOWL_TYPE) ?? at(LITTER_BOX_TYPE);
+  const item =
+    at(PET_BOWL_TYPE) ??
+    furniture.find((f) => f.col === col && f.row === row && isLitterBoxType(f.type));
   if (!item) return null;
   return { kind: item.type === PET_BOWL_TYPE ? 'bowl' : 'box', item };
 }

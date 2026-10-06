@@ -16,6 +16,7 @@ import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpot
 import { BED_ACTIVITIES } from './bedActivities.js';
 import { COFFEE_ACTIVITIES } from './coffeeActivities.js';
 import { GROOM, LOAF, NAP, SIP, STRETCH, TAIL_CHASE, YAWN } from './idleAnims.js';
+import { LITTER_ACTIVITIES } from './litterActivities.js';
 import { SKILL_READ } from './skillReading.js';
 import { TOY_ACTIVITIES } from './toyActivities.js';
 
@@ -45,6 +46,10 @@ export interface IdleActivityDef extends AnimParts {
   carry?: boolean;
   /** Done on the tile the cat stands on: facing the viewer, or to a side. */
   inPlace?: 'front' | 'side';
+  /** The walk there is a sprint (zoomies): faster, with speed lines. */
+  sprint?: boolean;
+  /** The spot hides the cat (a hooded box) only on steps marked `hide`; else always. */
+  peekOnHide?: boolean;
 }
 
 export type PropMotion = 'roll' | 'sway' | 'dart';
@@ -93,6 +98,7 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
   { id: 'loaf', weight: 1, durationSec: [10, 20], ...LOAF, inPlace: 'front' },
   ...TOY_ACTIVITIES,
   ...BED_ACTIVITIES,
+  ...LITTER_ACTIVITIES,
   SKILL_READ,
 ];
 

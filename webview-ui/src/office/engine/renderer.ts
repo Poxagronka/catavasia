@@ -80,6 +80,7 @@ import {
   characterDrawOffsetX,
   characterDrawOffsetY,
   getCharacterSprite,
+  peekNow,
 } from './characters.js';
 import { dominantFur, peekDrawable, peekTwitch } from './housePeek.js';
 import { renderMatrixEffect } from './matrixEffect.js';
@@ -435,7 +436,7 @@ export function renderScene(
     const cloud = socialCloudDrawable(ch, characters, offsetX, offsetY, zoom, undefined, petFur);
     if (cloud) drawables.push(cloud);
     // Asleep inside a cat house: only the ears or the tail show.
-    const peek = ch.state === CharacterState.ACTIVITY ? ch.activity?.spot?.peek : undefined;
+    const peek = peekNow(ch);
     if (peek && !ch.matrixEffect) {
       drawables.push(peekDrawable(peek, furColorOf(ch), offsetX, offsetY, zoom, peekTwitch(ch)));
       continue;

@@ -31,6 +31,7 @@ describe('pet-care persistence (~/.pixel-agents/pets-state.json)', () => {
     pets: { cat: { needs: { hunger: 40 }, bowel: 10 } },
     bowls: { bowl: { food: 50, water: 75 } },
     boxes: { box: 2 },
+    litter: { box: 6 },
     floorPoops: [{ id: 'p1', col: 3, row: 4 }],
   };
 
