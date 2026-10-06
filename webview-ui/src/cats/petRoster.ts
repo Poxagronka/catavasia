@@ -1,5 +1,5 @@
 // The Cats menu "Pets" tab works on the pets placed in the office layout
-// (the same `layout.pets` entries Layout > Pets toggles). Each change goes to
+// (`layout.pets`). It is the only editor for them. Each change goes to
 // the live OfficeState first, so the game shows it at once; the caller then
 // saves the layout (see useEditorActions.commitPets).
 
@@ -17,30 +17,31 @@ export interface PetRow {
   appearance?: Appearance;
 }
 
-/** Cat pets in the office, in layout order. Dogs stay in Layout > Pets. */
+/** Every pet in the office (cats and dogs), in layout order. */
 export function petRows(os: OfficeState): PetRow[] {
-  return os.pets
-    .filter((p) => isCatPet(p.petType))
-    .map((p) => ({
-      id: p.id,
-      petType: p.petType,
-      name: p.name,
-      kind: getPetName(p.petType),
-      appearance: p.appearance,
-    }));
+  return os.pets.map((p) => ({
+    id: p.id,
+    petType: p.petType,
+    name: p.name,
+    kind: getPetName(p.petType),
+    appearance: p.appearance,
+  }));
 }
 
-/** Non-cat pets placed (shown as a hint only). */
-export function otherPetNames(os: OfficeState): string[] {
-  return os.pets.filter((p) => !isCatPet(p.petType)).map((p) => p.name);
-}
+export type Species = 'cat' | 'dog';
 
-/** The cat sheet new pets use: Gitcat when loaded, else the first cat. */
-export function catTemplateType(): number | null {
+/** Preferred sheet and default name of a new pet per species. */
+const NEW_PET: Record<Species, { sheet: string; name: string }> = {
+  cat: { sheet: 'Gitcat', name: 'Kitten' },
+  dog: { sheet: 'Claudio', name: 'Puppy' },
+};
+
+/** The sheet new pets of `species` use: the preferred one when loaded, else the first match. */
+function templateType(species: Species): number | null {
   let first: number | null = null;
   for (let i = 0; i < getPetCount(); i++) {
-    if (!isCatPet(i)) continue;
-    if (getPetName(i) === 'Gitcat') return i;
+    if (isCatPet(i) !== (species === 'cat')) continue;
+    if (getPetName(i) === NEW_PET[species].sheet) return i;
     first ??= i;
   }
   return first;
@@ -70,7 +71,7 @@ export function petSpawnTile(
 }
 
 /** First breed no placed pet wears yet, so a new pet looks new. */
-export function freshAppearance(rows: PetRow[]): Appearance {
+function freshAppearance(rows: PetRow[]): Appearance {
   const worn = new Set(rows.map((r) => r.appearance?.breed));
   const preset = BREED_PRESETS.find((p) => !worn.has(p.id)) ?? BREED_PRESETS[0];
   return { ...preset.appearance };
@@ -82,25 +83,25 @@ export function freeName(name: string, taken: string[]): string {
   for (let n = 2; ; n++) if (!taken.includes(`${name} ${n}`)) return `${name} ${n}`;
 }
 
-/** Place a new pet cat. Returns its id, or null when no cat sheet or no floor exists. */
-export function addPetCat(os: OfficeState, rng: () => number = Math.random): string | null {
-  const petType = catTemplateType();
+/** Place a new pet. Returns its id, or null when no sheet of that species or no floor exists. */
+export function addPet(
+  os: OfficeState,
+  species: Species,
+  rng: () => number = Math.random,
+): string | null {
+  const petType = templateType(species);
   const spawn = petSpawnTile(os, rng);
   if (petType === null || !spawn) return null;
   const rows = petRows(os);
   const id = crypto.randomUUID();
-  os.addPet(
-    {
-      id,
-      petType,
-      name: freeName(
-        'Kitten',
-        rows.map((r) => r.name),
-      ),
-      appearance: freshAppearance(rows),
-    },
-    spawn,
+  const name = freeName(
+    NEW_PET[species].name,
+    rows.map((r) => r.name),
   );
+  // Coats repaint the cat sheet only, so a dog gets none.
+  const appearance =
+    species === 'cat' ? freshAppearance(rows.filter((r) => isCatPet(r.petType))) : undefined;
+  os.addPet({ id, petType, name, ...(appearance ? { appearance } : {}) }, spawn);
   return os.pets.some((p) => p.id === id) ? id : null;
 }
 

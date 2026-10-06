@@ -40,7 +40,6 @@ import type {
   EditTool as EditToolType,
   OfficeLayout,
   PlacedFurniture,
-  PlacedPet,
   TileType as TileTypeVal,
 } from '../office/types.js';
 import { EditTool } from '../office/types.js';
@@ -83,7 +82,6 @@ interface EditorActions {
   handleEditorEraseAction: (col: number, row: number) => void;
   handleEditorSelectionChange: () => void;
   handleDragMove: (uid: string, newCol: number, newRow: number) => void;
-  handlePetToggle: (petType: number, active: boolean) => void;
   // Carpet state + handlers
   carpetVariant: number;
   carpetColor: ColorValue;
@@ -638,33 +636,6 @@ export function useEditorActions(
     [],
   );
 
-  const handlePetToggle = useCallback(
-    (petType: number, active: boolean) => {
-      const os = getOfficeState();
-      const layout = os.getLayout();
-      const currentPets: PlacedPet[] = layout.pets ?? [];
-
-      let newPets: PlacedPet[];
-      if (active) {
-        // Idempotent: if this pet type is already placed, no-op (prevent double-write).
-        if (currentPets.some((p) => p.petType === petType)) {
-          return;
-        }
-        newPets = [...currentPets, { id: crypto.randomUUID(), petType }];
-      } else {
-        newPets = currentPets.filter((p) => p.petType !== petType);
-        // Idempotent: nothing to remove → no-op.
-        if (newPets.length === currentPets.length) {
-          return;
-        }
-      }
-
-      const newLayout: OfficeLayout = { ...layout, pets: newPets };
-      applyEdit(newLayout);
-    },
-    [getOfficeState, applyEdit],
-  );
-
   const handleEditorTileAction = useCallback(
     (col: number, row: number) => {
       const os = getOfficeState();
@@ -981,7 +952,6 @@ export function useEditorActions(
     handleEditorEraseAction,
     handleEditorSelectionChange,
     handleDragMove,
-    handlePetToggle,
     carpetVariant,
     carpetColor,
     carpetAccentColor,

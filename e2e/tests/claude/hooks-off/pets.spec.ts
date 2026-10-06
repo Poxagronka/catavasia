@@ -1,4 +1,4 @@
-import type { Frame, Locator } from '@playwright/test';
+import type { Frame } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,9 +16,10 @@ import { closeBottomPanel, getPixelAgentsFrame, reopenBottomPanel } from '../../
  * e2e/helpers/office.ts). Pets spawn at a random walkable tile, so tests never
  * compute screen coordinates; they read pet ids/state back instead.
  *
- * Placement itself goes through the REAL UI path: clicking the Pets-tab
- * carousel button → onPetToggle → handlePetToggle → applyEdit. Only the
+ * Placement itself goes through the REAL UI path: Cats → Pets tab →
+ * "+ Pet dog" / "+ Pet cat" → addPet → commitPets (saves the layout). Only the
  * canvas-only interactions (hit-test geometry of getPetAt) are bypassed.
+ * Counts are relative to the pets the default layout already places.
  *
  * These tests have no hook dependency; they live under hooks-off purely
  * because that is the lighter fixture path (no hook-server wait).
@@ -42,8 +43,6 @@ interface PetTestHooks {
 
 type PetWindow = Window & { __pixelAgentsTestHooks?: PetTestHooks };
 
-const PETS_CAROUSEL = '[data-testid="pets-carousel"]';
-
 /**
  * Dismiss the first-run tooltips ("Instant Detection Active", "Updated to vN")
  * that overlay the top toolbar and would otherwise intercept the Layout click.
@@ -61,14 +60,24 @@ async function dismissFirstRunTooltips(frame: Frame): Promise<void> {
   }
 }
 
-/** Enter edit mode and open the Pets tab; returns the carousel locator. */
-async function openPetsTab(frame: Frame): Promise<Locator> {
+/** Open the Cats menu → Pets tab, the only pet editor. */
+async function openPetsTab(frame: Frame): Promise<void> {
   await dismissFirstRunTooltips(frame);
-  await frame.locator('button[title="Edit office layout"]').click();
-  await frame.locator('button[title="Place pets"]').click();
-  const carousel = frame.locator(PETS_CAROUSEL);
-  await expect(carousel).toBeVisible({ timeout: 15_000 });
-  return carousel;
+  await frame.locator('button[title="Agent cats and pets"]').click();
+  await frame.locator('button', { hasText: /^Pets \(\d+\)$/ }).click();
+  await expect(addButton(frame, 'dog')).toBeVisible({ timeout: 15_000 });
+}
+
+function addButton(frame: Frame, species: 'cat' | 'dog') {
+  return frame.locator('button', { hasText: `+ Pet ${species}` });
+}
+
+/** Wait until the canvas holds exactly `count` pets. */
+async function waitForPetCount(frame: Frame, count: number): Promise<void> {
+  await frame.waitForFunction(
+    (n) => ((window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length === n,
+    count,
+  );
 }
 
 /** Point-in-time snapshot of every live pet, read from the test hook. */
@@ -102,63 +111,42 @@ test.describe('Pets', () => {
     });
     narrator.check('petSpritesLoaded reached the client — pet assets delivered');
 
-    // The two bundled pets (claudio, gitcat) render as carousel thumbnails in
-    // alphabetical order, each titled with its manifest `name`. Asserting the
-    // count + both names covers "loaded" and "manifest names" together.
-    narrator.step('opening the layout editor → Pets tab');
-    const carousel = await openPetsTab(frame);
-    await expect(carousel.locator('button')).toHaveCount(2);
-    narrator.check('carousel has exactly 2 pet thumbnails');
-    await expect(carousel.locator('button[title="Claudio"]')).toBeVisible();
-    await expect(carousel.locator('button[title="Gitcat"]')).toBeVisible();
-    narrator.check('thumbnails titled "Claudio" and "Gitcat" — manifest names surfaced');
+    // A new dog's list row shows its manifest `name` ("Claudio") as its kind.
+    narrator.step('opening Cats → Pets and adding a dog');
+    await openPetsTab(frame);
+    await addButton(frame, 'dog').click();
+    await expect(frame.locator('button', { hasText: 'Puppy' })).toContainText('Claudio');
+    narrator.check('the new dog row reads "Puppy · Claudio" — manifest name surfaced');
   });
 
-  test('placing a pet toggles it on/off and persists across a panel reload @area:pets', async ({
+  test('adding and deleting a pet persists across a panel reload @area:pets', async ({
     pixelAgents,
   }) => {
     const { frame, window, tmpHome, narrator } = pixelAgents;
 
-    narrator.step('opening the layout editor → Pets tab');
-    const carousel = await openPetsTab(frame);
-    const claudio = carousel.locator('button[title="Claudio"]');
-    const gitcat = carousel.locator('button[title="Gitcat"]');
+    const base = (await readPets(frame)).length;
+    narrator.step('opening Cats → Pets');
+    await openPetsTab(frame);
 
-    // Toggle ON: clicking the carousel button drives the real placement path.
-    narrator.step('clicking Claudio — placing the pet');
-    await claudio.click();
-    await frame.waitForFunction(() => {
-      const pets = (window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? [];
-      return pets.length === 1 && pets[0]?.petType === 0;
-    });
-    narrator.check('one pet on the canvas (getPets → 1, petType claudio)');
+    narrator.step('adding a dog');
+    await addButton(frame, 'dog').click();
+    await waitForPetCount(frame, base + 1);
+    narrator.check('one more pet on the canvas');
 
-    // Toggle OFF: clicking the same (now-active) button removes it.
-    narrator.step('clicking Claudio again — removing the pet');
-    await claudio.click();
-    await frame.waitForFunction(
-      () => ((window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length === 0,
-    );
-    narrator.check('canvas empty again (getPets → 0)');
+    // The new pet is selected: Delete asks, then removes it.
+    narrator.step('deleting the dog');
+    await frame.locator('button', { hasText: /^Delete$/ }).click();
+    await frame.locator('button', { hasText: 'Remove Puppy from the office?' }).click();
+    await waitForPetCount(frame, base);
+    narrator.check('back to the starting pets');
 
-    // Place both pets, then persist via the EditActionBar Save button.
-    narrator.step('placing both pets — Claudio, then Gitcat');
-    await claudio.click();
-    await frame.waitForFunction(
-      () =>
-        ((globalThis as unknown as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length ===
-        1,
-    );
-    await gitcat.click();
-    await frame.waitForFunction(
-      () => ((window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length === 2,
-    );
-    narrator.check('two pets on the canvas (getPets → 2)');
-
-    narrator.step('clicking Save — persisting the layout to disk');
-    const saveBtn = frame.locator('button', { hasText: 'Save' });
-    await expect(saveBtn).toBeVisible({ timeout: 5_000 });
-    await saveBtn.click();
+    // Every change saves the layout at once (commitPets); there is no Save step.
+    narrator.step('adding a dog and a cat');
+    await addButton(frame, 'dog').click();
+    await waitForPetCount(frame, base + 1);
+    await addButton(frame, 'cat').click();
+    await waitForPetCount(frame, base + 2);
+    narrator.check('two more pets on the canvas');
 
     // The save round-trips through layoutPersistence to ~/.pixel-agents/layout.json
     // (under the fixture's isolated HOME). Pets are opaque pass-through server-side.
@@ -178,8 +166,8 @@ test.describe('Pets', () => {
         },
         { timeout: 10_000 },
       )
-      .toBe(2);
-    narrator.check('~/.pixel-agents/layout.json contains 2 pets');
+      .toBe(base + 2);
+    narrator.check('~/.pixel-agents/layout.json holds the two new pets');
 
     // Reload the panel (webview is disposed + re-resolved since there is no
     // retainContextWhenHidden) and confirm the pets rehydrate from disk.
@@ -192,11 +180,11 @@ test.describe('Pets', () => {
     await reopenBottomPanel(window);
     const freshFrame = await getPixelAgentsFrame(window);
     await freshFrame.waitForFunction(
-      () => ((window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length === 2,
-      undefined,
+      (n) => ((window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length === n,
+      base + 2,
       { timeout: 15_000 },
     );
-    narrator.check('fresh webview shows 2 pets again — persisted across the reload');
+    narrator.check('fresh webview shows the same pets — persisted across the reload');
   });
 
   test('clicking a pet shows a heart bubble that auto-dismisses and dismisses on re-click @area:pets', async ({
@@ -208,15 +196,13 @@ test.describe('Pets', () => {
 
     // Place one pet through the editor, then read its id back (spawn tile is
     // random, so the id is the only stable handle).
-    narrator.step('placing one pet (Claudio) via the editor');
-    const carousel = await openPetsTab(frame);
-    await carousel.locator('button[title="Claudio"]').click();
-    await frame.waitForFunction(
-      () => ((window as PetWindow).__pixelAgentsTestHooks?.getPets?.() ?? []).length === 1,
-    );
-    const pets = await readPets(frame);
-    const petId = pets[0]!.id;
-    narrator.check('pet placed (getPets → 1)');
+    narrator.step('adding one dog via Cats → Pets');
+    const before = new Set((await readPets(frame)).map((p) => p.id));
+    await openPetsTab(frame);
+    await addButton(frame, 'dog').click();
+    await waitForPetCount(frame, before.size + 1);
+    const petId = (await readPets(frame)).find((p) => !before.has(p.id))!.id;
+    narrator.check('dog placed (getPets → one more)');
 
     // Click → heart bubble appears.
     narrator.step('clicking the pet — heart bubble should appear');

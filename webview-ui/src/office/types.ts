@@ -136,7 +136,6 @@ export const EditTool = {
   SELECT: 'select',
   EYEDROPPER: 'eyedropper',
   ERASE: 'erase',
-  PETS: 'pets',
   CARPET_PAINT: 'carpet_paint',
   CARPET_PICK: 'carpet_pick',
   AREA_PAINT: 'area_paint',
