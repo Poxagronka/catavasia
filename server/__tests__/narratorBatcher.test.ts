@@ -35,8 +35,8 @@ describe('HaikuBatcher', () => {
     const r = fakeRunner();
     const got: ValidSummary[] = [];
     const b = new HaikuBatcher({ run: r.run, onSummaries: (s) => got.push(...s), log: () => {} });
-    b.enqueue('c1', [1], ['Мурка → Барсик: проверь тесты']);
-    b.enqueue('c2', [2], ['Итог работы: готово']);
+    b.enqueue('c1', [1], ['Mochi → Leo: check the tests']);
+    b.enqueue('c2', [2], ['Result: done']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS - 1);
     expect(r.prompts).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(1);
@@ -45,8 +45,8 @@ describe('HaikuBatcher', () => {
     expect(r.prompts[0]).toContain('conversationId=c2');
     r.pending[0].resolve(
       envelope([
-        { conversationId: 'c1', summary: 'Мурка просит Барсика проверить тесты' },
-        { conversationId: 'c2', summary: 'Работа готова' },
+        { conversationId: 'c1', summary: 'Mochi asks Leo to check the tests' },
+        { conversationId: 'c2', summary: 'The work is done' },
       ]),
     );
     await vi.advanceTimersByTimeAsync(0);
@@ -64,9 +64,9 @@ describe('HaikuBatcher', () => {
   it('runs one call at a time: material that arrives mid-call waits for the next tick', async () => {
     const r = fakeRunner();
     const b = new HaikuBatcher({ run: r.run, onSummaries: () => {}, log: () => {} });
-    b.enqueue('c1', [1], ['a → b: раз']);
+    b.enqueue('c1', [1], ['a → b: one']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
-    b.enqueue('c2', [1], ['a → b: два']);
+    b.enqueue('c2', [1], ['a → b: two']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS * 3);
     expect(r.prompts).toHaveLength(1);
     r.pending[0].resolve(envelope([]));
@@ -79,16 +79,16 @@ describe('HaikuBatcher', () => {
   it('backs off after a failure (doubling, capped) and retries the same material', async () => {
     const r = fakeRunner();
     const b = new HaikuBatcher({ run: r.run, onSummaries: () => {}, log: () => {} });
-    b.enqueue('c1', [1], ['a → b: раз']);
+    b.enqueue('c1', [1], ['a → b: one']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
     r.pending[0].reject(new Error('rate limited'));
-    b.enqueue('c1', [1], ['a → b: два']);
+    b.enqueue('c1', [1], ['a → b: two']);
     // Next try after 2x the interval, not 1x.
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS * 2 - 1);
     expect(r.prompts).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(r.prompts).toHaveLength(2);
-    expect(r.prompts[1]).toContain('a → b: раз\na → b: два');
+    expect(r.prompts[1]).toContain('a → b: one\na → b: two');
 
     // Keep failing: the delay never exceeds the cap.
     let delay = BATCH_INTERVAL_MS * 2;
@@ -101,7 +101,7 @@ describe('HaikuBatcher', () => {
     // A success resets the delay to the plain interval.
     r.pending[11].resolve(envelope([]));
     await vi.advanceTimersByTimeAsync(0);
-    b.enqueue('c9', [1], ['x → y: снова']);
+    b.enqueue('c9', [1], ['x → y: again']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
     expect(r.prompts).toHaveLength(13);
   });
@@ -109,7 +109,7 @@ describe('HaikuBatcher', () => {
   it('a malformed reply counts as a failure', async () => {
     const r = fakeRunner();
     const b = new HaikuBatcher({ run: r.run, onSummaries: () => {}, log: () => {} });
-    b.enqueue('c1', [1], ['a → b: раз']);
+    b.enqueue('c1', [1], ['a → b: one']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
     r.pending[0].resolve('not json');
     await vi.advanceTimersByTimeAsync(0);
@@ -120,12 +120,12 @@ describe('HaikuBatcher', () => {
     const r = fakeRunner();
     const logs: string[] = [];
     const b = new HaikuBatcher({ run: r.run, onSummaries: () => {}, log: (m) => logs.push(m) });
-    b.enqueue('c1', [1], ['a → b: раз']);
+    b.enqueue('c1', [1], ['a → b: one']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
     r.pending[0].reject(new ClaudeMissingError('spawn claude ENOENT'));
     await vi.advanceTimersByTimeAsync(0);
     expect(b.isDisabled).toBe(true);
-    b.enqueue('c2', [1], ['a → b: два']);
+    b.enqueue('c2', [1], ['a → b: two']);
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS * 10);
     expect(r.prompts).toHaveLength(1);
     expect(b.pendingCount).toBe(0);
@@ -177,8 +177,8 @@ describe('Narrator facade', () => {
     n.push({ catId: 4, ts: 1, kind: 'tool', tool: 'Grep' });
     n.push({ catId: 4, ts: 2, kind: 'tool', tool: 'Edit', file: '/x/b.ts' });
     expect(sent).toEqual([
-      { type: 'narratorLine', catId: 4, state: 'reading', line: 'изучает код' },
-      { type: 'narratorLine', catId: 4, state: 'editing', line: 'правит b.ts' },
+      { type: 'narratorLine', catId: 4, state: 'reading', line: 'reading code' },
+      { type: 'narratorLine', catId: 4, state: 'editing', line: 'editing b.ts' },
     ]);
     expect(n.snapshot()).toEqual([sent[1]]);
   });
@@ -189,20 +189,20 @@ describe('Narrator facade', () => {
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
     expect(r.prompts[0]).toContain('conversationId=result:4');
     r.pending[0].resolve(
-      envelope([{ conversationId: 'result:4', summary: 'Исправил баг в foo.ts. Файл сохранён ✓' }]),
+      envelope([{ conversationId: 'result:4', summary: 'Fixed the bug in foo.ts. File saved ✓' }]),
     );
     await vi.advanceTimersByTimeAsync(0);
     expect(sent.at(-1)).toEqual({
       type: 'narratorSummary',
       conversationId: 'result:4',
       catIds: [4],
-      summary: 'Исправил баг в foo.ts.',
+      summary: 'Fixed the bug in foo.ts.',
     });
   });
 
   it('makes no Haiku call when AI summaries are off', async () => {
     const { n, r } = make(false);
-    n.push({ catId: 4, ts: 0, kind: 'message', from: 'Мурка', to: 'Барсик', text: 'привет' });
+    n.push({ catId: 4, ts: 0, kind: 'message', from: 'Mochi', to: 'Leo', text: 'hi' });
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS * 3);
     expect(r.prompts).toHaveLength(0);
   });
@@ -215,9 +215,9 @@ describe('Narrator facade', () => {
     n.observeBroadcast({ type: 'agentToolPermission', id: 9 });
     n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'waiting', awaitingInput: true });
     expect(sent.map((m) => (m.type === 'narratorLine' ? m.line : ''))).toEqual([
-      'выполняет команду',
-      'ждёт разрешения',
-      'ждёт ответа',
+      'running a command',
+      'waiting for permission',
+      'waiting for your input',
     ]);
     n.forget(9);
     expect(n.snapshot()).toEqual([]);
@@ -231,11 +231,11 @@ describe('Narrator facade', () => {
     n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'waiting', awaitingInput: true });
     n.observeBroadcast({ type: 'agentStatus', id: 9, status: 'active' });
     expect(sent.map((m) => (m.type === 'narratorLine' ? m.line : ''))).toEqual([
-      'гоняет тесты',
-      'ждёт разрешения',
-      'гоняет тесты',
-      'ждёт ответа',
-      'гоняет тесты',
+      'running tests',
+      'waiting for permission',
+      'running tests',
+      'waiting for your input',
+      'running tests',
     ]);
   });
 
@@ -243,7 +243,7 @@ describe('Narrator facade', () => {
     const { n, r } = make();
     n.push({ catId: 4, ts: 0, kind: 'result', text: 'done the task' });
     await vi.advanceTimersByTimeAsync(BATCH_INTERVAL_MS);
-    r.pending[0].resolve(envelope([{ conversationId: 'result:4', summary: 'Задача сделана.' }]));
+    r.pending[0].resolve(envelope([{ conversationId: 'result:4', summary: 'The task is done.' }]));
     await vi.advanceTimersByTimeAsync(0);
     expect(n.snapshot().some((m) => m.type === 'narratorSummary')).toBe(true);
     n.forget(4);

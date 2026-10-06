@@ -1,6 +1,6 @@
 /**
  * Narrator facade. Event sources push NarratorInput; the narrator broadcasts
- * Russian status lines (templates, at once) and conversation summaries
+ * English status lines (templates, at once) and conversation summaries
  * (HaikuBatcher, every 10 s when material is pending).
  *
  * Sources today: the task board stream-json (taskLogInput) and the hook-derived
@@ -64,12 +64,12 @@ export class Narrator {
     if (!this.opts.aiSummariesEnabled() || !input.text?.trim()) return;
     const text = clip(input.text.trim());
     if (input.kind === 'message') {
-      const from = input.from ?? `кот ${input.catId}`;
-      const to = input.to ?? 'коллега';
+      const from = input.from ?? `cat ${input.catId}`;
+      const to = input.to ?? 'teammate';
       const id = `chat:${[from, to].sort().join('|')}`;
       this.batcher.enqueue(id, [input.catId], [`${from} → ${to}: ${text}`]);
     } else if (input.kind === 'result') {
-      this.batcher.enqueue(`result:${input.catId}`, [input.catId], [`Итог работы: ${text}`]);
+      this.batcher.enqueue(`result:${input.catId}`, [input.catId], [`Result: ${text}`]);
     }
   }
 
@@ -144,6 +144,7 @@ export function taskLogInput(catId: number, entry: TaskLogEntry, ts: number): Na
     case 'error':
       return { catId, ts, kind: 'state', text: 'error' };
     case 'text':
+    case 'user': // A console message starts a new turn.
       return { catId, ts, kind: 'state', text: 'thinking' };
     case 'message':
       return { catId, ts, kind: 'message', text: entry.text };

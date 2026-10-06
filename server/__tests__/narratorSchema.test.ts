@@ -10,8 +10,8 @@ import {
 } from '../src/narrator/schema.js';
 
 const batch: SummaryItem[] = [
-  { conversationId: 'c1', catIds: [1, 2], lines: ['Мурка → Барсик: проверь тесты в server'] },
-  { conversationId: 'c2', catIds: [3], lines: ['Итог работы: fixed 3 failing tests in foo.ts'] },
+  { conversationId: 'c1', catIds: [1, 2], lines: ['Mochi → Leo: check the tests in server'] },
+  { conversationId: 'c2', catIds: [3], lines: ['Result: fixed 3 failing tests in foo.ts'] },
 ];
 
 const out = (summaries: unknown, extra: Record<string, unknown> = {}) =>
@@ -19,38 +19,41 @@ const out = (summaries: unknown, extra: Record<string, unknown> = {}) =>
 
 describe('filterSummary drops claims the input does not support', () => {
   it('keeps a summary that only restates the input', () => {
-    expect(filterSummary('Мурка просит Барсика проверить тесты.', batch[0].lines)).toBe(
-      'Мурка просит Барсика проверить тесты.',
+    expect(filterSummary('Mochi asks Leo to check the tests.', batch[0].lines)).toBe(
+      'Mochi asks Leo to check the tests.',
     );
   });
 
   it('drops the invented "file saved" sentence from research', () => {
-    expect(filterSummary('Мурка просит проверить тесты. Файл сохранён ✓', batch[0].lines)).toBe(
-      'Мурка просит проверить тесты.',
+    expect(filterSummary('Mochi asks Leo to check the tests. File saved ✓', batch[0].lines)).toBe(
+      'Mochi asks Leo to check the tests.',
     );
   });
 
   it.each([
-    ['Барсик закоммитил изменения.'],
-    ['Тесты прошли успешно.'],
-    ['Исправлено 5 ошибок.'],
-    ['Мурка поправила bar.ts.'],
-    ['Всё смержено в main.'],
-    ['Готово ✓'],
+    ['Leo committed the changes.'],
+    ['Tests passed.'],
+    ['Fixed 5 bugs.'],
+    ['Mochi edited bar.ts.'],
+    ['Everything is merged into main.'],
+    ['Leo deployed the app.'],
+    ['Done ✓'],
+    ['All done.'],
   ])('drops "%s" against a plain request', (sentence) => {
     expect(filterSummary(sentence, batch[0].lines)).toBe('');
   });
 
   it('keeps numbers, files and claims the input carries', () => {
-    expect(filterSummary('Исправил 3 падающих теста в foo.ts.', batch[1].lines)).toBe(
-      'Исправил 3 падающих теста в foo.ts.',
+    expect(filterSummary('Fixed 3 failing tests in foo.ts.', batch[1].lines)).toBe(
+      'Fixed 3 failing tests in foo.ts.',
     );
   });
 
-  it('drops a non-Russian summary and cuts a long one', () => {
-    expect(filterSummary('Murka asks Barsik to run tests', batch[0].lines)).toBe('');
+  it('drops a non-English summary and cuts a long one', () => {
+    expect(filterSummary('Мурка просит Барсика проверить тесты', batch[0].lines)).toBe('');
+    expect(filterSummary('Mochi asks Leo: проверь тесты', batch[0].lines)).toBe('');
     const long = filterSummary(
-      `Мурка просит ${'очень '.repeat(40)}проверить тесты`,
+      `Mochi asks Leo ${'very '.repeat(40)}to check tests`,
       batch[0].lines,
     );
     expect(long.length).toBe(NARRATOR_SUMMARY_MAX_CHARS);
@@ -62,15 +65,15 @@ describe('parseSummaryOutput', () => {
   it('reads structured_output and keeps known conversations only', () => {
     const res = parseSummaryOutput(
       out([
-        { conversationId: 'c1', summary: 'Мурка просит Барсика проверить тесты.' },
-        { conversationId: 'zz', summary: 'Неизвестный разговор.' },
-        { conversationId: 'c1', summary: 'Повтор.' },
+        { conversationId: 'c1', summary: 'Mochi asks Leo to check the tests.' },
+        { conversationId: 'zz', summary: 'Unknown conversation.' },
+        { conversationId: 'c1', summary: 'Repeat.' },
         { conversationId: 'c2', summary: 42 },
       ]),
       batch,
     );
     expect(res).toEqual([
-      { conversationId: 'c1', catIds: [1, 2], summary: 'Мурка просит Барсика проверить тесты.' },
+      { conversationId: 'c1', catIds: [1, 2], summary: 'Mochi asks Leo to check the tests.' },
     ]);
   });
 
@@ -78,7 +81,7 @@ describe('parseSummaryOutput', () => {
     const stdout = JSON.stringify({
       is_error: false,
       result: JSON.stringify({
-        summaries: [{ conversationId: 'c1', summary: 'Просьба проверить тесты.' }],
+        summaries: [{ conversationId: 'c1', summary: 'A request to check the tests.' }],
       }),
     });
     expect(parseSummaryOutput(stdout, batch)).toHaveLength(1);
@@ -94,8 +97,8 @@ describe('parseSummaryOutput', () => {
 describe('prompt', () => {
   it('groups lines by conversation; the system prompt is static', () => {
     expect(buildSummaryPrompt(batch)).toBe(
-      'conversationId=c1\nМурка → Барсик: проверь тесты в server\n\n' +
-        'conversationId=c2\nИтог работы: fixed 3 failing tests in foo.ts',
+      'conversationId=c1\nMochi → Leo: check the tests in server\n\n' +
+        'conversationId=c2\nResult: fixed 3 failing tests in foo.ts',
     );
     expect(SUMMARY_SYSTEM_PROMPT).not.toMatch(/\$\{|undefined/);
   });

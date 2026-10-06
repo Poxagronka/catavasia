@@ -1,5 +1,5 @@
 /**
- * Webview side of the narrator (server/src/narrator/): the latest Russian
+ * Webview side of the narrator (server/src/narrator/): the latest English
  * status line and conversation summary per cat, plus the narrator settings.
  *
  * This module subscribes to the transport itself. ToolOverlay re-renders every
@@ -51,7 +51,7 @@ transport.onMessage((msg) => {
   }
 });
 
-/** Russian hover text for a cat, or undefined to fall back to the raw tool status. */
+/** English hover text for a cat, or undefined to fall back to the raw tool status. */
 export function narratorHover(catId: number): { line: string; summary?: string } | undefined {
   if (settings.rawToolStatus) return undefined;
   const line = lines.get(catId);

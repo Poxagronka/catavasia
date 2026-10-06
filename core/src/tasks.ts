@@ -13,7 +13,8 @@ export type TaskStatus = 'running' | 'done' | 'error';
 
 /** One line of the collapsible activity log in the task detail view. */
 export interface TaskLogEntry {
-  kind: 'tool' | 'text' | 'error' | 'message';
+  /** `user`: a follow-up message the user sent from the cat console. */
+  kind: 'user' | 'tool' | 'text' | 'error' | 'message';
   /** Tool name for `tool` entries; `from -> to (kind)` for office `message` entries. */
   name?: string;
   /** Tool input summary, assistant text, or error text (truncated). */

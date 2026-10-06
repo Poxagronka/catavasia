@@ -198,9 +198,9 @@ const PET_CARE_TYPES = new Set(['PET_BOWL', 'LITTER_BOX']);
 
 /**
  * Every bundled default layout except the newest: the offices a user may
- * still have saved untouched (see migrateUnmodifiedLayout). A layout with the
- * pet-care bowl and litter box also counts without them: revision 1 shipped
- * first without them.
+ * still have saved untouched (see migrateUnmodifiedLayout). Revision 1 also
+ * counts without the pet-care bowl and litter box: it shipped first without
+ * them. Later revisions always shipped with them.
  */
 export function loadPreviousDefaultLayouts(assetsRoot: string): Array<Record<string, unknown>> {
   const assetsDir = path.join(assetsRoot, 'assets');
@@ -219,7 +219,7 @@ export function loadPreviousDefaultLayouts(assetsRoot: string): Array<Record<str
       layout[LAYOUT_REVISION_KEY] ??= rev;
       const furniture = (layout.furniture ?? []) as Array<{ type: string }>;
       const withoutPetCare = furniture.filter((f) => !PET_CARE_TYPES.has(f.type));
-      return withoutPetCare.length === furniture.length
+      return rev !== 1 || withoutPetCare.length === furniture.length
         ? [layout]
         : [layout, { ...layout, furniture: withoutPetCare }];
     });

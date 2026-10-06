@@ -38,6 +38,8 @@ export interface Member {
   inbox: string[];
   /** A turn is queued or running. */
   scheduled: boolean;
+  /** No turn before this time (epoch ms): the session lock was held elsewhere. */
+  retryAt?: number;
   handle?: TurnHandle;
   /** The running turn (git work + process), for endFlow to wait on. */
   busy?: Promise<void>;

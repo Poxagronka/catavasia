@@ -8,6 +8,9 @@ import * as fs from 'fs';
 
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
+import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
+import { registerCatTerminalRoutes } from './catTerminal/catTerminalRoutes.js';
+import { ptyModule } from './catTerminal/ptyModule.js';
 import type {
   AssetCache,
   ReloadAssetsSideEffect,
@@ -102,6 +105,16 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   registerWebSocketRoute(app, options);
   if (options.tasks) registerTaskRoutes(app, options.tasks, options.token);
   if (options.orchestrator) registerOfficeMcpRoute(app, options.orchestrator);
+  if (options.tasks) {
+    registerCatTerminalRoutes(app, {
+      source: new TaskBoardCatSource(options.tasks),
+      isPrivileged: (req) =>
+        timingSafeStringEqual(req.headers.authorization ?? '', `Bearer ${options.token}`) ||
+        standaloneTokenValid(req.url, options.token),
+      isSameOrigin: (req) => isAllowedWebSocketOrigin(req.headers.origin, req.headers.host),
+      pty: ptyModule,
+    });
+  }
 
   // ── Listen ──────────────────────────────────────────────────
 

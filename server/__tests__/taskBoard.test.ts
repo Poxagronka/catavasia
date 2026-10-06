@@ -60,6 +60,7 @@ class FakeHost implements TaskAgentHost {
     this.finished.push(id);
     this.finishedTasks.push(taskId);
   }
+  resumeHeadlessAgent() {}
 }
 
 async function waitSettled(manager: TaskManager, id: string) {

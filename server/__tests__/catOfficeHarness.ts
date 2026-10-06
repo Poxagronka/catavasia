@@ -90,6 +90,7 @@ export class FakeCatHost implements CatAgentHost {
   setHeadlessAgentActive(id: number, active: boolean) {
     this.active.push({ id, active });
   }
+  resumeHeadlessAgent() {}
   removeAgent(id: number) {
     this.removed.push(id);
   }

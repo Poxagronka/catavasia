@@ -22,7 +22,7 @@ import type {
   ServerMessage,
 } from '../../../core/src/messages.js';
 import type { NarratorInput } from '../../../core/src/narrator.js';
-import type { TaskTarget } from '../../../core/src/tasks.js';
+import type { TaskLogEntry, TaskTarget } from '../../../core/src/tasks.js';
 import {
   CATS_FILE_NAME,
   FLOW_MAX_TURNS,
@@ -253,10 +253,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
 
   // ── Internals shared with flowTurns.ts ──
 
-  log(
-    flow: Flow,
-    entry: { kind: 'tool' | 'text' | 'error' | 'message'; name?: string; text: string },
-  ) {
+  log(flow: Flow, entry: TaskLogEntry) {
     const text =
       entry.text.length > TASK_LOG_TEXT_MAX_CHARS
         ? `${entry.text.slice(0, TASK_LOG_TEXT_MAX_CHARS)}...`
@@ -340,6 +337,8 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   /** Queue a turn for a cat that has something to read, unless one is queued. */
   schedule(flow: Flow, member: Member): void {
     if (flow.ended || member.scheduled) return;
+    if (member.retryAt !== undefined && Date.now() < member.retryAt) return;
+    member.retryAt = undefined;
     if (member.inbox.length === 0 && member.pendingMerges.length === 0) return;
     member.scheduled = true;
     void this.scheduler

@@ -140,3 +140,5 @@ export const CAT_NAME_MAX_CHARS = 40;
 export const CAT_SYSTEM_PROMPT_MAX_CHARS = 20_000;
 /** Cap on one office message (delegate/ask/reply/report text). */
 export const CAT_MESSAGE_MAX_CHARS = 20_000;
+/** A cat turn whose session the user holds in a terminal retries after this delay. */
+export const SESSION_LOCK_RETRY_MS = 5000;

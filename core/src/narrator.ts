@@ -2,7 +2,7 @@
  * Narrator contract shared by the server (server/src/narrator/) and the webview
  * (webview-ui/src/narratorStore.ts).
  *
- * The narrator turns raw agent events into short Russian status lines (templates)
+ * The narrator turns raw agent events into short English status lines (templates)
  * and conversation summaries (batched one-shot Haiku calls).
  *
  * The wire messages (narratorLine, narratorSummary, narratorSettings,
@@ -49,7 +49,7 @@ export interface NarratorInput {
 export interface NarratorLine {
   catId: number;
   state: NarratorState;
-  /** Russian, at most NARRATOR_LINE_MAX_CHARS characters. */
+  /** English, at most NARRATOR_LINE_MAX_CHARS characters. */
   line: string;
 }
 
@@ -58,7 +58,7 @@ export interface NarratorSummary {
   conversationId: string;
   /** Cats that took part, so the webview can show it on their hover. */
   catIds: number[];
-  /** Russian, at most NARRATOR_SUMMARY_MAX_CHARS characters. */
+  /** English, at most NARRATOR_SUMMARY_MAX_CHARS characters. */
   summary: string;
 }
 
@@ -69,7 +69,7 @@ export const NARRATOR_SUMMARY_MAX_CHARS = 120;
 export interface NarratorSettings {
   /** Batched Haiku conversation summaries. Default ON. */
   aiSummaries: boolean;
-  /** Show the raw tool status ("Reading foo.ts") instead of the Russian line. Default OFF. */
+  /** Show the raw tool status ("Reading foo.ts") instead of the narrator line. Default OFF. */
   rawToolStatus: boolean;
 }
 

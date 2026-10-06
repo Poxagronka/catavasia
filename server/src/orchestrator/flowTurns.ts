@@ -10,7 +10,8 @@
 
 import * as path from 'path';
 
-import { TASK_WORKTREES_DIR } from '../constants.js';
+import { acquireSessionLock } from '../catTerminal/sessionLocks.js';
+import { SESSION_LOCK_RETRY_MS, TASK_WORKTREES_DIR } from '../constants.js';
 import { taskLogInput } from '../narrator/narrator.js';
 import {
   commitAll,
@@ -76,12 +77,28 @@ async function mergeReports(flow: Flow, member: Member): Promise<string[]> {
 }
 
 export async function runTurnFor(office: Orchestrator, flow: Flow, member: Member): Promise<void> {
-  const adapter = office.adapterFor(member.cat)!;
-  // Merge until no report is pending, then take the inbox in the same tick, so
+  // Merge the pending report branches first, then take the inbox, so
   // a report never reaches the cat before its branch is merged.
   const notes = member.pendingMerges.length ? await mergeReports(flow, member) : [];
   // endFlow may have run during the git work: never start a process after it.
   if (flow.ended) return;
+  // One process per session: the user may hold it in a terminal ("take the wheel").
+  const releaseLock = acquireSessionLock(member.sessionId, 'turn');
+  if (!releaseLock) {
+    member.inbox.unshift(...notes);
+    member.retryAt = Date.now() + SESSION_LOCK_RETRY_MS;
+    setTimeout(() => office.schedule(flow, member), SESSION_LOCK_RETRY_MS);
+    return;
+  }
+  try {
+    await runLockedTurn(office, flow, member, notes);
+  } finally {
+    releaseLock();
+  }
+}
+
+async function runLockedTurn(office: Orchestrator, flow: Flow, member: Member, notes: string[]) {
+  const adapter = office.adapterFor(member.cat)!;
   const message = [...notes, ...member.inbox.splice(0)].join('\n\n---\n\n');
   // Reports whose branch still waits (after a conflict) stay unread.
   member.unreadReports = member.pendingMerges.length;

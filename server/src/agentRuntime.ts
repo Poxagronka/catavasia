@@ -414,6 +414,30 @@ export class AgentRuntime {
     this.store.broadcast({ type: 'agentStatus', id, status: active ? 'active' : 'waiting' });
   }
 
+  /**
+   * A finished headless cat works on its session again (a follow-up message
+   * from the cat console, or the user took the wheel). Watch the transcript
+   * from where it stopped; finishHeadlessAgent ends it again.
+   */
+  resumeHeadlessAgent(id: number): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    this.registerAgent(agent.sessionId, id);
+    agent.isWaiting = false;
+    if (fs.existsSync(agent.jsonlFile) && !this.fileWatchers.has(id)) {
+      startFileWatching(
+        id,
+        agent.jsonlFile,
+        this.store,
+        this.fileWatchers,
+        this.pollingTimers,
+        this.waitingTimers,
+        this.permissionTimers,
+      );
+    }
+    this.store.broadcast({ type: 'agentStatus', id, status: 'active' });
+  }
+
   /** Stop the transcript watchers and status timers of one agent. */
   private stopWatching(id: number): void {
     // Stop JSONL poll timer
