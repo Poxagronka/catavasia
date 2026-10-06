@@ -32,7 +32,7 @@ The `npx pixel-agents` CLI path: hook-driven lifecycle propagates from the local
 
 ### Pet system (`@area:pets`)
 
-The animated pets feature, which has no hook dependency. Pet sprites load and the `petSpritesLoaded` broadcast arrives with manifest display names; placing a pet from the Pets-tab carousel toggles it on/off and persists across a panel reload via `~/.pixel-agents/layout.json`; clicking a pet shows a heart bubble that auto-dismisses and dismisses again on re-click. Pets render only on the canvas, so live state is read through the `getPets` / `petClick` e2e test hooks. FSM internals, pathfinding, FOLLOW, z-sort, and legacy-layout migration are covered by webview unit tests, not e2e.
+The animated pets feature, which has no hook dependency. Pet sprites load and the `petSpritesLoaded` broadcast arrives with manifest display names; adding and deleting a pet from the Cats → Pets tab saves at once and persists across a panel reload via `~/.pixel-agents/layout.json`; clicking a pet shows a heart bubble that auto-dismisses and dismisses again on re-click. Pets render only on the canvas, so live state is read through the `getPets` / `petClick` e2e test hooks. FSM internals, pathfinding, FOLLOW, z-sort, and legacy-layout migration are covered by webview unit tests, not e2e.
 
 ## What's NOT covered (gaps + deferred)
 
@@ -289,9 +289,9 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 
 ### `@area:pets` (3 tests)
 
-- `e2e/claude/hooks-off/pets.spec.ts:90` — pet sprites load, broadcast, and expose manifest names in the editor (Pets)
-- `e2e/claude/hooks-off/pets.spec.ts:117` — placing a pet toggles it on/off and persists across a panel reload (Pets)
-- `e2e/claude/hooks-off/pets.spec.ts:202` — clicking a pet shows a heart bubble that auto-dismisses and dismisses on re-click (Pets)
+- `e2e/claude/hooks-off/pets.spec.ts:99` — pet sprites load, broadcast, and expose manifest names in the editor (Pets)
+- `e2e/claude/hooks-off/pets.spec.ts:122` — adding and deleting a pet persists across a panel reload (Pets)
+- `e2e/claude/hooks-off/pets.spec.ts:190` — clicking a pet shows a heart bubble that auto-dismisses and dismisses on re-click (Pets)
 
 <!-- END:E2E-INVENTORY -->
 

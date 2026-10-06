@@ -2,16 +2,19 @@ import { useState } from 'react';
 
 import { BREED_PRESETS, COAT_PRESETS } from '../../cats/catArt.js';
 import { type Appearance, nameErrors } from '../../cats/catsApi.js';
-import { addPetCat, deletePet, type PetRow } from '../../cats/petRoster.js';
+import { addPet, deletePet, type PetRow, type Species } from '../../cats/petRoster.js';
 import type { PetRosterState } from '../../cats/usePetRoster.js';
 import { PET_EDITOR_ZOOM, PET_LIST_ZOOM, PET_PRESET_ZOOM } from '../../constants.js';
 import type { OfficeState } from '../../office/engine/officeState.js';
+import { isCatPet } from '../../office/sprites/petSpriteData.js';
 import { Button } from '../ui/Button.js';
 import { AppearanceEditor, type PreviewFn } from './AppearanceEditor.js';
 import { FIELD } from './fields.js';
 import { PetSprite } from './PetSprite.js';
 
-function lookName(a: Appearance | undefined): string {
+function lookName(pet: PetRow): string {
+  const a = pet.appearance;
+  if (!isCatPet(pet.petType)) return pet.kind;
   if (!a) return 'original';
   const preset = [...BREED_PRESETS, ...COAT_PRESETS].find(
     (p) => JSON.stringify(p.appearance) === JSON.stringify(a),
@@ -31,12 +34,12 @@ function PetEditor({
   const [name, setName] = useState(pet.name);
   const [confirming, setConfirming] = useState(false);
   const error = nameErrors(name)[0] ?? null;
-  const preview: PreviewFn = (a, size) => (
+  const preview: PreviewFn = (a, size, dir) => (
     <PetSprite
       petType={pet.petType}
       appearance={a}
       zoom={size === 'big' ? PET_EDITOR_ZOOM : PET_PRESET_ZOOM}
-      mode={size === 'big' ? 'tour' : 'walk'}
+      dir={dir}
     />
   );
   return (
@@ -71,19 +74,24 @@ function PetEditor({
         </div>
         {error && <div className="text-xs text-status-error">{error}</div>}
       </div>
-      <AppearanceEditor
-        value={pet.appearance}
-        onChange={(appearance) => onChange({ name: pet.name, appearance })}
-        onOriginal={() => onChange({ name: pet.name, appearance: undefined })}
-        preview={preview}
-      />
+      {/* Coats repaint the cat sheet only: a dog keeps its own look. */}
+      {isCatPet(pet.petType) ? (
+        <AppearanceEditor
+          value={pet.appearance}
+          onChange={(appearance) => onChange({ name: pet.name, appearance })}
+          onOriginal={() => onChange({ name: pet.name, appearance: undefined })}
+          preview={preview}
+        />
+      ) : (
+        preview(undefined, 'big')
+      )}
     </div>
   );
 }
 
-/** The Cats menu "Pets" tab: the pet cats that live in the office layout. */
+/** The Cats menu "Pets" tab: the pets (cats and dogs) that live in the office layout. */
 export function PetsTab({
-  roster: { rows, others, refresh },
+  roster: { rows, refresh },
   getOfficeState,
   onCommit,
 }: {
@@ -100,9 +108,9 @@ export function PetsTab({
     onCommit();
     refresh();
   };
-  const add = () => {
-    const id = addPetCat(getOfficeState());
-    setNotice(id ? null : 'No cat pet sprite is loaded, or the office has no free floor.');
+  const add = (species: Species) => {
+    const id = addPet(getOfficeState(), species);
+    setNotice(id ? null : `No ${species} sprite is loaded, or the office has no free floor.`);
     if (!id) return;
     setPetId(id);
     commit();
@@ -111,9 +119,14 @@ export function PetsTab({
   return (
     <>
       <div className="flex flex-col gap-4 w-200 shrink-0">
-        <Button size="md" variant="accent" onClick={add}>
-          + Pet cat
-        </Button>
+        <div className="flex gap-4">
+          <Button size="md" variant="accent" className="flex-1" onClick={() => add('cat')}>
+            + Pet cat
+          </Button>
+          <Button size="md" variant="accent" className="flex-1" onClick={() => add('dog')}>
+            + Pet dog
+          </Button>
+        </div>
         {notice && <div className="text-2xs text-status-error">{notice}</div>}
         <div className="flex flex-col gap-2 overflow-y-auto max-h-[60vh] pr-2">
           {rows.map((p) => (
@@ -129,16 +142,11 @@ export function PetsTab({
               <PetSprite petType={p.petType} appearance={p.appearance} zoom={PET_LIST_ZOOM} />
               <span className="flex flex-col min-w-0">
                 <span className="text-sm truncate">{p.name}</span>
-                <span className="text-2xs text-text-muted truncate">{lookName(p.appearance)}</span>
+                <span className="text-2xs text-text-muted truncate">{lookName(p)}</span>
               </span>
             </button>
           ))}
         </div>
-        {others.length > 0 && (
-          <div className="text-2xs text-text-muted">
-            {others.join(', ')}: not a cat. Edit in Layout › Pets.
-          </div>
-        )}
       </div>
       {pet ? (
         <PetEditor
@@ -155,9 +163,7 @@ export function PetsTab({
           }}
         />
       ) : (
-        <div className="text-sm text-text-muted">
-          No pet cats in the office. Add one here or in Layout › Pets.
-        </div>
+        <div className="text-sm text-text-muted">No pets in the office. Add one above.</div>
       )}
     </>
   );
