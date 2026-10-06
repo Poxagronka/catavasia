@@ -111,6 +111,13 @@ components:
         - $ref: '#/components/schemas/FlowStateChanged'
         - $ref: '#/components/schemas/QueueChanged'
         - $ref: '#/components/schemas/CatCharacters'
+        # Cat CEO
+        - $ref: '#/components/schemas/CatCeoSettings'
+        - $ref: '#/components/schemas/ReviewStarted'
+        - $ref: '#/components/schemas/ReviewFinished'
+        - $ref: '#/components/schemas/ReviewFailed'
+        - $ref: '#/components/schemas/PromptHistory'
+        - $ref: '#/components/schemas/PromptDiff'
         # Narrator
         - $ref: '#/components/schemas/NarratorLine'
         - $ref: '#/components/schemas/NarratorSummary'
@@ -172,6 +179,13 @@ components:
         - $ref: '#/components/schemas/SetTurnConcurrency'
         - $ref: '#/components/schemas/SetShowGuests'
         - $ref: '#/components/schemas/SetNarratorSettings'
+        - $ref: '#/components/schemas/SetCatCeoSettings'
+        - $ref: '#/components/schemas/GetPromptHistory'
+        - $ref: '#/components/schemas/GetPromptDiff'
+        - $ref: '#/components/schemas/RevertPromptEdit'
+        - $ref: '#/components/schemas/RestorePromptVersion'
+        - $ref: '#/components/schemas/RemovePromptItem'
+        - $ref: '#/components/schemas/SavePromptItem'
       discriminator: type
 
     # ── Server message variants ────────────────────────────────────
@@ -994,7 +1008,7 @@ components:
         The state of a team task changed. `rootCatId` leads the task and
         `catIds` are every cat of its team (the root and the cats below it):
         the office gathers them for the briefing meeting. The server always
-        ends a task with a done, error or interrupted state.
+        ends a task with a done, error, cancelled or interrupted state.
       type: object
       additionalProperties: false
       required: [type, taskId, state]
@@ -1045,6 +1059,126 @@ components:
         working:
           type: boolean
           description: A turn of this cat runs now.
+
+    # ── Cat CEO (docs/catavasia/cat-ceo-judge.md) ─────────────────
+
+    CatCeoSettings:
+      description: |
+        The Cat CEO: the judge above the boss that reviews every finished team
+        task and edits the cats' Rules and Lessons. Sent on connect and after
+        every change. `systemPrompt` is the Role & conduct of `prompts/cat-ceo.md`.
+      type: object
+      additionalProperties: false
+      required: [type, enabled, name, appearance, model, effort, maxEditsPerCatPerDay, systemPrompt]
+      properties:
+        type:
+          const: catCeoSettings
+        enabled:
+          type: boolean
+        name:
+          type: string
+        appearance:
+          $ref: '#/components/schemas/CatAppearance'
+        model:
+          type: string
+        effort:
+          type: string
+        maxEditsPerCatPerDay:
+          type: integer
+        systemPrompt:
+          type: string
+
+    ReviewStarted:
+      description: The Cat CEO started the review of a finished team task.
+      type: object
+      additionalProperties: false
+      required: [type, taskId, reviewId]
+      properties:
+        type:
+          const: reviewStarted
+        taskId:
+          type: string
+        reviewId:
+          type: string
+
+    ReviewFinished:
+      description: |
+        The Cat CEO review of a task: verdict, one score per assignment (the
+        root's own work has assignmentId `root`), the committed prompt edits
+        and the edits the server refused.
+      type: object
+      additionalProperties: false
+      required: [type, taskId, reviewId, verdict, summary, scores, edits, rejectedEdits]
+      properties:
+        type:
+          const: reviewFinished
+        taskId:
+          type: string
+        reviewId:
+          type: string
+        verdict:
+          $ref: '#/components/schemas/ReviewVerdict'
+        summary:
+          type: string
+        costUsd:
+          type: number
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewScore'
+        edits:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewEdit'
+        rejectedEdits:
+          type: array
+          items:
+            $ref: '#/components/schemas/RejectedEdit'
+
+    ReviewFailed:
+      description: The Cat CEO review of a task failed (no score, no edit).
+      type: object
+      additionalProperties: false
+      required: [type, taskId, reviewId, error]
+      properties:
+        type:
+          const: reviewFailed
+        taskId:
+          type: string
+        reviewId:
+          type: string
+        error:
+          type: string
+
+    PromptHistory:
+      description: The commits of one cat's prompt file, newest first (answer to getPromptHistory).
+      type: object
+      additionalProperties: false
+      required: [type, catId, entries]
+      properties:
+        type:
+          const: promptHistory
+        catId:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptHistoryEntry'
+
+    PromptDiff:
+      description: The unified diff of one commit of a cat's prompt file (answer to getPromptDiff).
+      type: object
+      additionalProperties: false
+      required: [type, catId, sha, diff]
+      properties:
+        type:
+          const: promptDiff
+        catId:
+          type: string
+        sha:
+          type: string
+        diff:
+          type: string
 
     QueueChanged:
       description: |
@@ -1473,6 +1607,111 @@ components:
         value:
           type: integer
 
+    SetCatCeoSettings:
+      description: Change the Cat CEO (needs the server token). Absent fields keep their value.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: setCatCeoSettings
+        enabled:
+          type: boolean
+        name:
+          type: string
+        appearance:
+          $ref: '#/components/schemas/CatAppearance'
+        model:
+          type: string
+        effort:
+          type: string
+        maxEditsPerCatPerDay:
+          type: integer
+        systemPrompt:
+          type: string
+
+    GetPromptHistory:
+      description: 'Ask for the commits of a cat''s prompt file (needs the server token). Answer: promptHistory.'
+      type: object
+      additionalProperties: false
+      required: [type, catId]
+      properties:
+        type:
+          const: getPromptHistory
+        catId:
+          type: string
+
+    GetPromptDiff:
+      description: 'Ask for the diff of one prompt commit (needs the server token). Answer: promptDiff.'
+      type: object
+      additionalProperties: false
+      required: [type, catId, sha]
+      properties:
+        type:
+          const: getPromptDiff
+        catId:
+          type: string
+        sha:
+          type: string
+
+    RevertPromptEdit:
+      description: Revert one commit of a cat's prompt file (needs the server token). Commits `user(<cat>) revert <sha>`.
+      type: object
+      additionalProperties: false
+      required: [type, catId, sha]
+      properties:
+        type:
+          const: revertPromptEdit
+        catId:
+          type: string
+        sha:
+          type: string
+
+    RestorePromptVersion:
+      description: Make the prompt file of a cat the version of commit `sha` (needs the server token).
+      type: object
+      additionalProperties: false
+      required: [type, catId, sha]
+      properties:
+        type:
+          const: restorePromptVersion
+        catId:
+          type: string
+        sha:
+          type: string
+
+    RemovePromptItem:
+      description: Remove one Rules or Lessons item (`R3`, `L2`) of a cat's prompt file (needs the server token).
+      type: object
+      additionalProperties: false
+      required: [type, catId, itemId]
+      properties:
+        type:
+          const: removePromptItem
+        catId:
+          type: string
+        itemId:
+          type: string
+
+    SavePromptItem:
+      description: |
+        Add (no itemId) or change one Rules or Lessons item of a cat's prompt
+        file (needs the server token). One line, at most 280 characters.
+      type: object
+      additionalProperties: false
+      required: [type, catId, section, text]
+      properties:
+        type:
+          const: savePromptItem
+        catId:
+          type: string
+        section:
+          $ref: '#/components/schemas/PromptSection'
+        itemId:
+          type: string
+        text:
+          type: string
+
     SetShowGuests:
       description: Show external Claude sessions (guests) as translucent characters outside the hierarchy.
       type: object
@@ -1499,6 +1738,95 @@ components:
 
     # ── Supporting schemas ─────────────────────────────────────────
 
+    ReviewVerdict:
+      type: string
+      enum: [pass, concerns, fail]
+
+    PromptAuthor:
+      type: string
+      enum: [cat-ceo, user, guard]
+
+    PromptFlag:
+      type: string
+      enum: [reverted, watch, manual review]
+
+    PromptSection:
+      type: string
+      enum: [Rules, Lessons]
+
+    ReviewScore:
+      type: object
+      additionalProperties: false
+      required: [catId, assignmentId, score, bubble]
+      properties:
+        catId:
+          type: string
+        assignmentId:
+          type: string
+          description: '`root` for the lead''s own work.'
+        score:
+          type: integer
+        bubble:
+          type: string
+          description: At most 40 characters, shown over the cat.
+        anomalies:
+          type: array
+          description: Anomalies of this cat, as `kind (severity) evidence` (hover text).
+          items:
+            type: string
+
+    ReviewEdit:
+      type: object
+      additionalProperties: false
+      required: [catId, sha, subject]
+      properties:
+        catId:
+          type: string
+        sha:
+          type: string
+        subject:
+          type: string
+        items:
+          type: array
+          description: New or changed item ids (`R4`, `L7`).
+          items:
+            type: string
+
+    RejectedEdit:
+      type: object
+      additionalProperties: false
+      required: [catId, reason]
+      properties:
+        catId:
+          type: string
+        reason:
+          type: string
+
+    PromptHistoryEntry:
+      type: object
+      additionalProperties: false
+      required: [sha, at, author, subject]
+      properties:
+        sha:
+          type: string
+        at:
+          type: integer
+          description: Epoch ms of the commit.
+        author:
+          $ref: '#/components/schemas/PromptAuthor'
+        subject:
+          type: string
+        taskId:
+          type: string
+        flag:
+          $ref: '#/components/schemas/PromptFlag'
+        scoreBefore:
+          type: number
+          description: Mean score of the cat with the version before this commit.
+        scoreAfter:
+          type: number
+          description: Mean score of the cat with this version.
+
     CatProfile:
       description: |
         One cat of the office: who it is, how it looks, which engine, model and
@@ -1519,7 +1847,24 @@ components:
           type: string
         systemPrompt:
           type: string
-          description: Appended to the engine's default system prompt.
+          description: |
+            The `Role & conduct` section of the cat's prompt file
+            (`~/.pixel-agents/prompts/<id>.md`). Editing it commits a new
+            version of that file. The whole file is appended to the engine's
+            default system prompt.
+        rules:
+          type: array
+          description: Read-only. `Rules` items of the prompt file (the Cat CEO edits them).
+          items:
+            $ref: '#/components/schemas/PromptItem'
+        lessons:
+          type: array
+          description: Read-only. `Lessons` items of the prompt file (the Cat CEO edits them).
+          items:
+            $ref: '#/components/schemas/PromptItem'
+        promptError:
+          type: string
+          description: Read-only. The prompt file on disk does not parse; the last committed version is used.
         engine:
           $ref: '#/components/schemas/CatEngine'
         model:
@@ -1533,6 +1878,17 @@ components:
         isDefault:
           type: boolean
           description: Seeded by the app, not by the user.
+
+    PromptItem:
+      type: object
+      additionalProperties: false
+      required: [id, text]
+      properties:
+        id:
+          type: string
+          description: '`R1`, `L3`, ... Never reused inside one file.'
+        text:
+          type: string
 
     EngineOptions:
       type: object
@@ -1605,7 +1961,7 @@ components:
 
     FlowState:
       type: string
-      enum: [briefing, delegating, working, reporting, merging, done, error, interrupted]
+      enum: [briefing, delegating, working, reporting, merging, done, error, cancelled, interrupted]
 
     AgentSeatMeta:
       description: |

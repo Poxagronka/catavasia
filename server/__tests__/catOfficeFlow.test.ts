@@ -9,6 +9,9 @@ import type { NarratorInput } from '../../core/src/narrator.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { createHttpServer, type HttpServerHandle } from '../src/httpServer.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
+import { EventLog } from '../src/orchestrator/machine/eventLog.js';
+import { reduce, startTask } from '../src/orchestrator/machine/taskReducer.js';
+import type { TaskState } from '../src/orchestrator/machine/types.js';
 import { Orchestrator } from '../src/orchestrator/orchestrator.js';
 import { TaskInputError, TaskManager } from '../src/taskBoard/taskManager.js';
 import { FakeCatHost, readFakeLog, waitFor, writeFakeClaude } from './catOfficeHarness.js';
@@ -60,6 +63,8 @@ async function startOffice(): Promise<void> {
         cat('murka', 'Murka', 'sonnet', 'boss', 'smokey'),
         cat('pushok', 'Pushok', 'sonnet', 'boss', 'snow'),
       ],
+      // The Cat CEO has its own tests (catCeo*.test.ts): no judge runs here.
+      catCeo: { enabled: false },
     }),
   );
   host = new FakeCatHost();
@@ -186,6 +191,68 @@ describe('team task (1 boss + 2 workers)', () => {
       expect.objectContaining({ kind: 'message', from: 'Barsik', to: 'Murka' }),
     );
     expect(narrated.some((n) => n.kind === 'result' && n.from === 'Barsik')).toBe(true);
+  });
+
+  it('emits the phase 1 event sequence (golden list, one turn at a time)', async () => {
+    // Captured from main (1.4.1-cats.12, phase 1 flowTurns.ts) with the cap at 1.
+    office.scheduler.setCap(1);
+    const task = await settled((await tasks.create('make two files', makeRepo(), 'team')).id);
+    expect(task.status).toBe('done');
+    const seq = emitted.flatMap((m) => {
+      if (m.type === 'flowStateChanged') return [`state ${m.state}`];
+      if (m.type === 'catMessage') return [`msg ${m.kind} ${m.from}->${m.to}`];
+      if (m.type === 'catTurnStarted') return [`start ${m.catId}`];
+      if (m.type === 'catTurnFinished') return [`end ${m.catId} ${m.ok}`];
+      return [];
+    });
+    expect(seq).toEqual([
+      'state briefing',
+      'msg task user->boss',
+      'start boss',
+      'msg brief boss->team',
+      'state delegating',
+      'msg delegate boss->murka',
+      'state working',
+      'msg delegate boss->pushok',
+      'end boss true',
+      'start murka',
+      'msg report murka->boss',
+      'end murka true',
+      'start pushok',
+      'msg report pushok->boss',
+      'end pushok true',
+      'state reporting',
+      'start boss',
+      'msg final boss->user',
+      'end boss true',
+      'state merging',
+      'state done',
+    ]);
+    // Context policy: the persona holds the prompt file sections and the office
+    // rules, every turn sets the auto-compact window, and every cat starts a
+    // new session in this task.
+    const runs = readFakeLog(fakeLog);
+    const boss = runs.find((r) => r.cat === 'boss')!;
+    for (const part of [
+      '# Role & conduct\n\nI am Barsik.',
+      '# Rules',
+      '# Lessons',
+      '## Office rules',
+    ]) {
+      expect(boss.persona).toContain(part);
+    }
+    expect(runs.every((r) => r.compactWindow === '200000')).toBe(true);
+    const firstTurns = runs.filter((r) => r.args.includes('--session-id'));
+    expect(firstTurns.map((r) => r.cat).sort()).toEqual(['boss', 'murka', 'pushok']);
+    // Replay of the event log gives the final state (§9 determinism).
+    const log = EventLog.of(stateDir, task.id);
+    let replayed: TaskState | undefined;
+    for (const { event } of log.events()) {
+      replayed =
+        event.type === 'TaskStarted' ? startTask(event).state : reduce(replayed!, event).state;
+    }
+    expect(replayed).toEqual(log.snapshot()?.state);
+    expect(replayed?.phase).toBe('done');
   });
 
   it('runs a single-cat task in a plain folder and reports to the user', async () => {

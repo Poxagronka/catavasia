@@ -144,5 +144,47 @@ export const CAT_MESSAGE_MAX_CHARS = 20_000;
 export const SESSION_LOCK_RETRY_MS = 5000;
 /** Rows a profile cat's console keeps in memory (all its turns, newest last). */
 export const CAT_CONSOLE_MAX_ENTRIES = 400;
+/** A cat turn that runs longer than this is killed and fails (no retry). */
+export const TURN_TIMEOUT_MS = 1_800_000;
+/** A turn that failed for an infrastructure reason (crash, exit code, CLI error) runs again once. */
+export const TURN_RETRY_MAX = 1;
+export const TURN_RETRY_DELAY_MS = 10_000;
+/** ~/.pixel-agents/<dir>/<taskId>/: event log + snapshot of a team task's state machine. */
+export const FLOWS_DIR = 'flows';
+/** Event logs of tasks older than this are deleted at server start. */
+export const FLOW_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+/** Auto-compact window of every cat turn (CLAUDE_CODE_AUTO_COMPACT_WINDOW). */
+export const CAT_AUTO_COMPACT_WINDOW = 200_000;
+/** ~/.pixel-agents/<dir>/<catId>.md: one prompt file per cat, in a local git repo. */
+export const PROMPTS_DIR = 'prompts';
+export const PROMPT_RULES_MAX = 12;
+export const PROMPT_LESSONS_MAX = 20;
+export const PROMPT_ITEM_MAX_CHARS = 280;
+export const PROMPT_FILE_MAX_BYTES = 32 * 1024;
+
+// ── Cat CEO (docs/catavasia/cat-ceo-judge.md) ───────────────
+/** Cat id of the judge: its prompt file, its scheduler slot, its resident character. */
+export const CAT_CEO_ID = 'cat-ceo';
+/** ~/.pixel-agents/<dir>/: review records, guard flags, and the judge's empty cwd. */
+export const CAT_CEO_DIR = 'cat-ceo';
+/** Reviews wait FIFO; more than this many waiting reviews are dropped (D9). */
+export const CAT_CEO_QUEUE_MAX = 10;
+/** Hard cost stop of one review (`--max-budget-usd`). */
+export const CAT_CEO_BUDGET_USD = 1;
+/** A review process that runs longer than this is killed. */
+export const CAT_CEO_TIMEOUT_MS = 600_000;
+export const CAT_CEO_DIGEST_MAX_CHARS = 60_000;
+/** Item changes in one Cat CEO commit (D7). */
+export const CAT_CEO_MAX_CHANGES_PER_COMMIT = 3;
+export const CAT_CEO_EDITS_PER_DAY_DEFAULT = 2;
+/** Default look of the Cat CEO: a gold collar on a tuxedo cat. */
+export const CAT_CEO_COLLAR = '#d4af37';
+/** Review records kept in cat-ceo/reviews.json (newest). */
+export const CAT_CEO_RECORDS_MAX = 300;
+/** Regression guard (D8): auto-revert at this mean drop, flag "watch" from WATCH up. */
+export const CAT_CEO_GUARD_REVERT_DROP = 15;
+export const CAT_CEO_GUARD_WATCH_DROP = 8;
+/** After a guard revert, the Cat CEO does not edit that cat for this long. */
+export const CAT_CEO_GUARD_BLOCK_MS = 24 * 60 * 60 * 1000;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;

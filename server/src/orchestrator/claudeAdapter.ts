@@ -8,9 +8,11 @@
 
 import { execFileSync, spawn } from 'child_process';
 
+import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import type { EngineChoices } from './catProfiles.js';
 import type {
+  CompactInfo,
   EngineAdapter,
   OfficeMcpEndpoint,
   TurnHandle,
@@ -44,11 +46,44 @@ export function parseClaudeHelp(help: string): EngineChoices {
   return { models, efforts, fullModelPattern: FULL_MODEL_PATTERN };
 }
 
+/**
+ * The child env of a cat turn: auto-compact at a 200K window inside long
+ * tasks (context-policy.md §4); the env var wins over every other setting.
+ */
+export function claudeTurnEnv(cwd: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    PWD: cwd,
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(CAT_AUTO_COMPACT_WINDOW),
+  };
+}
+
+/** `{"type":"system","subtype":"compact_boundary","compact_metadata":{...}}` -> CompactInfo. */
+export function parseCompactBoundary(line: string): CompactInfo | undefined {
+  if (!line.includes('compact_boundary')) return undefined;
+  try {
+    const event = JSON.parse(line) as {
+      type?: string;
+      subtype?: string;
+      compact_metadata?: { trigger?: string; pre_tokens?: number; post_tokens?: number };
+    };
+    if (event.type !== 'system' || event.subtype !== 'compact_boundary') return undefined;
+    const meta = event.compact_metadata ?? {};
+    return {
+      trigger: meta.trigger ?? 'unknown',
+      ...(meta.pre_tokens !== undefined ? { preTokens: meta.pre_tokens } : {}),
+      ...(meta.post_tokens !== undefined ? { postTokens: meta.post_tokens } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export class ClaudeAdapter implements EngineAdapter {
   readonly engine = 'claude' as const;
   private cachedChoices?: EngineChoices;
 
-  constructor(private readonly bin = 'claude') {}
+  constructor(readonly bin = 'claude') {}
 
   choices(): EngineChoices {
     if (!this.cachedChoices) {
@@ -101,7 +136,7 @@ export class ClaudeAdapter implements EngineAdapter {
     ];
     const child = spawn(this.bin, args, {
       cwd: req.cwd,
-      env: { ...process.env, PWD: req.cwd },
+      env: claudeTurnEnv(req.cwd),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -111,6 +146,8 @@ export class ClaudeAdapter implements EngineAdapter {
     let pending = '';
     const onLine = (line: string): void => {
       if (line.includes('"session_id"')) sessionStarted = true;
+      const compact = parseCompactBoundary(line);
+      if (compact) req.onCompact?.(compact);
       const parsed = parseStreamLine(line);
       if (parsed.result) result = parsed.result;
       for (const entry of parsed.log) req.onLog?.(entry);

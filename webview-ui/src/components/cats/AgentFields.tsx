@@ -1,8 +1,9 @@
 import { type CatProfile, type Engine, ENGINE_LABELS } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
 import { FIELD } from './fields.js';
+import { PromptItemsEditor } from './PromptItemsEditor.js';
 
-function Select({
+export function Select({
   label,
   value,
   options,
@@ -126,6 +127,12 @@ export function AgentFields({
           onChange={(e) => onChange({ ...cat, systemPrompt: e.target.value })}
         />
       </label>
+      <PromptItemsEditor
+        catId={cat.id}
+        rules={cat.rules}
+        lessons={cat.lessons}
+        promptError={cat.promptError}
+      />
     </div>
   );
 }

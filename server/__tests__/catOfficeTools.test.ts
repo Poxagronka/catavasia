@@ -4,13 +4,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CatProfile } from '../../core/src/messages.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { applyShowGuests, filterGuestMessage } from '../src/guests.js';
+import { wireFlow } from '../src/orchestrator/machine/helpers.js';
+import { reduce, startTask } from '../src/orchestrator/machine/taskReducer.js';
+import type { TaskState } from '../src/orchestrator/machine/types.js';
 import { registerOfficeMcpRoute } from '../src/orchestrator/officeMcp.js';
-import {
-  callOfficeTool,
-  type Flow,
-  type FlowContext,
-  type Member,
-} from '../src/orchestrator/officeTools.js';
 import type { AgentState } from '../src/types.js';
 
 const profile = (over: Partial<CatProfile>): CatProfile =>
@@ -64,6 +61,9 @@ describe('office MCP protocol', () => {
       'report',
       'list_team',
     ]);
+    const delegate = list.json().result.tools.find((t: { name: string }) => t.name === 'delegate');
+    expect(delegate.inputSchema.properties.rework.type).toBe('boolean');
+    expect(delegate.inputSchema.required).toEqual(['to', 'task']);
     const call = await post({
       jsonrpc: '2.0',
       id: 3,
@@ -87,42 +87,26 @@ describe('office tools: hierarchy', () => {
     profile({ id: 'mid', name: 'Mid', parentId: 'boss' }),
     profile({ id: 'w1', name: 'W1', parentId: 'boss' }),
     profile({ id: 'deep', name: 'Deep', parentId: 'mid' }),
-  ] as unknown as CatProfile[];
-  const member = (cat: CatProfile) =>
-    ({
-      cat,
-      inbox: [],
-      askedBy: new Set(),
-      waitingOn: new Set(),
-      pendingMerges: [],
-      unreadReports: 0,
-    }) as unknown as Member;
-  let flow: Flow;
-  let delivered: Array<[string, string]>;
-  let ctx: FlowContext;
-  const call = (from: string, name: string, args: Record<string, unknown> = {}) =>
-    callOfficeTool(ctx, flow, from, name, args);
+  ];
+  let state: TaskState;
+  const call = (from: string, name: string, args: Record<string, unknown> = {}) => {
+    const step = reduce(state, { type: 'ToolCalled', catId: from, name, args });
+    state = step.state;
+    return step.reply!;
+  };
 
   beforeEach(() => {
-    delivered = [];
-    flow = {
-      task: { id: 't1', flow: { root: 'boss', state: 'briefing', nodes: [], turns: 0 } },
-      cats,
+    state = startTask({
+      type: 'TaskStarted',
+      taskId: 't1',
       rootId: 'boss',
-      members: new Map(cats.map((c) => [c.id, member(c)])),
+      prompt: 'p',
+      cats,
+      runnable: cats.map((c) => c.id),
       repo: null,
-      ended: false,
-    } as unknown as Flow;
-    ctx = {
-      deliver: (f, to, text) => {
-        delivered.push([to, text]);
-        return f.members.get(to)!;
-      },
-      message: () => {},
-      setState: (f, state) => {
-        f.task.flow.state = state;
-      },
-    };
+      catCeo: false,
+      cwd: '/tmp',
+    }).state;
   });
 
   it('delegates only to direct reports', () => {
@@ -131,11 +115,11 @@ describe('office tools: hierarchy', () => {
       'not your direct report',
     );
     expect(call('boss', 'delegate', { to: 'mid', task: 'build' }).isError).toBeUndefined();
-    expect(flow.task.flow.nodes).toEqual([
+    expect(wireFlow(state).nodes).toEqual([
       { cat: 'mid', from: 'boss', goal: 'build', status: 'working', branch: undefined },
     ]);
-    expect(flow.task.flow.state).toBe('working');
-    expect(delivered[0][0]).toBe('mid');
+    expect(state.phase).toBe('working');
+    expect(state.members.mid.inbox[0]).toContain('[Task from Boss (boss)]');
     expect(call('boss', 'delegate', { to: 'mid', task: 'again' }).text).toContain('still works');
   });
 
@@ -144,10 +128,10 @@ describe('office tools: hierarchy', () => {
     expect(call('boss', 'ask', { to: 'deep', question: 'q' })).toMatchObject({ isError: true });
     expect(call('deep', 'ask', { to: 'mid', question: 'q' }).isError).toBeUndefined();
     expect(call('w1', 'ask', { to: 'mid', question: 'q' }).isError).toBeUndefined();
-    expect(flow.members.get('mid')!.askedBy).toEqual(new Set(['deep', 'w1']));
+    expect(state.members.mid.askedBy).toEqual(['deep', 'w1']);
     expect(call('mid', 'reply', { to: 'w1', answer: 'a' }).isError).toBeUndefined();
-    expect(flow.members.get('mid')!.askedBy).toEqual(new Set(['deep']));
-    expect(flow.members.get('w1')!.waitingOn.size).toBe(0);
+    expect(state.members.mid.askedBy).toEqual(['deep']);
+    expect(state.members.w1.waitingOn).toEqual([]);
   });
 
   it('reports only on a delegated task; the root reports last; only the root briefs', () => {
@@ -156,26 +140,33 @@ describe('office tools: hierarchy', () => {
     expect(call('boss', 'brief', { plan: 'p' }).isError).toBeUndefined();
     call('boss', 'delegate', { to: 'mid', task: 'build' });
     expect(call('mid', 'report', { result: 'built' }).isError).toBeUndefined();
-    expect(flow.members.get('mid')!.outgoingReport).toBe('built');
+    expect(state.members.mid.outgoingReport).toBe('built');
     expect(call('boss', 'report', { result: 'r' }).text).toContain('Wait: mid');
-    flow.task.flow.nodes[0].status = 'reported';
+    Object.assign(state.assignments[0], { state: 'reported', report: 'built' });
     expect(call('boss', 'report', { result: 'final' }).isError).toBeUndefined();
-    expect(flow.members.get('boss')!.final).toBe('final');
+    expect(state.members.boss.final).toBe('final');
   });
 
   it('refuses a report while reports below are open or unread, and cats outside the team', () => {
     call('boss', 'delegate', { to: 'mid', task: 'build' });
-    flow.members.get('mid')!.nudged = false;
     call('mid', 'delegate', { to: 'deep', task: 'part' });
     expect(call('mid', 'report', { result: 'r' }).text).toContain('Wait: deep');
-    flow.task.flow.nodes.find((n) => n.cat === 'deep')!.status = 'reported';
-    flow.members.get('mid')!.unreadReports = 1;
+    Object.assign(state.assignments[1], { state: 'reported', report: 'part done' });
+    state.members.mid.unreadReports = 1;
     expect(call('mid', 'report', { result: 'r' }).text).toContain('next turn');
-    flow.members.get('mid')!.unreadReports = 0;
+    state.members.mid.unreadReports = 0;
     expect(call('mid', 'report', { result: 'r' }).isError).toBeUndefined();
     // A task led by mid: its lead and siblings are outside the team.
-    flow.rootId = 'mid';
+    state.rootId = 'mid';
     expect(call('mid', 'ask', { to: 'boss', question: 'q' }).text).toContain('not in the team');
+  });
+
+  it('refuses a cat whose engine cannot run, and a rework with nothing to rework', () => {
+    state.runnable = ['boss', 'mid', 'deep'];
+    expect(call('boss', 'delegate', { to: 'w1', task: 'x' }).text).toContain('cannot run yet');
+    expect(call('boss', 'delegate', { to: 'mid', task: 'x', rework: true }).text).toContain(
+      'no report to rework',
+    );
   });
 
   it('rejects unknown cats, tools and empty arguments', () => {
@@ -183,6 +174,11 @@ describe('office tools: hierarchy', () => {
     expect(call('boss', 'fly')).toMatchObject({ isError: true });
     expect(call('boss', 'delegate', { to: 'mid' }).text).toContain('"task" is required');
     expect(call('w1', 'list_team').text).toContain('Your lead Boss');
+  });
+
+  it('answers every tool with "ended" after the task left the active states', () => {
+    state.phase = 'done';
+    expect(call('boss', 'list_team')).toEqual({ text: 'This task has ended.', isError: true });
   });
 });
 

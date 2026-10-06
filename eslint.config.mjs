@@ -38,7 +38,7 @@ export default [
     },
   },
   {
-    files: ['adapters/vscode/constants.ts'],
+    files: ['adapters/vscode/constants.ts', 'server/src/constants.ts'],
     rules: {
       'pixel-agents/no-inline-colors': 'off',
     },

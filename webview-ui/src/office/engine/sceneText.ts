@@ -29,6 +29,7 @@ type BubbleLine = {
   kind: CatMessageKind;
   text: string;
   summary?: string;
+  tooltip?: string;
 };
 
 /** The bubble of `line`, drawn over `catId`. */
@@ -38,7 +39,7 @@ export function toBubble(key: string, catId: number, line: BubbleLine): SceneBub
     catId,
     kind: line.kind,
     lines: bubbleLines(line),
-    tooltip: tooltipText(line),
+    tooltip: line.tooltip ?? tooltipText(line),
     from: line.from,
     to: line.to,
   };

@@ -152,6 +152,7 @@ export class OfficeScenes {
       kind: ev.kind,
       text: ev.text,
       summary: ev.summary,
+      tooltip: ev.tooltip,
     };
     const chars = this.w.characters;
     if (msg.from === msg.to || !chars.has(msg.from) || !chars.has(msg.to)) return;
@@ -371,7 +372,9 @@ export class OfficeScenes {
       case 'listen':
         this.puppets.setTalking(sender.id, false);
         if (t.reply) this.next(t, 'reply');
-        else if (t.inPlace || t.t >= SCENE_REPLY_WAIT_SEC) return this.endTalk(t);
+        // A review gets no answer: the Cat CEO moves on at once.
+        else if (t.inPlace || t.msg.kind === 'review' || t.t >= SCENE_REPLY_WAIT_SEC)
+          return this.endTalk(t);
         return true;
       case 'reply':
         this.puppets.setTalking(receiver.id, t.t < SCENE_SPEAK_SEC);

@@ -112,7 +112,7 @@ export class OfficeCatSource implements CatSessionSource {
   /** The live task session of a cat that the wheel can resume. */
   private liveSession(cat: string): { sessionId: string; cwd: string } | undefined {
     const member = this.office.liveMember(cat)?.member;
-    return member?.started && member.cwd
+    return member?.started && member.cwd && member.sessionId
       ? { sessionId: member.sessionId, cwd: member.cwd }
       : undefined;
   }

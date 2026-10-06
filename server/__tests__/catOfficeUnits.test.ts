@@ -5,13 +5,20 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CatProfile } from '../../core/src/messages.js';
+import { FLOW_LOG_RETENTION_MS } from '../src/constants.js';
 import {
   CAT_BREED_IDS,
   CatStore,
   type EngineCatalog,
   validateCat,
 } from '../src/orchestrator/catProfiles.js';
-import { parseClaudeHelp } from '../src/orchestrator/claudeAdapter.js';
+import {
+  claudeTurnEnv,
+  parseClaudeHelp,
+  parseCompactBoundary,
+} from '../src/orchestrator/claudeAdapter.js';
+import { pruneFlowLogs } from '../src/orchestrator/machine/eventLog.js';
+import { PromptRepo } from '../src/orchestrator/promptRepo.js';
 import { TurnScheduler } from '../src/orchestrator/turnScheduler.js';
 import { commitAll, mergeBranch } from '../src/taskBoard/gitWorktree.js';
 
@@ -45,6 +52,45 @@ beforeEach(() => {
   tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-cats-')));
 });
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+describe('claude turn process', () => {
+  it('sets the 200K auto-compact window in the child env', () => {
+    expect(claudeTurnEnv('/w')).toMatchObject({
+      PWD: '/w',
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000',
+    });
+  });
+
+  it('reads a compact_boundary line (CLI 2.1.290 shape)', () => {
+    const line = JSON.stringify({
+      type: 'system',
+      subtype: 'compact_boundary',
+      session_id: 's',
+      compact_metadata: { trigger: 'auto', pre_tokens: 10809, post_tokens: 734 },
+    });
+    expect(parseCompactBoundary(line)).toEqual({
+      trigger: 'auto',
+      preTokens: 10809,
+      postTokens: 734,
+    });
+    expect(parseCompactBoundary('{"type":"system","subtype":"init"}')).toBeUndefined();
+    expect(parseCompactBoundary('compact_boundary but not json')).toBeUndefined();
+  });
+});
+
+describe('flow log retention', () => {
+  it('deletes task logs older than 30 days at server start', () => {
+    const old = path.join(tmp, 'flows', 'old');
+    const fresh = path.join(tmp, 'flows', 'fresh');
+    fs.mkdirSync(old, { recursive: true });
+    fs.mkdirSync(fresh, { recursive: true });
+    const now = Date.now();
+    const longAgo = new Date(now - FLOW_LOG_RETENTION_MS - 60_000);
+    fs.utimesSync(old, longAgo, longAgo);
+    pruneFlowLogs(tmp, now);
+    expect(fs.readdirSync(path.join(tmp, 'flows'))).toEqual(['fresh']);
+  });
+});
 
 describe('engine choices', () => {
   it('reads model aliases and effort levels from claude --help', () => {
@@ -99,10 +145,11 @@ describe('profile validation', () => {
 
 describe('CatStore', () => {
   const file = () => path.join(tmp, 'cats.json');
+  const prompts = () => new PromptRepo(path.join(tmp, 'prompts'));
   const tree = (store: CatStore) => store.list().map((c) => [c.id, c.parentId]);
 
   it('seeds a default team (Opus boss, three Sonnet workers) when the file is missing', () => {
-    const store = new CatStore(file(), () => CATALOG);
+    const store = new CatStore(file(), () => CATALOG, prompts());
     const cats = store.list();
     expect(cats.map((c) => [c.id, c.model, c.effort, c.parentId])).toEqual([
       ['boss', 'opus', 'high', null],
@@ -116,7 +163,7 @@ describe('CatStore', () => {
   });
 
   it('keeps exactly one boss and refuses cycles and unknown parents', () => {
-    const store = new CatStore(file(), () => CATALOG);
+    const store = new CatStore(file(), () => CATALOG, prompts());
     expect(store.saveCat(profile({ id: 'kitten', parentId: 'murka' })).ok).toBe(true);
     // A new cat without a parent reports to the boss: promoteToBoss makes bosses.
     expect(store.saveCat(profile({ id: 'stray' })).ok).toBe(true);
@@ -132,7 +179,7 @@ describe('CatStore', () => {
   });
 
   it('promotes a boss and hands the tree over on delete', () => {
-    const store = new CatStore(file(), () => CATALOG);
+    const store = new CatStore(file(), () => CATALOG, prompts());
     expect(store.promoteToBoss('pushok')).toBeUndefined();
     expect(store.get('pushok')?.parentId).toBeNull();
     expect(store.get('boss')?.parentId).toBe('pushok');
@@ -149,12 +196,12 @@ describe('CatStore', () => {
       ['murka', null],
       ['ryzhik', 'murka'],
     ]);
-    expect(tree(new CatStore(file(), () => CATALOG))).toEqual(tree(store));
+    expect(tree(new CatStore(file(), () => CATALOG, prompts()))).toEqual(tree(store));
   });
 
   it('keeps a copy of an unreadable file and starts from the default team', () => {
     fs.writeFileSync(file(), '{nope');
-    const store = new CatStore(file(), () => CATALOG);
+    const store = new CatStore(file(), () => CATALOG, prompts());
     expect(store.list()).toHaveLength(4);
     expect(fs.readdirSync(tmp).some((f) => f.startsWith('cats.json.bad-'))).toBe(true);
   });
