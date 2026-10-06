@@ -295,7 +295,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   }
 
   /** End a flow: stop its turns, finalize worktrees, release the characters. */
-  async endFlow(flow: Flow, ok: boolean, text: string): Promise<void> {
+  async endFlow(flow: Flow, ok: boolean, text: string, caller?: Member): Promise<void> {
     if (flow.ended) return;
     flow.ended = true;
     const { task } = flow;
@@ -303,6 +303,11 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     const running = [...flow.members.values()].flatMap((m) => (m.handle ? [m.handle] : []));
     for (const handle of running) handle.kill();
     await Promise.all(running.map((h) => h.done));
+    // Turns busy with git work (worktree, merge, commit) see `ended` and stop;
+    // wait for them before the worktrees go away.
+    await Promise.all(
+      [...flow.members.values()].flatMap((m) => (m !== caller && m.busy ? [m.busy] : [])),
+    );
 
     const worktreeError = await endFlowWorkspaces(flow);
     // Persona and MCP config files: the tokens in them die with the task.
@@ -352,10 +357,23 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   private async turn(flow: Flow, member: Member): Promise<void> {
     if (flow.ended) return;
     if (++flow.task.flow.turns > FLOW_MAX_TURNS) {
-      return this.endFlow(flow, false, `Stopped: the team used more than ${FLOW_MAX_TURNS} turns.`);
+      return this.endFlow(
+        flow,
+        false,
+        `Stopped: the team used more than ${FLOW_MAX_TURNS} turns.`,
+        member,
+      );
     }
-    await prepareWorkspace(flow, member, this.opts.stateDir);
-    await runTurnFor(this, flow, member);
+    const busy = (async () => {
+      await prepareWorkspace(flow, member, this.opts.stateDir);
+      await runTurnFor(this, flow, member);
+    })();
+    member.busy = busy.catch(() => {});
+    try {
+      await busy;
+    } finally {
+      member.busy = undefined;
+    }
   }
 
   private join(flow: Flow, catId: string): Member {
@@ -379,6 +397,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
       pendingMerges: [],
       askedBy: new Set(),
       waitingOn: new Set(),
+      unreadReports: 0,
       nudged: false,
     };
     fs.writeFileSync(member.systemPromptFile, personaText(cat), { mode: 0o600 });

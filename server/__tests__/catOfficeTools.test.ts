@@ -95,6 +95,7 @@ describe('office tools: hierarchy', () => {
       askedBy: new Set(),
       waitingOn: new Set(),
       pendingMerges: [],
+      unreadReports: 0,
     }) as unknown as Member;
   let flow: Flow;
   let delivered: Array<[string, string]>;
@@ -160,6 +161,21 @@ describe('office tools: hierarchy', () => {
     flow.task.flow.nodes[0].status = 'reported';
     expect(call('boss', 'report', { result: 'final' }).isError).toBeUndefined();
     expect(flow.members.get('boss')!.final).toBe('final');
+  });
+
+  it('refuses a report while reports below are open or unread, and cats outside the team', () => {
+    call('boss', 'delegate', { to: 'mid', task: 'build' });
+    flow.members.get('mid')!.nudged = false;
+    call('mid', 'delegate', { to: 'deep', task: 'part' });
+    expect(call('mid', 'report', { result: 'r' }).text).toContain('Wait: deep');
+    flow.task.flow.nodes.find((n) => n.cat === 'deep')!.status = 'reported';
+    flow.members.get('mid')!.unreadReports = 1;
+    expect(call('mid', 'report', { result: 'r' }).text).toContain('next turn');
+    flow.members.get('mid')!.unreadReports = 0;
+    expect(call('mid', 'report', { result: 'r' }).isError).toBeUndefined();
+    // A task led by mid: its lead and siblings are outside the team.
+    flow.rootId = 'mid';
+    expect(call('mid', 'ask', { to: 'boss', question: 'q' }).text).toContain('not in the team');
   });
 
   it('rejects unknown cats, tools and empty arguments', () => {

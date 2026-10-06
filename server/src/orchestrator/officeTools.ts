@@ -15,7 +15,7 @@ import type { TaskFlow } from '../../../core/src/tasks.js';
 import { CAT_MESSAGE_MAX_CHARS } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
-import { childrenOf, relationOf } from './catTree.js';
+import { childrenOf, isInSubtree, relationOf } from './catTree.js';
 import type { TurnHandle } from './engineAdapter.js';
 import { askMessage, catLabel, delegateMessage, replyMessage, teamText } from './flowPrompts.js';
 import type { OfficeToolResult } from './officeMcp.js';
@@ -39,6 +39,8 @@ export interface Member {
   /** A turn is queued or running. */
   scheduled: boolean;
   handle?: TurnHandle;
+  /** The running turn (git work + process), for endFlow to wait on. */
+  busy?: Promise<void>;
   /** Cumulative session cost after its last turn. */
   sessionCostUsd: number;
   /** Reports whose branches merge into this cat's worktree before its next turn. */
@@ -51,6 +53,8 @@ export interface Member {
   outgoingReport?: string;
   /** The root's final result, made in the running turn. */
   final?: string;
+  /** Reports delivered to this cat that it has not read yet (they sit in its inbox). */
+  unreadReports: number;
   nudged: boolean;
 }
 
@@ -95,6 +99,18 @@ function ids(cats: CatProfile[]): string {
 
 export function openNodeOf(flow: Flow, catId: string) {
   return flow.task.flow.nodes.find((n) => n.cat === catId && n.status === 'working');
+}
+
+/** Reports (or their branches) delivered to this cat that it has not read yet. */
+export function hasUnreadReports(member: Member): boolean {
+  return member.unreadReports > 0 || member.pendingMerges.length > 0;
+}
+
+/** Only the cats of the task's team (the root and the cats below it) take part. */
+function inTeam(flow: Flow, to: CatProfile): void {
+  if (!isInSubtree(flow.cats, flow.rootId, to.id)) {
+    throw new ToolError(`${to.id} is not in the team of this task.`);
+  }
 }
 
 export function workerBranch(taskId: string, catId: string): string {
@@ -145,6 +161,7 @@ function runTool(
     case 'delegate': {
       const to = catById(flow, arg(args, 'to'));
       const task = arg(args, 'task');
+      inTeam(flow, to);
       if (relationOf(flow.cats, catId, to.id) !== 'child') {
         throw new ToolError(
           `${to.id} is not your direct report. You can delegate only to: ${ids(childrenOf(flow.cats, catId))}.`,
@@ -167,6 +184,7 @@ function runTool(
     case 'reply': {
       const to = catById(flow, arg(args, 'to'));
       const body = arg(args, name === 'ask' ? 'question' : 'answer');
+      inTeam(flow, to);
       if (!relationOf(flow.cats, catId, to.id)) {
         const allowed = flow.cats.filter((c) => relationOf(flow.cats, catId, c.id));
         throw new ToolError(
@@ -188,13 +206,20 @@ function runTool(
 
     case 'report': {
       const result = arg(args, 'result');
+      // A report must include the work of every cat below: none may still
+      // work, and no report (or its branch) may still wait to be read.
+      const open = state.nodes.filter(
+        (n) => n.status === 'working' && n.cat !== catId && (isRoot || n.from === catId),
+      );
+      if (open.length) {
+        throw new ToolError(
+          `Wait: ${open.map((n) => n.cat).join(', ')} still work on their tasks. Their reports arrive as new messages.`,
+        );
+      }
+      if (hasUnreadReports(self)) {
+        throw new ToolError('Wait: a report reaches you in your next turn. Read it, then report.');
+      }
       if (isRoot) {
-        const open = state.nodes.filter((n) => n.status === 'working');
-        if (open.length) {
-          throw new ToolError(
-            `Wait: ${open.map((n) => n.cat).join(', ')} still work on their tasks. Their reports arrive as new messages.`,
-          );
-        }
         self.final = result;
         ctx.message(flow, catId, 'user', 'final', result);
         return 'The office gives your result to the user. End your turn now.';

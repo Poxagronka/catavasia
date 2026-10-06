@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -13,6 +14,7 @@ import {
 } from '../src/orchestrator/catProfiles.js';
 import { parseClaudeHelp } from '../src/orchestrator/claudeAdapter.js';
 import { TurnScheduler } from '../src/orchestrator/turnScheduler.js';
+import { commitAll, mergeBranch } from '../src/taskBoard/gitWorktree.js';
 
 /** Lines copied from `claude --help` of Claude Code 2.1.290. */
 const HELP = `  --effort <level>                      Effort level for the current session
@@ -216,5 +218,25 @@ describe('TurnScheduler', () => {
     await Promise.all(done);
     expect(scheduler.state()).toEqual({ running: [], queued: [], cap: 2 });
     expect(states.length).toBeGreaterThan(0);
+  });
+});
+
+describe('merging worker branches', () => {
+  it('leaves a conflict open for the cat and never commits conflict markers', async () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', ['-C', tmp, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]);
+    git('init', '-q', '-b', 'main');
+    fs.writeFileSync(path.join(tmp, 'a.txt'), 'base\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'base');
+    git('checkout', '-q', '-b', 'worker');
+    fs.writeFileSync(path.join(tmp, 'a.txt'), 'worker\n');
+    git('commit', '-q', '-am', 'worker');
+    git('checkout', '-q', 'main');
+    fs.writeFileSync(path.join(tmp, 'a.txt'), 'lead\n');
+    git('commit', '-q', '-am', 'lead');
+    const outcome = await mergeBranch(tmp, 'worker', 'Merge worker');
+    expect(outcome).toMatchObject({ ok: false, conflicts: ['a.txt'] });
+    await expect(commitAll(tmp, 'wip')).rejects.toThrow('unresolved merge conflict in a.txt');
   });
 });

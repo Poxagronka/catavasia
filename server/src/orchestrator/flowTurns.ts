@@ -18,9 +18,16 @@ import {
   finalizeWorktree,
   mergeBranch,
   removeWorktree,
+  unmergedPaths,
 } from '../taskBoard/gitWorktree.js';
 import { catLabel, mergeNote, NUDGE_REPORT, reportMessage } from './flowPrompts.js';
-import { type Flow, type Member, openNodeOf, workerBranch } from './officeTools.js';
+import {
+  type Flow,
+  hasUnreadReports,
+  type Member,
+  openNodeOf,
+  workerBranch,
+} from './officeTools.js';
 import type { Orchestrator } from './orchestrator.js';
 
 const NO_TEXT = '(no text)';
@@ -39,17 +46,31 @@ export async function prepareWorkspace(flow: Flow, member: Member, stateDir: str
   member.cwd = path.join(worktreePath, flow.repo.subdir);
 }
 
-/** Merge the branches of the reports this cat received; one note per merge. */
+/**
+ * Merge the branches of the reports this cat received; one note per merge.
+ * A conflict stays open for the cat to resolve; the other branches wait until
+ * the worktree has no unmerged path again.
+ */
 async function mergeReports(flow: Flow, member: Member): Promise<string[]> {
-  const notes: string[] = [];
-  const children = member.pendingMerges.splice(0);
-  if (!member.worktreePath) return notes;
+  if (!member.worktreePath) {
+    member.pendingMerges.length = 0;
+    return [];
+  }
+  const open = await unmergedPaths(member.worktreePath);
+  if (open.length) {
+    return [
+      `[Office] Your worktree still has an unfinished merge (${open.join(', ')}). ` +
+        'Fix it and run `git add -A && git commit --no-edit`; the next reports merge after that.',
+    ];
+  }
   await commitAll(member.worktreePath, `${catLabel(member.cat)}: work in progress`);
-  for (const childId of children) {
-    const child = flow.members.get(childId);
+  const notes: string[] = [];
+  while (member.pendingMerges.length) {
+    const child = flow.members.get(member.pendingMerges.shift()!);
     if (!child?.branch) continue;
     const outcome = await mergeBranch(member.worktreePath, child.branch, `Merge ${child.branch}`);
     notes.push(mergeNote(child.cat, child.branch, outcome));
+    if (!outcome.ok && outcome.conflicts.length) break;
   }
   return notes;
 }
@@ -58,9 +79,12 @@ export async function runTurnFor(office: Orchestrator, flow: Flow, member: Membe
   const adapter = office.adapterFor(member.cat)!;
   // Merge until no report is pending, then take the inbox in the same tick, so
   // a report never reaches the cat before its branch is merged.
-  const notes: string[] = [];
-  while (member.pendingMerges.length) notes.push(...(await mergeReports(flow, member)));
+  const notes = member.pendingMerges.length ? await mergeReports(flow, member) : [];
+  // endFlow may have run during the git work: never start a process after it.
+  if (flow.ended) return;
   const message = [...notes, ...member.inbox.splice(0)].join('\n\n---\n\n');
+  // Reports whose branch still waits (after a conflict) stay unread.
+  member.unreadReports = member.pendingMerges.length;
   if (!message) return;
   // Questions this turn reads; one that arrives mid-turn waits for the next turn.
   const askedThisTurn = new Set(member.askedBy);
@@ -115,30 +139,40 @@ export async function runTurnFor(office: Orchestrator, flow: Flow, member: Membe
   if (flow.ended) return;
 
   const isRoot = member.cat.id === flow.rootId;
+  const answer = outcome.ok ? (outcome.text ?? NO_TEXT) : `My turn failed: ${outcome.error}`;
+  // A question this cat did not answer with reply: its last text (or the
+  // failure) is the answer, so the asker never waits forever.
+  for (const asker of askedThisTurn) {
+    if (!member.askedBy.delete(asker)) continue;
+    office.message(flow, member.cat.id, asker, 'reply', answer);
+    const target = office.deliver(flow, asker, `[Reply from ${catLabel(member.cat)}]\n${answer}`);
+    target.waitingOn.delete(member.cat.id);
+  }
   if (!outcome.ok) {
+    // A report or result made in a failed turn does not count.
+    member.outgoingReport = undefined;
+    member.final = undefined;
     if (isRoot)
-      return office.endFlow(flow, false, `${catLabel(member.cat)} failed: ${outcome.error}`);
+      return office.endFlow(
+        flow,
+        false,
+        `${catLabel(member.cat)} failed: ${outcome.error}`,
+        member,
+      );
     if (openNodeOf(flow, member.cat.id)) {
       await sendReport(office, flow, member, `The turn failed: ${outcome.error}`, true);
     }
     return;
   }
-  if (member.final !== undefined) return office.endFlow(flow, true, member.final);
+  if (member.final !== undefined) {
+    // A report that arrived during this turn must be read before the end.
+    if (!hasUnreadReports(member)) return office.endFlow(flow, true, member.final, member);
+    member.final = undefined;
+  }
   if (member.outgoingReport !== undefined) {
     const text = member.outgoingReport;
     member.outgoingReport = undefined;
-    await sendReport(office, flow, member, text, false);
-  }
-  // A question this cat did not answer with reply: its last text is the answer.
-  for (const asker of askedThisTurn) {
-    if (!member.askedBy.delete(asker)) continue;
-    office.message(flow, member.cat.id, asker, 'reply', outcome.text ?? NO_TEXT);
-    const target = office.deliver(
-      flow,
-      asker,
-      `[Reply from ${catLabel(member.cat)}]\n${outcome.text ?? NO_TEXT}`,
-    );
-    target.waitingOn.delete(member.cat.id);
+    if (!hasUnreadReports(member)) await sendReport(office, flow, member, text, false);
   }
   await finishIfIdle(office, flow, member, outcome.text ?? NO_TEXT);
 }
@@ -161,7 +195,7 @@ async function finishIfIdle(office: Orchestrator, flow: Flow, member: Member, la
   }
   if (isRoot) {
     office.message(flow, member.cat.id, 'user', 'final', lastText);
-    return office.endFlow(flow, true, lastText);
+    return office.endFlow(flow, true, lastText, member);
   }
   const node = openNodeOf(flow, member.cat.id)!;
   office.message(flow, member.cat.id, node.from, 'report', lastText);
@@ -178,16 +212,23 @@ async function sendReport(
 ) {
   const node = flow.task.flow.nodes.find((n) => n.cat === member.cat.id);
   if (!node) return;
-  node.status = failed ? 'failed' : 'reported';
   member.nudged = false;
   const parent = node.from;
   if (member.worktreePath && !failed) {
-    await commitAll(
-      member.worktreePath,
-      `${catLabel(member.cat)}: ${node.goal.split('\n')[0].slice(0, 72)}`,
-    );
+    try {
+      await commitAll(
+        member.worktreePath,
+        `${catLabel(member.cat)}: ${node.goal.split('\n')[0].slice(0, 72)}`,
+      );
+    } catch (err) {
+      failed = true;
+      text = `${text}\n[Office] Could not commit the work: ${String(err)}`;
+    }
   }
-  if (member.branch && !failed) flow.members.get(parent)?.pendingMerges.push(member.cat.id);
+  node.status = failed ? 'failed' : 'reported';
+  const parentMember = flow.members.get(parent);
+  if (parentMember && member.branch && !failed) parentMember.pendingMerges.push(member.cat.id);
+  if (parentMember) parentMember.unreadReports++;
   office.deliver(flow, parent, reportMessage(member.cat, text, failed));
   const stillOpen = flow.task.flow.nodes.some((n) => n.status === 'working');
   if (parent === flow.rootId && !stillOpen) office.setState(flow, 'reporting');

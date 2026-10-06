@@ -78,8 +78,19 @@ async function identityArgs(worktreePath: string): Promise<string[]> {
   return hasIdentity ? [] : FALLBACK_IDENTITY;
 }
 
-/** Commit everything in the worktree. Returns false when there was nothing to commit. */
+/** Files of a merge still in conflict in this worktree. */
+export async function unmergedPaths(worktreePath: string): Promise<string[]> {
+  const out = await git(worktreePath, ['diff', '--name-only', '--diff-filter=U']);
+  return out.split('\n').filter(Boolean);
+}
+
+/**
+ * Commit everything in the worktree. Returns false when there was nothing to
+ * commit. Refuses while a merge conflict is unresolved (never commits markers).
+ */
 export async function commitAll(worktreePath: string, message: string): Promise<boolean> {
+  const conflicts = await unmergedPaths(worktreePath);
+  if (conflicts.length) throw new Error(`unresolved merge conflict in ${conflicts.join(', ')}`);
   await git(worktreePath, ['add', '-A']);
   const staged = (await git(worktreePath, ['diff', '--cached', '--name-only'])).trim();
   if (!staged) return false;
@@ -114,10 +125,7 @@ export async function mergeBranch(
     return { ok: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    const unmerged = await git(worktreePath, ['diff', '--name-only', '--diff-filter=U']).catch(
-      () => '',
-    );
-    const conflicts = unmerged.split('\n').filter(Boolean);
+    const conflicts = await unmergedPaths(worktreePath).catch(() => []);
     if (conflicts.length === 0) await git(worktreePath, ['merge', '--abort']).catch(() => '');
     return { ok: false, conflicts, error };
   }

@@ -259,7 +259,8 @@ export function handleClientMessage(
     }
 
     case 'setShowGuests': {
-      if (typeof msg.enabled !== 'boolean') break;
+      // Guests are other people's sessions: revealing them is the operator's call.
+      if (typeof msg.enabled !== 'boolean' || !ctx.privileged) break;
       adapter?.setSetting(KEY_SHOW_GUESTS, msg.enabled);
       if (runtime) applyShowGuests(store, runtime.showGuests, msg.enabled);
       break;
@@ -267,7 +268,7 @@ export function handleClientMessage(
 
     case 'setTurnConcurrency': {
       const value = parseTurnConcurrency(msg.value);
-      if (value === undefined) break;
+      if (value === undefined || !ctx.privileged) break;
       adapter?.setSetting(KEY_TURN_CONCURRENCY, value);
       ctx.orchestrator?.scheduler.setCap(value);
       break;
