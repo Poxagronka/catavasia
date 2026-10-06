@@ -19,7 +19,7 @@ import { PNG } from 'pngjs';
 import { BREEDS, colorize } from './cats/breeds.mjs';
 import { FRAME_H, FRAME_W } from './cats/canvas.mjs';
 import { renderCatFrames } from './cats/poses.mjs';
-import { writeSocialSheet } from './cats/social.mjs';
+import { buildSocialSheet } from './cats/social.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = path.join(root, 'webview-ui', 'public');
@@ -75,9 +75,9 @@ writePng(path.join(publicDir, 'cats.png'), CELL_W * sheets.length, 36 * SCALE, (
 });
 
 // Social-scene frames (angry, talk) and shared overlays, imported by the webview.
-writeSocialSheet(
+fs.writeFileSync(
   path.join(root, 'webview-ui', 'src', 'office', 'sprites', 'cat-social.json'),
-  BREEDS,
+  JSON.stringify(buildSocialSheet(BREEDS)) + '\n',
 );
 
 console.log(

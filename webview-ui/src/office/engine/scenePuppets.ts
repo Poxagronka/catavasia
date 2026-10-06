@@ -13,15 +13,16 @@
  */
 import {
   SCENE_RELEASE_PAUSE_SEC,
+  SCENE_TALK_FALLBACK_RADIUS,
   SOCIAL_TALK_MOUTH_SEC,
   WALK_FRAME_DURATION_SEC,
 } from '../../constants.js';
-import { findPath } from '../layout/tileMap.js';
+import { findPath, isWalkable } from '../layout/tileMap.js';
 import type { Character, Direction as DirectionT, Seat } from '../types.js';
 import { CharacterState } from '../types.js';
 import { snapToTile, stepAlongPath } from './characters.js';
 import type { SocialWorld, Tile } from './socialMoves.js';
-import { meetTile, stopAfterStep, tileDistance } from './socialMoves.js';
+import { stopAfterStep } from './socialMoves.js';
 
 export interface PuppetWorld extends SocialWorld {
   characters: Map<number, Character>;
@@ -188,23 +189,53 @@ export class Puppets {
 }
 
 /**
- * Where a sender stands to talk to a receiver on `host`: a free side tile,
- * null when it already stands next to it, else the nearest free tile around.
+ * Where a sender stands to talk to a receiver on `host`: its own tile when it
+ * already stands beside the host, else the best free tile it can walk to next
+ * to the host (left / right first: a cat right above another overlaps it),
+ * then up to SCENE_TALK_FALLBACK_RADIUS tiles away. Null: no reachable tile
+ * near the host, so the sender must not walk up.
  */
 export function talkSpot(sender: Character, host: Tile, world: PuppetWorld): Tile | null {
+  const from = { col: sender.tileCol, row: sender.tileRow };
+  if (from.row === host.row && Math.abs(from.col - host.col) === 1) return from;
   const occupied = new Set<string>();
   for (const c of world.characters.values()) {
-    if (c.id !== sender.id) occupied.add(`${c.tileCol},${c.tileRow}`);
+    if (c.id !== sender.id) occupied.add(keyOf({ col: c.tileCol, row: c.tileRow }));
   }
-  const hostView = { ...sender, tileCol: host.col, tileRow: host.row };
-  const side = meetTile(sender, hostView, world, occupied);
-  if (side) return side;
-  if (tileDistance({ col: sender.tileCol, row: sender.tileRow }, host) <= 1) return null;
-  let best: Tile | null = null;
-  for (const t of world.walkableTiles) {
-    const d = tileDistance(t, host);
-    if (d === 0 || d > 3 || occupied.has(`${t.col},${t.row}`)) continue;
-    if (!best || d < tileDistance(best, host)) best = t;
+  // Walking steps from the sender to every tile it can reach (4-connected).
+  const steps = new Map<string, number>([[keyOf(from), 0]]);
+  const queue: Tile[] = [from];
+  for (let i = 0; i < queue.length; i++) {
+    const t = queue[i];
+    for (const [dc, dr] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const n = { col: t.col + dc, row: t.row + dr };
+      if (steps.has(keyOf(n)) || !isWalkable(n.col, n.row, world.tileMap, world.blockedTiles))
+        continue;
+      steps.set(keyOf(n), steps.get(keyOf(t))! + 1);
+      queue.push(n);
+    }
   }
-  return best;
+  // Side by side, then diagonal, then right above / below the host.
+  const rank = (t: Tile) => (t.row === host.row ? 0 : t.col !== host.col ? 1 : 2);
+  for (let r = 1; r <= SCENE_TALK_FALLBACK_RADIUS; r++) {
+    let best: Tile | null = null;
+    let bestScore = Infinity;
+    for (let dr = -r; dr <= r; dr++) {
+      for (let dc = -r; dc <= r; dc++) {
+        if (Math.max(Math.abs(dc), Math.abs(dr)) !== r) continue;
+        const t = { col: host.col + dc, row: host.row + dr };
+        const n = steps.get(keyOf(t));
+        if (n === undefined || (n > 0 && occupied.has(keyOf(t)))) continue;
+        const score = rank(t) * 10_000 + n;
+        if (score < bestScore) [best, bestScore] = [t, score];
+      }
+    }
+    if (best) return best;
+  }
+  return null;
 }

@@ -52,7 +52,7 @@ export function getLoadedCharacterCount(): number {
 }
 
 /** Flip a SpriteData horizontally (for generating left sprites from right) */
-function flipSpriteHorizontal(sprite: SpriteData): SpriteData {
+export function flipSpriteHorizontal(sprite: SpriteData): SpriteData {
   return sprite.map((row) => [...row].reverse());
 }
 
@@ -69,6 +69,8 @@ export interface CharacterSprites {
   reading: Record<Direction, [SpriteData, SpriteData]>;
   /** Idle-activity frames (sheet frames 7..), empty for a 7-frame sheet. */
   idle: Record<Direction, SpriteData[]>;
+  /** Social poses of a custom coat; absent: the breed art in cat-social.json. */
+  social?: Record<'talk' | 'angry', Record<Direction, SpriteData[]>>;
 }
 
 const spriteCache = new Map<string, CharacterSprites>();

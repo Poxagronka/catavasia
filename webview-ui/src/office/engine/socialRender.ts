@@ -10,11 +10,11 @@ import {
   SOCIAL_BUBBLE_OFFSET_PX,
 } from '../../constants.js';
 import {
+  furColorOf,
   getAngerSprite,
   getCloudSprite,
-  getFurColor,
   getSocialBubbleSprite,
-  getSocialPoseSprite,
+  socialPoseOf,
 } from '../sprites/socialSprites.js';
 import { getCachedSprite } from '../sprites/spriteCache.js';
 import type {
@@ -31,7 +31,7 @@ export function socialSpriteFor(ch: Character, base: SpriteData): SpriteData | n
   const v = ch.social;
   if (!v || v.pose === null) return base;
   if (v.pose === 'hidden') return null;
-  return getSocialPoseSprite(ch.palette, ch.hueShift, v.pose, ch.dir, v.frame) ?? base;
+  return socialPoseOf(ch, v.pose, v.frame) ?? base;
 }
 
 /** Anything that carries a social view: an agent cat, or a pet (mirrored from its actor). */
@@ -48,7 +48,7 @@ export interface SocialActorView {
  * `fur`: the carrier's fur when it is not an agent (a pet).
  */
 export function socialCloudDrawable(
-  ch: SocialActorView & { palette?: number; hueShift?: number },
+  ch: SocialActorView & Partial<Pick<Character, 'palette' | 'hueShift' | 'customSprites'>>,
   characters: Character[],
   offsetX: number,
   offsetY: number,
@@ -59,10 +59,14 @@ export function socialCloudDrawable(
   const cloud = ch.social?.cloud;
   if (!cloud) return null;
   const other = characters.find((c) => c.id === cloud.otherId);
-  const furA = fur ?? getFurColor(ch.palette ?? 0, ch.hueShift ?? 0);
-  const furB = other
-    ? getFurColor(other.palette, other.hueShift)
-    : (furOf?.(cloud.otherId) ?? furA);
+  const furA =
+    fur ??
+    furColorOf({
+      palette: ch.palette ?? 0,
+      hueShift: ch.hueShift ?? 0,
+      customSprites: ch.customSprites,
+    });
+  const furB = other ? furColorOf(other) : (furOf?.(cloud.otherId) ?? furA);
   const img = getCachedSprite(getCloudSprite(cloud.frame, furA, furB), zoom);
   const x = Math.round(offsetX + cloud.x * zoom - img.width / 2);
   const y = Math.round(offsetY + cloud.y * zoom - img.height);

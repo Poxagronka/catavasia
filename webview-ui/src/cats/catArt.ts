@@ -2,8 +2,15 @@
 // scripts/cats/ (pure JS label grids + breed palettes): an Appearance becomes
 // a breed object, the generator draws the frames, colorize() paints them.
 
-import { type Breed, BREEDS, colorize, type Rgb } from '../../../scripts/cats/breeds.mjs';
+import {
+  type Breed,
+  BREEDS,
+  type Cell,
+  colorize,
+  type Rgb,
+} from '../../../scripts/cats/breeds.mjs';
 import { renderCatFrames } from '../../../scripts/cats/poses.mjs';
+import { renderSocialCatFrames } from '../../../scripts/cats/social.mjs';
 import type { SpriteData } from '../office/types.js';
 import type { Appearance, ColorLayers, Hex, PatternId } from './catsApi.js';
 
@@ -262,6 +269,16 @@ export type CatFrames = Record<ArtDir, SpriteData[]>;
 const cache = new Map<string, CatFrames>();
 const CACHE_LIMIT = 64;
 
+/** A generator grid painted in the breed colours. */
+function paint(breed: Breed, grid: Array<Array<Cell | null>>, dir: ArtDir): SpriteData {
+  return grid.map((line) =>
+    line.map((cell) => {
+      const [r, g, bl, alpha] = colorize(breed, cell, dir);
+      return alpha === 0 ? '' : toHex([r, g, bl]);
+    }),
+  );
+}
+
 export function renderAppearance(a: Appearance): CatFrames {
   const key = JSON.stringify(a);
   const hit = cache.get(key);
@@ -270,16 +287,31 @@ export function renderAppearance(a: Appearance): CatFrames {
   const rows = renderCatFrames(breed);
   const frames = {} as CatFrames;
   ART_DIRS.forEach((dir, d) => {
-    frames[dir] = rows[d].map((grid) =>
-      grid.map((line) =>
-        line.map((cell) => {
-          const [r, g, bl, alpha] = colorize(breed, cell, dir);
-          return alpha === 0 ? '' : toHex([r, g, bl]);
-        }),
-      ),
-    );
+    frames[dir] = rows[d].map((grid) => paint(breed, grid, dir));
   });
   if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
   cache.set(key, frames);
   return frames;
+}
+
+/** Social-scene poses of a coat: talk and angry frames per direction. */
+export interface SocialArt {
+  talk: CatFrames;
+  angry: CatFrames;
+}
+
+/**
+ * The idle social poses (talk, angry) of a coat, from the same generator as
+ * the breed sheet in cat-social.json (scripts/cats/social.mjs). Not cached:
+ * office/sprites/appearanceSprites.ts caches per appearance.
+ */
+export function renderSocialAppearance(a: Appearance): SocialArt {
+  const breed = resolveBreed(a);
+  const rows = renderSocialCatFrames(breed);
+  const art: SocialArt = { talk: {} as CatFrames, angry: {} as CatFrames };
+  for (const dir of ART_DIRS) {
+    art.talk[dir] = rows[dir].talk.map((grid) => paint(breed, grid, dir));
+    art.angry[dir] = rows[dir].angry.map((grid) => paint(breed, grid, dir));
+  }
+  return art;
 }

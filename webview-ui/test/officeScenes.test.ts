@@ -270,6 +270,73 @@ test('a cat in a talk joins no idle social scene', () => {
   assert.equal(os.social.trySocialEncounter(a, b, { kind: 'talk', radius: 20 }), null);
 });
 
+test('a receiver that gets up during the walk-up is stopped; the sender talks next to it', () => {
+  const os = office();
+  cat(os, 1, 'deskA', true);
+  const b = cat(os, 2, 'deskE', true);
+  say(os, 1, 2, 'Can you review my branch?', 'ask');
+  runFor(os, 0.5);
+  // The receiver's turn ends: it stands up and walks off.
+  os.setAgentActive(2, false);
+  b.state = CharacterState.IDLE;
+  b.tileCol = 7;
+  b.tileRow = 8;
+  b.x = 7 * 16 + 8;
+  b.y = 8 * 16 + 8;
+  runUntil(os, () => os.scenes.talkPhase(1) === 'speak', 20);
+  assert.ok(near(os, 1, 2), 'the sender speaks next to the receiver, not from the desk');
+  assert.ok(os.scenes.owns(2), 'the receiver waits for the talk');
+});
+
+test('no free tile right next to the receiver: the sender speaks from 2 tiles at most', () => {
+  const cols = 16;
+  const tiles = new Array<TileType>(cols * 12).fill(TileType.FLOOR_1);
+  // A wall ring right around (13,8): only tiles two steps away are free.
+  for (let r = 7; r <= 9; r++)
+    for (let c = 12; c <= 14; c++) if (r !== 8 || c !== 13) tiles[r * cols + c] = TileType.WALL;
+  const os = office({ tiles });
+  cat(os, 1, 'deskA', true);
+  const b = cat(os, 2, 'deskE');
+  b.tileCol = 13;
+  b.tileRow = 8;
+  b.x = 13 * 16 + 8;
+  b.y = 8 * 16 + 8;
+  say(os, 1, 2, 'Hello there');
+  runUntil(os, () => os.scenes.talkPhase(1) === 'speak', 20);
+  const [ac, ar] = at(os, 1);
+  assert.equal(Math.max(Math.abs(ac - 13), Math.abs(ar - 8)), 2);
+  assert.equal(os.scenes.bubbles().length, 1, 'a normal talk: one bubble');
+});
+
+test('no reachable tile near the receiver: no walk-up, the line shows over both cats', () => {
+  const cols = 16;
+  const tiles = new Array<TileType>(cols * 12).fill(TileType.FLOOR_1);
+  // A closed room: walls three tiles around (12,8).
+  for (let r = 5; r <= 11; r++)
+    for (let c = 9; c <= 15; c++)
+      if (r === 5 || r === 11 || c === 9 || c === 15) tiles[r * cols + c] = TileType.WALL;
+  const os = office({ tiles });
+  const a = cat(os, 1, 'deskA', true);
+  const b = cat(os, 2, 'deskE');
+  b.tileCol = 12;
+  b.tileRow = 8;
+  b.x = 12 * 16 + 8;
+  b.y = 8 * 16 + 8;
+  say(os, 1, 2, 'Status?', 'ask');
+  runFor(os, 0.1);
+  assert.equal(os.scenes.talkPhase(1), 'speak', 'no walk-up');
+  runFor(os, 1);
+  assert.deepEqual(at(os, 1), [1, 1], 'the sender stays at its desk');
+  assert.equal(a.state, CharacterState.TYPE, 'still seated');
+  assert.deepEqual(
+    os.scenes
+      .bubbles()
+      .map((x) => x.catId)
+      .sort(),
+    [1, 2],
+  );
+});
+
 // ── Briefing meeting ────────────────────────────────────────────
 
 function brief(os: OfficeState, state: 'briefing' | 'delegating', cats = [1, 2, 3, 4]) {

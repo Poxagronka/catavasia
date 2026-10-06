@@ -1,8 +1,24 @@
-import type { TaskStatus, TaskTarget } from '../../../../core/src/tasks.js';
+import type { TaskStatus, TaskSummary, TaskTarget } from '../../../../core/src/tasks.js';
 import { CAT_NAMES } from '../../constants.js';
 
 export function catName(palette: number | undefined): string {
   return palette === undefined ? 'Cat' : CAT_NAMES[palette % CAT_NAMES.length];
+}
+
+/**
+ * Who runs the task, for the card and the detail "Cat" row: the profile name
+ * of a cat task, "Team · <boss>" for a team task, else the breed name.
+ */
+export function taskCatLabel(
+  task: Pick<TaskSummary, 'palette' | 'target' | 'flow'>,
+  cats: ReadonlyArray<{ id: string; name: string }>,
+): string {
+  const nameOf = (id: string | undefined) => cats.find((c) => c.id === id)?.name;
+  if (task.target === 'team') {
+    const boss = nameOf(task.flow?.root);
+    return boss ? `Team · ${boss}` : 'Team';
+  }
+  return nameOf(task.target) ?? catName(task.palette);
 }
 
 export function formatElapsed(ms: number): string {
