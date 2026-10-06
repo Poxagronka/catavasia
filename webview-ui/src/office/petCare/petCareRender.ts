@@ -256,7 +256,17 @@ export function petCareFx(pet: Pet, time: number): FxDrawable[] {
         POOP_GRIMACE_SEC - pet.grimaceSec,
       )
     : [];
-  return [...face, ...careAnimFx(pet, time)];
+  // Speed lines behind a pet on a sideways zoomies dash.
+  const side = pet.dir === Direction.LEFT || pet.dir === Direction.RIGHT;
+  const dash =
+    pet.sprint && side
+      ? fxDrawables(
+          'speed',
+          { x: pet.x, y: pet.y + 4, mirror: pet.dir === Direction.LEFT, zY: pet.y + TILE_SIZE },
+          pet.x / 20,
+        )
+      : [];
+  return [...face, ...dash, ...careAnimFx(pet, time)];
 }
 
 function careAnimFx(pet: Pet, time: number): FxDrawable[] {

@@ -11,6 +11,7 @@ import {
   PET_WALK_SPEED_PX_PER_SEC,
   PET_WANDER_PAUSE_MAX_SEC,
   PET_WANDER_PAUSE_MIN_SEC,
+  ZOOMIES_SPEED_MUL,
 } from '../../constants.js';
 import { findPath, isWalkable } from '../layout/tileMap.js';
 import { careSpriteFor } from '../sprites/petCareFrames.js';
@@ -94,8 +95,10 @@ function findAdjacentTile(
 /** Advance the walk-cycle frame counter (4-step cycle). */
 function updateWalkAnimation(pet: Pet, dt: number): void {
   pet.frameTimer += dt;
-  if (pet.frameTimer >= PET_WALK_FRAME_DURATION_SEC) {
-    pet.frameTimer -= PET_WALK_FRAME_DURATION_SEC;
+  // A zoomies dash runs the walk cycle faster too.
+  const frameSec = PET_WALK_FRAME_DURATION_SEC / (pet.sprint ? ZOOMIES_SPEED_MUL : 1);
+  if (pet.frameTimer >= frameSec) {
+    pet.frameTimer -= frameSec;
     pet.frame = (pet.frame + 1) % 4;
   }
 }
@@ -118,7 +121,8 @@ function movePetAlongPath(pet: Pet, dt: number): void {
   const nextTile = pet.path[0];
   pet.dir = directionBetween(pet.tileCol, pet.tileRow, nextTile.col, nextTile.row);
 
-  pet.moveProgress += (PET_WALK_SPEED_PX_PER_SEC / TILE_SIZE) * dt;
+  const speed = PET_WALK_SPEED_PX_PER_SEC * (pet.sprint ? ZOOMIES_SPEED_MUL : 1);
+  pet.moveProgress += (speed / TILE_SIZE) * dt;
 
   const fromCenter = tileCenter(pet.tileCol, pet.tileRow);
   const toCenter = tileCenter(nextTile.col, nextTile.row);

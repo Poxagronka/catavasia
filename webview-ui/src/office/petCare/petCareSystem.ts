@@ -306,7 +306,7 @@ export class PetCareSystem {
   private decide(pet: Pet, needs: Needs, env: PetCareEnv): void {
     if (this.world.entry(pet.id).bowel >= PET_BOWEL_MAX) {
       const r = this.rt(pet.id);
-      const box = findLitterBox(pet, env, this.canTarget(pet), r.refused);
+      const box = findLitterBox(pet, env, this.world, this.canTarget(pet), r.refused);
       if (box) {
         this.reserve(pet, box, env, 'poop');
         return;
@@ -494,15 +494,14 @@ export class PetCareSystem {
   /** One zoomies dash to a far tile at a sprint (r.dashes counts them down). */
   private dash(pet: Pet, env: PetCareEnv): void {
     const r = this.rt(pet.id);
-    const t = zoomiesTarget(pet.tileCol, pet.tileRow, env);
-    const path = t ? pathTo(pet, t.col, t.row, env) : null;
-    if (!t || !path || path.length === 0) {
+    const t = zoomiesTarget(pet.tileCol, pet.tileRow, env, Math.random, this.canTarget(pet));
+    if (!t) {
       r.dashes = 0;
       return;
     }
     r.dashes--;
     pet.sprint = true;
-    this.walk(pet, { uid: '', col: t.col, row: t.row, path }, 'zoom');
+    this.walk(pet, { uid: '', ...t }, 'zoom');
   }
 
   private pose(pet: Pet, kind: Anim['kind'], dur: number, done: () => void): void {

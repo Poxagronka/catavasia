@@ -25,7 +25,7 @@ import {
   sandStage,
 } from '../src/office/petCare/litterStages.js';
 import type { PetCareEnv } from '../src/office/petCare/petCareNav.js';
-import { floorSpotNear, hitTestCare } from '../src/office/petCare/petCareNav.js';
+import { findLitterBox, floorSpotNear, hitTestCare } from '../src/office/petCare/petCareNav.js';
 import { PetCareSystem } from '../src/office/petCare/petCareSystem.js';
 import { PetCareWorld } from '../src/office/petCare/petCareWorld.js';
 import {
@@ -35,7 +35,7 @@ import {
   litterFrontSprite,
 } from '../src/office/sprites/petCareSprites.js';
 import type { Pet, PlacedFurniture, TileType as TileTypeVal } from '../src/office/types.js';
-import { TileType } from '../src/office/types.js';
+import { PetState, TileType } from '../src/office/types.js';
 
 const FRAME = 0.05;
 const BOX_A: PlacedFurniture = { uid: 'a', type: 'LITTER_BOX', col: 2, row: 1 };
@@ -243,4 +243,32 @@ test('the floor spot for an accident skips boxes, poops and taken tiles', () => 
   const spot = floorSpotNear(2, 1, env, w, (k) => k !== '1,1');
   assert.ok(spot);
   assert.ok(!['2,1', '3,1', '1,1'].includes(`${spot.col},${spot.row}`));
+});
+
+test('a refused box counts again once it is cleaned', () => {
+  const { pet, env, care } = setup([BOX_A]);
+  care.world.boxes.set('a', PET_LITTER_CAPACITY);
+  const refused = new Set(['a']);
+  assert.equal(
+    findLitterBox(pet, env, care.world, () => true, refused),
+    null,
+  );
+  care.world.cleanBox('a');
+  assert.equal(findLitterBox(pet, env, care.world, () => true, refused)?.uid, 'a');
+});
+
+test('pet zoomies: a sprint is faster than a walk', () => {
+  const env = setup([]).env;
+  const walker = createPet('w', 0, 0, 2);
+  const runner = createPet('r', 0, 0, 2);
+  runner.sprint = true;
+  for (const p of [walker, runner]) {
+    p.path = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((col) => ({ col, row: 2 }));
+    p.state = PetState.WALK;
+  }
+  for (let t = 0; t < 1; t += FRAME) {
+    for (const p of [walker, runner])
+      updatePet(p, FRAME, [], new Map(), env.tileMap, env.blockedTiles);
+  }
+  assert.ok(runner.x > walker.x * 1.5, `${runner.x} vs ${walker.x}`);
 });

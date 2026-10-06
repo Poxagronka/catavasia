@@ -86,16 +86,17 @@ export class LitterLife {
     this.grimaceAtPoops(dt, poops);
   }
 
-  /** Refuse an overflowing box before the visit starts; drop the pile as covering starts. */
+  /** Refuse an overflowing box on arrival; drop the pile as covering starts. */
   private watchRun(run: IdleActivityRun): void {
     const uid = run.spot?.itemUid;
     const world = this.w.petCare.world;
     if (isUse(run.id) && uid) {
-      const starting = run.phase === 'going' || (run.part === 'intro' && (run.step ?? 0) === 0);
-      if (starting && world.isBoxRefused(uid)) {
+      // At arrival: a box cleaned while the cat walked there is fine again.
+      const arriving = run.phase === 'doing' && run.part === 'intro' && (run.step ?? 0) === 0;
+      if (arriving && world.isBoxRefused(uid)) {
         run.id = 'litterRefuse';
         const def = getIdleActivity(run.id);
-        if (run.phase === 'doing' && def) startAnim(run, def);
+        if (def) startAnim(run, def);
         return;
       }
     }
@@ -149,7 +150,10 @@ export class LitterLife {
     const options: Array<{ id: string; spot: ActivitySpot }> = [];
     for (const id of LITTER_USE_IDS) {
       for (const spot of this.w.activitySpots.get(id)?.spots ?? []) {
-        if (spot.itemUid && !refused.has(spot.itemUid) && !taken.has(spot.key)) {
+        const uid = spot.itemUid;
+        // A refused box counts again once someone cleaned it.
+        const stillRefused = !!uid && refused.has(uid) && this.w.petCare.world.isBoxRefused(uid);
+        if (uid && !stillRefused && !taken.has(spot.key)) {
           options.push({ id, spot });
         }
       }
@@ -190,12 +194,12 @@ export class LitterLife {
     }
     this.dashes.set(ch.id, left - 1);
     const taken = this.w.takenBy(ch);
-    const boxes = this.boxTiles();
-    const free = {
+    const env = {
+      furniture: this.w.placedFurniture(),
       tileMap: this.w.tileMap,
-      blockedTiles: new Set([...this.w.blockedTiles, ...taken, ...boxes]),
+      blockedTiles: this.w.blockedTiles,
     };
-    const to = zoomiesTarget(ch.tileCol, ch.tileRow, free, this.rand);
+    const to = zoomiesTarget(ch.tileCol, ch.tileRow, env, this.rand, (k) => !taken.has(k));
     if (!to) return false;
     const facing = to.col >= ch.tileCol ? Direction.RIGHT : Direction.LEFT;
     return this.w.startActivityAt(ch, 'zoomies', plainSpot(to.col, to.row, facing));

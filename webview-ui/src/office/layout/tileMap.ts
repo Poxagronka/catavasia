@@ -59,10 +59,7 @@ export function findPath(
   blockedTiles: Set<string>,
 ): Array<{ col: number; row: number }> {
   if (avoidTiles.size > 0) {
-    const ends = [`${startCol},${startRow}`, `${endCol},${endRow}`];
-    const soft = new Set(blockedTiles);
-    for (const k of avoidTiles) if (!ends.includes(k)) soft.add(k);
-    const around = bfs(startCol, startRow, endCol, endRow, tileMap, soft);
+    const around = bfs(startCol, startRow, endCol, endRow, tileMap, blockedTiles, avoidTiles);
     if (around.length > 0) return around;
   }
   return bfs(startCol, startRow, endCol, endRow, tileMap, blockedTiles);
@@ -75,6 +72,8 @@ function bfs(
   endRow: number,
   tileMap: TileType[][],
   blockedTiles: Set<string>,
+  /** Tiles stepped on only as the goal (floor poops). */
+  avoid: ReadonlySet<string> = new Set(),
 ): Array<{ col: number; row: number }> {
   if (startCol === endCol && startRow === endRow) return [];
 
@@ -126,6 +125,7 @@ function bfs(
 
       if (visited.has(nk)) continue;
       if (!isWalkable(nc, nr, tileMap, blockedTiles)) continue;
+      if (nk !== endKey && avoid.has(nk)) continue;
 
       visited.add(nk);
       parent.set(nk, currKey);

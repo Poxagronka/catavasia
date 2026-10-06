@@ -214,3 +214,17 @@ test('paths go around a floor poop when they can, and a passing cat may grimace'
   );
   assert.ok(grimaced);
 });
+
+test('a box cleaned while the cat walks there is used, not refused', () => {
+  Math.random = () => 0.9;
+  const os = office([BOX]);
+  os.petCare.world.boxes.set('a', PET_LITTER_CAPACITY);
+  const ch = idleCat(os, 1);
+  assert.ok(os.forceIdleActivity(1, 'litter'));
+  os.update(0.05);
+  assert.equal(ch.state, CharacterState.WALK);
+  os.petCare.world.cleanBox('a');
+  runUntil(os, () => ch.lastActivityId === 'litter');
+  assert.equal(os.petCare.world.boxCount('a'), 1);
+  assert.equal(os.petCare.world.floorPoops.length, 0);
+});

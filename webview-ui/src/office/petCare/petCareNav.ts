@@ -1,4 +1,4 @@
-import { ZOOMIES_MAX_TILES, ZOOMIES_MIN_TILES } from '../../constants.js';
+import { ZOOMIES_MAX_TILES, ZOOMIES_MIN_TILES, ZOOMIES_PICKS } from '../../constants.js';
 import { findPath, isWalkable } from '../layout/tileMap.js';
 import type { Pet, PlacedFurniture, TileType as TileTypeVal } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
@@ -85,17 +85,19 @@ export function findBowlSpot(
 /**
  * The nearest reachable litter box (its tile is walkable), whatever its fill:
  * the cat finds out at the box that it overflows, and refuses it there.
- * `refused`: boxes this cat already turned down this time.
+ * `refused`: boxes this cat already turned down this time (skipped while they still overflow).
  */
 export function findLitterBox(
   pet: Pet,
   env: PetCareEnv,
+  world: PetCareWorld,
   canUse: (key: string) => boolean = () => true,
   refused: ReadonlySet<string> = new Set(),
 ): CareTarget | null {
   let best: CareTarget | null = null;
   for (const f of env.furniture) {
-    if (!isLitterBoxType(f.type) || refused.has(f.uid)) continue;
+    // A refused box counts again once someone cleaned it.
+    if (!isLitterBoxType(f.type) || (refused.has(f.uid) && world.isBoxRefused(f.uid))) continue;
     if (!canUse(`${f.col},${f.row}`)) continue;
     const path = pathTo(pet, f.col, f.row, env);
     if (path && (!best || path.length < best.path.length)) {
@@ -135,24 +137,39 @@ export function floorSpotNear(
   return tiles[0] ? { col: tiles[0].col, row: tiles[0].row } : null;
 }
 
-/** A random floor tile ZOOMIES_MIN..MAX_TILES away (manhattan) for a zoomies dash. */
+/**
+ * A random reachable floor tile ZOOMIES_MIN..MAX_TILES away (manhattan) for a
+ * zoomies dash, with its path; not a litter box tile, and `canUse` it.
+ */
 export function zoomiesTarget(
   col: number,
   row: number,
-  env: Pick<PetCareEnv, 'tileMap' | 'blockedTiles'>,
+  env: Pick<PetCareEnv, 'furniture' | 'tileMap' | 'blockedTiles'>,
   rand: () => number = Math.random,
-): { col: number; row: number } | null {
+  canUse: (key: string) => boolean = () => true,
+): { col: number; row: number; path: Array<{ col: number; row: number }> } | null {
+  const boxes = new Set(
+    env.furniture.filter((f) => isLitterBoxType(f.type)).map((f) => `${f.col},${f.row}`),
+  );
   const out: Array<{ col: number; row: number }> = [];
   for (let dr = -ZOOMIES_MAX_TILES; dr <= ZOOMIES_MAX_TILES; dr++) {
     for (let dc = -ZOOMIES_MAX_TILES; dc <= ZOOMIES_MAX_TILES; dc++) {
       const d = Math.abs(dc) + Math.abs(dr);
-      if (d < ZOOMIES_MIN_TILES || d > ZOOMIES_MAX_TILES) continue;
+      const key = `${col + dc},${row + dr}`;
+      if (d < ZOOMIES_MIN_TILES || d > ZOOMIES_MAX_TILES || boxes.has(key) || !canUse(key))
+        continue;
       if (isWalkable(col + dc, row + dr, env.tileMap, env.blockedTiles)) {
         out.push({ col: col + dc, row: row + dr });
       }
     }
   }
-  return out.length > 0 ? out[Math.floor(rand() * out.length)] : null;
+  // Many tiles that near are behind a wall: try random picks until one is reachable.
+  for (let i = 0; i < ZOOMIES_PICKS && out.length > 0; i++) {
+    const [t] = out.splice(Math.floor(rand() * out.length), 1);
+    const path = findPath(col, row, t.col, t.row, env.tileMap, env.blockedTiles);
+    if (path.length > 0) return { ...t, path };
+  }
+  return null;
 }
 
 export type CareHit =

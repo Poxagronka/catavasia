@@ -678,6 +678,8 @@ export const ZOOMIES_DASHES_MIN = 2;
 export const ZOOMIES_DASHES_MAX = 3;
 export const ZOOMIES_MIN_TILES = 4;
 export const ZOOMIES_MAX_TILES = 9;
+/** Random dash targets tried until one is reachable (many lie behind a wall). */
+export const ZOOMIES_PICKS = 12;
 /** Walk speed and walk-frame rate multiplier while a cat has the zoomies. */
 export const ZOOMIES_SPEED_MUL = 2.6;
 /** A cat passing a floor poop may grimace: how long, how often per cat, how likely. */
