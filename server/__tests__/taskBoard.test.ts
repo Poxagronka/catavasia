@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { NarratorInput } from '../../core/src/narrator.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { createHttpServer } from '../src/httpServer.js';
 import { createWorktree, finalizeWorktree, inspectRepo } from '../src/taskBoard/gitWorktree.js';
@@ -122,6 +123,24 @@ describe('parseStreamLine', () => {
     expect(parsed.result).toMatchObject({ isError: true, text: 'Not logged in' });
   });
 
+  it('summarizes a NotebookEdit by its notebook path', () => {
+    const line = JSON.stringify({
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'tool_use',
+            name: 'NotebookEdit',
+            input: { notebook_path: '/r/x.ipynb', new_source: 'a' },
+          },
+        ],
+      },
+    });
+    expect(parseStreamLine(line).log).toEqual([
+      { kind: 'tool', name: 'NotebookEdit', text: '/r/x.ipynb' },
+    ]);
+  });
+
   it('ignores non-JSON lines', () => {
     expect(parseStreamLine('not json')).toEqual({ log: [] });
   });
@@ -161,12 +180,25 @@ describe('TaskManager', () => {
     const folder = path.join(tmp, 'plain');
     fs.mkdirSync(folder);
     const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir, defaultCwd: folder, claudeBin: fakeBin });
+    const narrated: NarratorInput[] = [];
+    const manager = new TaskManager({
+      host,
+      stateDir,
+      defaultCwd: folder,
+      claudeBin: fakeBin,
+      narrate: (input) => narrated.push(input),
+    });
 
     const task = await waitSettled(manager, (await manager.create('hello')).id);
 
     expect(task.status).toBe('done');
     expect(task.branch).toBeUndefined();
+    // The stream feeds the narrator: tool, assistant text, final result.
+    expect(narrated.map(({ ts: _ts, ...rest }) => rest)).toEqual([
+      { catId: 1, kind: 'tool', tool: 'Write', file: 'meow.txt', text: 'meow.txt' },
+      { catId: 1, kind: 'state', text: 'thinking' },
+      { catId: 1, kind: 'result', text: 'Done: meow.txt' },
+    ]);
     expect(host.launched[0].cwd).toBe(folder);
     expect(fs.readFileSync(path.join(folder, 'meow.txt'), 'utf-8')).toBe('hello');
   });

@@ -72,6 +72,19 @@ Measured 2026-10-05 on this Mac: one-shot `claude -p --model haiku` = ~305 MB pe
 4. Leaf workers as subagents (optional): a worker that never delegates can run as a subagent inside its parent's process. That uses less RAM, but the user cannot open its own terminal. Off by default.
    Expected peak: about N × 300–850 MB while N cats work, near 0 when the office is idle.
 
+### Narrator decisions (feat/narrator, phase 2c, agent-made 2026-10-06)
+
+- Code: `server/src/narrator/` (templates.ts, schema.ts, haikuBatcher.ts, narrator.ts), contract `core/src/narrator.ts`, webview `webview-ui/src/narratorStore.ts`.
+- Input: `NarratorInput` = `{catId, ts, kind: tool|message|state|result, tool?, file?, from?, to?, text?}`. `catId` is the office agent id (number). A `state` event carries `text` = thinking | permission | input | done | error. Today the task board stream-json feeds it (`TaskManagerOptions.narrate`), plus hook-derived `agentToolPermission` / `agentStatus{awaitingInput}` for cats the narrator already speaks for. Phase 1 pushes orchestrator events through `Narrator.push`. Office MCP tools are matched by name suffix (brief, delegate, report, ask, reply, list_team).
+- Output: `narratorLine {catId, state, line ≤60}` at once, on change only. `narratorSummary {conversationId, catIds, summary ≤120}` from Haiku. Conversation ids: `chat:<sorted from|to>` for messages, `result:<catId>` for results.
+- Wire: three WS messages OUTSIDE `core/asyncapi.yaml`: `narratorLine`, `narratorSummary`, `narratorSettings` (server → client), `setNarratorSettings` (client → server). Sent via `store.broadcast` and cast at the webview boundary. **Phase 1 must fold them into asyncapi.yaml** and drop the casts in `narratorStore.ts`.
+- Haiku: one call at a time, every 10 s while material is pending, all pending conversations in one call. A failure re-queues and doubles the wait (cap 5 min). A missing `claude` (ENOENT) turns summaries off until restart. Queue caps: 30 conversations, 12 lines each.
+- Validator: schema check, then every sentence of a summary must be backed by its input lines: claim words (saved, committed, tests passed, fixed, done …), numbers and file names must appear in the input, checkmarks are always dropped, non-Russian output is dropped.
+- Settings (standalone, per-namespace config): `narratorAiSummaries` (default ON), `narratorRawToolStatus` (default OFF, debug: hover shows the raw "Reading foo.ts"). Language is fixed to Russian.
+- Hover: the Russian line replaces the activity text for non-subagent cats. The last summary shows as a small second line.
+- Real call measured 2026-10-06 on this Mac (`npx tsx scripts/narrator-haiku-smoke.ts`, 2 conversations): 4.7 s per call, 1,818 input / 225 output tokens, $0.0029 list price, no cache (the static prompt is below the 4,096-token Haiku cache minimum).
+- Open for the user: the pixel font draws lowercase Cyrillic in italic style (т looks like m, в like 8). Choose a font only with the user's visual approval.
+
 ## Team modes — light team is a BACKLOG option (user, 2026-10-05)
 
 Full team is the default. Light team stays in the backlog as a fallback switch, to build if the computer starts to hang (RAM).

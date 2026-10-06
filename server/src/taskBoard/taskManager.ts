@@ -12,6 +12,7 @@ import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import * as path from 'path';
 
+import type { NarratorInput } from '../../../core/src/narrator.js';
 import type { TaskDetail, TaskLogEntry, TaskSummary } from '../../../core/src/tasks.js';
 import { acquireSessionLock } from '../catTerminal/sessionLocks.js';
 import {
@@ -20,10 +21,11 @@ import {
   TASK_WORKTREES_DIR,
   TASKS_FILE_NAME,
 } from '../constants.js';
+import { taskLogInput } from '../narrator/narrator.js';
 import { claudeProvider } from '../providers/index.js';
 import { isProcessRunning } from '../server.js';
 import { createWorktree, finalizeWorktree, inspectRepo, reopenWorktree } from './gitWorktree.js';
-import { parseStreamLine, type StreamResult } from './streamJson.js';
+import { type ParsedStreamLine, parseStreamLine, type StreamResult } from './streamJson.js';
 import { type StoredTask, TaskStore } from './taskStore.js';
 
 const TITLE_MAX_CHARS = 80;
@@ -56,6 +58,8 @@ export interface TaskManagerOptions {
   defaultCwd: string;
   /** CLI binary override (tests). Default: the provider's launch command. */
   claudeBin?: string;
+  /** Receives the run's events as narrator input (Russian status lines). */
+  narrate?: (input: NarratorInput) => void;
 }
 
 interface RunningTask {
@@ -343,10 +347,20 @@ export class TaskManager {
   private onStreamLine(run: RunningTask, line: string): void {
     const parsed = parseStreamLine(line);
     if (parsed.result) run.result = parsed.result;
+    this.narrateLine(run.task.agentId, parsed);
     const log = run.task.log;
     log.push(...parsed.log);
     if (log.length > TASK_LOG_MAX_ENTRIES) log.splice(0, log.length - TASK_LOG_MAX_ENTRIES);
     if (parsed.log.length > 0) this.events.emit('log', run.task.id, parsed.log);
+  }
+
+  private narrateLine(catId: number | undefined, parsed: ParsedStreamLine): void {
+    const narrate = this.opts.narrate;
+    if (!narrate || catId === undefined) return;
+    const ts = Date.now();
+    for (const entry of parsed.log) narrate(taskLogInput(catId, entry, ts));
+    if (parsed.result?.isError) narrate({ catId, ts, kind: 'state', text: 'error' });
+    else if (parsed.result) narrate({ catId, ts, kind: 'result', text: parsed.result.text });
   }
 
   private async finishRun(run: RunningTask, code: number | null): Promise<void> {
