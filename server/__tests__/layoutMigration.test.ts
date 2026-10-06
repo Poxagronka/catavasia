@@ -47,9 +47,9 @@ afterEach(() => {
 });
 
 describe('default layout upgrade', () => {
-  it('the newest bundled default has the lead desk; revisions 1 to 8 are previous', () => {
+  it('the newest bundled default has the clock in the lounge; revisions 1 to 9 are previous', () => {
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
-    expect(latest.layoutRevision).toBe(9);
+    expect(latest.layoutRevision).toBe(10);
     const count = (type: string) =>
       (latest.furniture as Array<{ type: string }>).filter((f) => f.type === type).length;
     // The calm playroom of revision 4 stays.
@@ -78,9 +78,48 @@ describe('default layout upgrade', () => {
     expect(count('LEAD_CHAIR_FRONT')).toBe(1);
     expect(count('WHITEBOARD')).toBe(1);
     expect(count('CLOCK')).toBe(1);
-    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 8.
+    // Revision 1 with the pet-care items, as it shipped before them, then revisions 2 to 9.
     const previous = loadPreviousDefaultLayouts(ASSETS_ROOT);
-    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(previous.map((l) => l.layoutRevision)).toEqual([1, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('revision 10 only moves the clock from the work room to the lounge top wall', () => {
+    type Item = { uid: string; type: string; col: number; row: number };
+    const [rev9, rev10] = [bundled(9), bundled(10)];
+    const { layoutRevision: _r9, furniture: f9, ...rest9 } = rev9;
+    const { layoutRevision: _r10, furniture: f10, ...rest10 } = rev10;
+    expect(rest10).toEqual(rest9);
+    const others = (f: unknown) => (f as Item[]).filter((i) => i.type !== 'CLOCK');
+    expect(others(f10)).toEqual(others(f9));
+    // The lounge (cols 11 to 18): between the small painting (12) and the large one (14-15).
+    const clock = (f: unknown) => (f as Item[]).find((i) => i.type === 'CLOCK')!;
+    expect(clock(f9)).toMatchObject({ col: 4, row: 9 });
+    expect(clock(f10)).toMatchObject({ uid: clock(f9).uid, col: 13, row: 9 });
+  });
+
+  it('upgrades an untouched revision 9 default to the lounge clock one', () => {
+    saveLayout(bundled(9));
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
+
+    expect(result).toEqual({ layout: latest, wasReset: true });
+    expect(readLayoutFromFile()).toEqual(latest);
+    expect(latest.layoutRevision).toBe(10);
+  });
+
+  it('keeps an edited revision 9 office (its clock stays in the work room)', () => {
+    const custom = bundled(9);
+    (custom.furniture as unknown[]).pop();
+    saveLayout(custom);
+
+    const result = loadLayout(
+      loadDefaultLayout(ASSETS_ROOT),
+      loadPreviousDefaultLayouts(ASSETS_ROOT),
+    );
+
+    expect(result).toEqual({ layout: custom, wasReset: false });
+    expect(readLayoutFromFile()).toEqual(custom);
   });
 
   it('revision 9 only rearranges the main work room around the lead desk', () => {
@@ -160,7 +199,7 @@ describe('default layout upgrade', () => {
     });
   });
 
-  it("upgrades an untouched revision 7 default (the user's office) to revision 9", () => {
+  it("upgrades an untouched revision 7 default (the user's office) to revision 10", () => {
     saveLayout(bundled(7));
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
 
@@ -168,7 +207,7 @@ describe('default layout upgrade', () => {
 
     expect(result).toEqual({ layout: latest, wasReset: true });
     expect(readLayoutFromFile()).toEqual(latest);
-    expect(latest.layoutRevision).toBe(9);
+    expect(latest.layoutRevision).toBe(10);
     // A second start finds the newest default and keeps it.
     expect(loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT))).toEqual({
       layout: latest,
@@ -223,14 +262,14 @@ describe('default layout upgrade', () => {
     expect(result).toEqual({ layout: custom, wasReset: false });
   });
 
-  it('upgrades an untouched revision 5 default straight to revision 9', () => {
+  it('upgrades an untouched revision 5 default straight to revision 10', () => {
     saveLayout(bundled(5));
     const latest = loadDefaultLayout(ASSETS_ROOT)!;
 
     const result = loadLayout(latest, loadPreviousDefaultLayouts(ASSETS_ROOT));
 
     expect(result).toEqual({ layout: latest, wasReset: true });
-    expect(latest.layoutRevision).toBe(9);
+    expect(latest.layoutRevision).toBe(10);
   });
 
   it("upgrades an untouched revision 5 default (the user's office) to the Cat CEO one", () => {
@@ -406,6 +445,20 @@ describe('default layout upgrade', () => {
     });
 
     expect(readLayoutFromFile()).toEqual(latest);
+    expect(latest.layoutRevision).toBe(10);
     expect(sent).toEqual([{ type: 'layoutLoaded', layout: latest }]);
+  });
+
+  it('Settings "Reset everything" writes the newest default office', () => {
+    saveLayout(bundled(9));
+    const latest = loadDefaultLayout(ASSETS_ROOT)!;
+
+    handleClientMessage({ type: 'resetAllToDefault' }, () => {}, {
+      store: new AgentStateStore(),
+      cache: { defaultLayout: latest } as never,
+    });
+
+    expect(readLayoutFromFile()).toEqual(latest);
+    expect(latest.layoutRevision).toBe(10);
   });
 });

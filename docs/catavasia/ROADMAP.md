@@ -341,3 +341,9 @@ Follow-up of "Every furniture item turns": real side/back art where a mirror ima
 - **Benches stay symmetric**: both are 1x1 stools with no back or long axis; every turn is the same pixels, so drawn views would add files and no change.
 - **Saved mirror views**: a `<ID>:left` saved while an item was mirror-only (PR A) loads as the front once the item has drawn views (`migrateFurnitureTypes`).
 - **Previews**: `--work` (a cat typing at a desk or table in every view; the executive and lead chairs are held for the Cat CEO and the lead, so the previews use the cushioned chair) and `--states` (a view's off sprite and its on animation).
+
+## Clock moves to the lounge (feat/clock-move, agent-made 2026-10-06)
+
+User requirement: "Remove the clock from this wall (the top wall of the cats' main work room, next to the whiteboard) and hang it on the top wall of another room."
+
+- **Default layout revision 10** (from 9). Only the `CLOCK` moves: from (4,9) in the main work room to (13,9) on the lounge top wall, between the small painting (12) and the large painting (14-15). Nothing else changes. Untouched revisions 1-9 upgrade, an edited office is kept. "Reset layout to default" and "Reset everything" write revision 10.
