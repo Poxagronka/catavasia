@@ -51,10 +51,10 @@ export interface RejectedEdit {
   edit: JudgeEdit;
 }
 
-/** Lower case, punctuation dropped, spaces collapsed; the task suffix is not part of the idea. */
+/** Lower case, punctuation dropped, spaces collapsed; the task or tidy suffix is not part of the idea. */
 export function normalizeItem(text: string): string {
   return text
-    .replace(/\s*\(task [^,()]+, \d{4}-\d{2}-\d{2}\)\s*$/, '')
+    .replace(/\s*\((?:task|tidy) [^,()]+, \d{4}-\d{2}-\d{2}\)\s*$/, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')

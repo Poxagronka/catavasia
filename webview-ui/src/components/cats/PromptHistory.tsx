@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 
 import type { PromptHistoryEntry } from '../../../../core/src/messages.js';
 import { catCeo, useCatCeo } from '../../cats/catCeoClient.js';
+import { CAT_CEO_ID } from '../../constants.js';
 import { Button } from '../ui/Button.js';
+import { LastTidy, TidyTable } from './TidyTable.js';
 
 const AUTHOR: Record<PromptHistoryEntry['author'], string> = {
   'cat-ceo': 'Cat CEO',
@@ -68,6 +70,30 @@ function EntryActions({ catId, entry }: { catId: string; entry: PromptHistoryEnt
   );
 }
 
+/** "Tidy now" (the Cat CEO re-checks the Rules and Lessons), its state, and the newest tidy. */
+function TidyBar({ catId }: { catId: string }) {
+  const { tidy, lastTidy, settings } = useCatCeo();
+  const state = tidy[catId];
+  const last = lastTidy[catId];
+  if (catId === CAT_CEO_ID) return null;
+  return (
+    <>
+      <div className="flex gap-8 items-center">
+        <Button
+          size="sm"
+          disabled={!settings?.enabled || state?.state === 'queued'}
+          onClick={() => catCeo.tidyNow(catId)}
+          title="The Cat CEO merges, rewrites or removes Rules and Lessons items (one commit)"
+        >
+          Tidy now
+        </Button>
+        {state && <span className="text-text-muted">{state.text}</span>}
+      </div>
+      {last && <LastTidy tidy={last} />}
+    </>
+  );
+}
+
 /** Prompt history of one cat: commits newest first, the diff of the open one, revert and restore. */
 export function PromptHistory({ catId }: { catId: string }) {
   const { history, diffs } = useCatCeo();
@@ -84,6 +110,7 @@ export function PromptHistory({ catId }: { catId: string }) {
   if (!entries.length) return <div className="text-xs text-text-muted">No commits yet.</div>;
   return (
     <div className="flex flex-col gap-2 text-xs" data-testid="prompt-history">
+      <TidyBar catId={catId} />
       {entries.map((e) => {
         const isOpen = open === e.sha;
         const diff = diffs[`${catId}:${e.sha}`];
@@ -109,6 +136,7 @@ export function PromptHistory({ catId }: { catId: string }) {
             </button>
             {isOpen && (
               <>
+                {e.tidy && <TidyTable rows={e.tidy} />}
                 <div className="bg-bg-dark p-4 font-mono max-h-240 overflow-auto">
                   {diff === undefined ? (
                     <span className="text-text-muted">Loading the diff…</span>

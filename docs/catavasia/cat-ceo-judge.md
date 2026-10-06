@@ -300,3 +300,36 @@ At 20 tasks a day: about $3–5 a day. Sonnet 5.5 as judge halves it. Step 8 of 
 ## 13. Open questions
 
 None blocking. The weights of §5.5 and the thresholds of D7/D8 are first guesses; the Cat CEO review records keep all scores, so they can be tuned from data later.
+
+## 14. Prompt hygiene: the tidy
+
+User requirement (2026-10-06): "The CEO also re-checks the cats' rules and lessons, optimizes them, removes what is unnecessary." Built in 1.4.1-cats.15. Code: `server/src/catCeo/tidy.ts`, `tidySchema.ts`, `tidyDigest.ts`, `tidyPatch.ts`.
+
+### 14.1 Decisions
+
+| #   | Decision                                                                                                                                                                                                                                                                                                                                | Reason                                                                                     |
+| :-- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
+| T1  | A tidy is one fresh `claude -p` per cat, with the review flags (§4), its own schema and rules, the same model and effort, and `--max-budget-usd 1`. It runs in the `cat-ceo` scheduler slot and shares the review queue (D9).                                                                                                           | Same safety model and RAM rule as a review. Reviews and tidies never run at the same time. |
+| T2  | Ops: `merge` (2+ cited ids become one new id at the place of the first source), `rewrite` (same id, same meaning), `remove`, `keep`. Each has a one-line reason. No `add`.                                                                                                                                                              | A tidy only shrinks the list. A rewrite keeps its meaning, so it keeps its id.             |
+| T3  | Triggers: Rules ≥ 10 of 12 or Lessons ≥ 16 of 20 (80 %), 10 reviews of the cat since its last tidy, "Tidy now" in Prompt history (token-gated `tidyPrompt`), and a weekly sweep over all cats (checked every hour).                                                                                                                     | The user's list. The first start only sets the sweep clock: an upgrade does not tidy all.  |
+| T4  | Skip when the file's head commit equals the head after the last tidy. Automatic tidies: at most 1 per cat per rolling 24 h (a failed run counts), none while the guard blocks the cat. Manual: no daily limit. Automatic tidies keep 3 queue places free for task reviews; a sweep that finds no room retries at the next hourly check. | No repeat cost for an unchanged file, and no retry loop after every review.                |
+| T5  | A tidy commit (`cat-ceo(<cat>): tidy — merged N, rewrote M, removed K`, trailers `Prompt-Edit-By: cat-ceo` and `Prompt-Tidy: <id>`) does not count against the 2 review edits per day.                                                                                                                                                  | Its own limit is T4.                                                                       |
+| T6  | Item owner = `user` when a user commit added the item or changed its text, or when the item has no history in the newest 200 commits, or when a tidy merged user items into it (trailer `Prompt-User-Items`). An id that comes back with a new text is a new item. Else `cat-ceo`.                                                      | Read from the prompts repo, so hand edits and restores count. Unknown = protected.         |
+| T7  | User items: a `remove` is never applied, only marked. `merge` and `rewrite` are applied only with the setting "CEO may tidy my items" (`tidyUserItems`, default off), else marked. Marked changes show in the UI only.                                                                                                                  | A tidy may not remove a user item without marking it.                                      |
+| T8  | At most 8 applied changes per tidy. The new text of a merge or rewrite is never longer than its sources, so the net size never grows.                                                                                                                                                                                                   | A bounded diff. Shorter is the point.                                                      |
+| T9  | The server strips any `(task …)` or `(tidy …)` suffix from the model's text. A rewrite keeps the source suffix. A merge gets `(tidy <id>, <date>)`.                                                                                                                                                                                     | Provenance stays, and dedupe ignores both suffixes.                                        |
+| T10 | The judge CLI runs with `--settings '{"language":"en"}'` (reviews too). The user's `language: ru` setting made the first real tidy answer in Russian despite the rules.                                                                                                                                                                 | English output in commits and in the UI.                                                   |
+
+### 14.2 Input (digest)
+
+Role & conduct (first 1,000 chars, read-only context), the cat's last 10 scores, its last 5 review summaries with its anomalies, and each item with: owner, when, by whom and in which task it was added, the anomaly kinds of that review, the last edit, the reviews since, how often later anomaly evidence cites its id, how often the same anomaly kind came back, and the mean score before and after. The digest is redacted like the review digest.
+
+### 14.3 Validation
+
+Per op: the ids exist in the op's section and appear in no other op. A merge cites 2+ ids, a rewrite exactly 1. The text passes check 4 of §7, the secret scan, the 280-char cap, the size rule (T8), and dedupe against the items that stay. A rewrite must change the text. Then the file caps hold and `Role & conduct` is byte-identical (a break throws: it is a bug, not a model error). The file must not change while the judge runs; else the tidy fails and applies nothing.
+
+### 14.4 Guard, UI, game
+
+- The regression guard treats a tidy commit like any Cat CEO commit (§8): a 15-point drop reverts it as `guard(<cat>)`.
+- Prompt history: "Tidy now" with the tidy state, the last tidy (summary, cost, marked rows), and for a tidy commit a per-item table (change, before, after, reason) above the diff. Cat CEO editor: the "CEO may tidy my items" line.
+- Game: on `promptTidy` done with changes, the Cat CEO walks to the cat as a `review` talk "tidied N items". No new sprite.

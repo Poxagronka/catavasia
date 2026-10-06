@@ -56,8 +56,9 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
       {error && <div className="text-xs text-status-error">{error}</div>}
       <div className="text-xs text-text-muted">
         Sits above the boss. After each finished team task it scores every cat and may add, replace
-        or remove Rules and Lessons items (never Role & conduct). Turn it off to stop the reviews;
-        it cannot be deleted while it is on.
+        or remove Rules and Lessons items (never Role & conduct). It also tidies each cat&apos;s
+        items (merge, rewrite, remove) near the caps, every 10 reviews, weekly, or on &quot;Tidy
+        now&quot;. Turn it off to stop the reviews; it cannot be deleted while it is on.
       </div>
       <div className="grid grid-cols-3 gap-8">
         <Select
@@ -91,6 +92,15 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
           />
         </label>
       </div>
+      <label className="flex gap-4 items-center text-xs text-text cursor-pointer">
+        <input
+          type="checkbox"
+          checked={settings.tidyUserItems}
+          onChange={(e) => set({ tidyUserItems: e.target.checked })}
+        />
+        CEO may tidy my items (merge and rewrite the Rules and Lessons you wrote; it never removes
+        them, it only marks them)
+      </label>
       <label className="flex flex-col gap-2 text-xs text-text-muted">
         Role & conduct (only you edit it)
         <textarea

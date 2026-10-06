@@ -354,6 +354,7 @@ describe('judge process (§4)', () => {
     }
     expect(args[args.indexOf('--tools') + 1]).toBe('');
     expect(args[args.indexOf('--max-budget-usd') + 1]).toBe('1');
+    expect(args[args.indexOf('--settings') + 1]).toBe('{"language":"en"}');
     const out = path.join(tmp, 'stdin.txt');
     const b = bin(
       `let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{require('fs').writeFileSync(${JSON.stringify(out)},s);` +
