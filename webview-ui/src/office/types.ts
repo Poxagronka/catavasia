@@ -26,6 +26,7 @@ export type TileType = (typeof TileType)[keyof typeof TileType];
 export type { ColorValue } from '../components/ui/types.js';
 import type { Appearance } from '../cats/catsApi.js';
 import type { ColorValue } from '../components/ui/types.js';
+import type { CharacterSprites } from './sprites/spriteData.js';
 
 export const CharacterState = {
   IDLE: 'idle',
@@ -288,6 +289,8 @@ export interface Character {
   isGreeter?: boolean;
   /** Task-board run that ended: clicking the cat opens this task. */
   taskId?: string;
+  /** A cat-office cat with a custom coat (its profile appearance); unset = the palette sheet. */
+  customSprites?: CharacterSprites;
 
   // -- Idle activities (see engine/idleActivities.ts) --
   /** Current idle activity, or null between activities and while working. */

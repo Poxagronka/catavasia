@@ -62,6 +62,9 @@ class FakeHost implements TaskAgentHost {
   resumeHeadlessAgent(id: number) {
     this.resumed.push(id);
   }
+  restoreFinishedAgent() {
+    return { id: 8 };
+  }
 }
 
 /** A PTY that echoes input and exits on kill. */

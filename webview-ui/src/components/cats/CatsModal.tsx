@@ -1,8 +1,8 @@
 import { type ReactNode, useState } from 'react';
 
 import type { Appearance, CatProfile } from '../../cats/catsApi.js';
+import { catsApi } from '../../cats/catsClient.js';
 import { findBoss } from '../../cats/hierarchy.js';
-import { catsApi } from '../../cats/localCatsAdapter.js';
 import { useCats } from '../../cats/useCats.js';
 import { usePetRoster } from '../../cats/usePetRoster.js';
 import { CAT_LIST_ZOOM } from '../../constants.js';
@@ -149,7 +149,7 @@ function copyName(name: string, taken: string[]): string {
 }
 
 function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string) => void }) {
-  const { cats } = useCats();
+  const { cats, rejected } = useCats();
   // The Hierarchy modal owns parentId: never write back a stale one from the draft.
   const { draft, error, update } = useDraft(cat, (v) => {
     const live = catsApi.getSnapshot().cats.find((c) => c.id === v.id);
@@ -160,7 +160,10 @@ function AgentEditor({ cat, onSelect }: { cat: CatProfile; onSelect: (id: string
       <EditorHeader
         name={draft.name}
         onRename={(name) => update({ ...draft, name })}
-        error={error}
+        // The server refused a change of this cat (or a change with no cat id).
+        error={
+          error ?? (rejected && (!rejected.id || rejected.id === cat.id) ? rejected.error : null)
+        }
         onDuplicate={() => {
           // Copy the saved profile: the draft may be invalid or hold a stale parentId.
           const copy = {

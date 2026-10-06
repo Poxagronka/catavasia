@@ -10,6 +10,7 @@
 
 import * as path from 'path';
 
+import { toConsoleEntry } from '../catTerminal/catSessionSource.js';
 import { acquireSessionLock } from '../catTerminal/sessionLocks.js';
 import { SESSION_LOCK_RETRY_MS, TASK_WORKTREES_DIR } from '../constants.js';
 import { taskLogInput } from '../narrator/narrator.js';
@@ -106,10 +107,12 @@ async function runLockedTurn(office: Orchestrator, flow: Flow, member: Member, n
   // Questions this turn reads; one that arrives mid-turn waits for the next turn.
   const askedThisTurn = new Set(member.askedBy);
   office.ensureCharacter(flow, member);
-  const agentId = member.agentId!;
+  const catId = member.cat.id;
   const taskId = flow.task.id;
-  office.opts.emit({ type: 'catTurnStarted', catId: member.cat.id, taskId, id: agentId });
-  office.opts.host.setHeadlessAgentActive(agentId, true);
+  // The resident cat walks to its desk and watches this turn's transcript.
+  const agentId = office.residents.turnStarted(member.cat, member.sessionId, member.cwd!);
+  office.opts.emit({ type: 'catTurnStarted', catId, taskId, id: agentId });
+  office.consoles.push(catId, { kind: 'user', text: message });
 
   member.handle = adapter.spawnTurn({
     sessionId: member.sessionId,
@@ -125,6 +128,7 @@ async function runLockedTurn(office: Orchestrator, flow: Flow, member: Member, n
         ...entry,
         name: entry.kind === 'tool' ? `${member.cat.name}: ${entry.name}` : member.cat.name,
       });
+      office.consoles.push(catId, toConsoleEntry(entry));
       office.opts.narrate?.(taskLogInput(agentId, entry, Date.now()));
     },
   });
@@ -135,10 +139,10 @@ async function runLockedTurn(office: Orchestrator, flow: Flow, member: Member, n
   const costUsd = Math.max(0, sessionCost - member.sessionCostUsd);
   member.sessionCostUsd = sessionCost;
   flow.task.costUsd = (flow.task.costUsd ?? 0) + costUsd;
-  office.opts.host.setHeadlessAgentActive(agentId, false);
+  office.residents.turnEnded(catId);
   office.opts.emit({
     type: 'catTurnFinished',
-    catId: member.cat.id,
+    catId,
     taskId,
     id: agentId,
     ok: outcome.ok,
@@ -150,6 +154,7 @@ async function runLockedTurn(office: Orchestrator, flow: Flow, member: Member, n
   });
   if (!outcome.ok) {
     office.log(flow, { kind: 'error', name: member.cat.name, text: outcome.error ?? '' });
+    office.consoles.push(catId, { kind: 'error', text: outcome.error ?? 'The turn failed' });
     office.opts.narrate?.({ catId: agentId, ts: Date.now(), kind: 'state', text: 'error' });
   }
   office.save(flow);

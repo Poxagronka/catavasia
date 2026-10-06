@@ -110,6 +110,7 @@ components:
         - $ref: '#/components/schemas/CatMessage'
         - $ref: '#/components/schemas/FlowStateChanged'
         - $ref: '#/components/schemas/QueueChanged'
+        - $ref: '#/components/schemas/CatCharacters'
         # Narrator
         - $ref: '#/components/schemas/NarratorLine'
         - $ref: '#/components/schemas/NarratorSummary'
@@ -989,7 +990,11 @@ components:
           type: string
 
     FlowStateChanged:
-      description: The state of a team task changed.
+      description: |
+        The state of a team task changed. `rootCatId` leads the task and
+        `catIds` are every cat of its team (the root and the cats below it):
+        the office gathers them for the briefing meeting. The server always
+        ends a task with a done, error or interrupted state.
       type: object
       additionalProperties: false
       required: [type, taskId, state]
@@ -1000,6 +1005,46 @@ components:
           type: string
         state:
           $ref: '#/components/schemas/FlowState'
+        rootCatId:
+          type: string
+        catIds:
+          type: array
+          items:
+            type: string
+
+    CatCharacters:
+      description: |
+        The resident office character of every cat profile: one character per
+        cat, alive while the profile exists. Sent on connect and on every
+        change (profile created, saved or deleted, turn started or ended).
+      type: object
+      additionalProperties: false
+      required: [type, characters]
+      properties:
+        type:
+          const: catCharacters
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatCharacter'
+
+    CatCharacter:
+      type: object
+      additionalProperties: false
+      required: [catId, id, name, appearance, working]
+      properties:
+        catId:
+          type: string
+        id:
+          type: integer
+          description: Office agent id of the character.
+        name:
+          type: string
+        appearance:
+          $ref: '#/components/schemas/CatAppearance'
+        working:
+          type: boolean
+          description: A turn of this cat runs now.
 
     QueueChanged:
       description: |

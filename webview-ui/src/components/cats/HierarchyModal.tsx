@@ -2,8 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 
 import { BREED_IDS } from '../../cats/catArt.js';
 import type { CatProfile } from '../../cats/catsApi.js';
+import { catsApi } from '../../cats/catsClient.js';
 import { buildTree, draftReport, isInSubtree } from '../../cats/hierarchy.js';
-import { catsApi } from '../../cats/localCatsAdapter.js';
 import { layoutOrgChart } from '../../cats/orgLayout.js';
 import { useCats } from '../../cats/useCats.js';
 import { CAT_NAMES } from '../../constants.js';
@@ -55,7 +55,7 @@ export function HierarchyModal({
   /** Open the Cats menu on this cat. */
   onEditCat: (id: string) => void;
 }) {
-  const { cats } = useCats();
+  const { cats, rejected } = useCats();
   const [drag, setDrag] = useState<DragState>({ dragId: null, overId: null });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pop, setPop] = useState<Pop>(null);
@@ -166,7 +166,9 @@ export function HierarchyModal({
             1:1
           </Button>
         </div>
-        {error && <div className="text-xs text-status-error">{error}</div>}
+        {(error ?? rejected?.error) && (
+          <div className="text-xs text-status-error">{error ?? rejected?.error}</div>
+        )}
         <div
           ref={viewport}
           data-testid="org-chart"

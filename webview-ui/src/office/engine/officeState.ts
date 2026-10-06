@@ -28,6 +28,7 @@ import {
 import { findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
 import type { PetCareEnv } from '../petCare/petCareNav.js';
 import { PetCareSystem } from '../petCare/petCareSystem.js';
+import { appearanceSprites } from '../sprites/appearanceSprites.js';
 import { getPetCount, getPetName, isCatPet } from '../sprites/petSpriteData.js';
 import { getLoadedCharacterCount } from '../sprites/spriteData.js';
 import type {
@@ -71,6 +72,14 @@ function seatFacingOffset(direction: Direction): { dCol: number; dRow: number } 
   return { dCol: 0, dRow: -1 };
 }
 
+/** One resident cat of the cat office (server message `catCharacters`). */
+export interface ResidentCat {
+  id: number;
+  name: string;
+  appearance: Appearance;
+  working: boolean;
+}
+
 export class OfficeState {
   layout: OfficeLayout;
   tileMap: TileTypeVal[][];
@@ -104,6 +113,8 @@ export class OfficeState {
   /** Reverse lookup: sub-agent character ID → parent info */
   subagentMeta: Map<number, { parentAgentId: number; parentToolId: string }> = new Map();
   private nextSubagentId = -1;
+  /** Resident cats of the cat office by agent id (setResidentCats). */
+  private residents = new Map<number, ResidentCat>();
 
   /**
    * folderName → list of Area labels that workspace folder belongs to.
@@ -584,6 +595,60 @@ export class OfficeState {
       startMatrixEffect(ch, 'spawn');
     }
     this.characters.set(id, ch);
+    this.applyResident(id);
+  }
+
+  // ── Resident cats of the cat office (see src/catOfficeFeed.ts) ──
+
+  /** Name, coat and working state of every resident cat, by agent id. */
+  setResidentCats(list: ResidentCat[]): void {
+    this.residents = new Map(list.map((r) => [r.id, r]));
+    for (const r of list) this.applyResident(r.id);
+  }
+
+  /** Cats whose turn waits for a free slot, oldest first: they line up by the coffee. */
+  setQueuedCats(ids: number[]): void {
+    this.scenes.setQueue(ids);
+  }
+
+  private applyResident(id: number): void {
+    const r = this.residents.get(id);
+    const ch = this.characters.get(id);
+    if (!r || !ch) return;
+    ch.agentName = r.name;
+    ch.customSprites = appearanceSprites(r.appearance);
+    // A resident cat between turns idles (idle activities); in a turn it works.
+    if (ch.isActive !== r.working) this.setAgentActive(id, r.working);
+  }
+
+  /**
+   * Tiles of the turn queue line: free floor next to the coffee first, then
+   * the nearest walkable tiles. Empty when the office has no coffee.
+   */
+  queueTiles(n: number): Array<{ col: number; row: number }> {
+    const start = this.activitySpots.get('coffee')?.spots[0];
+    if (!start || n <= 0) return [];
+    const out: Array<{ col: number; row: number }> = [];
+    const seen = new Set<string>([`${start.col},${start.row}`]);
+    const queue = [{ col: start.col, row: start.row }];
+    while (queue.length && out.length < n) {
+      const t = queue.shift()!;
+      out.push(t);
+      for (const [dc, dr] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const next = { col: t.col + dc, row: t.row + dr };
+        const key = `${next.col},${next.row}`;
+        if (seen.has(key) || !isWalkable(next.col, next.row, this.tileMap, this.blockedTiles))
+          continue;
+        seen.add(key);
+        queue.push(next);
+      }
+    }
+    return out;
   }
 
   // ── Greeter ───────────────────────────────────────────────────

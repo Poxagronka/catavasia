@@ -76,6 +76,8 @@ export interface FlowContext {
   /** Record and broadcast one office message. */
   message(flow: Flow, from: string, to: string, kind: CatMessageKind, text: string): void;
   setState(flow: Flow, state: FlowState): void;
+  /** The engine adapter of a cat, or undefined when its engine cannot run yet. */
+  adapterFor?(cat: CatProfile): unknown;
 }
 
 class ToolError extends Error {}
@@ -108,10 +110,16 @@ export function hasUnreadReports(member: Member): boolean {
   return member.unreadReports > 0 || member.pendingMerges.length > 0;
 }
 
-/** Only the cats of the task's team (the root and the cats below it) take part. */
-function inTeam(flow: Flow, to: CatProfile): void {
+/**
+ * Only the cats of the task's team (the root and the cats below it) take part,
+ * and only cats whose engine has an adapter can run a turn.
+ */
+function inTeam(ctx: FlowContext, flow: Flow, to: CatProfile): void {
   if (!isInSubtree(flow.cats, flow.rootId, to.id)) {
     throw new ToolError(`${to.id} is not in the team of this task.`);
+  }
+  if (ctx.adapterFor && !ctx.adapterFor(to)) {
+    throw new ToolError(`${to.id} runs on ${to.engine}, which cannot run yet. Pick another cat.`);
   }
 }
 
@@ -163,7 +171,7 @@ function runTool(
     case 'delegate': {
       const to = catById(flow, arg(args, 'to'));
       const task = arg(args, 'task');
-      inTeam(flow, to);
+      inTeam(ctx, flow, to);
       if (relationOf(flow.cats, catId, to.id) !== 'child') {
         throw new ToolError(
           `${to.id} is not your direct report. You can delegate only to: ${ids(childrenOf(flow.cats, catId))}.`,
@@ -186,7 +194,7 @@ function runTool(
     case 'reply': {
       const to = catById(flow, arg(args, 'to'));
       const body = arg(args, name === 'ask' ? 'question' : 'answer');
-      inTeam(flow, to);
+      inTeam(ctx, flow, to);
       if (!relationOf(flow.cats, catId, to.id)) {
         const allowed = flow.cats.filter((c) => relationOf(flow.cats, catId, c.id));
         throw new ToolError(

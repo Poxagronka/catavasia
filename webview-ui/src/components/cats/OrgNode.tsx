@@ -2,7 +2,7 @@ import { type ReactNode, useState } from 'react';
 
 import type { CatProfile } from '../../cats/catsApi.js';
 import { ENGINE_LABELS } from '../../cats/catsApi.js';
-import { catsApi } from '../../cats/localCatsAdapter.js';
+import { catsApi } from '../../cats/catsClient.js';
 import type { LaidOutNode } from '../../cats/orgLayout.js';
 import { Button } from '../ui/Button.js';
 import { CatSprite } from './CatSprite.js';

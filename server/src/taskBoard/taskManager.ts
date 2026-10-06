@@ -17,6 +17,7 @@ import type { TaskDetail, TaskLogEntry, TaskSummary, TaskTarget } from '../../..
 import { acquireSessionLock } from '../catTerminal/sessionLocks.js';
 import {
   TASK_LOG_MAX_ENTRIES,
+  TASK_RESTORE_MAX_CATS,
   TASK_STDERR_TAIL_CHARS,
   TASK_WORKTREES_DIR,
   TASKS_FILE_NAME,
@@ -46,6 +47,13 @@ export interface TaskAgentHost {
   finishHeadlessAgent(id: number, taskId: string): void;
   /** A follow-up turn or the wheel works on the session again. */
   resumeHeadlessAgent(id: number): void;
+  /** After a restart: the idle cat of a finished run, linked to its task. */
+  restoreFinishedAgent(
+    sessionId: string,
+    cwd: string,
+    taskId: string,
+    look?: { palette?: number; hueShift?: number },
+  ): { id: number };
 }
 
 /** What TaskManager.events emits, for the cat console (catTerminal/). */
@@ -142,6 +150,35 @@ export class TaskManager {
   constructor(private readonly opts: TaskManagerOptions) {
     this.store = new TaskStore(path.join(opts.stateDir, TASKS_FILE_NAME));
     this.markOrphansInterrupted();
+  }
+
+  /**
+   * After a restart: the newest finished one-cat runs get their idle cat back
+   * (clicking it opens the task, the console resumes its session). Team tasks
+   * need nothing: their cats are the residents of the cat office.
+   */
+  restoreFinishedCats(): void {
+    const finished = Object.values(this.store.readAll())
+      .filter(
+        (t) =>
+          t.status !== 'running' &&
+          t.target === undefined &&
+          t.sessionId &&
+          t.agentCwd &&
+          (t.ownerPid === process.pid || !isProcessRunning(t.ownerPid)),
+      )
+      .sort((a, b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt))
+      .slice(0, TASK_RESTORE_MAX_CATS);
+    for (const task of finished) {
+      const agent = this.opts.host.restoreFinishedAgent(task.sessionId!, task.agentCwd!, task.id, {
+        palette: task.palette,
+        hueShift: task.hueShift,
+      });
+      // Agent ids restart after a restart: the task now names its new cat.
+      task.agentId = agent.id;
+      task.ownerPid = process.pid;
+      this.store.save(task);
+    }
   }
 
   get defaultCwd(): string {

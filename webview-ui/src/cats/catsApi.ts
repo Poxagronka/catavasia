@@ -1,7 +1,7 @@
 // Client-side contract of the Cats menu. The UI talks only to `CatsApi`.
-// Today `localCatsAdapter.ts` implements it in the webview. Phase 1 (server
-// orchestrator) plugs in a transport-backed adapter with a thin mapping, see
-// docs/catavasia/ROADMAP.md "Cats menu UI (phase 2a)".
+// `serverCatsAdapter.ts` implements it over the server's cat profile messages
+// (the cat office); `localCatsAdapter.ts` is the in-browser fallback when no
+// server office answers (VS Code, Vite dev). See docs/catavasia/ROADMAP.md.
 
 export type Engine = 'claude' | 'codex';
 
@@ -61,11 +61,17 @@ export interface CatProfile {
 /** Agent cats only: pets are the pet cats placed in the layout (see cats/petRoster.ts). */
 export interface CatsSnapshot {
   cats: CatProfile[];
+  /** The server refused the last change (shown inline); cleared by the next snapshot. */
+  rejected?: { id?: string; error: string };
 }
 
 export interface EngineOptions {
   models: string[];
   efforts: string[];
+  /** Why cats of this engine cannot run (no adapter on the server yet). */
+  unavailable?: string;
+  /** A model's full name the CLI also accepts (`claude-...`). */
+  fullModelPattern?: RegExp;
 }
 
 /**
@@ -122,7 +128,10 @@ export function validateCatProfile(
 ): string[] {
   const errors = [...nameErrors(cat.name), ...appearanceErrors(cat.appearance, knownBreeds)];
   if (!(cat.engine in ENGINE_LABELS)) errors.push(`unknown engine "${cat.engine}"`);
-  if (!options.models.includes(cat.model)) errors.push(`model "${cat.model}" is not offered`);
+  if (options.unavailable) errors.push(options.unavailable);
+  const fullName = options.fullModelPattern?.test(cat.model) ?? false;
+  if (!options.models.includes(cat.model) && !fullName)
+    errors.push(`model "${cat.model}" is not offered`);
   if (!options.efforts.includes(cat.effort)) errors.push(`effort "${cat.effort}" is not offered`);
   if (cat.parentId === cat.id) errors.push('a cat cannot report to itself');
   return errors;

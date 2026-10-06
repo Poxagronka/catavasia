@@ -88,6 +88,7 @@ export class AgentRuntime {
   readonly subagentWatch: SubagentWatch;
   private hookEventHandler: HookEventHandler;
   private lifecycleCallbacks: RuntimeLifecycleCallbacks = {};
+  private restoredIdsReserved = false;
 
   constructor(
     private readonly store: AgentStateStore,
@@ -321,18 +322,102 @@ export class AgentRuntime {
     cwd: string,
     look?: { palette?: number; hueShift?: number },
   ): AgentState {
-    const projectDir = this.provider.getSessionDirs?.(cwd)[0] ?? cwd;
-    const jsonlFile = path.join(projectDir, `${sessionId}.jsonl`);
     const id = this.store.nextAgentId.current++;
-    const agent: AgentState = {
+    const agent = this.headlessState(id, look);
+    this.pointAt(agent, sessionId, cwd);
+    assignPaletteIfNeeded(agent, this.store);
+    this.store.set(id, agent);
+    this.store.persist();
+    this.registerAgent(sessionId, id);
+    this.watchWhenCreated(id, agent.jsonlFile);
+    return agent;
+  }
+
+  /**
+   * A task-board cat of a finished run, restored after a server restart: an
+   * idle character that still opens its task. Nothing watches its transcript.
+   */
+  restoreFinishedAgent(
+    sessionId: string,
+    cwd: string,
+    taskId: string,
+    look?: { palette?: number; hueShift?: number },
+  ): AgentState {
+    this.reserveRestoredIds();
+    const agent = this.launchHeadlessAgent(sessionId, cwd, look);
+    this.finishHeadlessAgent(agent.id, taskId);
+    return agent;
+  }
+
+  // ── Resident cats of the cat office (server/src/orchestrator/catResidents.ts) ──
+
+  /**
+   * One character per cat profile, alive while the profile exists. It idles
+   * (idle activities in the webview) and has no session until a turn starts.
+   */
+  spawnResidentAgent(look?: { palette?: number; hueShift?: number }): number {
+    this.reserveRestoredIds();
+    const id = this.store.nextAgentId.current++;
+    const agent = this.headlessState(id, look);
+    agent.isResident = true;
+    assignPaletteIfNeeded(agent, this.store);
+    this.store.set(id, agent);
+    return id;
+  }
+
+  /** A resident cat's turn starts on `sessionId` in `cwd`: watch that transcript. */
+  beginResidentTurn(id: number, sessionId: string, cwd: string): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    this.stopWatching(id);
+    if (agent.sessionId && agent.sessionId !== sessionId) this.unregisterAgent(agent.sessionId);
+    this.pointAt(agent, sessionId, cwd);
+    // A resumed session: watch only what this turn appends.
+    try {
+      agent.fileOffset = fs.statSync(agent.jsonlFile).size;
+    } catch {
+      agent.fileOffset = 0;
+    }
+    agent.isWaiting = false;
+    this.registerAgent(sessionId, id);
+    this.watchWhenCreated(id, agent.jsonlFile);
+    this.store.broadcast({ type: 'agentStatus', id, status: 'active' });
+  }
+
+  /**
+   * The turn ended: stop watching and idle. The session stays registered, so
+   * a late hook of this session reaches the cat, not a new guest.
+   */
+  endResidentTurn(id: number): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    this.stopWatching(id);
+    if (agent.jsonlFile) this.dismissalTracker.dismiss(agent.jsonlFile);
+    this.clearActivity(agent);
+    agent.isWaiting = true;
+    this.store.broadcast({ type: 'agentToolsClear', id });
+    this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
+  }
+
+  /** Clicking the cat opens this task (its last finished one). */
+  linkAgentTask(id: number, taskId: string): void {
+    const agent = this.store.get(id);
+    if (!agent) return;
+    agent.finishedTaskId = taskId;
+    this.store.broadcast({ type: 'agentTaskFinished', id, taskId });
+  }
+
+  /** A fresh headless agent with no session yet. */
+  private headlessState(id: number, look?: { palette?: number; hueShift?: number }): AgentState {
+    return {
       id,
-      sessionId,
+      sessionId: '',
       terminalRef: undefined,
       // Not external: nothing to restore after a restart (the run dies with
       // the server) and sessionEnd must not remove it -- finishHeadlessAgent does.
       isExternal: false,
-      projectDir,
-      jsonlFile,
+      projectDir: '',
+      jsonlFile: '',
       fileOffset: 0,
       lineBuffer: '',
       activeToolIds: new Set(),
@@ -354,12 +439,20 @@ export class AgentRuntime {
       palette: look?.palette,
       hueShift: look?.hueShift,
     };
-    assignPaletteIfNeeded(agent, this.store);
-    this.knownJsonlFiles.add(jsonlFile);
-    this.store.set(id, agent);
-    this.store.persist();
-    this.registerAgent(sessionId, id);
+  }
 
+  /** Point an agent at the transcript of `sessionId` run in `cwd`. */
+  private pointAt(agent: AgentState, sessionId: string, cwd: string): void {
+    const projectDir = this.provider.getSessionDirs?.(cwd)[0] ?? cwd;
+    agent.sessionId = sessionId;
+    agent.projectDir = projectDir;
+    agent.jsonlFile = path.join(projectDir, `${sessionId}.jsonl`);
+    agent.lineBuffer = '';
+    this.knownJsonlFiles.add(agent.jsonlFile);
+  }
+
+  /** Start watching the transcript once the CLI creates it. */
+  private watchWhenCreated(id: number, jsonlFile: string): void {
     const pollTimer = setInterval(() => {
       if (!fs.existsSync(jsonlFile)) return;
       clearInterval(pollTimer);
@@ -376,7 +469,32 @@ export class AgentRuntime {
       readNewLines(id, this.store, this.waitingTimers, this.permissionTimers);
     }, JSONL_POLL_INTERVAL_MS);
     this.jsonlPollTimers.set(id, pollTimer);
-    return agent;
+  }
+
+  private clearActivity(agent: AgentState): void {
+    agent.activeToolIds.clear();
+    agent.activeToolStatuses.clear();
+    agent.activeToolNames.clear();
+    agent.activeSubagentToolIds.clear();
+    agent.activeSubagentToolNames.clear();
+    agent.permissionSent = false;
+  }
+
+  /**
+   * Persisted external agents come back with their own ids on the first
+   * connect (restoreExternalAgents). Characters this server creates before
+   * that must not take those ids.
+   */
+  private reserveRestoredIds(): void {
+    if (this.restoredIdsReserved) return;
+    this.restoredIdsReserved = true;
+    const ids =
+      this.store
+        .getAdapter()
+        ?.loadAgents()
+        .map((p) => p.id) ?? [];
+    const next = Math.max(0, ...ids) + 1;
+    if (this.store.nextAgentId.current < next) this.store.nextAgentId.current = next;
   }
 
   /**
@@ -390,12 +508,7 @@ export class AgentRuntime {
     this.dismissalTracker.dismiss(agent.jsonlFile);
     this.unregisterAgent(agent.sessionId);
     this.stopWatching(id);
-    agent.activeToolIds.clear();
-    agent.activeToolStatuses.clear();
-    agent.activeToolNames.clear();
-    agent.activeSubagentToolIds.clear();
-    agent.activeSubagentToolNames.clear();
-    agent.permissionSent = false;
+    this.clearActivity(agent);
     agent.isWaiting = true;
     agent.finishedTaskId = taskId;
     this.store.broadcast({ type: 'agentToolsClear', id });

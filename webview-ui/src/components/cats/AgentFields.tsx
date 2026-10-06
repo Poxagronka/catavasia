@@ -1,5 +1,5 @@
 import { type CatProfile, type Engine, ENGINE_LABELS } from '../../cats/catsApi.js';
-import { catsApi } from '../../cats/localCatsAdapter.js';
+import { catsApi } from '../../cats/catsClient.js';
 import { FIELD } from './fields.js';
 
 function Select({
@@ -7,12 +7,15 @@ function Select({
   value,
   options,
   labels,
+  disabled,
   onChange,
 }: {
   label: string;
   value: string;
   options: string[];
   labels?: Record<string, string>;
+  /** Options listed but not selectable. */
+  disabled?: (o: string) => boolean;
   onChange: (v: string) => void;
 }) {
   return (
@@ -24,12 +27,22 @@ function Select({
         onChange={(e) => onChange(e.target.value)}
       >
         {options.map((o) => (
-          <option key={o} value={o}>
+          <option key={o} value={o} disabled={disabled?.(o) && o !== value}>
             {labels?.[o] ?? o}
           </option>
         ))}
       </select>
     </label>
+  );
+}
+
+/** Engine labels; an engine the server cannot run yet says so. */
+function engineLabels(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(ENGINE_LABELS).map(([engine, label]) => [
+      engine,
+      catsApi.engineOptions(engine as Engine).unavailable ? `${label} (adapter not ready)` : label,
+    ]),
   );
 }
 
@@ -67,15 +80,36 @@ export function AgentFields({
           label="Engine"
           value={cat.engine}
           options={Object.keys(ENGINE_LABELS)}
-          labels={ENGINE_LABELS}
+          labels={engineLabels()}
+          disabled={(o) => !!catsApi.engineOptions(o as Engine).unavailable}
           onChange={(v) => setEngine(v as Engine)}
         />
-        <Select
-          label="Model"
-          value={cat.model}
-          options={options.models}
-          onChange={(model) => onChange({ ...cat, model })}
-        />
+        {options.fullModelPattern ? (
+          // The CLI also takes a model's full name (claude-...): free text with suggestions.
+          <label className="flex flex-col gap-2 text-xs text-text-muted">
+            Model
+            <input
+              className={`${FIELD} text-xs`}
+              list="cat-model-options"
+              value={cat.model}
+              spellCheck={false}
+              title="An alias from the list, or a full model name (claude-...)"
+              onChange={(e) => onChange({ ...cat, model: e.target.value.trim() })}
+            />
+            <datalist id="cat-model-options">
+              {options.models.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </label>
+        ) : (
+          <Select
+            label="Model"
+            value={cat.model}
+            options={options.models}
+            onChange={(model) => onChange({ ...cat, model })}
+          />
+        )}
         <Select
           label="Effort"
           value={cat.effort}

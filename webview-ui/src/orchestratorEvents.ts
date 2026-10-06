@@ -1,14 +1,13 @@
 /**
  * Orchestrator events: the client-side interface the office scenes listen to.
  *
- * The types mirror the planned server messages of the orchestrator
- * (core/asyncapi.yaml, owned by the orchestrator core). The server feed is
- * not wired yet: the message handler will translate `catMessage` and
- * `flowStateChanged` into `orchestratorEvents.emit(...)`. Until then the e2e
- * test hooks (`emitCatMessage`, `emitFlowState`) drive the scenes.
+ * The types mirror the server messages of the orchestrator (core/asyncapi.yaml).
+ * `catOfficeFeed.ts` translates the server's `catMessage` and
+ * `flowStateChanged` into `orchestratorEvents.emit(...)`; the e2e test hook
+ * `emitOrchestratorEvent` drives the scenes directly.
  *
  * Ids are webview agent ids (the keys of OfficeState.characters). The feed
- * maps a cat id to its agent id before it emits.
+ * maps a cat id to its agent id (the resident cat) before it emits.
  *
  * DOM-free: no window, no transport.
  */

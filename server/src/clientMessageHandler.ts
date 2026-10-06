@@ -597,7 +597,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   // Pet care needs the pets, so it follows the layout that spawns them.
   send({ type: 'petCareLoaded', state: readPetCareState() });
 
-  // Cat office: profiles, tree and the turn queue (characters exist only during turns).
+  // Cat office: profiles, tree, the resident cat characters (after layoutLoaded:
+  // the webview applies names and coats to characters that exist) and the turn queue.
   if (ctx.orchestrator) {
     for (const message of ctx.orchestrator.profileMessages()) send({ ...message });
     send({ type: 'queueChanged', ...ctx.orchestrator.scheduler.state() });

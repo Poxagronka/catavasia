@@ -81,6 +81,8 @@ export interface TaskTarget {
   /** `team` or a cat id. */
   id: string;
   label: string;
+  /** Why this choice cannot run now (a Codex cat: no adapter yet). */
+  disabled?: string;
 }
 
 /** What GET /api/tasks/:id returns. */

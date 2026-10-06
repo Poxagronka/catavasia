@@ -20,6 +20,9 @@ export interface AgentState {
   isWaiting: boolean;
   /** Task-board run that ended: the character stays as an idle cat (never persisted). */
   finishedTaskId?: string;
+  /** Resident cat of the cat office: one character per cat profile, rebuilt
+   *  from cats.json on start, so never persisted. Its session changes per turn. */
+  isResident?: boolean;
   permissionSent: boolean;
   hadToolsInTurn: boolean;
   /** Workspace folder name (only set for multi-root workspaces) */

@@ -66,7 +66,8 @@ export function SceneBubbleOverlay({
   const el = containerRef.current;
   if (!el) return null;
   const bubbles = officeState.scenes.bubbles();
-  if (bubbles.length === 0) return null;
+  const queued = officeState.scenes.queuedCats();
+  if (bubbles.length === 0 && queued.length === 0) return null;
   const project = overlayProjection(
     officeState.getLayout(),
     el.getBoundingClientRect(),
@@ -84,6 +85,24 @@ export function SceneBubbleOverlay({
 
   return (
     <>
+      {queued.map((id, i) => {
+        const ch = officeState.characters.get(id);
+        if (!ch) return null;
+        const x = project.toScreenX(ch.x + characterDrawOffsetX(ch));
+        const y = project.toScreenY(ch.y - TOOL_OVERLAY_VERTICAL_OFFSET);
+        return (
+          <div
+            key={`queue-${id}`}
+            className="absolute pixel-panel px-4 leading-none whitespace-nowrap text-2xs"
+            style={{ left: x, top: y, transform: 'translate(-50%, -100%)', zIndex: 39 }}
+            data-testid="queue-marker"
+            data-cat-id={id}
+            title="This cat's turn waits for a free slot (Settings: Cats working at once)"
+          >
+            in queue #{i + 1}
+          </div>
+        );
+      })}
       {bubbles.map((b) => {
         const ch = officeState.characters.get(b.catId);
         if (!ch) return null;

@@ -33,8 +33,10 @@ import {
 } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
-import { CAT_BREED_IDS, CatStore, type EngineCatalog } from './catProfiles.js';
-import { bossOf, hierarchyOf } from './catTree.js';
+import { CatConsoles } from './catConsoles.js';
+import { CatStore, type EngineCatalog } from './catProfiles.js';
+import { breedPalette, CatResidents, type ResidentHost } from './catResidents.js';
+import { bossOf, hierarchyOf, isInSubtree } from './catTree.js';
 import type { EngineAdapter } from './engineAdapter.js';
 import { catLabel, personaText, rootTaskMessage } from './flowPrompts.js';
 import { endFlowWorkspaces, prepareWorkspace, runTurnFor } from './flowTurns.js';
@@ -42,17 +44,8 @@ import type { OfficeToolHandler, OfficeToolResult } from './officeMcp.js';
 import { callOfficeTool, type Flow, type FlowContext, type Member } from './officeTools.js';
 import { TurnScheduler } from './turnScheduler.js';
 
-/** The part of AgentRuntime the office needs: one character per cat per task. */
-export interface CatAgentHost {
-  launchHeadlessAgent(
-    sessionId: string,
-    cwd: string,
-    look?: { palette?: number; hueShift?: number },
-  ): { id: number; palette?: number; hueShift?: number };
-  finishHeadlessAgent(id: number, taskId: string): void;
-  setHeadlessAgentActive(id: number, active: boolean): void;
-  removeAgent(id: number): void;
-}
+/** The part of AgentRuntime the office needs: one resident character per cat profile. */
+export type CatAgentHost = ResidentHost;
 
 /** Where a flow's task is persisted (the task board). */
 export interface FlowSink {
@@ -73,18 +66,25 @@ export interface OrchestratorOptions {
 export class Orchestrator implements OfficeToolHandler, FlowContext {
   readonly cats: CatStore;
   readonly scheduler: TurnScheduler;
+  /** One office character per cat profile (spawned now, kept in sync with cats.json). */
+  readonly residents: CatResidents;
+  /** What the cat console shows for each profile cat. */
+  readonly consoles = new CatConsoles();
   private readonly flows = new Map<string, Flow>();
   private readonly sinks = new Map<string, FlowSink>();
   private readonly tokens = new Map<string, { flow: Flow; catId: string }>();
-  /** Character of each cat's last finished task, replaced by its next one. */
-  private readonly lastAgentByCat = new Map<string, number>();
+  /** Folder of each cat's newest task: a console message to an idle cat starts a task there. */
+  private readonly lastCwd = new Map<string, string>();
   private mcpUrl = '';
 
   constructor(readonly opts: OrchestratorOptions) {
     this.cats = new CatStore(path.join(opts.stateDir, CATS_FILE_NAME), () => this.catalog());
-    this.scheduler = new TurnScheduler(opts.turnConcurrency, (state) =>
-      opts.emit({ type: 'queueChanged', ...state }),
-    );
+    this.scheduler = new TurnScheduler(opts.turnConcurrency, (state) => {
+      opts.emit({ type: 'queueChanged', ...state });
+      this.consoles.statusChanged();
+    });
+    this.residents = new CatResidents(opts.host, () => this.cats.list(), opts.emit);
+    this.residents.sync();
   }
 
   catalog(): EngineCatalog {
@@ -111,6 +111,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     return [
       { type: 'catProfilesLoaded', cats, engineOptions },
       { type: 'catHierarchy', ...hierarchyOf(cats) },
+      this.residents.message(),
     ];
   }
 
@@ -140,8 +141,10 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
       default:
         return `unknown change ${String(msg.type)}`;
     }
-    if (!error) for (const message of this.profileMessages()) this.opts.emit(message);
-    return error;
+    if (error) return error;
+    this.residents.sync();
+    for (const message of this.profileMessages()) this.opts.emit(message);
+    return undefined;
   }
 
   // ── Task board ──
@@ -149,9 +152,15 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   targets(): TaskTarget[] {
     const cats = this.cats.list();
     const boss = bossOf(cats);
+    const blocked = (c: CatProfile) =>
+      this.adapterFor(c) ? {} : { disabled: `${c.engine} adapter not ready` };
     return [
-      ...(boss ? [{ id: 'team', label: `Team (${boss.name} leads)` }] : []),
-      ...cats.map((c) => ({ id: c.id, label: c.role ? `${c.name}: ${c.role}` : c.name })),
+      ...(boss ? [{ id: 'team', label: `Team: ${boss.name} leads`, ...blocked(boss) }] : []),
+      ...cats.map((c) => ({
+        id: c.id,
+        label: c.role ? `${c.name}: ${c.role}` : c.name,
+        ...blocked(c),
+      })),
     ];
   }
 
@@ -180,7 +189,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     member.cwd = cwd;
     member.worktreePath = task.worktreePath;
     member.branch = task.branch;
-    this.opts.emit({ type: 'flowStateChanged', taskId: task.id, state: 'briefing' });
+    this.emitFlowState(flow);
     this.message(flow, 'user', root.id, 'task', task.prompt);
     this.deliver(flow, root.id, rootTaskMessage(task.id, task.prompt, root, flow.cats));
   }
@@ -189,6 +198,9 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   dispose(): void {
     for (const flow of this.flows.values()) {
       flow.ended = true;
+      // A meeting in the office must end too (the webview waits for a non-briefing state).
+      flow.task.flow.state = 'interrupted';
+      this.emitFlowState(flow);
       for (const m of flow.members.values()) m.handle?.kill();
     }
     this.flows.clear();
@@ -239,8 +251,57 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
   setState(flow: Flow, state: FlowState): void {
     if (flow.task.flow.state === state) return;
     flow.task.flow.state = state;
-    this.opts.emit({ type: 'flowStateChanged', taskId: flow.task.id, state });
+    this.emitFlowState(flow);
     this.save(flow);
+  }
+
+  /** The flow state, with the team (root + the cats below it) for the briefing meeting. */
+  private emitFlowState(flow: Flow): void {
+    const catIds = flow.cats
+      .filter((c) => isInSubtree(flow.cats, flow.rootId, c.id))
+      .map((c) => c.id);
+    this.opts.emit({
+      type: 'flowStateChanged',
+      taskId: flow.task.id,
+      state: flow.task.flow.state,
+      rootCatId: flow.rootId,
+      catIds,
+    });
+  }
+
+  // ── Cat console (server/src/catTerminal/officeCatSource.ts) ──
+
+  /** The newest live task of a cat, with its member entry. */
+  liveMember(catId: string): { flow: Flow; member: Member } | undefined {
+    let found: { flow: Flow; member: Member } | undefined;
+    for (const flow of this.flows.values()) {
+      const member = flow.members.get(catId);
+      if (member && !flow.ended) found = { flow, member };
+    }
+    return found;
+  }
+
+  /** A turn of this cat runs or waits for a slot. */
+  hasPendingTurn(catId: string): boolean {
+    const { running, queued } = this.scheduler.state();
+    return running.includes(catId) || queued.includes(catId);
+  }
+
+  /**
+   * A user message from the cat console: the next turn of the cat's live task
+   * reads it. Returns false when the cat has no live task.
+   */
+  sendUserMessage(catId: string, text: string): boolean {
+    const live = this.liveMember(catId);
+    if (!live) return false;
+    this.log(live.flow, { kind: 'user', text });
+    this.deliver(live.flow, catId, `[Message from the user]\n${text}`);
+    this.save(live.flow);
+    return true;
+  }
+
+  lastCwdOf(catId: string): string | undefined {
+    return this.lastCwd.get(catId);
   }
 
   // ── Internals shared with flowTurns.ts ──
@@ -259,26 +320,15 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     this.sinks.get(flow.task.id)?.save(flow.task);
   }
 
+  /** The cat's resident character works this task (the task card shows the root's). */
   ensureCharacter(flow: Flow, member: Member): void {
-    if (member.agentId !== undefined || !member.cwd) return;
-    const previous = this.lastAgentByCat.get(member.cat.id);
-    if (previous !== undefined) {
-      this.lastAgentByCat.delete(member.cat.id);
-      this.opts.host.removeAgent(previous);
-    }
-    // The office character shows the breed preset; custom coats are drawn by the Cats menu art.
-    const palette = CAT_BREED_IDS.indexOf(member.cat.appearance.breed as never);
-    const agent = this.opts.host.launchHeadlessAgent(
-      member.sessionId,
-      member.cwd,
-      palette >= 0 ? { palette, hueShift: 0 } : undefined,
-    );
-    member.agentId = agent.id;
+    if (member.agentId !== undefined) return;
+    member.agentId = this.residents.ensure(member.cat);
     if (member.cat.id === flow.rootId) {
       Object.assign(flow.task, {
-        agentId: agent.id,
-        palette: agent.palette,
-        hueShift: agent.hueShift,
+        agentId: member.agentId,
+        palette: breedPalette(member.cat),
+        hueShift: 0,
       });
     }
   }
@@ -311,13 +361,12 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     task.numTurns = task.flow.turns;
     task.finishedAt = Date.now();
     flow.task.flow.state = task.status;
-    this.opts.emit({ type: 'flowStateChanged', taskId: task.id, state: task.flow.state });
+    this.emitFlowState(flow);
 
+    // The cats stay in the office (residents); clicking one opens this task.
     for (const m of flow.members.values()) {
       this.tokens.delete(m.token);
-      if (m.agentId === undefined) continue;
-      this.opts.host.finishHeadlessAgent(m.agentId, task.id);
-      this.lastAgentByCat.set(m.cat.id, m.agentId);
+      if (m.agentId !== undefined) this.residents.linkTask(m.cat.id, task.id);
     }
     this.flows.delete(task.id);
     const sink = this.sinks.get(task.id);
@@ -396,6 +445,7 @@ export class Orchestrator implements OfficeToolHandler, FlowContext {
     fs.writeFileSync(member.mcpConfigFile, mcp, { mode: 0o600 });
     flow.members.set(catId, member);
     this.tokens.set(token, { flow, catId });
+    this.lastCwd.set(catId, flow.task.cwd);
     return member;
   }
 }

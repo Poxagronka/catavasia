@@ -142,3 +142,7 @@ export const CAT_SYSTEM_PROMPT_MAX_CHARS = 20_000;
 export const CAT_MESSAGE_MAX_CHARS = 20_000;
 /** A cat turn whose session the user holds in a terminal retries after this delay. */
 export const SESSION_LOCK_RETRY_MS = 5000;
+/** Rows a profile cat's console keeps in memory (all its turns, newest last). */
+export const CAT_CONSOLE_MAX_ENTRIES = 400;
+/** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
+export const TASK_RESTORE_MAX_CATS = 6;

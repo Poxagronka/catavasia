@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { TRANSPORT_STATE_CONNECTED } from '../../core/src/constants.js';
+import { CatOfficeFeed } from './catOfficeFeed.js';
 import { CatTerminalPanel } from './catTerminal/CatTerminalPanel.js';
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
@@ -45,6 +47,12 @@ const editorState = new EditorState();
 
 // Orchestrator events (work talks, briefings) drive the office scenes.
 orchestratorEvents.on((e) => officeStateRef.current?.scenes.handle(e));
+// The server's cat office feeds them: resident cats, messages, flow states, the turn queue.
+const catOfficeFeed = new CatOfficeFeed(() => officeStateRef.current, orchestratorEvents);
+transport.onMessage((m) => catOfficeFeed.handle(m));
+transport.onStateChange((state) => {
+  if (state !== TRANSPORT_STATE_CONNECTED) catOfficeFeed.connectionLost();
+});
 
 // Test-only observability hooks (message/sound logs, addAgent wrapper, selectAgent).
 // Installed only under the e2e harness so they never patch prototypes or grow
