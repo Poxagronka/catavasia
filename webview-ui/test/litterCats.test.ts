@@ -109,14 +109,14 @@ test('an agent cat digs, squats and covers; the pile lands as it covers', () => 
   assert.equal(os.petCare.world.boxCount('a'), 1);
 });
 
-test('inside a hooded box only the tail shows, and only while inside', () => {
+test('inside a hooded box only the face shows, and only while inside', () => {
   const os = office([HOOD]);
   const ch = idleCat(os, 1);
   assert.ok(os.forceIdleActivity(1, 'litterHood'));
   runUntil(os, () => ch.state === CharacterState.ACTIVITY);
   assert.equal(peekNow(ch), undefined, 'walks in visibly');
   runUntil(os, () => peekNow(ch) !== undefined);
-  assert.equal(peekNow(ch)?.kind, 'tail');
+  assert.equal(peekNow(ch)?.kind, 'face');
   runUntil(os, () => ch.activity?.part === 'outro' && peekNow(ch) === undefined);
 });
 

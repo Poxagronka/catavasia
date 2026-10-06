@@ -473,8 +473,9 @@ export class PetCareSystem {
         pet.grimaceSec = ANIM_SEC.grimace;
         return;
       }
-      // A proud exit, and now and then the zoomies.
+      // A proud exit (a sparkle, happy hearts), and now and then the zoomies.
       this.sparkle(pet.tileCol, pet.tileRow - 1);
+      this.hearts(pet);
       if (Math.random() < LITTER_ZOOMIES_CHANCE) {
         r.dashes =
           ZOOMIES_DASHES_MIN +

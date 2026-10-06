@@ -5,6 +5,7 @@
  * comes from the spot (bedActivities.ts HOUSE_PEEKS, world px).
  */
 import {
+  HOUSE_PEEK_EYE_COLOR,
   HOUSE_PEEK_INNER_EAR_COLOR,
   HOUSE_PEEK_OUTLINE_COLOR,
   HOUSE_PEEK_RIM_COLOR,
@@ -20,20 +21,28 @@ const TAIL = ['....o.', '...oFo', 'ooooFo', 'oFFFo.'];
 // The dream twitch: one ear folds; the tail tip flicks up.
 const EARS_TWITCH = ['.....o.', '.oo.opo', 'oFFoFFo'];
 const TAIL_FLICK = ['.....o', '....oF', 'oooooF', 'oFFFFo'];
+// A face in a dark doorway (a hooded litter box): ears, brow, two shining eyes; the twitch blinks.
+const FACE = ['o....o', 'Fo..oF', 'FFFFFF', 'FwFFwF', 'FoFFoF'];
+const FACE_BLINK = ['o....o', 'Fo..oF', 'FFFFFF', 'FFFFFF', 'FoFFoF'];
 
 const cache = new Map<string, SpriteData>();
 
-/** The ears / tail sprite in this fur color; `twitch`: the ear folds or the tail flicks. */
+/** The ears / tail / face sprite in this fur color; `twitch`: the ear folds or the tail flicks. */
 export function peekSprite(kind: HousePeek['kind'], fur: string, twitch = false): SpriteData {
   const key = `${kind}:${fur}:${twitch}`;
   let s = cache.get(key);
   if (!s) {
-    const rows = kind === 'ears' ? (twitch ? EARS_TWITCH : EARS) : twitch ? TAIL_FLICK : TAIL;
+    const rows = {
+      ears: twitch ? EARS_TWITCH : EARS,
+      tail: twitch ? TAIL_FLICK : TAIL,
+      face: twitch ? FACE_BLINK : FACE,
+    }[kind];
     const color: Record<string, string> = {
       // A near-black cat gets a light rim: a dark outline would vanish in the doorway.
       o: isDark(fur) ? HOUSE_PEEK_RIM_COLOR : HOUSE_PEEK_OUTLINE_COLOR,
       F: fur || HOUSE_PEEK_OUTLINE_COLOR,
       p: HOUSE_PEEK_INNER_EAR_COLOR,
+      w: HOUSE_PEEK_EYE_COLOR,
     };
     s = rows.map((r) => [...r].map((c) => color[c] ?? ''));
     cache.set(key, s);

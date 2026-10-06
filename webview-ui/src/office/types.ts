@@ -75,7 +75,7 @@ export interface ActivitySpot {
 
 /** Ears or tail of a cat inside a house: world px of the overlay's bottom-centre. */
 export interface HousePeek {
-  kind: 'ears' | 'tail';
+  kind: 'ears' | 'tail' | 'face';
   x: number;
   y: number;
   /** Z-sort key just in front of the house. */

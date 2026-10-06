@@ -48,20 +48,20 @@ export function isLitterBoxType(type: string): boolean {
   return type === 'LITTER_BOX' || type.startsWith('LITTER_BOX_');
 }
 
-/** Where the tail of a cat inside a hooded box peeks out: the door's foot (sprite px). */
-const HOOD_TAIL = { x: 8, y: 12 };
+/** Where the face of a cat inside a hooded box looks out: the door's foot (sprite px). */
+const HOOD_DOOR = { x: 8, y: 11 };
 
 /**
  * How a cat sits in a box: drawn LITTER_SPOT_OFFSET_Y px lower in an open
- * box (its front wall hides the paws), hidden in a hooded one with only the
- * tail out of the door.
+ * box (its front wall hides the paws), hidden in a hooded one: it turns
+ * round inside and only its face (ears, shining eyes) shows in the door.
  */
 export function boxPose(box: PlacedFurniture): { offsetY: number; peek?: HousePeek } {
   if (!isHoodedLitterBox(box.type)) return { offsetY: LITTER_SPOT_OFFSET_Y };
   const peek: HousePeek = {
-    kind: 'tail',
-    x: box.col * TILE_SIZE + HOOD_TAIL.x,
-    y: box.row * TILE_SIZE + HOOD_TAIL.y,
+    kind: 'face',
+    x: box.col * TILE_SIZE + HOOD_DOOR.x,
+    y: box.row * TILE_SIZE + HOOD_DOOR.y,
     zY: (box.row + 1) * TILE_SIZE + 1.5, // furniture sorts at +0, the front wall at +1
   };
   return { offsetY: 0, peek };

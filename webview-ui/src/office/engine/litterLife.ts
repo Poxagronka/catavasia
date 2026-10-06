@@ -133,8 +133,9 @@ export class LitterLife {
         return this.nextBox(ch, refused) || this.floor(ch);
       }
       case 'litterFloor':
+        // Off it sheepishly: the pile shows once the cat steps away.
         this.refused.delete(ch.id);
-        return false;
+        return this.stepOff(ch);
       case 'zoomies':
         return this.dash(ch);
       default:
@@ -200,7 +201,7 @@ export class LitterLife {
     return this.w.startActivityAt(ch, 'zoomies', plainSpot(to.col, to.row, facing));
   }
 
-  /** The proud exit: one step off the box onto a free floor tile. */
+  /** One step off the box (a proud exit) or off the accident, onto a free floor tile. */
   private stepOff(ch: Character): boolean {
     const taken = this.w.takenBy(ch);
     const boxes = this.boxTiles();

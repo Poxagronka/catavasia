@@ -602,6 +602,8 @@ export const ACTIVITY_TALK_EXTEND_SEC = 10;
 export const PET_ACTOR_ID_BASE = 1_000_000;
 /** Ears / tail of a cat asleep inside a cat house: outline and inner-ear colors. */
 export const HOUSE_PEEK_OUTLINE_COLOR = '#2E1C20';
+/** Eye shine of a cat looking out of a hooded litter box's dark doorway. */
+export const HOUSE_PEEK_EYE_COLOR = '#f4f0a8';
 export const HOUSE_PEEK_INNER_EAR_COLOR = '#E89AA8';
 /** Social bubble height above a pet's feet (pets are shorter than agent cats). */
 export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;

@@ -274,8 +274,22 @@ function careAnimFx(pet: Pet, time: number): FxDrawable[] {
       return fxDrawables('crumbs', at(side ? ahead * 6 : 0, -2), time);
     case 'drink':
       return fxDrawables('ripple', at(side ? ahead * 7 : 0, 0), time);
-    case 'poop':
-      return fxDrawables('sand', at(side ? ahead * 4 : 0, -1), time);
+    case 'poop': {
+      // The poop frames (petCareFrames.ts): dig 0-3, squat 4-7, cover 8-11, proud 12+.
+      const f = pet.careAnim?.frame ?? 0;
+      if (f >= 4 && f < 8) return fxDrawables('effort', at(ahead * 3, -TILE_SIZE + 4), time);
+      if (f >= 12) return [];
+      // Sand flies back from the rear while digging, forward while covering.
+      const back = f < 4 ? -1 : 1;
+      return fxDrawables(
+        'sand',
+        {
+          ...at(side ? -ahead * 5 * back : 0, -2),
+          mirror: (pet.dir === Direction.LEFT) !== back > 0,
+        },
+        time,
+      );
+    }
     case 'grimace':
       return [];
     case 'petted':

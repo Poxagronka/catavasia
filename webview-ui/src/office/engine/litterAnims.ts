@@ -53,8 +53,8 @@ export const LITTER_USE: AnimParts = {
 };
 
 /**
- * A hooded box: in through the door, then only the tail shows (hidden steps;
- * their pose picks the tail: napOut still, napFlick flicked) while the hood
+ * A hooded box: in through the door, then only the face shows in it (hidden
+ * steps; their pose picks the look: napOut eyes open, napFlick a blink) while the hood
  * wobbles (px) and sand flies out of the door; out again, proud.
  */
 const inside = (sec: number, flick: boolean, extra: Omit<AnimStep, 'f' | 'sec'> = {}) =>
@@ -68,7 +68,12 @@ export const LITTER_HOOD_USE: AnimParts = {
     inside(0.15, false, { px: -1 }),
     ...[0, 1, 2, 3].map((i) => inside(0.15, false, { px: i % 2 ? -1 : 1, fx: 'sand', fxAt: DOOR })),
   ],
-  loop: [inside(0.9, false), inside(0.3, true), inside(0.7, false), inside(0.3, true)],
+  loop: [
+    inside(0.9, false),
+    inside(0.25, true),
+    inside(0.8, false, { fx: 'effort', fxAt: [8, 22] }),
+    inside(0.25, true),
+  ],
   outro: [
     ...[0, 1, 2].map((i) => inside(0.15, false, { px: i % 2 ? -1 : 1, fx: 'sand', fxAt: DOOR })),
     inside(0.3, false),
