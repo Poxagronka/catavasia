@@ -52,6 +52,8 @@ export interface CatLifeWorld {
   petCare: PetCareSystem;
   placedFurniture(): PlacedFurniture[];
   petCareEnv(): PetCareEnv;
+  /** Meeting chairs ([tile key, cat id]): reserved like assigned seats. */
+  meetingSeats(): Array<[string, number]>;
   /** Start an idle activity for an agent (own seat unblocked for the path). */
   beginActivity(ch: Character, choice: IdleChoice): void;
 }
@@ -262,6 +264,7 @@ export class CatLife {
         seats.push([`${seat.seatCol},${seat.seatRow}`, ch.id]);
       }
     }
+    seats.push(...w.meetingSeats());
     for (const pet of this.catPets()) {
       const held = w.petCare.heldSpot(pet.id);
       if (held) wants.set(this.actors.actorFor(pet).id, held);
