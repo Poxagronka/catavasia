@@ -6,8 +6,12 @@
  * Work talk (catMessage): the sender walks up to the receiver and says its
  * line in a text bubble; a reply from the receiver shows over the receiver.
  * Then the sender walks back to its desk. A receiver working at its desk
- * stays seated; an idle receiver stops and turns to the sender. Talks queue
- * in arrival order: a cat is in one talk at a time.
+ * stays seated; an idle receiver stops and turns to the sender. A seated
+ * receiver that gets up during the walk-up is stopped, and the sender re-plans.
+ * The sender speaks only next to the receiver: when no tile near it can be
+ * reached (or the walk-up times out), the sender stays where it is and the
+ * line shows over both cats. Talks queue in arrival order: a cat is in one
+ * talk at a time.
  *
  * Briefing meeting (flowStateChanged 'briefing'): the boss and every
  * participant walk to the meeting room (meetingRoom.ts). Participants sit on
@@ -29,6 +33,7 @@ import {
   SCENE_BRIEFING_TEXT,
   SCENE_REPLY_WAIT_SEC,
   SCENE_SPEAK_SEC,
+  SCENE_TALK_FALLBACK_RADIUS,
 } from '../../constants.js';
 import type {
   CatMessageEvent,
@@ -44,7 +49,7 @@ import { Puppets, talkSpot } from './scenePuppets.js';
 import type { SceneBubble } from './sceneText.js';
 import { toBubble } from './sceneText.js';
 import type { Tile } from './socialMoves.js';
-import { faceEachOther } from './socialMoves.js';
+import { faceEachOther, stopAfterStep, tileDistance, tileOf } from './socialMoves.js';
 
 export interface ScenesWorld extends PuppetWorld {
   seats: Map<string, Seat>;
@@ -64,6 +69,8 @@ interface Talk {
   t: number;
   /** Both cats are in the meeting: no walking. */
   inPlace: boolean;
+  /** No way to the receiver: no walk-up, the line shows over both cats. */
+  remote?: boolean;
 }
 
 interface Meeting {
@@ -293,11 +300,39 @@ export class OfficeScenes {
       this.puppets.take(receiver, this.w);
       this.puppets.goTo(receiver.id, null);
     }
-    const host = receiver.path[0] ?? { col: receiver.tileCol, row: receiver.tileRow };
-    this.puppets.goTo(sender.id, talkSpot(sender, host, this.w));
     const talk = this.newTalk(msg, false);
     this.talks.push(talk);
+    this.planApproach(talk, sender, receiver);
     return talk;
+  }
+
+  /** Where the receiver stands (or stops, after its current step). */
+  private hostTile(receiver: Character): Tile {
+    return receiver.path[0] ?? tileOf(receiver);
+  }
+
+  /** Send the sender next to the receiver, or make the talk remote when it cannot get there. */
+  private planApproach(t: Talk, sender: Character, receiver: Character): void {
+    const spot = talkSpot(sender, this.hostTile(receiver), this.w);
+    if (spot) this.puppets.goTo(sender.id, spot);
+    else this.goRemote(t, sender);
+  }
+
+  /** No walk-up: the sender stays where it is (seated at its desk if it sits there). */
+  private goRemote(t: Talk, sender: Character): void {
+    t.remote = true;
+    // A sender still walking stops after its current step.
+    stopAfterStep(sender);
+    if (sender.moveProgress === 0) sender.path = [];
+    const seat = sender.seatId ? this.w.seats.get(sender.seatId) : undefined;
+    const onSeat = seat && seat.seatCol === sender.tileCol && seat.seatRow === sender.tileRow;
+    this.puppets.goTo(sender.id, null, onSeat ? seat : null);
+    this.next(t, 'speak');
+  }
+
+  /** The sender stands close enough to the receiver to talk. */
+  private isNear(sender: Character, receiver: Character): boolean {
+    return tileDistance(tileOf(sender), this.hostTile(receiver)) <= SCENE_TALK_FALLBACK_RADIUS;
   }
 
   private stepTalk(t: Talk, dt: number): boolean {
@@ -308,12 +343,25 @@ export class OfficeScenes {
     t.t += dt;
     switch (t.phase) {
       case 'approach': {
-        const ready =
-          this.puppets.isSettled(sender.id) &&
-          (!this.puppets.owns(receiver.id) || this.puppets.isSettled(receiver.id));
-        if (!ready && t.t < SCENE_APPROACH_TIMEOUT_SEC) return true;
-        this.faceTalkers(sender, receiver);
-        this.next(t, 'speak');
+        // A seated receiver whose turn ended gets up: stop it and walk to it.
+        if (!this.puppets.owns(receiver.id) && receiver.state !== CharacterState.TYPE) {
+          this.puppets.take(receiver, this.w);
+          this.puppets.goTo(receiver.id, null);
+          this.planApproach(t, sender, receiver);
+          return true;
+        }
+        const receiverReady =
+          !this.puppets.owns(receiver.id) || this.puppets.isSettled(receiver.id);
+        const arrived = this.puppets.isSettled(sender.id) && this.isNear(sender, receiver);
+        if (arrived && receiverReady) {
+          this.faceTalkers(sender, receiver);
+          this.next(t, 'speak');
+        } else if (t.t >= SCENE_APPROACH_TIMEOUT_SEC) {
+          this.goRemote(t, sender);
+        } else if (this.puppets.isSettled(sender.id) && !arrived) {
+          // The walk ended away from the receiver (blocked path): try again.
+          this.planApproach(t, sender, receiver);
+        }
         return true;
       }
       case 'speak':
@@ -428,6 +476,8 @@ export class OfficeScenes {
     for (const t of this.talks) {
       if (t.phase === 'approach') continue;
       add(`talk-${t.id}`, t.msg.from, t.msg);
+      // From afar the line also shows over the receiver, so the pair reads.
+      if (t.remote && t.phase !== 'reply') add(`talk-${t.id}-to`, t.msg.to, t.msg);
       if (t.phase === 'reply' && t.reply) add(`reply-${t.id}`, t.msg.to, t.reply);
     }
     const m = this.meeting;

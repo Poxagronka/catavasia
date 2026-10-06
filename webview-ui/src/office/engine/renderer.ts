@@ -53,7 +53,7 @@ import {
   hasCarpetSprites,
 } from '../sprites/carpetTiles.js';
 import { getPetSpritesFor } from '../sprites/petSpriteData.js';
-import { getFurColor } from '../sprites/socialSprites.js';
+import { furColorOf } from '../sprites/socialSprites.js';
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js';
 import {
   BUBBLE_HEART_SPRITE,
@@ -412,9 +412,7 @@ export function renderScene(
     // Asleep inside a cat house: only the ears or the tail show.
     const peek = ch.state === CharacterState.ACTIVITY ? ch.activity?.spot?.peek : undefined;
     if (peek && !ch.matrixEffect) {
-      drawables.push(
-        peekDrawable(peek, getFurColor(ch.palette, ch.hueShift), offsetX, offsetY, zoom),
-      );
+      drawables.push(peekDrawable(peek, furColorOf(ch), offsetX, offsetY, zoom));
       continue;
     }
     const sprites = ch.customSprites ?? getCharacterSprites(ch.palette, ch.hueShift);

@@ -168,7 +168,7 @@ export function ToolOverlay({
         const subHasPermission = isSub && ch.bubbleType === 'permission';
         // The narrator's line wins over the raw tool status (unless the
         // "raw tool status" debug setting is on). Sub-agents keep their own text.
-        const narrated = isSub ? undefined : narratorHover(id);
+        const narrated = isSub ? undefined : narratorHover(id, ch);
         let activityText: string;
         if (narrated) {
           activityText = narrated.line;

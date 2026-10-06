@@ -1,13 +1,26 @@
 /**
  * Office sprites of a custom cat coat: the same runtime generation the Cats
  * menu previews use (cats/catArt.ts renderAppearance), turned into the sprite
- * sets the renderer draws. A plain breed preset needs none: its char_N sheet
+ * sets the renderer draws, with the idle social poses (talk, angry) of the
+ * same coat. A plain breed preset needs none: its char_N sheet
  * (the character palette) already is that breed.
  */
 
-import { renderAppearance } from '../../cats/catArt.js';
+import { type CatFrames, renderAppearance, renderSocialAppearance } from '../../cats/catArt.js';
 import type { Appearance } from '../../cats/catsApi.js';
-import { type CharacterSprites, spritesFromSheet } from './spriteData.js';
+import type { SpriteData } from '../types.js';
+import { Direction } from '../types.js';
+import { type CharacterSprites, flipSpriteHorizontal, spritesFromSheet } from './spriteData.js';
+
+/** Generator frames by office direction (left = mirrored right). */
+function byDirection(frames: CatFrames): Record<Direction, SpriteData[]> {
+  return {
+    [Direction.DOWN]: frames.down,
+    [Direction.UP]: frames.up,
+    [Direction.RIGHT]: frames.right,
+    [Direction.LEFT]: frames.right.map(flipSpriteHorizontal),
+  };
+}
 
 const cache = new Map<string, CharacterSprites>();
 
@@ -18,7 +31,11 @@ export function appearanceSprites(appearance: Appearance): CharacterSprites | un
   const key = JSON.stringify(appearance);
   let sprites = cache.get(key);
   if (!sprites) {
-    sprites = spritesFromSheet(renderAppearance(appearance));
+    const social = renderSocialAppearance(appearance);
+    sprites = {
+      ...spritesFromSheet(renderAppearance(appearance)),
+      social: { talk: byDirection(social.talk), angry: byDirection(social.angry) },
+    };
     cache.set(key, sprites);
   }
   return sprites;
