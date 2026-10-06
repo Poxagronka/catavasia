@@ -228,13 +228,15 @@ test('talks queue per cat in arrival order', () => {
   cat(os, 1, 'deskA', true);
   cat(os, 2, 'deskC', true);
   cat(os, 3, 'deskE', true);
+  cat(os, 4, 'deskD', true);
   say(os, 1, 2, 'first');
   say(os, 3, 2, 'second'); // waits: cat 2 is busy
-  say(os, 2, 3, 'third'); // waits behind "second" (both cats are held)
+  say(os, 2, 4, 'third'); // waits behind "second" (cat 2 is held)
   assert.equal(os.scenes.queued, 3);
   runFor(os, 0.05);
   assert.equal(os.scenes.queued, 2);
   assert.equal(os.scenes.talkPhase(3), null);
+  assert.equal(os.scenes.talkPhase(4), null, '"third" may not jump ahead of "second"');
   runUntil(os, () => os.scenes.queued === 1); // first talk: walk, speak, wait, leave
   assert.equal(os.scenes.talkPhase(1), null, '"second" started after "first" ended');
   assert.notEqual(os.scenes.talkPhase(3), null);
@@ -375,4 +377,54 @@ test('messages for a cat in the meeting wait until the meeting ends', () => {
   brief(os, 'delegating', [1, 2]);
   runFor(os, 0.1);
   assert.equal(os.scenes.queued, 0, 'the talk starts after the meeting');
+});
+
+test('an answer queued before its talk starts becomes the reply of that talk', () => {
+  const os = office();
+  cat(os, 1, 'deskA', true);
+  cat(os, 2, 'deskE', true);
+  say(os, 1, 2, 'Which branch?', 'ask');
+  say(os, 2, 1, 'feat/login', 'reply'); // same frame: the talk has not started yet
+  runFor(os, 0.05);
+  assert.equal(os.scenes.queued, 0, 'the answer joined the talk');
+  runUntil(os, () => os.scenes.talkPhase(1) === 'reply');
+  assert.equal(os.scenes.bubbles().find((b) => b.catId === 2)?.kind, 'reply');
+});
+
+test('a briefing that takes one cat of a talk releases the other one', () => {
+  const os = office();
+  cat(os, 1, 'deskA', true);
+  cat(os, 2, 'deskB', true);
+  const out = cat(os, 5, 'deskE');
+  out.tileCol = 12;
+  out.tileRow = 9;
+  out.x = 12 * 16 + 8;
+  out.y = 9 * 16 + 8;
+  say(os, 2, 5, 'Coffee?', 'ask');
+  runFor(os, 0.1);
+  assert.ok(os.scenes.owns(5));
+  brief(os, 'briefing', [1, 2]);
+  assert.equal(os.scenes.owns(5), false, 'the receiver outside the meeting is free');
+  assert.equal(os.scenes.queued, 1, 'the line waits for the meeting to end');
+});
+
+test('talks inside the meeting play one at a time per cat', () => {
+  const os = office();
+  for (const [id, seat] of [
+    [1, 'deskA'],
+    [2, 'deskB'],
+    [3, 'deskC'],
+    [4, 'deskD'],
+  ] as const) {
+    cat(os, id, seat, true);
+  }
+  brief(os, 'briefing');
+  runFor(os, 15);
+  say(os, 2, 3, 'I take the UI', 'report');
+  say(os, 4, 3, 'I take the tests', 'report');
+  runFor(os, 0.05);
+  assert.equal(os.scenes.queued, 1, 'the second line waits for cat 3');
+  assert.equal(os.scenes.bubbles().filter((b) => b.to === 3).length, 1);
+  runUntil(os, () => os.scenes.queued === 0);
+  assert.equal(os.scenes.talkPhase(2), null, 'the first talk ended first');
 });

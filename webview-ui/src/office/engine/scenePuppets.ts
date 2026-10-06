@@ -21,7 +21,7 @@ import type { Character, Direction as DirectionT, Seat } from '../types.js';
 import { CharacterState } from '../types.js';
 import { snapToTile, stepAlongPath } from './characters.js';
 import type { SocialWorld, Tile } from './socialMoves.js';
-import { stopAfterStep } from './socialMoves.js';
+import { meetTile, stopAfterStep, tileDistance } from './socialMoves.js';
 
 export interface PuppetWorld extends SocialWorld {
   characters: Map<number, Character>;
@@ -185,4 +185,26 @@ export class Puppets {
     const frame = Math.floor(p.mouthT / SOCIAL_TALK_MOUTH_SEC) % 2;
     ch.social = { pose: 'talk', frame, bubble: null, anger: null, cloud: null };
   }
+}
+
+/**
+ * Where a sender stands to talk to a receiver on `host`: a free side tile,
+ * null when it already stands next to it, else the nearest free tile around.
+ */
+export function talkSpot(sender: Character, host: Tile, world: PuppetWorld): Tile | null {
+  const occupied = new Set<string>();
+  for (const c of world.characters.values()) {
+    if (c.id !== sender.id) occupied.add(`${c.tileCol},${c.tileRow}`);
+  }
+  const hostView = { ...sender, tileCol: host.col, tileRow: host.row };
+  const side = meetTile(sender, hostView, world, occupied);
+  if (side) return side;
+  if (tileDistance({ col: sender.tileCol, row: sender.tileRow }, host) <= 1) return null;
+  let best: Tile | null = null;
+  for (const t of world.walkableTiles) {
+    const d = tileDistance(t, host);
+    if (d === 0 || d > 3 || occupied.has(`${t.col},${t.row}`)) continue;
+    if (!best || d < tileDistance(best, host)) best = t;
+  }
+  return best;
 }

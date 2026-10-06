@@ -7,8 +7,42 @@ import {
   SCENE_BUBBLE_MAX_LINES,
   SCENE_TOOLTIP_MAX_CHARS,
 } from '../../constants.js';
+import type { CatMessageKind } from '../../orchestratorEvents.js';
 
 const ELLIPSIS = '…';
+
+/** One text bubble for the overlay. */
+export interface SceneBubble {
+  /** Stable React key. */
+  key: string;
+  catId: number;
+  kind: CatMessageKind;
+  lines: string[];
+  tooltip: string;
+  from: number;
+  to: number;
+}
+
+type BubbleLine = {
+  from: number;
+  to: number;
+  kind: CatMessageKind;
+  text: string;
+  summary?: string;
+};
+
+/** The bubble of `line`, drawn over `catId`. */
+export function toBubble(key: string, catId: number, line: BubbleLine): SceneBubble {
+  return {
+    key,
+    catId,
+    kind: line.kind,
+    lines: bubbleLines(line),
+    tooltip: tooltipText(line),
+    from: line.from,
+    to: line.to,
+  };
+}
 
 function clean(s: string): string {
   return s.replace(/\s+/g, ' ').trim();

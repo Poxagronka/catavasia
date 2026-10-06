@@ -150,3 +150,44 @@ function centroid(seats: Seat[]): Tile {
   const row = seats.reduce((s, x) => s + x.seatRow, 0) / seats.length;
   return { col, row };
 }
+
+/** Where one meeting cat goes: a chair (`seat`), or a tile to stand on. */
+export interface MeetingPlace {
+  goal: Tile | null;
+  seat: Seat | null;
+  face: DirectionT | null;
+  /** A chair that is not the cat's own desk seat (reserved for the meeting). */
+  borrowed: boolean;
+}
+
+/**
+ * The boss stands at the head. Every other cat takes its own seat when it is
+ * in the room, else a chair no agent owns, else a spare standing tile, else
+ * it stays where it is.
+ */
+export function assignPlaces(
+  plan: MeetingPlan | null,
+  cats: number[],
+  bossId: number,
+  seatIdOf: (id: number) => string | null,
+): Map<number, MeetingPlace> {
+  const out = new Map<number, MeetingPlace>();
+  const taken = new Set<string>();
+  const stand = [...(plan?.stand ?? [])];
+  const face = plan?.head?.dir ?? null;
+  for (const id of cats) {
+    if (id === bossId && plan?.head) {
+      out.set(id, { goal: plan.head, seat: null, face: plan.head.dir, borrowed: false });
+      continue;
+    }
+    const own = plan?.seats.find((s) => s.uid === seatIdOf(id));
+    const chair = own ?? plan?.seats.find((s) => !s.assigned && !taken.has(s.uid));
+    if (chair) {
+      taken.add(chair.uid);
+      out.set(id, { goal: null, seat: chair, face: null, borrowed: !own });
+    } else {
+      out.set(id, { goal: stand.shift() ?? null, seat: null, face, borrowed: false });
+    }
+  }
+  return out;
+}

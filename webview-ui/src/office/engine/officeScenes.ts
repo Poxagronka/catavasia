@@ -27,18 +27,18 @@ import {
 } from '../../constants.js';
 import type {
   CatMessageEvent,
-  CatMessageKind,
   FlowStateChangedEvent,
   OrchestratorEvent,
 } from '../../orchestratorEvents.js';
 import type { Character, Seat } from '../types.js';
 import { CharacterState } from '../types.js';
 import type { MeetingPlan } from './meetingRoom.js';
+import { assignPlaces } from './meetingRoom.js';
 import type { PuppetWorld } from './scenePuppets.js';
-import { Puppets } from './scenePuppets.js';
-import { bubbleLines, tooltipText } from './sceneText.js';
-import type { Tile } from './socialMoves.js';
-import { faceEachOther, meetTile, tileDistance } from './socialMoves.js';
+import { Puppets, talkSpot } from './scenePuppets.js';
+import type { SceneBubble } from './sceneText.js';
+import { toBubble } from './sceneText.js';
+import { faceEachOther } from './socialMoves.js';
 
 export interface ScenesWorld extends PuppetWorld {
   seats: Map<string, Seat>;
@@ -65,18 +65,6 @@ interface Meeting {
   /** Chairs taken for the meeting that are not the cat's own desk seat. */
   chairs: Map<number, Seat>;
   brief: Line | null;
-}
-
-/** One text bubble for the overlay. */
-export interface SceneBubble {
-  /** Stable React key. */
-  key: string;
-  catId: number;
-  kind: CatMessageKind;
-  lines: string[];
-  tooltip: string;
-  from: number;
-  to: number;
 }
 
 export class OfficeScenes {
@@ -113,10 +101,6 @@ export class OfficeScenes {
     return this.talkOf(id)?.phase ?? null;
   }
 
-  meetingCats(): number[] {
-    return this.meeting ? [...this.meeting.cats] : [];
-  }
-
   /** [seat tile key, cat id] of every meeting chair, for the seat reservations. */
   meetingSeats(): Array<[string, number]> {
     if (!this.meeting) return [];
@@ -137,9 +121,10 @@ export class OfficeScenes {
     if (msg.from === msg.to || !chars.has(msg.from) || !chars.has(msg.to)) return;
     const m = this.meeting;
     if (m && m.cats.includes(msg.from) && m.cats.includes(msg.to)) {
-      if (msg.from === m.bossId && msg.kind === 'brief') m.brief = msg;
-      else this.talks.push(this.newTalk(msg, true));
-      return;
+      if (msg.from === m.bossId && msg.kind === 'brief') {
+        m.brief = msg;
+        return;
+      }
     }
     const open = this.talks.find(
       (t) =>
@@ -175,6 +160,13 @@ export class OfficeScenes {
     // The meeting comes first: talks of its cats go back to the queue front.
     const cut = this.talks.filter((t) => cats.includes(t.msg.from) || cats.includes(t.msg.to));
     this.talks = this.talks.filter((t) => !cut.includes(t));
+    // The partner outside the meeting goes back to its own life.
+    for (const t of cut) {
+      if (!cats.includes(t.msg.from)) this.sendHome(t.msg.from);
+      if (!cats.includes(t.msg.to) && this.puppets.owns(t.msg.to)) {
+        this.puppets.release(t.msg.to, this.w);
+      }
+    }
     this.pending.unshift(
       ...cut.flatMap((t) => (t.inPlace ? [] : [t.msg, ...(t.reply ? [t.reply] : [])])),
     );
@@ -187,26 +179,14 @@ export class OfficeScenes {
       brief: null,
     };
     this.meeting = meeting;
-    const taken = new Set<string>();
-    const stand = [...(plan?.stand ?? [])];
+    const places = assignPlaces(plan, cats, ev.bossId, (id) => chars.get(id)?.seatId ?? null);
     for (const id of cats) {
-      const ch = chars.get(id)!;
       this.returning.delete(id);
-      this.puppets.take(ch, this.w);
+      this.puppets.take(chars.get(id)!, this.w);
       this.puppets.setTalking(id, false);
-      if (id === ev.bossId && plan?.head) {
-        this.puppets.goTo(id, plan.head, null, plan.head.dir);
-        continue;
-      }
-      const own = plan?.seats.find((s) => s.uid === ch.seatId);
-      const chair = own ?? plan?.seats.find((s) => !s.assigned && !taken.has(s.uid));
-      if (chair) {
-        taken.add(chair.uid);
-        if (!own) meeting.chairs.set(id, chair);
-        this.puppets.goTo(id, null, chair);
-      } else {
-        this.puppets.goTo(id, stand.shift() ?? null, null, plan?.head?.dir ?? null);
-      }
+      const p = places.get(id)!;
+      if (p.borrowed && p.seat) meeting.chairs.set(id, p.seat);
+      this.puppets.goTo(id, p.goal, p.seat, p.face);
     }
   }
 
@@ -239,22 +219,41 @@ export class OfficeScenes {
     return !!this.talkOf(id) || !!this.meeting?.cats.includes(id);
   }
 
-  /** Start queued talks whose cats are free, in arrival order per cat. */
+  /**
+   * Start queued talks whose cats are free, in arrival order per cat. A line
+   * between two meeting cats plays in place. A queued answer of the receiver
+   * becomes the reply of the talk that starts.
+   */
   private startPending(): void {
     const held = new Set<number>();
     const keep: Line[] = [];
-    for (const msg of this.pending) {
-      const chars = this.w.characters;
-      if (!chars.has(msg.from) || !chars.has(msg.to)) continue;
-      const blocked = [msg.from, msg.to].some((id) => held.has(id) || this.busy(id));
+    const used = new Set<Line>();
+    const m = this.meeting;
+    const chars = this.w.characters;
+    this.pending.forEach((msg, i) => {
+      if (used.has(msg) || !chars.has(msg.from) || !chars.has(msg.to)) return;
+      const inPlace = !!m && m.cats.includes(msg.from) && m.cats.includes(msg.to);
+      const busy = (id: number) => (inPlace ? !!this.talkOf(id) : this.busy(id));
+      const blocked = [msg.from, msg.to].some((id) => held.has(id) || busy(id));
       held.add(msg.from).add(msg.to);
-      if (blocked) keep.push(msg);
-      else this.beginTalk(msg);
-    }
+      if (blocked) {
+        keep.push(msg);
+        return;
+      }
+      const talk = inPlace ? this.newTalk(msg, true) : this.beginTalk(msg);
+      if (inPlace) this.talks.push(talk);
+      const reply = this.pending
+        .slice(i + 1)
+        .find((l) => !used.has(l) && l.from === msg.to && l.to === msg.from);
+      if (reply) {
+        used.add(reply);
+        talk.reply = reply;
+      }
+    });
     this.pending = keep;
   }
 
-  private beginTalk(msg: Line): void {
+  private beginTalk(msg: Line): Talk {
     const chars = this.w.characters;
     const sender = chars.get(msg.from)!;
     const receiver = chars.get(msg.to)!;
@@ -266,28 +265,10 @@ export class OfficeScenes {
       this.puppets.goTo(receiver.id, null);
     }
     const host = receiver.path[0] ?? { col: receiver.tileCol, row: receiver.tileRow };
-    this.puppets.goTo(sender.id, this.meetSpot(sender, host));
-    this.talks.push(this.newTalk(msg, false));
-  }
-
-  /** A free tile next to the receiver, or null when the sender is already there. */
-  private meetSpot(sender: Character, host: Tile): Tile | null {
-    const occupied = new Set<string>();
-    for (const c of this.w.characters.values()) {
-      if (c.id !== sender.id) occupied.add(`${c.tileCol},${c.tileRow}`);
-    }
-    const hostView = { ...sender, tileCol: host.col, tileRow: host.row };
-    const side = meetTile(sender, hostView, this.w, occupied);
-    if (side) return side;
-    if (tileDistance({ col: sender.tileCol, row: sender.tileRow }, host) <= 1) return null;
-    // No free side: the nearest free tile around the receiver.
-    let best: Tile | null = null;
-    for (const t of this.w.walkableTiles) {
-      const d = tileDistance(t, host);
-      if (d === 0 || d > 3 || occupied.has(`${t.col},${t.row}`)) continue;
-      if (!best || d < tileDistance(best, host)) best = t;
-    }
-    return best;
+    this.puppets.goTo(sender.id, talkSpot(sender, host, this.w));
+    const talk = this.newTalk(msg, false);
+    this.talks.push(talk);
+    return talk;
   }
 
   private stepTalk(t: Talk, dt: number): boolean {
@@ -388,16 +369,7 @@ export class OfficeScenes {
   /** Text bubbles to draw this frame. */
   bubbles(): SceneBubble[] {
     const out: SceneBubble[] = [];
-    const add = (key: string, catId: number, line: Line) =>
-      out.push({
-        key,
-        catId,
-        kind: line.kind,
-        lines: bubbleLines(line),
-        tooltip: tooltipText(line),
-        from: line.from,
-        to: line.to,
-      });
+    const add = (key: string, catId: number, line: Line) => out.push(toBubble(key, catId, line));
     for (const t of this.talks) {
       if (t.phase === 'approach') continue;
       add(`talk-${t.id}`, t.msg.from, t.msg);
@@ -415,9 +387,6 @@ export class OfficeScenes {
     }
     return out;
   }
-
-  /** Bubbles of the talk (or the briefing) a hovered cat takes part in. */
-  bubblesOf(id: number): SceneBubble[] {
-    return this.bubbles().filter((b) => b.catId === id || b.from === id || b.to === id);
-  }
 }
+
+export type { SceneBubble } from './sceneText.js';
