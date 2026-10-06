@@ -79,7 +79,6 @@ import { isHiddenInRunThrough } from './runThrough.js';
 import { anchorTile, closestFreeSeat } from './seatPlacement.js';
 import { DESK_READ_SEC, SKILL_READ, SKILL_TOOL } from './skillReading.js';
 import type { TaskCounts } from './whiteboardNotes.js';
-import { WHITEBOARD_TYPE, whiteboardSprite } from './whiteboardNotes.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
 function seatFacingOffset(direction: Direction): { dCol: number; dRow: number } {
@@ -138,7 +137,7 @@ export class OfficeState {
   private nextSubagentId = -1;
   /** Resident cats of the cat office by agent id (setResidentCats). */
   private residents = new Map<number, ResidentCat>();
-  /** Live task counts the whiteboards show as sticky notes; null = unknown (no notes). */
+  /** Live task counts the whiteboard tooltip shows; null = unknown (title only). */
   taskCounts: TaskCounts | null = null;
   /** The whiteboard under the mouse (its "Tasks" tooltip), or null. */
   hoveredWhiteboardUid: string | null = null;
@@ -1571,16 +1570,7 @@ export class OfficeState {
       const prop = getIdleActivity(claim?.kind)?.prop;
       if (claim?.spot?.itemUid && prop) moving.set(claim.spot.itemUid, prop);
     }
-    // Whiteboards show the live task counts.
-    const counts = this.taskCounts;
-    const boards = new Set(
-      counts
-        ? this.layout.furniture
-            .filter((p) => furnitureKind(p.type) === WHITEBOARD_TYPE)
-            .map((p) => p.uid)
-        : [],
-    );
-    if (moving.size === 0 && frames.size === 0 && boards.size === 0) return this.furniture;
+    if (moving.size === 0 && frames.size === 0) return this.furniture;
     const typeOf = new Map(
       this.layout.furniture.filter((p) => frames.has(p.uid)).map((p) => [p.uid, p.type]),
     );
@@ -1588,9 +1578,6 @@ export class OfficeState {
       const motion = f.uid ? moving.get(f.uid) : undefined;
       const frame = f.uid ? frames.get(f.uid) : undefined;
       let out = f;
-      if (counts && f.uid && boards.has(f.uid)) {
-        out = { ...out, sprite: whiteboardSprite(f.sprite, counts) };
-      }
       if (frame !== undefined) {
         const type = typeOf.get(f.uid!);
         const sprite = type ? itemFrameSprite(type, frame) : undefined;
