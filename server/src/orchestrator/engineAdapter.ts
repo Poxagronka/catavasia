@@ -28,6 +28,14 @@ export interface TurnRequest {
   message: string;
   /** Activity-log lines as they stream. */
   onLog?: (entry: TaskLogEntry) => void;
+  /** The engine compacted the conversation (Claude: `system/compact_boundary`). */
+  onCompact?: (info: CompactInfo) => void;
+}
+
+export interface CompactInfo {
+  trigger: string;
+  preTokens?: number;
+  postTokens?: number;
 }
 
 export interface TurnOutcome {

@@ -9,7 +9,7 @@
  * - "[Report from" or "[Office] Your turn ended": the root reports the
  *   final result (the office refuses while workers still work).
  * - FAKE_MODE=hang: never answer (for interrupt tests); FAKE_HANG_CAT=<id>: only that cat hangs.
- * Every run appends {cat, args, cwd, message} to $FAKE_LOG.
+ * Every run appends {cat, args, cwd, message, persona, compactWindow} to $FAKE_LOG.
  */
 
 import * as fs from 'fs';
@@ -32,7 +32,8 @@ process.stdin.on('end', async () => {
   const persona = fs.readFileSync(flag('--append-system-prompt-file'), 'utf-8');
   const cat = /cat id is "([a-z0-9-]+)"/.exec(persona)[1];
   const sessionId = flag('--session-id') || flag('--resume');
-  fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message }) + '\\n');
+  const compactWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+  fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message, persona, compactWindow }) + '\\n');
   if (process.env.FAKE_MODE === 'hang' || process.env.FAKE_HANG_CAT === cat) return setInterval(() => {}, 1000);
   const mcp = JSON.parse(fs.readFileSync(flag('--mcp-config'), 'utf-8')).mcpServers.office;
   let rpcId = 0;
@@ -122,6 +123,8 @@ export interface FakeRun {
   args: string[];
   cwd: string;
   message: string;
+  persona: string;
+  compactWindow?: string;
 }
 
 export function readFakeLog(file: string): FakeRun[] {

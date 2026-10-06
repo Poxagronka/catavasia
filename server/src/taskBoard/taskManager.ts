@@ -68,13 +68,17 @@ export interface TaskEvents {
 export interface TaskFlowRunner {
   targets(): TaskTarget[];
   resolveTarget(target: string): unknown;
-  start(
-    task: StoredTask,
-    cwd: string,
-    repo: RepoInfo | null,
-    sink: { save(task: StoredTask): void; ended(task: StoredTask): void },
-  ): void;
+  start(task: StoredTask, cwd: string, repo: RepoInfo | null, sink: FlowSink): void;
+  /** Go on with an interrupted team task (Resume). */
+  resume(task: StoredTask, sink: FlowSink): void;
+  /** Cancel a running or interrupted team task. */
+  cancel(task: StoredTask, sink: FlowSink): void;
   dispose(): void;
+}
+
+interface FlowSink {
+  save(task: StoredTask): void;
+  ended(task: StoredTask): void;
 }
 
 export interface TaskManagerOptions {
@@ -242,13 +246,7 @@ export class TaskManager {
       task.target = target;
       this.flowTasks.set(id, task);
       try {
-        flows.start(task, agentCwd, repo, {
-          save: (t) => this.store.save(t),
-          ended: (t) => {
-            this.flowTasks.delete(t.id);
-            this.store.save(t);
-          },
-        });
+        flows.start(task, agentCwd, repo, this.flowSink());
       } catch (err) {
         this.flowTasks.delete(id);
         return this.fail(task, `Could not start the team: ${errorText(err)}`);
@@ -269,6 +267,72 @@ export class TaskManager {
     this.store.save(task);
     this.spawnRun(task, task.prompt, false, releaseLock);
     return toSummary(task);
+  }
+
+  /**
+   * Resume a team task the server stopped (T14). Only an interrupted task that
+   * no live server owns. Returns the task, or throws TaskBusyError / TaskInputError.
+   */
+  resume(id: string): TaskSummary {
+    const task = this.stoppedFlowTask(id);
+    if (task.flow?.state !== 'interrupted') {
+      throw new TaskBusyError('Only an interrupted team task can resume.');
+    }
+    Object.assign(task, { status: 'running', ownerPid: process.pid });
+    delete task.error;
+    delete task.finishedAt;
+    this.flowTasks.set(id, task);
+    try {
+      this.opts.flows!.resume(task, this.flowSink());
+    } catch (err) {
+      this.flowTasks.delete(id);
+      this.markInterrupted(task);
+      throw new TaskBusyError(errorText(err));
+    }
+    this.store.save(task);
+    return toSummary(task);
+  }
+
+  /** Cancel a running or interrupted team task (T12, T15): the branches stay. */
+  cancel(id: string): TaskSummary {
+    const live = this.flowTasks.get(id);
+    const task = live ?? this.stoppedFlowTask(id);
+    if (!live && task.flow?.state !== 'interrupted') {
+      throw new TaskBusyError('Only a running or interrupted team task can be cancelled.');
+    }
+    task.ownerPid = process.pid;
+    this.flowTasks.set(id, task);
+    try {
+      this.opts.flows!.cancel(task, this.flowSink());
+    } catch (err) {
+      if (!live) this.flowTasks.delete(id);
+      throw new TaskBusyError(errorText(err));
+    }
+    this.store.save(task);
+    return toSummary(task);
+  }
+
+  /** A team task of this board that no running server works on. */
+  private stoppedFlowTask(id: string): StoredTask {
+    const task = this.store.readAll()[id];
+    if (!task?.target || !task.flow || !this.opts.flows) {
+      throw new TaskInputError('No such team task.');
+    }
+    if (this.flowTasks.has(id)) throw new TaskBusyError('The task is running.');
+    if (task.ownerPid !== process.pid && isProcessRunning(task.ownerPid)) {
+      throw new TaskBusyError('Another server runs this task.');
+    }
+    return task;
+  }
+
+  private flowSink(): FlowSink {
+    return {
+      save: (t) => this.store.save(t),
+      ended: (t) => {
+        this.flowTasks.delete(t.id);
+        this.store.save(t);
+      },
+    };
   }
 
   /** The newest task whose office character is `agentId`. Only tasks this

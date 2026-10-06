@@ -48,6 +48,11 @@ export const OFFICE_TOOLS = [
       properties: {
         to: str('Cat id of a direct report (see list_team).'),
         task: str('What to do, with every detail the cat needs.'),
+        rework: {
+          type: 'boolean',
+          description:
+            'true: you do not accept the last report of this cat; it must redo the work as described in task.',
+        },
       },
       required: ['to', 'task'],
     },

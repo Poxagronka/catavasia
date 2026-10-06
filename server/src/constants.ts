@@ -144,5 +144,22 @@ export const CAT_MESSAGE_MAX_CHARS = 20_000;
 export const SESSION_LOCK_RETRY_MS = 5000;
 /** Rows a profile cat's console keeps in memory (all its turns, newest last). */
 export const CAT_CONSOLE_MAX_ENTRIES = 400;
+/** A cat turn that runs longer than this is killed and fails (no retry). */
+export const TURN_TIMEOUT_MS = 1_800_000;
+/** A turn that failed for an infrastructure reason (crash, exit code, CLI error) runs again once. */
+export const TURN_RETRY_MAX = 1;
+export const TURN_RETRY_DELAY_MS = 10_000;
+/** ~/.pixel-agents/<dir>/<taskId>/: event log + snapshot of a team task's state machine. */
+export const FLOWS_DIR = 'flows';
+/** Event logs of tasks older than this are deleted at server start. */
+export const FLOW_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+/** Auto-compact window of every cat turn (CLAUDE_CODE_AUTO_COMPACT_WINDOW). */
+export const CAT_AUTO_COMPACT_WINDOW = 200_000;
+/** ~/.pixel-agents/<dir>/<catId>.md: one prompt file per cat, in a local git repo. */
+export const PROMPTS_DIR = 'prompts';
+export const PROMPT_RULES_MAX = 12;
+export const PROMPT_LESSONS_MAX = 20;
+export const PROMPT_ITEM_MAX_CHARS = 280;
+export const PROMPT_FILE_MAX_BYTES = 32 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;

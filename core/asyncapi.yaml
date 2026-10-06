@@ -994,7 +994,7 @@ components:
         The state of a team task changed. `rootCatId` leads the task and
         `catIds` are every cat of its team (the root and the cats below it):
         the office gathers them for the briefing meeting. The server always
-        ends a task with a done, error or interrupted state.
+        ends a task with a done, error, cancelled or interrupted state.
       type: object
       additionalProperties: false
       required: [type, taskId, state]
@@ -1519,7 +1519,24 @@ components:
           type: string
         systemPrompt:
           type: string
-          description: Appended to the engine's default system prompt.
+          description: |
+            The `Role & conduct` section of the cat's prompt file
+            (`~/.pixel-agents/prompts/<id>.md`). Editing it commits a new
+            version of that file. The whole file is appended to the engine's
+            default system prompt.
+        rules:
+          type: array
+          description: Read-only. `Rules` items of the prompt file (the Cat CEO edits them).
+          items:
+            $ref: '#/components/schemas/PromptItem'
+        lessons:
+          type: array
+          description: Read-only. `Lessons` items of the prompt file (the Cat CEO edits them).
+          items:
+            $ref: '#/components/schemas/PromptItem'
+        promptError:
+          type: string
+          description: Read-only. The prompt file on disk does not parse; the last committed version is used.
         engine:
           $ref: '#/components/schemas/CatEngine'
         model:
@@ -1533,6 +1550,17 @@ components:
         isDefault:
           type: boolean
           description: Seeded by the app, not by the user.
+
+    PromptItem:
+      type: object
+      additionalProperties: false
+      required: [id, text]
+      properties:
+        id:
+          type: string
+          description: '`R1`, `L3`, ... Never reused inside one file.'
+        text:
+          type: string
 
     EngineOptions:
       type: object
@@ -1605,7 +1633,7 @@ components:
 
     FlowState:
       type: string
-      enum: [briefing, delegating, working, reporting, merging, done, error, interrupted]
+      enum: [briefing, delegating, working, reporting, merging, done, error, cancelled, interrupted]
 
     AgentSeatMeta:
       description: |

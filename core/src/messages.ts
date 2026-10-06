@@ -223,6 +223,9 @@ export interface CatProfile {
   appearance: CatAppearance;
   role: string;
   systemPrompt: string;
+  rules?: PromptItem[];
+  lessons?: PromptItem[];
+  promptError?: string;
   engine: CatEngine;
   model: string;
   effort: string;
@@ -249,6 +252,11 @@ export interface CatColorLayers {
 
 export type CatPattern =
   'solid' | 'tabby' | 'tuxedo' | 'calico' | 'tortie' | 'siamese' | 'bengal' | 'sweater';
+
+export interface PromptItem {
+  id: string;
+  text: string;
+}
 
 export type CatEngine = 'claude' | 'codex';
 
@@ -323,6 +331,7 @@ export type FlowState =
   | 'merging'
   | 'done'
   | 'error'
+  | 'cancelled'
   | 'interrupted';
 
 export interface QueueChanged {

@@ -29,7 +29,7 @@ import { filterGuestMessage } from './guests.js';
 import type { Narrator } from './narrator/narrator.js';
 import { registerOfficeMcpRoute } from './orchestrator/officeMcp.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
-import { TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
+import { TaskBusyError, TaskInputError, type TaskManager } from './taskBoard/taskManager.js';
 import type { AgentState } from './types.js';
 
 /** Options for creating the HTTP + WebSocket server. */
@@ -191,21 +191,38 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
 
   // Creating a task spawns an agent with NO permission prompts, so it needs the
   // same out-of-band secret as the hook install (standaloneTokenValid): the
-  // `?token=` from the printed URL, or the Bearer token.
+  // `?token=` from the printed URL, or the Bearer token. Resume and Cancel too.
+  // onRequest runs before body validation, so an untokened caller learns
+  // nothing about the payload rules.
+  const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
+    const bearer = timingSafeStringEqual(request.headers.authorization ?? '', `Bearer ${token}`);
+    if (!bearer && !standaloneTokenValid(request.url, token)) {
+      return reply.code(401).send({ error: 'A valid session token is required' });
+    }
+  };
+
+  // Team tasks: Resume an interrupted task, Cancel a running or interrupted one.
+  for (const action of ['resume', 'cancel'] as const) {
+    app.post<{ Params: { id: string } }>(
+      `/api/tasks/:id/${action}`,
+      { onRequest },
+      async (request, reply) => {
+        if (!tasks.get(request.params.id)) return reply.code(404).send({ error: 'not found' });
+        try {
+          return tasks[action](request.params.id);
+        } catch (err) {
+          if (err instanceof TaskBusyError) return reply.code(409).send({ error: err.message });
+          if (err instanceof TaskInputError) return reply.code(400).send({ error: err.message });
+          throw err;
+        }
+      },
+    );
+  }
+
   app.post<{ Body: { prompt: string; cwd?: string; target?: string } }>(
     '/api/tasks',
     {
-      // onRequest runs before body validation, so an untokened caller learns
-      // nothing about the payload rules.
-      onRequest: async (request, reply) => {
-        const bearer = timingSafeStringEqual(
-          request.headers.authorization ?? '',
-          `Bearer ${token}`,
-        );
-        if (!bearer && !standaloneTokenValid(request.url, token)) {
-          return reply.code(401).send({ error: 'A valid session token is required' });
-        }
-      },
+      onRequest,
       schema: {
         body: {
           type: 'object',
