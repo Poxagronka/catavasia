@@ -4,6 +4,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CatProfile } from '../../core/src/messages.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { applyShowGuests, filterGuestMessage } from '../src/guests.js';
+import {
+  askMessage,
+  chatLines,
+  delegateMessage,
+  NUDGE_REPORT,
+  reportMessage,
+  rootTaskMessage,
+  TURN_PART_SEPARATOR,
+} from '../src/orchestrator/flowPrompts.js';
 import { wireFlow } from '../src/orchestrator/machine/helpers.js';
 import { reduce, startTask } from '../src/orchestrator/machine/taskReducer.js';
 import type { TaskState } from '../src/orchestrator/machine/types.js';
@@ -174,6 +183,39 @@ describe('office tools: hierarchy', () => {
     expect(call('boss', 'fly')).toMatchObject({ isError: true });
     expect(call('boss', 'delegate', { to: 'mid' }).text).toContain('"task" is required');
     expect(call('w1', 'list_team').text).toContain('Your lead Boss');
+  });
+
+  it('never lists a cat as its own report; a cat with no reports works itself', () => {
+    const byId = (id: string) => cats.find((c) => c.id === id)!;
+    const lead = rootTaskMessage('t1', 'p', byId('boss'), cats);
+    expect(lead).toContain('- Mid (mid)');
+    expect(lead).toContain('- W1 (w1)');
+    expect(lead).not.toContain('- Boss (boss)');
+    const solo = rootTaskMessage('t1', 'p', byId('w1'), cats);
+    expect(solo).toContain('do the task yourself');
+    expect(solo).not.toContain('delegate');
+    expect(call('boss', 'delegate', { to: 'boss', task: 'x' }).text).toContain(
+      'not your direct report',
+    );
+  });
+
+  it('shows the chat only what the sender wrote', () => {
+    const [boss, mid] = [cats[0], cats[1]];
+    const turn = [
+      rootTaskMessage('t1', 'привет\nsecond line', mid, cats),
+      '[Message from the user]\nand one more',
+      delegateMessage(boss, mid, 'fix it', cats, 'task/t1-mid', 'the plan', true),
+      askMessage(mid, 'which file?'),
+      reportMessage(mid, 'done', true),
+      NUDGE_REPORT,
+    ].join(TURN_PART_SEPARATOR);
+    expect(chatLines(turn)).toEqual([
+      'привет\nsecond line',
+      'and one more',
+      'Rework from Boss (boss):\nfix it',
+      'Question from Mid (mid):\nwhich file?',
+      'Failure report from Mid (mid):\ndone',
+    ]);
   });
 
   it('answers every tool with "ended" after the task left the active states', () => {
