@@ -49,6 +49,9 @@
   --text-code-size: 13px;
   --leading-body: 1.55;
   --color-text-body: #e6e6ee;
+  /* Chat prose (the Claude app look): inline code chips and links. */
+  --color-code-text: #f28fa0;
+  --color-link: #6cb0ff;
   --measure-body: 680px;
 
   /* Non-utility values */
@@ -94,6 +97,7 @@
   --color-status-active: var(--color-status-active);
   --color-status-success: var(--color-status-success);
   --color-status-error: var(--color-status-error);
+  --color-link: var(--color-link);
 
   /* Shadow */
   --shadow-pixel: var(--shadow-pixel);
@@ -184,7 +188,7 @@
     list-style: circle;
   }
   .markdown :where(li) {
-    margin: 2px 0;
+    margin: 4px 0;
   }
   .markdown :where(li > p) {
     margin: 0;
@@ -201,15 +205,38 @@
     vertical-align: -1px;
     accent-color: var(--color-accent-bright);
   }
+  /* Inline code: a monospace chip. */
   .markdown :where(:not(pre) > code) {
     background: var(--color-bg-dark);
-    padding: 1px 4px;
+    border: 1px solid var(--color-bg-thumb);
+    color: var(--color-code-text);
+    padding: 0 4px;
   }
   .markdown :where(pre) {
     background: var(--color-bg-dark);
     border: 2px solid var(--color-border);
     padding: 8px;
     overflow-x: auto;
+  }
+  /* A code block and its Copy button (Markdown.tsx CodeBlock). */
+  .markdown-code {
+    position: relative;
+  }
+  .markdown-code-copy {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--color-bg-dark);
+  }
+  /* A folded run of tool calls: one grey line with a chevron that turns when open. */
+  .tool-row > summary::-webkit-details-marker {
+    display: none;
+  }
+  .tool-row-chevron {
+    display: inline-block;
+  }
+  .tool-row[open] .tool-row-chevron {
+    transform: rotate(90deg);
   }
   .markdown :where(blockquote) {
     border-left: 3px solid var(--color-border);

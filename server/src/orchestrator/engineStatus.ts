@@ -4,8 +4,11 @@
  * Probe commands (verified from the installed CLIs' --help, 2026-10-06):
  *   claude --version        "2.1.291 (Claude Code)"
  *   claude auth status      JSON {"loggedIn": bool, "authMethod": ...}; exit 1 when logged out
+ *     authMethod (2.1.292): "claude.ai" | "oauth_token" (subscription), "api_key" |
+ *     "api_key_helper" | "third_party" (Bedrock/Vertex/Foundry: pay per use), "none"
  *   codex --version         "codex-cli 0.160.1"
- *   codex login status      "Logged in using ChatGPT" / "Not logged in" (on stderr); exit 1 when logged out
+ *   codex login status      "Logged in using ChatGPT" / "Logged in using an API key - ***" /
+ *                           "Not logged in" (on stderr); exit 1 when logged out
  *
  * A result is cached for STATUS_TTL_MS. Reading a stale status starts a probe
  * in the background; `refresh(true)` probes now ("Check again").
@@ -21,26 +24,46 @@ const PROBE_TIMEOUT_MS = 15_000;
 
 const ENGINE_LABELS: Record<CatEngine, string> = { claude: 'Claude Code', codex: 'Codex' };
 
-/** `claude auth status` (JSON) -> loggedIn and a short detail. Unknown output -> {}. */
-export function parseClaudeAuthStatus(output: string): Pick<EngineStatus, 'loggedIn' | 'detail'> {
+type AuthFields = Pick<EngineStatus, 'loggedIn' | 'detail' | 'apiKey'>;
+
+/** Claude auth methods billed per use: the UI shows money only for these. */
+const CLAUDE_PAID_METHODS = new Set(['api_key', 'api_key_helper', 'third_party']);
+/** Claude auth methods of a subscription login. Any other method leaves `apiKey` unknown. */
+const CLAUDE_PLAN_METHODS = new Set(['claude.ai', 'oauth_token']);
+
+/** `claude auth status` (JSON) -> loggedIn, a short detail, API key or not. Unknown output -> {}. */
+export function parseClaudeAuthStatus(output: string): AuthFields {
   try {
     const json = JSON.parse(output) as { loggedIn?: unknown; authMethod?: unknown };
     if (typeof json.loggedIn !== 'boolean') return {};
     const method = typeof json.authMethod === 'string' ? json.authMethod : undefined;
-    return json.loggedIn
-      ? { loggedIn: true, ...(method ? { detail: `logged in (${method})` } : {}) }
-      : { loggedIn: false, detail: 'not logged in' };
+    if (!json.loggedIn) return { loggedIn: false, detail: 'not logged in' };
+    const apiKey = !method
+      ? undefined
+      : CLAUDE_PAID_METHODS.has(method)
+        ? true
+        : CLAUDE_PLAN_METHODS.has(method)
+          ? false
+          : undefined;
+    return {
+      loggedIn: true,
+      ...(method ? { detail: `logged in (${method})` } : {}),
+      ...(apiKey !== undefined ? { apiKey } : {}),
+    };
   } catch {
     return {};
   }
 }
 
-/** `codex login status` text -> loggedIn and a short detail. Unknown output -> {}. */
-export function parseCodexLoginStatus(output: string): Pick<EngineStatus, 'loggedIn' | 'detail'> {
+/** `codex login status` text -> loggedIn, a short detail, API key or not. Unknown output -> {}. */
+export function parseCodexLoginStatus(output: string): AuthFields {
   if (/^\s*Not logged in/im.test(output)) return { loggedIn: false, detail: 'not logged in' };
   const line = /^\s*(Logged in[^\n]*)/im.exec(output)?.[1];
   // "Logged in using an API key - sk-..." must not show the key.
-  return line ? { loggedIn: true, detail: line.split(' - ')[0].trim() } : {};
+  if (!line) return {};
+  const detail = line.split(' - ')[0].trim();
+  const apiKey = /api key/i.test(detail) ? true : /chatgpt/i.test(detail) ? false : undefined;
+  return { loggedIn: true, detail, ...(apiKey !== undefined ? { apiKey } : {}) };
 }
 
 /** First version-like token: "2.1.291 (Claude Code)" -> 2.1.291, "codex-cli 0.160.1" -> 0.160.1. */

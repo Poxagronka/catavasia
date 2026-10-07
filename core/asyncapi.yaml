@@ -2100,6 +2100,12 @@ components:
         detail:
           description: Short human text ("not logged in", "logged in (claude.ai)").
           type: string
+        apiKey:
+          description: |
+            True: the engine signs in with an API key (pay per use), and the UI
+            shows money. False: a subscription login (claude.ai, ChatGPT), and the
+            UI hides every cost. Absent: unknown, and the UI hides costs too.
+          type: boolean
 
     CatAppearance:
       description: |

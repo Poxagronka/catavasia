@@ -39,6 +39,40 @@ describe('toRows', () => {
       rows.map((r) => (r.kind === 'message' ? r.entry.kind : r.kind === 'tools' && r.tools.length)),
     ).toEqual(['user', 2, 'text', 1]);
   });
+
+  it('marks the last text of each reply: its copy and time show under it', () => {
+    const rows = api.toRows([
+      { kind: 'user', text: 'go' },
+      { kind: 'text', text: 'looking' },
+      { kind: 'tool', name: 'Read', text: 'a.ts' },
+      { kind: 'text', text: 'done' },
+      { kind: 'user', text: 'thanks' },
+      { kind: 'text', text: 'welcome' },
+    ]);
+    expect(rows.map((r) => r.kind === 'message' && r.replyEnd === true)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+    ]);
+  });
+});
+
+describe('relativeTime', () => {
+  it('says when a reply came in plain words', () => {
+    const now = 10 * 24 * 3_600_000;
+    const ago = (ms: number) => api.relativeTime(now - ms, now);
+    expect(ago(5_000)).toBe('just now');
+    expect(ago(2 * 60_000)).toBe('2 min ago');
+    expect(ago(3_600_000)).toBe('1 hour ago');
+    expect(ago(5 * 3_600_000)).toBe('5 hours ago');
+    expect(ago(30 * 3_600_000)).toBe('yesterday');
+    expect(ago(4 * 24 * 3_600_000)).toBe('4 days ago');
+    // A clock a little behind the server: never "in the future".
+    expect(ago(-2_000)).toBe('just now');
+  });
 });
 
 describe('wheelBlocker', () => {

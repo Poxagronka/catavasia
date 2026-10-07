@@ -34,8 +34,11 @@ export const STATUS_CLASS: Record<TaskStatus, string> = {
   error: 'text-status-error',
 };
 
-/** The Cat CEO review badge of a task card: short text and its hover text. */
-export function reviewBadge(review: TaskSummary['review']): { text: string; title: string } | null {
+/** The Cat CEO review badge of a task card: short text and its hover text (cost: API users only). */
+export function reviewBadge(
+  review: TaskSummary['review'],
+  showMoney = false,
+): { text: string; title: string } | null {
   if (!review) return null;
   if (review.state === 'pending')
     return { text: 'CEO: queued', title: 'The Cat CEO reviews it soon' };
@@ -49,6 +52,6 @@ export function reviewBadge(review: TaskSummary['review']): { text: string; titl
       : review.minScore === review.maxScore
         ? `${review.minScore} `
         : `${review.minScore}–${review.maxScore} `;
-  const cost = review.costUsd === undefined ? '' : ` ($${review.costUsd.toFixed(2)})`;
+  const cost = !showMoney || review.costUsd === undefined ? '' : ` ($${review.costUsd.toFixed(2)})`;
   return { text: `CEO: ${range}${review.verdict ?? ''}`, title: `${review.summary ?? ''}${cost}` };
 }

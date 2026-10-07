@@ -202,18 +202,21 @@ test('the Cat CEO takes the desk in the head Area, walks to the reviewed cat and
 test('task card badge: queued, reviewing, scores with verdict, failed', () => {
   assert.equal(reviewBadge(undefined), null);
   assert.equal(reviewBadge({ state: 'pending', reviewId: 'r' })?.text, 'CEO: queued');
-  assert.deepEqual(
-    reviewBadge({
-      state: 'reviewed',
-      reviewId: 'r',
-      verdict: 'concerns',
-      summary: 'tests missing',
-      minScore: 58,
-      maxScore: 90,
-      costUsd: 0.214,
-    }),
-    { text: 'CEO: 58–90 concerns', title: 'tests missing ($0.21)' },
-  );
+  const reviewed = {
+    state: 'reviewed',
+    reviewId: 'r',
+    verdict: 'concerns',
+    summary: 'tests missing',
+    minScore: 58,
+    maxScore: 90,
+    costUsd: 0.214,
+  } as const;
+  // The cost shows to API-key users only.
+  assert.deepEqual(reviewBadge(reviewed, true), {
+    text: 'CEO: 58–90 concerns',
+    title: 'tests missing ($0.21)',
+  });
+  assert.equal(reviewBadge(reviewed)?.title, 'tests missing');
   assert.equal(reviewBadge({ state: 'failed', reviewId: 'r', error: 'boom' })?.title, 'boom');
 });
 

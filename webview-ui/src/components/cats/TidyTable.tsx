@@ -1,4 +1,5 @@
 import type { PromptTidyInfo, TidyRow } from '../../../../core/src/messages.js';
+import { useMoneyShown } from '../../engines/money.js';
 
 const items = (list: TidyRow['before']) =>
   list.map((i) => (
@@ -43,11 +44,13 @@ export function TidyTable({ rows }: { rows: TidyRow[] }) {
 /** The newest tidy of a cat: its summary and the changes it marked but did not apply. */
 export function LastTidy({ tidy }: { tidy: PromptTidyInfo }) {
   const marked = tidy.rows.filter((r) => !r.applied);
+  const showMoney = useMoneyShown();
   return (
     <div className="flex flex-col gap-4 border-2 border-border p-4" data-testid="last-tidy">
       <div className="text-text-muted">
         Last tidy {new Date(tidy.at).toLocaleString()} ({tidy.trigger}
-        {tidy.costUsd !== undefined ? `, $${tidy.costUsd.toFixed(3)}` : ''}): {tidy.summary}
+        {showMoney && tidy.costUsd !== undefined ? `, $${tidy.costUsd.toFixed(3)}` : ''}):{' '}
+        {tidy.summary}
       </div>
       {marked.length > 0 && (
         <>

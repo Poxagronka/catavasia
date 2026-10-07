@@ -12,6 +12,8 @@ export interface JobCardActions {
   onDetails(jobId: string): void;
   /** Open a cat's chat (CatTerminalPanel) by its profile id. */
   onOpenCat(catId: string): void;
+  /** The engine signs in with an API key: the card shows the cost (engines/money.ts). */
+  showMoney?: boolean;
 }
 
 const STATE_CLASS: Record<string, string> = {
@@ -59,11 +61,11 @@ export function JobCard({ job, actions }: { job: Job; actions: JobCardActions })
   const team = job.target === 'team';
   const facts = [
     `${job.turns} ${job.turns === 1 ? 'turn' : 'turns'}`,
-    ...(job.costUsd !== undefined ? [`$${job.costUsd.toFixed(2)}`] : []),
+    ...(actions.showMoney && job.costUsd !== undefined ? [`$${job.costUsd.toFixed(2)}`] : []),
   ];
   return (
     <div
-      className="self-stretch pixel-panel bg-bg-dark! px-10 py-8 flex flex-col gap-6"
+      className="self-stretch prose-measure bg-bg-dark border-2 border-border px-10 py-8 flex flex-col gap-6"
       data-testid="job-card"
       data-job-id={job.jobId}
     >

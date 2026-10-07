@@ -63,11 +63,12 @@ export const DESK_TOOL_PREFIX = 'mcp__desk__';
  * or one desk action (a desk tool row, shown as is).
  */
 export type ConsoleRow =
-  | { kind: 'message'; entry: Exclude<CatSessionEntry, ToolEntry> }
+  /** `replyEnd`: the last text of a reply (no more text before the next message): its actions show. */
+  | { kind: 'message'; entry: Exclude<CatSessionEntry, ToolEntry>; replyEnd?: boolean }
   | { kind: 'tools'; tools: ToolEntry[] }
   | { kind: 'action'; tool: ToolEntry };
 
-/** Fold consecutive tool calls into one collapsible row. */
+/** Fold consecutive tool calls into one collapsible row; mark where each reply ends. */
 export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
   const rows: ConsoleRow[] = [];
   for (const entry of entries) {
@@ -76,6 +77,14 @@ export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
     else if (entry.name.startsWith(DESK_TOOL_PREFIX)) rows.push({ kind: 'action', tool: entry });
     else if (last?.kind === 'tools') last.tools.push(entry);
     else rows.push({ kind: 'tools', tools: [entry] });
+  }
+  // Backward: a text ends its reply unless more text comes before the next other message.
+  let nextIsText = false;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind !== 'message') continue;
+    if (row.entry.kind === 'text' && !nextIsText) row.replyEnd = true;
+    nextIsText = row.entry.kind === 'text';
   }
   return rows;
 }
@@ -87,4 +96,21 @@ export function wheelBlocker(status: CatSessionStatus, hasToken: boolean): strin
   if (status.wheelHeld) return 'The wheel is already taken';
   if (status.busy) return 'The cat is working: wait for the turn to end';
   return null;
+}
+
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+/** When a reply came, in plain words: "just now", "2 min ago", "3 hours ago", "yesterday", "4 days ago". */
+export function relativeTime(at: number, now: number): string {
+  const ago = Math.max(0, now - at);
+  if (ago < MINUTE_MS) return 'just now';
+  if (ago < HOUR_MS) return `${Math.floor(ago / MINUTE_MS)} min ago`;
+  if (ago < DAY_MS) {
+    const hours = Math.floor(ago / HOUR_MS);
+    return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  }
+  const days = Math.floor(ago / DAY_MS);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
 }

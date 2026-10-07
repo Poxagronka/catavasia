@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useCatCeo } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
-import { useCats } from '../cats/useCats.js';
 import { catSessionApi } from '../catTerminal/catSessionApi.js';
 import { ConsoleRowView, MessageRow } from '../catTerminal/ChatConsole.js';
 import { toRows } from '../catTerminal/consoleState.js';
 import { EngineNotice } from '../engines/EngineNotice.js';
 import { engineProblem } from '../engines/engineReadiness.js';
 import { engineUi } from '../engines/engineStore.js';
+import { useMoneyShown } from '../engines/money.js';
 import { playDoneSound } from '../notificationSound.js';
 import { sessionToken } from '../sessionToken.js';
 import { CEO_DESK_SESSION, ceoDeskApi } from './ceoDeskApi.js';
@@ -24,6 +24,7 @@ import {
   parseSavedDock,
   queuedRows,
   setCollapsed,
+  settingLabel,
   statusPill,
   unreadCount,
 } from './dockState.js';
@@ -55,7 +56,7 @@ interface CeoDockProps {
  * shows the read-only note.
  */
 export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory }: CeoDockProps) {
-  useCats(); // re-render when the engine status changes
+  const showMoney = useMoneyShown(); // also re-renders when the engine status changes
   const { settings } = useCatCeo();
   const [dock, setDock] = useState(loadDock);
   const [draft, setDraft] = useState('');
@@ -153,6 +154,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
     canControl: privileged,
     onDetails: onOpenTask,
     onOpenCat,
+    showMoney,
   };
   const stop = () =>
     void ceoDeskApi.stop().then(
@@ -179,7 +181,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         appearance={settings?.appearance}
         pill={statusPill(chat)}
         folder={chat.status.folder ?? null}
-        costUsd={chat.status.costUsd}
+        costUsd={showMoney ? chat.status.costUsd : undefined}
         privileged={privileged && !gone}
         stoppable={chat.status.busy || (chat.status.queued ?? 0) > 0}
         onStop={stop}
@@ -240,6 +242,27 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}
           onRestored={() => setRestored(undefined)}
+          settings={
+            settings && (
+              <>
+                {/* Later phases: the permission mode label goes first, the context ring last. */}
+                <span
+                  className="shrink-0"
+                  title="The model the CEO thinks with. Change it in the Cats menu."
+                  data-testid="dock-model"
+                >
+                  {settingLabel(settings.model)}
+                </span>
+                <span
+                  className="shrink-0"
+                  title="How long the CEO thinks before it answers. Change it in the Cats menu."
+                  data-testid="dock-effort"
+                >
+                  {settingLabel(settings.effort)}
+                </span>
+              </>
+            )
+          }
         />
       )}
     </div>

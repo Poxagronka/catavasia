@@ -210,3 +210,9 @@ export function projectName(folder: string | null | undefined): string {
       .pop() || folder
   );
 }
+
+/** A model or effort value as a short label under the composer: "opus" -> "Opus". */
+export function settingLabel(value: string): string {
+  if (value === 'xhigh') return 'Extra high';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}

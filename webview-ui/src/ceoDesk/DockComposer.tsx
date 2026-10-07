@@ -27,12 +27,25 @@ interface DockComposerProps {
   restored?: File[];
   /** The restored files are in the box: the dock forgets them (no second add on a remount). */
   onRestored?(): void;
+  /** The right of the row under the box: the CEO's model and effort. */
+  settings?: ReactNode;
+}
+
+/** An arrow up, drawn on a pixel grid. */
+function SendIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 14 14" shapeRendering="crispEdges" aria-hidden>
+      <path d="M6 1h2v2h2v2h2v2h-4v6H6V7H2V5h2V3h2z" fill="currentColor" />
+    </svg>
+  );
 }
 
 let nextId = 1;
 
 /**
- * The message box of the CEO dock. Enter sends, Shift+Enter is a new line.
+ * The message box of the CEO dock (the Claude app look): one box with the send
+ * arrow inside, and under it "+" (attach) left and the CEO settings right.
+ * Enter sends, Shift+Enter is a new line.
  * The input stays usable while the CEO works: a message then waits (queued).
  * Files come from paste, drag and drop, or the paperclip; a big image is
  * downscaled first, and a limit problem shows at once, before Send.
@@ -45,6 +58,7 @@ export function DockComposer({
   notice,
   restored,
   onRestored,
+  settings,
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
@@ -155,17 +169,34 @@ export function DockComposer({
         </span>
       )}
       <AttachmentStrip files={files} onRemove={remove} />
-      <textarea
-        value={draft}
-        onChange={(e) => onDraft(e.target.value)}
-        onKeyDown={onKeyDown}
-        onPaste={onPaste}
-        rows={3}
-        placeholder="Ask the CEO: a question, a link, or work for the team. Paste or drop files."
-        className="w-full resize-none bg-bg-dark border-2 border-border focus:border-accent outline-none px-8 py-6 prose-body"
-        data-testid="dock-input"
-      />
-      <div className="flex items-center gap-8">
+      <div className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent pr-4">
+        <textarea
+          value={draft}
+          onChange={(e) => onDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          rows={2}
+          placeholder="Ask the CEO anything. Paste or drop files here."
+          className="flex-1 min-w-0 resize-none bg-transparent border-0 outline-none px-8 py-6 prose-body"
+          data-testid="dock-input"
+        />
+        <button
+          type="button"
+          disabled={!canSend}
+          onClick={() => void submit()}
+          title={blocked ?? 'Send (Enter). Shift+Enter: new line'}
+          aria-label="Send"
+          className={`shrink-0 w-28 h-28 mb-4 flex items-center justify-center border-2 ${
+            canSend
+              ? 'bg-accent border-accent text-text hover:bg-accent-bright cursor-pointer'
+              : 'bg-transparent border-transparent text-text-muted cursor-default'
+          }`}
+          data-testid="dock-send"
+        >
+          <SendIcon />
+        </button>
+      </div>
+      <div className="flex items-center gap-10 min-w-0 text-sm text-text-muted">
         <input
           ref={picker}
           type="file"
@@ -180,26 +211,16 @@ export function DockComposer({
         <Button
           variant="ghost"
           size="icon"
+          className="text-xl w-24! h-24!"
           onClick={() => picker.current?.click()}
           title="Attach images or files"
           aria-label="Attach images or files"
           data-testid="dock-attach"
         >
-          📎
+          +
         </Button>
-        <span className="flex-1 text-2xs text-text-muted truncate">
-          {preparing ? 'Preparing files...' : 'Enter sends · Shift+Enter: new line'}
-        </span>
-        <Button
-          variant={canSend ? 'accent' : 'disabled'}
-          size="md"
-          disabled={!canSend}
-          onClick={() => void submit()}
-          title={blocked ?? undefined}
-          data-testid="dock-send"
-        >
-          Send
-        </Button>
+        <span className="flex-1 truncate">{preparing ? 'Preparing files...' : ''}</span>
+        {settings}
       </div>
     </div>
   );
