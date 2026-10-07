@@ -49,6 +49,31 @@ export async function inspectRepo(folder: string): Promise<RepoInfo | null> {
   }
 }
 
+/**
+ * Turn on version history for a project folder: `git init` when it is not in
+ * a repo yet, then a first commit of what is there (task branches start from it).
+ */
+export async function startHistory(folder: string): Promise<void> {
+  const inRepo = await git(folder, ['rev-parse', '--show-toplevel']).then(
+    () => true,
+    () => false,
+  );
+  if (!inRepo) await git(folder, ['init', '-q']);
+  await git(folder, ['add', '-A']);
+  const id = await identityArgs(folder);
+  const message = 'Start version history (catavasia)';
+  await git(folder, [
+    ...id,
+    '-c',
+    'commit.gpgsign=false',
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    message,
+  ]);
+}
+
 /** The commit a ref names (a rework job starts from the branch of the job it corrects). */
 export async function revParse(repoRoot: string, ref: string): Promise<string> {
   return (await git(repoRoot, ['rev-parse', '--verify', `${ref}^{commit}`])).trim();
