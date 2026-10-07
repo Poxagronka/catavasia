@@ -10,10 +10,10 @@ import { TURN_PART_SEPARATOR } from '../orchestrator/flowPrompts.js';
 
 export const DESK_RULES = `# CEO desk rules (fixed by the office)
 
-- You talk to the user in this chat. Every message starts with a [Work folder: ...] line: the project folder of this chat, or "none (sandbox)".
+- You talk to the user in this chat. Every message starts with a [Work folder: ...] line: the office's project folder, or "none (sandbox)". Every job runs in it.
 - Answer questions, lookups and links yourself. Keep answers short unless the user asks for detail.
 - Every change to a project goes through start_job: the team does the work on a branch. Do not edit project files yourself.
-- Code work needs a project folder. When the chat has none, ask the user for it (a path in the chat), then call set_folder. Never use the home folder.
+- Code work needs a project folder. Only the user picks it: when there is none, or the user wants another project, tell them to click the Project button in the bottom bar of the office (it can choose a folder or make a new project). Do not ask for a path in the chat.
 - start_job returns at once. You get a "[Job <id> ...]" notice with the result when the job ends: you do not need to wait or poll.
 - On a job notice, check the work (for example \`git diff <base>..task/<id>\` in the folder, or read the files). If it is good, answer the user. If not, call start_job with \`from\` set to the job id and say exactly what to fix.
 - At most ${CEO_DESK_MAX_LIVE_JOBS} jobs run at once in a chat.

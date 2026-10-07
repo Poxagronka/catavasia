@@ -14,7 +14,6 @@ import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { TaskBusyError, TaskInputError, type TaskManager } from '../taskBoard/taskManager.js';
 import { jobNotice } from './deskPrompt.js';
 import { promptItems } from './promptEditTool.js';
-import { checkWorkFolder } from './workFolder.js';
 
 const GOAL_MAX_CHARS = 120;
 
@@ -41,7 +40,6 @@ export const DESK_TOOLS: McpTool[] = [
       properties: {
         task: str('What to do, with every detail the team needs.'),
         to: str('"team" (the lead splits the work) or a cat id from list_team. Default: team.'),
-        folder: str('Absolute project folder. Default: the chat folder, else the sandbox.'),
         from: str("Job id to correct: the new job starts from that job's branch."),
       },
       required: ['task'],
@@ -65,15 +63,6 @@ export const DESK_TOOLS: McpTool[] = [
     name: 'cancel_job',
     description: 'Cancel a running or interrupted job. Its branches stay.',
     inputSchema: { type: 'object', properties: { jobId: str('Job id.') }, required: ['jobId'] },
-  },
-  {
-    name: 'set_folder',
-    description: 'Set the project folder of this chat (an absolute path the user gave).',
-    inputSchema: {
-      type: 'object',
-      properties: { path: str('Absolute path of the project folder.') },
-      required: ['path'],
-    },
   },
   {
     name: 'list_team',
@@ -107,14 +96,12 @@ export const DESK_TOOLS: McpTool[] = [
 export interface DeskToolHost {
   office: Orchestrator;
   tasks: TaskManager;
-  stateDir: string;
   chatId(): string;
   folder(): string | null;
   /** The chat's sandbox: where folderless jobs run. */
   sandbox(): string;
   /** The project folder of a job's cwd, or null for a sandbox. */
   folderOf(cwd: string): string | null;
-  setFolder(folder: string): void;
   /** Jobs of this chat that have not ended yet. */
   liveJobs(): string[];
   /** Rework jobs started since the last user message. */
@@ -168,15 +155,6 @@ export async function callDeskTool(
         throw err;
       }
     }
-    case 'set_folder': {
-      const checked = checkWorkFolder(arg(args, 'path') ?? '', host.stateDir);
-      if (!checked.ok) return fail(checked.error);
-      host.setFolder(checked.path);
-      return ok(
-        `The work folder of this chat is now ${checked.path}.`,
-        `Work folder → ${checked.path}`,
-      );
-    }
     case 'list_team': {
       const catId = arg(args, 'catId');
       if (!catId) return ok(teamList(host.office.cats.list()), 'Looked at the team');
@@ -222,12 +200,6 @@ async function startJob(
     if (typeof from === 'string') return fail(from);
     baseRef = from.branch;
     folder = host.folderOf(from.cwd);
-  }
-  const asked = arg(args, 'folder');
-  if (asked) {
-    const checked = checkWorkFolder(asked, host.stateDir);
-    if (!checked.ok) return fail(checked.error);
-    folder = checked.path;
   }
   try {
     const chatId = host.chatId();

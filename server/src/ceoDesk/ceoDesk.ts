@@ -36,7 +36,7 @@ import { jobNotice } from './deskPrompt.js';
 import { ADOPTED_TEXT, type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, cardLine, DESK_MCP_NAME, type DeskToolHost, jobCard } from './deskTools.js';
 import { logRows, spawnDeskTurn, type Turn } from './deskTurn.js';
-import { recentFolders } from './workFolder.js';
+import { RECENT_FOLDERS_MAX, recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
 export const RESTARTED_TEXT = 'The server restarted during this turn; send again.';
@@ -168,7 +168,9 @@ export class CeoDesk implements OfficeToolHandler {
     for (const timer of this.cardTimers.values()) clearTimeout(timer);
     this.cardTimers.clear();
     // The board's tasks were adopted once; a New chat never adopts them again.
-    this.state = { ...freshDesk(), boardAdopted: true };
+    // The project is the office's: it stays for the new chat.
+    const { folder, recent } = this.state;
+    this.state = { ...freshDesk(), boardAdopted: true, folder, ...(recent ? { recent } : {}) };
     this.rows = [];
     this.reworkCount = 0;
     this.store.save(this.state);
@@ -176,17 +178,21 @@ export class CeoDesk implements OfficeToolHandler {
     return this.state.chatId;
   }
 
-  /** The chat's work folder (already checked), or null for the sandbox. */
+  /** The office's project folder (already checked), or null for the sandbox. */
   setFolder(folder: string | null): void {
     this.state.folder = folder;
+    if (folder) {
+      const rest = (this.state.recent ?? []).filter((f) => f !== folder);
+      this.state.recent = [folder, ...rest].slice(0, RECENT_FOLDERS_MAX);
+    }
     this.store.save(this.state);
     this.statusChanged();
   }
 
-  /** Folders of earlier tasks, newest first (the folder chip offers them). */
+  /** Projects picked before, then folders of earlier tasks, newest first (the Project panel). */
   recentFolders(): string[] {
     return recentFolders(
-      this.opts.tasks.list().map((t) => t.cwd),
+      [...(this.state.recent ?? []), ...this.opts.tasks.list().map((t) => t.cwd)],
       this.store.chatsDir,
     );
   }
@@ -214,16 +220,14 @@ export class CeoDesk implements OfficeToolHandler {
   }
 
   private toolHost(): DeskToolHost {
-    const { office, tasks, stateDir } = this.opts;
+    const { office, tasks } = this.opts;
     return {
       office,
       tasks,
-      stateDir,
       chatId: () => this.state.chatId,
       folder: () => this.state.folder,
       sandbox: () => this.sandbox(),
       folderOf: (cwd) => this.folderOf(cwd),
-      setFolder: (folder) => this.setFolder(folder),
       liveJobs: () => this.state.liveJobs,
       reworks: () => this.reworkCount,
       request: () => this.turn?.request ?? '',

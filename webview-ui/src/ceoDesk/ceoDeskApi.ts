@@ -8,6 +8,8 @@ import {
   CEO_API_PREFIX,
   type CeoAttachment,
   type CeoAttachmentUpload,
+  type CeoFolderCancelled,
+  type CeoFolderResponse,
   type CeoFoldersResponse,
   type CeoStopResponse,
 } from '../../../core/src/ceoDesk.js';
@@ -45,9 +47,15 @@ export const ceoDeskApi = {
   /** Stop the turn; the queued user messages come back for the draft. */
   stop: () => call<CeoStopResponse>('POST', 'stop'),
   newChat: () => call<{ chatId: string }>('POST', 'new'),
-  /** An absolute project folder, or null for the sandbox. */
-  setFolder: (path: string | null) => call<{ folder: string | null }>('PUT', 'folder', { path }),
+  /** The office's project: an absolute folder, or null for the sandbox. */
+  setFolder: (path: string | null) => call<CeoFolderResponse>('PUT', 'folder', { path }),
   folders: () => call<CeoFoldersResponse>('GET', 'folders'),
+  /** The system folder window (the server opens it); waits until the user closes it. */
+  pickFolder: () => call<CeoFolderResponse | CeoFolderCancelled>('POST', 'folder/pick'),
+  /** A new project in ~/catavasia-projects/<name>, with version history. */
+  newProject: (name: string) => call<CeoFolderResponse>('POST', 'folder/new', { name }),
+  /** Turn on version history (git) for the current project. */
+  startHistory: () => call<CeoFolderResponse>('POST', 'folder/history'),
   /** A stored file back as a File: Stop returns the queued files to the composer. */
   fetchAttachment: async (file: CeoAttachment): Promise<File> => {
     const query = sessionToken ? `?token=${encodeURIComponent(sessionToken)}` : '';

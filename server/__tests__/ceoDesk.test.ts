@@ -448,13 +448,14 @@ describe('cat sessions of the CEO desk', () => {
       headers: auth,
       payload: { path: env.tmp },
     });
-    expect(good.json()).toEqual({ folder: env.tmp });
+    expect(good.json()).toEqual({ folder: env.tmp, git: false });
     const folders = await app.inject({ method: 'GET', url: '/api/ceo/folders', headers: auth });
-    expect(folders.json()).toEqual({ folder: env.tmp, recent: [] });
+    expect(folders.json()).toMatchObject({ folder: env.tmp, git: false, recent: [env.tmp] });
     const stop = await app.inject({ method: 'POST', url: '/api/ceo/stop', headers: auth });
     expect(stop.json()).toEqual({ draft: '' });
     const fresh = await app.inject({ method: 'POST', url: '/api/ceo/new', headers: auth });
     expect(fresh.json().chatId).toMatch(/^c-/);
-    expect(env.desk.folder).toBeNull();
+    // The project is the office's: a New chat keeps it.
+    expect(env.desk.folder).toBe(env.tmp);
   });
 });
