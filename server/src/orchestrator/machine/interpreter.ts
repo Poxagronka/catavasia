@@ -18,7 +18,12 @@ import { commitAll } from '../../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../../taskBoard/taskStore.js';
 import type { CatConsoles } from '../catConsoles.js';
 import type { CatResidents } from '../catResidents.js';
-import type { EngineAdapter, TurnHandle } from '../engineAdapter.js';
+import type {
+  EngineAdapter,
+  PermissionAnswer,
+  PermissionAsk,
+  TurnHandle,
+} from '../engineAdapter.js';
 import type { TurnScheduler } from '../turnScheduler.js';
 import type { EventLog } from './eventLog.js';
 import { isActive, isTerminal, wireFlow } from './helpers.js';
@@ -48,6 +53,8 @@ export interface RunnerHost {
   persona(cat: CatProfile): { text: string; sha?: string };
   emit(message: ServerMessage): void;
   narrate?(input: NarratorInput): void;
+  /** The cat's permission mode asks the user before one action (an approval card). */
+  askPermission(cat: CatProfile, ask: PermissionAsk): Promise<PermissionAnswer>;
   /** A cat's MCP token now belongs to this runner (undefined: drop it). */
   setToken(token: string, owner: { runner: TaskRunner; catId: string } | undefined): void;
   /** The task left the machine. */

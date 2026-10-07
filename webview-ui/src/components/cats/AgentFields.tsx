@@ -1,6 +1,7 @@
 import { type CatProfile, type Engine, ENGINE_LABELS } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
 import { FIELD } from './fields.js';
+import { PermissionModeField } from './PermissionModeField.js';
 import { PromptItemsEditor } from './PromptItemsEditor.js';
 
 export function Select({
@@ -47,7 +48,7 @@ function engineLabels(): Record<string, string> {
   );
 }
 
-/** Agent-only fields: role, engine, model, effort, system prompt. */
+/** Agent-only fields: role, engine, model, effort, permissions, system prompt. */
 export function AgentFields({
   cat,
   onChange,
@@ -118,6 +119,12 @@ export function AgentFields({
           onChange={(effort) => onChange({ ...cat, effort })}
         />
       </div>
+      <PermissionModeField
+        engine={cat.engine}
+        model={cat.model}
+        value={cat.permissionMode}
+        onChange={(permissionMode) => onChange({ ...cat, permissionMode })}
+      />
       <label className="flex flex-col gap-2 text-xs text-text-muted">
         System prompt
         <textarea

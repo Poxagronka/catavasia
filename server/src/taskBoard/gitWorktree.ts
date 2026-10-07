@@ -79,6 +79,50 @@ export async function revParse(repoRoot: string, ref: string): Promise<string> {
   return (await git(repoRoot, ['rev-parse', '--verify', `${ref}^{commit}`])).trim();
 }
 
+/** Project files Claude Code reads (at the repo root and the project folder). */
+const PROJECT_CONTEXT = [
+  'CLAUDE.md',
+  'CLAUDE.local.md',
+  'AGENTS.md',
+  '.mcp.json',
+  '.claude/settings.json',
+  '.claude/settings.local.json',
+  '.claude/skills',
+  '.claude/commands',
+];
+/** In the worktree's own git dir: the carried paths, which commitAll never adds. */
+const CARRIED_LIST = 'catavasia-carried';
+
+/**
+ * Copy the project files a checkout misses (untracked or ignored in the main
+ * folder: CLAUDE.local.md, settings.local.json, ...) into a new worktree, so
+ * the cat sees the same project context as the user's own Claude Code.
+ */
+async function carryProjectContext(root: string, worktreePath: string, subdir: string) {
+  try {
+    const specs = [...new Set(['', subdir])].flatMap((dir) =>
+      PROJECT_CONTEXT.map((p) => path.join(dir, p)),
+    );
+    const list = async (...flags: string[]) =>
+      (await git(root, ['ls-files', '--others', '-z', ...flags, '--', ...specs]))
+        .split('\0')
+        .filter(Boolean);
+    const files = await list();
+    // Ignored files stay out of commits anyway (git add even refuses to name them).
+    const unignored = await list('--exclude-standard');
+    const gitDir = (await git(worktreePath, ['rev-parse', '--absolute-git-dir'])).trim();
+    // The list first: a copy that fails half way is still never committed.
+    fs.writeFileSync(path.join(gitDir, CARRIED_LIST), unignored.join('\n'));
+    for (const file of files) {
+      fs.mkdirSync(path.dirname(path.join(worktreePath, file)), { recursive: true });
+      // cpSync keeps a symlink (a linked skill folder) as a link.
+      fs.cpSync(path.join(root, file), path.join(worktreePath, file), { recursive: true });
+    }
+  } catch (err) {
+    console.error(`[catavasia] Could not copy project settings to ${worktreePath}: ${String(err)}`);
+  }
+}
+
 export async function createWorktree(
   repo: RepoInfo,
   worktreePath: string,
@@ -86,6 +130,7 @@ export async function createWorktree(
 ): Promise<void> {
   fs.mkdirSync(path.dirname(worktreePath), { recursive: true });
   await git(repo.root, ['worktree', 'add', '-b', branch, worktreePath, repo.head]);
+  await carryProjectContext(repo.root, worktreePath, repo.subdir);
 }
 
 /** Check the kept task branch out again at its old path (a follow-up turn or
@@ -94,10 +139,12 @@ export async function reopenWorktree(
   repoRoot: string,
   worktreePath: string,
   branch: string,
+  subdir = '',
 ): Promise<void> {
   if (fs.existsSync(worktreePath)) return;
   await git(repoRoot, ['worktree', 'prune']);
   await git(repoRoot, ['worktree', 'add', worktreePath, branch]);
+  await carryProjectContext(repoRoot, worktreePath, subdir);
 }
 
 export interface WorktreeOutcome {
@@ -121,14 +168,26 @@ export async function unmergedPaths(worktreePath: string): Promise<string[]> {
   return out.split('\n').filter(Boolean);
 }
 
+/** The project files carryProjectContext copied into this worktree. */
+async function carriedPaths(worktreePath: string): Promise<string[]> {
+  const gitDir = (await git(worktreePath, ['rev-parse', '--absolute-git-dir'])).trim();
+  try {
+    return fs.readFileSync(path.join(gitDir, CARRIED_LIST), 'utf-8').split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Commit everything in the worktree. Returns false when there was nothing to
- * commit. Refuses while a merge conflict is unresolved (never commits markers).
+ * Commit everything in the worktree but the carried project files. Returns
+ * false when there was nothing to commit. Refuses while a merge conflict is
+ * unresolved (never commits markers).
  */
 export async function commitAll(worktreePath: string, message: string): Promise<boolean> {
   const conflicts = await unmergedPaths(worktreePath);
   if (conflicts.length) throw new Error(`unresolved merge conflict in ${conflicts.join(', ')}`);
-  await git(worktreePath, ['add', '-A']);
+  const carried = (await carriedPaths(worktreePath)).map((p) => `:(exclude,literal)${p}`);
+  await git(worktreePath, ['add', '-A', '--', '.', ...carried]);
   const staged = (await git(worktreePath, ['diff', '--cached', '--name-only'])).trim();
   if (!staged) return false;
   const identity = await identityArgs(worktreePath);

@@ -29,6 +29,14 @@ const versionDefine = {
   'process.env.PIXEL_AGENTS_VERSION': JSON.stringify(pkgVersion),
   'process.env.CATAVASIA_COMMIT': JSON.stringify(buildCommit()),
 };
+/**
+ * The Claude Agent SDK is ESM and calls createRequire(import.meta.url) at load.
+ * A CJS bundle has no import.meta: give it the bundle file's URL instead.
+ */
+const importMetaUrl = {
+  define: { ...versionDefine, 'import.meta.url': 'importMetaUrl' },
+  inject: [path.join(__dirname, 'scripts', 'import-meta-url.js')],
+};
 
 /**
  * Copy assets folder to dist/assets
@@ -110,7 +118,7 @@ async function main() {
     platform: 'node',
     outfile: 'dist/extension.js',
     external: ['vscode'],
-    define: versionDefine,
+    ...importMetaUrl,
     logLevel: 'silent',
     plugins: [
       /* add to the end of plugins array */
@@ -179,7 +187,7 @@ async function buildCli() {
       '@lydell/node-pty',
       'node-pty',
     ],
-    define: versionDefine,
+    ...importMetaUrl,
     logLevel: 'silent',
   });
   if (!production) {

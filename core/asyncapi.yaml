@@ -1107,6 +1107,7 @@ components:
           maxEditsPerCatPerDay,
           tidyUserItems,
           systemPrompt,
+          permissionMode,
         ]
       properties:
         type:
@@ -1128,6 +1129,8 @@ components:
           description: A tidy may rewrite and merge the items the user wrote (default false). It never removes them.
         systemPrompt:
           type: string
+        permissionMode:
+          $ref: '#/components/schemas/PermissionMode'
 
     ReviewStarted:
       description: The Cat CEO started the review of a finished team task.
@@ -1772,6 +1775,8 @@ components:
           description: A tidy may rewrite and merge the items the user wrote (default false). It never removes them.
         systemPrompt:
           type: string
+        permissionMode:
+          $ref: '#/components/schemas/PermissionMode'
 
     GetPromptHistory:
       description: "Ask for the commits of a cat's prompt file (needs the server token). Answer: promptHistory."
@@ -2042,6 +2047,8 @@ components:
           type: string
         effort:
           type: string
+        permissionMode:
+          $ref: '#/components/schemas/PermissionMode'
         parentId:
           oneOf:
             - type: string
@@ -2147,6 +2154,15 @@ components:
     CatEngine:
       type: string
       enum: [claude, codex]
+
+    PermissionMode:
+      description: |
+        What a cat (or the Cat CEO) may do without asking: `auto` (a classifier
+        approves each action and asks when unsure; the default), `ask` (asks
+        before actions), `bypass` (never asks), `readOnly` (reads, never
+        changes anything). Absent on an old cat: `auto`.
+      type: string
+      enum: [auto, ask, bypass, readOnly]
 
     CatPattern:
       type: string

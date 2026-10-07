@@ -6,6 +6,7 @@
 
 import {
   CEO_API_PREFIX,
+  type CeoApprovalAnswer,
   type CeoAttachment,
   type CeoAttachmentUpload,
   type CeoFolderCancelled,
@@ -47,6 +48,9 @@ export const ceoDeskApi = {
   /** Stop the turn; the queued user messages come back for the draft. */
   stop: () => call<CeoStopResponse>('POST', 'stop'),
   newChat: () => call<{ chatId: string }>('POST', 'new'),
+  /** The user's answer to an approval card (a cat or the CEO waits for it). */
+  answerApproval: (id: string, answer: CeoApprovalAnswer['answer']) =>
+    call<{ ok: boolean }>('POST', `approvals/${encodeURIComponent(id)}`, { answer }),
   /** The office's project: an absolute folder, or null for the sandbox. */
   setFolder: (path: string | null) => call<CeoFolderResponse>('PUT', 'folder', { path }),
   folders: () => call<CeoFoldersResponse>('GET', 'folders'),

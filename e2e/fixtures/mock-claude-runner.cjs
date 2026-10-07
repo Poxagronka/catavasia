@@ -497,16 +497,43 @@ function flagValue(argv, name) {
   return at >= 0 ? argv[at + 1] : undefined;
 }
 
+/** `--session-id=<id>` (Agent SDK) or `--session-id <id>`. */
+function idFlag(argv, name) {
+  const joined = argv.find((a) => a.startsWith(`${name}=`));
+  return joined ? joined.slice(name.length + 1) : flagValue(argv, name);
+}
+
 /**
- * Headless turn: `claude -p --input-format stream-json ...` (the CEO desk and
- * the cat office). Reads the one user message from stdin and answers like the
- * real CLI's stream-json output: init, one assistant message, the result.
- * The answer echoes the user's words, plus a markdown list and a code block.
+ * Headless turn through the Claude Agent SDK (`--input-format stream-json`,
+ * the CEO desk and the cat office). Speaks the SDK's control protocol: control
+ * requests get a success, the one user message runs the turn, and stdin EOF
+ * ends the process. Answers like the real CLI: init, one assistant message,
+ * the result. The answer echoes the user's words, plus a markdown list and a
+ * code block. "ask: <command>" first asks can_use_tool for a Bash call and
+ * says the answer.
  */
 async function headlessTurn(argv) {
-  let input = '';
-  for await (const chunk of process.stdin) input += chunk;
-  const first = JSON.parse(input.trim().split('\n')[0] || '{}');
+  const out = (record) => process.stdout.write(`${JSON.stringify(record)}\n`);
+  let answered = () => {};
+  const ended = new Promise((resolve) => process.stdin.on('end', resolve));
+  const first = await new Promise((resolve) => {
+    let buf = '';
+    process.stdin.on('data', (chunk) => {
+      buf += chunk;
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines.filter(Boolean)) {
+        const m = JSON.parse(line);
+        if (m.type === 'control_request') {
+          out({
+            type: 'control_response',
+            response: { subtype: 'success', request_id: m.request_id, response: {} },
+          });
+        } else if (m.type === 'control_response') answered(m.response.response);
+        else if (m.type === 'user') resolve(m);
+      }
+    });
+  });
   const content = first.message ? first.message.content : '';
   // A content-block array (attached images): its text blocks are the message.
   const blocks = Array.isArray(content) ? content : [];
@@ -523,14 +550,31 @@ async function headlessTurn(argv) {
   const marker = '[Message from the user]\n';
   const at = message.lastIndexOf(marker);
   const said = (at >= 0 ? message.slice(at + marker.length) : message).trim();
-  const sessionId = flagValue(argv, '--session-id') || flagValue(argv, '--resume') || '';
+  const sessionId = idFlag(argv, '--session-id') || idFlag(argv, '--resume') || '';
   const fence = '`'.repeat(3);
   // "start job: <task>" makes the CEO call its desk tool start_job.
   const job = /^start job: (.+)$/.exec(said);
   const started = job ? await callDeskTool(argv, 'start_job', { task: job[1] }) : undefined;
+  const ask = /^ask: (.+)$/.exec(said);
+  let answer;
+  if (ask) {
+    const reply = new Promise((resolve) => (answered = resolve));
+    out({
+      type: 'control_request',
+      request_id: 'mock-ask',
+      request: {
+        subtype: 'can_use_tool',
+        tool_name: 'Bash',
+        input: { command: ask[1] },
+        tool_use_id: 'mock-tool',
+      },
+    });
+    answer = (await reply).behavior;
+  }
   const text = [
     `Mock CEO: ${said.replace(/\[Attached [^\n]*\n?/g, '').trim()}`,
     ...(started ? ['', started] : []),
+    ...(answer ? ['', `Permission answer: ${answer}`] : []),
     ...(images || files ? ['', `Received ${images} images and ${files} files.`] : []),
     '',
     '- first point',
@@ -555,11 +599,13 @@ async function headlessTurn(argv) {
     num_turns: 1,
     usage: { input_tokens: 1, output_tokens: 1 },
   });
+  await ended;
 }
 
 /** Call a tool of the `desk` MCP server in --mcp-config (the CEO desk); returns its text. */
 async function callDeskTool(argv, name, args) {
-  const config = JSON.parse(fs.readFileSync(flagValue(argv, '--mcp-config'), 'utf-8'));
+  // The SDK passes the config inline (JSON), not as a file.
+  const config = JSON.parse(flagValue(argv, '--mcp-config'));
   const desk = config.mcpServers && config.mcpServers.desk;
   if (!desk) return 'no desk tools';
   const res = await fetch(desk.url, {
@@ -578,7 +624,7 @@ async function callDeskTool(argv, name, args) {
 
 async function main() {
   const argv = process.argv.slice(2);
-  if (argv.includes('-p') && flagValue(argv, '--input-format') === 'stream-json') {
+  if (flagValue(argv, '--input-format') === 'stream-json') {
     await headlessTurn(argv);
     return;
   }
@@ -609,12 +655,11 @@ async function main() {
   await playScenario(homeDir, scenario, context);
 }
 
-main()
-  .catch((error) => {
-    const homeDir = os.homedir();
-    logAction(
-      homeDir,
-      `error ${error instanceof Error ? error.stack || error.message : String(error)}`,
-    );
-    process.exitCode = 1;
-  });
+main().catch((error) => {
+  const homeDir = os.homedir();
+  logAction(
+    homeDir,
+    `error ${error instanceof Error ? error.stack || error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+});

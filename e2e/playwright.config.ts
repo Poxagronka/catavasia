@@ -11,6 +11,12 @@ const htmlReportDir = namespaceE2EPath(path.join(__dirname, '../playwright-repor
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests'),
+  // These specs open a real VS Code window. Local runs skip them so no window
+  // pops up on the developer's desktop. CI runs them, or set E2E_VSCODE=1.
+  testIgnore:
+    process.env.CI || process.env.E2E_VSCODE === '1'
+      ? []
+      : ['**/tests/claude/**', '**/tests/standalone/multi-server-hooks.spec.ts'],
   timeout: 120_000,
   globalSetup: path.join(__dirname, 'global-setup.ts'),
   reporter: [

@@ -5,7 +5,7 @@ import { WebSocket } from 'ws';
 
 import type { CatSessionEntry, CatSessionFrame } from '../../core/src/catSession.js';
 import { OfficeCatSource } from '../src/catTerminal/officeCatSource.js';
-import { BUDGET_HIT_TEXT, RESTARTED_TEXT } from '../src/ceoDesk/ceoDesk.js';
+import { RESTARTED_TEXT } from '../src/ceoDesk/ceoDesk.js';
 import { DESK_RULES } from '../src/ceoDesk/deskPrompt.js';
 import { ADOPTED_TEXT } from '../src/ceoDesk/deskStore.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
@@ -118,22 +118,6 @@ describe('CEO desk turns', () => {
     expect(rows.at(-1)).toMatchObject({ kind: 'text', text: 'Stopped.' });
     expect(rows.some((e) => e.kind === 'error')).toBe(false);
     expect(env.ceo.turns).toHaveLength(1);
-  });
-
-  it('says so when a turn hits the budget cap, after the text it wrote', async () => {
-    env = await startDeskOffice(() => ({
-      ok: false,
-      budgetHit: true,
-      error: 'The turn reported an error',
-      log: [{ kind: 'text', text: 'Half an answer' }],
-    }));
-    env.desk.send('a big question');
-    await deskIdle(env.desk);
-    expect(env.desk.snapshot().entries.slice(-2)).toMatchObject([
-      { kind: 'text', text: 'Half an answer' },
-      { kind: 'error', text: BUDGET_HIT_TEXT },
-    ]);
-    expect(BUDGET_HIT_TEXT).toBe('This turn hit the $5 budget limit. Ask again to continue.');
   });
 
   it('shows a failed turn as an error row', async () => {

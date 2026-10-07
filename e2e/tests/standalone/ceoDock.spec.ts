@@ -116,4 +116,24 @@ test.describe('Standalone / CEO dock', () => {
     await expect(page.getByTestId('ceo-dock')).toBeVisible();
     await expect(log.getByTestId('sent-chip')).toContainText('notes.md');
   });
+
+  test('a question of the CEO shows a card; Allow sends the answer back @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    await input.fill('ask: rm -rf build');
+    await input.press('Enter');
+
+    const card = page.getByTestId('approval-card');
+    await expect(card).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await expect(card).toContainText('wants to run a command');
+    await expect(card).toContainText('rm -rf build');
+    await page.getByTestId('approval-allow').click();
+    await expect(card).toBeHidden();
+    await expect(page.getByTestId('dock-log').getByText('Permission answer: allow')).toBeVisible({
+      timeout: TURN_TIMEOUT_MS,
+    });
+  });
 });

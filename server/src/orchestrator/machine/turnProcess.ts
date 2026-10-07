@@ -76,6 +76,8 @@ export function spawnTurn(
       cwd: fx.cwd,
       model: cat.model,
       effort: cat.effort,
+      permissionMode: cat.permissionMode,
+      askPermission: (ask) => host.askPermission(cat, ask),
       systemPromptFile: ctx.personaFile,
       mcpConfigFile: ctx.mcpConfigFile,
       message: fx.message,

@@ -541,7 +541,7 @@ npm run test:report:open                       # serve Allure locally (file:// c
 
 **Reproducing CI failures locally**: CI uses `--workers=1` because the runners can't handle more. Reproduce locally with `npm run e2e -- --workers=1 --grep "<test>"`. For full Linux fidelity, `act -j linux-e2e --matrix shard:1 -P ubuntu-latest=catthehacker/ubuntu:full-22.04 --container-architecture linux/amd64` or run inside `mcr.microsoft.com/playwright:v1.58.2-noble` Docker with `--cpus=2 --memory=4g` to simulate runner throttling.
 
-**Local e2e on macOS**: run only `npm run e2e -- e2e/tests/standalone`. The VS Code suite opens a real VS Code window on the owner's screen. CI runs it.
+**Local e2e**: local e2e skips the specs that open VS Code. CI runs them. Set `E2E_VSCODE=1` only on a machine where a VS Code window is fine.
 
 ## Build & Dev
 

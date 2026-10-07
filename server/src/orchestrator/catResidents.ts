@@ -38,6 +38,8 @@ export class CatResidents {
   /** The profile each character was spawned for: a cat deleted mid-task keeps its look. */
   private readonly spawnedFor = new Map<string, CatProfile>();
   private readonly working = new Set<string>();
+  /** Cats with an open approval card (the permission bubble). */
+  private asking = new Set<string>();
 
   constructor(
     private readonly host: ResidentHost,
@@ -102,6 +104,19 @@ export class CatResidents {
     this.working.delete(catId);
     if (id !== undefined) this.host.endResidentTurn(id);
     this.emit(this.message());
+  }
+
+  /** Show the permission bubble on exactly these cats (an approval card waits for each). */
+  setAsking(catIds: Set<string>): void {
+    for (const catId of new Set([...catIds, ...this.asking])) {
+      const id = this.ids.get(catId);
+      if (id === undefined || catIds.has(catId) === this.asking.has(catId)) continue;
+      this.emit({
+        type: catIds.has(catId) ? 'agentToolPermission' : 'agentToolPermissionClear',
+        id,
+      });
+    }
+    this.asking = catIds;
   }
 
   /** Working without a turn (the Cat CEO reviews): the character sits at its desk. */

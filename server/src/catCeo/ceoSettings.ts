@@ -3,7 +3,8 @@
  * the judge: its default Role & conduct and the judge rules of §5.3.
  */
 
-import type { CatAppearance, CatProfile } from '../../../core/src/messages.js';
+import type { CatAppearance, CatProfile, PermissionMode } from '../../../core/src/messages.js';
+import { DEFAULT_PERMISSION_MODE } from '../../../core/src/permissionModes.js';
 import { CAT_CEO_COLLAR, CAT_CEO_EDITS_PER_DAY_DEFAULT, CAT_CEO_ID } from '../constants.js';
 import { type EngineCatalog, validateCat } from '../orchestrator/catProfiles.js';
 
@@ -16,6 +17,8 @@ export interface CeoSettings {
   maxEditsPerCatPerDay: number;
   /** A tidy may rewrite and merge the user's items (never remove them). */
   tidyUserItems: boolean;
+  /** What the CEO's desk turns may do without asking. */
+  permissionMode: PermissionMode;
 }
 
 /** A tuxedo cat with a gold collar: the boss of the boss. */
@@ -27,6 +30,7 @@ export const CEO_DEFAULTS: CeoSettings = {
   effort: 'medium',
   maxEditsPerCatPerDay: CAT_CEO_EDITS_PER_DAY_DEFAULT,
   tidyUserItems: false,
+  permissionMode: DEFAULT_PERMISSION_MODE,
 };
 
 export const CEO_DEFAULT_ROLE =
@@ -70,6 +74,7 @@ export function ceoProfile(s: CeoSettings, role = ''): CatProfile {
     engine: 'claude',
     model: s.model,
     effort: s.effort,
+    permissionMode: s.permissionMode,
     parentId: null,
   };
 }
@@ -77,7 +82,7 @@ export function ceoProfile(s: CeoSettings, role = ''): CatProfile {
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /**
- * Apply a settings change. Name, look, model and effort pass the same checks
+ * Apply a settings change. Name, look, model, effort and mode pass the same checks
  * as a cat profile (with the CLI catalog when given).
  */
 export function checkCeoPatch(
@@ -111,10 +116,17 @@ export function checkCeoPatch(
       ...(patch.appearance !== undefined ? { appearance: patch.appearance } : {}),
       ...(patch.model !== undefined ? { model: patch.model } : {}),
       ...(patch.effort !== undefined ? { effort: patch.effort } : {}),
+      ...(patch.permissionMode !== undefined ? { permissionMode: patch.permissionMode } : {}),
     },
     catalog,
   );
   if (!profile.ok) return profile;
-  const { name, appearance, model, effort } = profile.value;
-  return { ok: true, value: { ...next, name, appearance, model, effort } };
+  const {
+    name,
+    appearance,
+    model,
+    effort,
+    permissionMode = DEFAULT_PERMISSION_MODE,
+  } = profile.value;
+  return { ok: true, value: { ...next, name, appearance, model, effort, permissionMode } };
 }
