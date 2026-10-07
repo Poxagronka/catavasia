@@ -1,19 +1,26 @@
 import type { ReactNode } from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 /**
- * Small markdown renderer for task results and chats: headings, fenced code,
- * lists, paragraphs, `inline code`, **bold**, *italics* / _italics_, and links
- * ([text](https://...) or a bare https:// URL). It builds React elements only
- * (no innerHTML), so agent output can never inject markup. Links open in a new
- * tab and only for http(s) URLs.
+ * GitHub-flavored markdown for task results and chats: tables, headings,
+ * lists (nested, task lists), blockquotes, code, strikethrough, links and
+ * autolinks. Raw HTML in the source stays text (no rehype-raw), so agent
+ * output can never inject markup. Links open in a new tab and only for
+ * http(s) and mailto URLs. Any other scheme renders as plain text.
+ * Element styles live in `.markdown` in index.css.
  */
 
-const INLINE =
-  /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"]|\*[^*\s/](?:[^*]*[^*\s])?\*(?![\w/])|\b_[^_\s][^_]*_\b)/g;
-const MD_LINK = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/;
+const SAFE_HREF = /^(https?:|mailto:)/i;
 
-function Link({ href, children }: { href: string; children: ReactNode }) {
-  return (
+// A short cell (a date, a number with its unit) stays on one line, so a narrow
+// bubble wraps the long text cells instead of splitting "20 км/ч" in two.
+const SHORT_CELL = 12;
+const cellClass = (children: unknown) =>
+  typeof children === 'string' && children.length <= SHORT_CELL ? 'whitespace-nowrap' : undefined;
+
+function SafeLink({ href, children }: { href?: string; children: ReactNode }) {
+  return href && SAFE_HREF.test(href) ? (
     <a
       href={href}
       target="_blank"
@@ -22,116 +29,41 @@ function Link({ href, children }: { href: string; children: ReactNode }) {
     >
       {children}
     </a>
+  ) : (
+    <span>{children}</span>
   );
 }
 
-function renderInline(text: string): ReactNode[] {
-  const out: ReactNode[] = [];
-  let last = 0;
-  for (const match of text.matchAll(INLINE)) {
-    const index = match.index ?? 0;
-    if (index > last) out.push(text.slice(last, index));
-    const token = match[0];
-    const link = MD_LINK.exec(token);
-    if (token.startsWith('`')) {
-      out.push(
-        <code key={index} className="bg-bg-dark px-4">
-          {token.slice(1, -1)}
-        </code>,
-      );
-    } else if (token.startsWith('**')) {
-      out.push(
-        <strong key={index} className="font-semibold">
-          {token.slice(2, -2)}
-        </strong>,
-      );
-    } else if (link) {
-      out.push(
-        <Link key={index} href={link[2]}>
-          {link[1]}
-        </Link>,
-      );
-    } else if (token.startsWith('http')) {
-      out.push(
-        <Link key={index} href={token}>
-          {token}
-        </Link>,
-      );
-    } else {
-      out.push(<em key={index}>{token.slice(1, -1)}</em>);
-    }
-    last = index + token.length;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return out;
-}
-
-const LIST_ITEM = /^\s*([-*]|\d+\.)\s+/;
-const ORDERED_ITEM = /^\s*\d+\.\s+/;
+const components: Components = {
+  a: ({ href, children }) => <SafeLink href={href}>{children}</SafeLink>,
+  // An image never loads: a remote URL in agent output could leak data.
+  // It renders as a link to the image instead.
+  img: ({ src, alt }) => <SafeLink href={src}>{alt || src}</SafeLink>,
+  // A wide table scrolls inside its own box, never the whole bubble or dock.
+  table: ({ children }) => (
+    <div className="markdown-table-scroll">
+      <table>{children}</table>
+    </div>
+  ),
+  // `style` carries the column alignment (`|---:|`).
+  th: ({ children, style }) => (
+    <th style={style} className={cellClass(children)}>
+      {children}
+    </th>
+  ),
+  td: ({ children, style }) => (
+    <td style={style} className={cellClass(children)}>
+      {children}
+    </td>
+  ),
+};
 
 export function Markdown({ text, className = '' }: { text: string; className?: string }) {
-  const lines = text.split('\n');
-  const blocks: ReactNode[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    const key = blocks.length;
-    if (line.startsWith('```')) {
-      const code: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith('```')) code.push(lines[i++]);
-      i++; // closing fence
-      blocks.push(
-        <pre key={key} className="bg-bg-dark border-2 border-border p-8 overflow-x-auto">
-          {code.join('\n')}
-        </pre>,
-      );
-    } else if (/^#{1,6}\s/.test(line)) {
-      blocks.push(
-        <div key={key} className="font-pixel text-accent-bright text-lg mt-4 leading-tight">
-          {renderInline(line.replace(/^#+\s*/, ''))}
-        </div>,
-      );
-      i++;
-    } else if (LIST_ITEM.test(line)) {
-      const ordered = ORDERED_ITEM.test(line);
-      const items: string[] = [];
-      while (i < lines.length && LIST_ITEM.test(lines[i])) items.push(lines[i++]);
-      const children = items.map((item, n) => (
-        <li key={n} className="my-2">
-          {renderInline(item.replace(LIST_ITEM, ''))}
-        </li>
-      ));
-      blocks.push(
-        ordered ? (
-          <ol key={key} className="pl-24 list-decimal">
-            {children}
-          </ol>
-        ) : (
-          <ul key={key} className="pl-20 list-disc">
-            {children}
-          </ul>
-        ),
-      );
-    } else if (line.trim() === '') {
-      i++;
-    } else {
-      const para: string[] = [];
-      while (
-        i < lines.length &&
-        lines[i].trim() !== '' &&
-        !lines[i].startsWith('```') &&
-        !/^#{1,6}\s/.test(lines[i]) &&
-        !LIST_ITEM.test(lines[i])
-      ) {
-        para.push(lines[i++]);
-      }
-      blocks.push(<p key={key}>{renderInline(para.join(' '))}</p>);
-    }
-  }
   return (
-    <div className={`prose-body flex flex-col gap-8 break-words min-w-0 ${className}`}>
-      {blocks}
+    <div className={`markdown prose-body flex flex-col gap-8 break-words min-w-0 ${className}`}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {text}
+      </ReactMarkdown>
     </div>
   );
 }
