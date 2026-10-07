@@ -24,7 +24,6 @@ import * as path from 'path';
 
 import type { EngineStatus, PermissionMode } from '../../../core/src/messages.js';
 import { effectiveMode } from '../../../core/src/permissionModes.js';
-import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import { officeLimits } from '../usageLimits.js';
 import type { EngineChoices } from './catProfiles.js';
@@ -65,15 +64,11 @@ export function parseClaudeHelp(help: string): EngineChoices {
 }
 
 /**
- * The child env of a cat turn: auto-compact at a 200K window inside long
- * tasks (context-policy.md §4); the env var wins over every other setting.
+ * The child env of a cat turn: plain Claude Code, so its own auto-compact
+ * default applies (context-policy.md §4).
  */
 export function claudeTurnEnv(cwd: string): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    PWD: cwd,
-    CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(CAT_AUTO_COMPACT_WINDOW),
-  };
+  return { ...process.env, PWD: cwd };
 }
 
 const IMAGE_MEDIA_TYPES: Record<string, string> = {

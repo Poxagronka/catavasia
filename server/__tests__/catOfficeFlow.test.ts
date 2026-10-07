@@ -241,7 +241,6 @@ describe('team task (1 boss + 2 workers)', () => {
     ]) {
       expect(boss.persona).toContain(part);
     }
-    expect(runs.every((r) => r.compactWindow === '200000')).toBe(true);
     const firstTurns = runs.filter((r) => r.args.includes('--session-id'));
     expect(firstTurns.map((r) => r.cat).sort()).toEqual(['boss', 'murka', 'pushok']);
     // Replay of the event log gives the final state (§9 determinism).
