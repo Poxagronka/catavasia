@@ -3,8 +3,8 @@
  * (litterActivities.ts) that the idle FSM cannot know.
  *
  * - An overflowing box (flies) turns a visit into a refusal: the cat sniffs,
- *   grimaces and goes on to another box, or has an accident on the floor
- *   when every box is refused.
+ *   grimaces and goes on to another box, or walks to a random floor tile
+ *   (petCare/poopSpots.ts) for an accident when every box is refused.
  * - The pile lands when the cat starts to cover it (the outro), in the box
  *   or on the floor; a visit cut short by work leaves nothing.
  * - After a visit the cat steps proudly off the box, and now and then gets
@@ -27,8 +27,9 @@ import {
 } from '../../constants.js';
 import { isWalkable, setAvoidTiles } from '../layout/tileMap.js';
 import { isLitterBoxType } from '../petCare/litterStages.js';
-import { floorSpotNear, zoomiesTarget } from '../petCare/petCareNav.js';
+import { zoomiesTarget } from '../petCare/petCareNav.js';
 import type { PetCareSystem } from '../petCare/petCareSystem.js';
+import { floorPoopSpot } from '../petCare/poopSpots.js';
 import type {
   ActivitySpot,
   Character,
@@ -177,7 +178,7 @@ export class LitterLife {
     return options.some((o) => this.w.startActivityAt(ch, o.id, o.spot));
   }
 
-  /** Every box refused: an accident on a floor tile next to here. */
+  /** Every box refused: an accident on a random floor tile (it walks there). */
   private floor(ch: Character): boolean {
     const taken = this.w.takenBy(ch);
     const env = {
@@ -185,11 +186,12 @@ export class LitterLife {
       tileMap: this.w.tileMap,
       blockedTiles: this.w.blockedTiles,
     };
-    const at = floorSpotNear(
+    const at = floorPoopSpot(
       ch.tileCol,
       ch.tileRow,
       env,
       this.w.petCare.world,
+      this.rand,
       (k) => !taken.has(k),
     );
     if (!at) {

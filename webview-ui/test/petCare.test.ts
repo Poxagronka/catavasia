@@ -246,7 +246,8 @@ test('with no box the cat poops on the floor; a click on it cleans it', () => {
   const { pet, env, care } = setup([BOWL]);
   stayPut(pet);
   care.world.entry(pet.id).bowel = 100;
-  run(care, env, pet, 1 + PET_ANIM_POOP_SEC);
+  // It walks to a random free floor tile first (petCare/poopSpots.ts).
+  run(care, env, pet, 20 + PET_ANIM_POOP_SEC);
   assert.equal(care.world.floorPoops.length, 1);
   const p = care.world.floorPoops[0];
   const hit = hitTestCare(p.col * 16 + 8, p.row * 16 + 8, env.furniture, care.world);
