@@ -47,7 +47,7 @@ import {
   ZOOMIES_DASHES_MAX,
   ZOOMIES_DASHES_MIN,
 } from '../../constants.js';
-import { isPetPlayAnim, PET_PLAY_ANIMS } from '../engine/petPlayAnims.js';
+import { isPetPlayAnim, PET_PLAY_ANIMS, petWakeAt } from '../engine/petPlayAnims.js';
 import { furnitureKind } from '../layout/furnitureCatalog.js';
 import type { ActivitySpot, Pet, PetRest, PlacedFurniture } from '../types.js';
 import { Direction, PetState, TILE_SIZE } from '../types.js';
@@ -77,6 +77,7 @@ import type {
 import {
   ANIM_SEC,
   BAG_PICKUP_SEC,
+  CLAIM_TYPE_EXEMPT,
   EFFECT_MAX_AGE_SEC,
   FORBIDDEN_CLAIM_TYPES,
   SCOOP_LIFT_SEC,
@@ -287,11 +288,12 @@ export class PetCareSystem {
     const frame = Math.floor(anim.t / PET_ANIM_FRAME_SEC);
     pet.careAnim =
       anim.kind === 'wait' ? null : { kind: anim.kind, frame, t: anim.t, dur: anim.dur };
-    if (anim.kind === 'sleep' || anim.kind === 'curl') {
+    if (anim.kind === 'sleep' || (isPetPlayAnim(anim.kind) && PET_PLAY_ANIMS[anim.kind].nap)) {
       const needs = this.world.entry(pet.id).needs;
       raiseNeed(needs, 'energy', PET_SLEEP_ENERGY_PER_SEC * dt);
-      // Wake early once rested (but nap at least a few seconds).
-      if (needs.energy >= PET_NEED_MAX && anim.t >= ANIM_SEC.sleep / 4) anim.t = anim.dur;
+      // Wake early once rested (but nap at least a few seconds); a hop down still plays.
+      if (needs.energy >= PET_NEED_MAX && anim.t >= ANIM_SEC.sleep / 4)
+        anim.t = Math.max(anim.t, petWakeAt(anim.kind, anim.dur));
     }
     if (anim.t < anim.dur) return;
     r.anim = null;
@@ -355,7 +357,9 @@ export class PetCareSystem {
    * False when it is forbidden (coffee) or unreachable.
    */
   startClaim(pet: Pet, claim: PetActivityClaim, env: PetCareEnv): boolean {
-    if (FORBIDDEN_CLAIM_TYPES.some((t) => claim.furnitureType?.includes(t))) return false;
+    const type = claim.furnitureType;
+    const exempt = !!type && CLAIM_TYPE_EXEMPT.includes(furnitureKind(type));
+    if (!exempt && FORBIDDEN_CLAIM_TYPES.some((t) => type?.includes(t))) return false;
     const path = pathTo(pet, claim.col, claim.row, env, claim.spot?.onFurniture ?? false);
     if (!path) return false;
     this.walk(pet, { uid: '', col: claim.col, row: claim.row, path }, 'claim', claim);
@@ -742,6 +746,7 @@ function restAt(spot: ActivitySpot | undefined, zzz: boolean): PetRest {
     peek: spot?.peek,
     ...(spot ? { facing: spot.facing } : {}),
     ...(spot?.mirrored ? { mirrored: true } : {}),
+    ...(spot?.narrow ? { narrow: true } : {}),
     ...(spot?.exit
       ? {
           exit: {

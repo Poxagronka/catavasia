@@ -73,6 +73,8 @@ export interface ActivitySpot {
   peek?: HousePeek;
   /** The item is drawn mirrored: the steps' LEFT and RIGHT swap (poses written for its front view). */
   mirrored?: boolean;
+  /** A table top too narrow for a sideways cat: a pet walks it lengthwise and loafs (petDeskAnims.ts). */
+  narrow?: boolean;
 }
 
 /** Ears or tail of a cat inside a house: world px of the overlay's bottom-centre. */
@@ -439,6 +441,8 @@ export interface PetRest {
   facing?: Direction;
   /** A run-through toy (the tunnel): px from the spot to the far end. */
   exit?: { dx: number; dy: number };
+  /** A table top too narrow for a sideways pose (see ActivitySpot.narrow). */
+  narrow?: boolean;
 }
 
 /** Care poses a cat pet can play (see office/sprites/petCareFrames.ts). */
@@ -446,7 +450,10 @@ export type PetCareAnim = 'eat' | 'drink' | 'poop' | 'petted' | 'play' | 'sleep'
 
 /** Play poses a cat pet plays at the office's toys and beds (see engine/petPlayAnims.ts). */
 export type PetPlayAnim =
-  'scratch' | 'yarn' | 'mouse' | 'teaser' | 'box' | 'catTree' | 'tunnel' | 'curl';
+  'scratch' | 'yarn' | 'mouse' | 'teaser' | 'box' | 'catTree' | 'tunnel' | 'curl' | PetDeskAnim;
+
+/** Naps on a table top, one per table kind (see engine/petDeskAnims.ts). */
+export type PetDeskAnim = 'deskLoaf' | 'tableSprawl' | 'tableDonut' | 'coffeeSprawl';
 
 /** Persisted record (lives on OfficeLayout). */
 export interface PlacedPet {

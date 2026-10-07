@@ -12,6 +12,8 @@ import type { Needs, RequestKind } from './petNeeds.js';
 
 /** Shapes shared by the pet-care runtime (petCareSystem.ts documents the seam). */
 export const FORBIDDEN_CLAIM_TYPES = ['COFFEE'];
+/** Kinds whose name holds a forbidden word but are no coffee: a pet may nap on a coffee table. */
+export const CLAIM_TYPE_EXEMPT = ['COFFEE_TABLE'];
 
 export interface PetActivityClaim {
   kind: string;

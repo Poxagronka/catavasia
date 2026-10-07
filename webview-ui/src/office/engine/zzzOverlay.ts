@@ -10,6 +10,7 @@ import type { Character, Pet, SpriteData } from '../types.js';
 import { CharacterState } from '../types.js';
 import { activityHeadDropY, characterDrawOffsetX } from './characters.js';
 import { getIdleActivity } from './idleActivities.js';
+import { petNapAwake } from './petPlayAnims.js';
 
 /** Pixel glyph from '#' fill rows, with a 1 px edge around the strokes. */
 function glyph(rows: string[]): SpriteData {
@@ -77,6 +78,8 @@ export function renderPetZzz(
 ): void {
   pets.forEach((pet, i) => {
     if (!pet.rest?.zzz) return;
+    const anim = pet.careAnim;
+    if (anim && petNapAwake(anim.kind, anim.t ?? 0, anim.dur ?? Infinity)) return;
     const headY = pet.y + pet.rest.offsetY - PET_HEAD_ABOVE_ANCHOR_PX;
     drawZzz(ctx, pet.x + pet.rest.offsetX, headY, i * 0.53 + 0.2, offsetX, offsetY, zoom, nowSec);
   });
