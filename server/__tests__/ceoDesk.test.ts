@@ -475,3 +475,18 @@ describe('cat sessions of the CEO desk', () => {
     expect(env.desk.folder).toBe(env.tmp);
   });
 });
+
+describe('CEO desk slash commands', () => {
+  it('a slash command goes to Claude Code as typed, in a turn of its own', async () => {
+    env = await startDeskOffice(() => ({ text: 'done' }));
+    const { desk, ceo } = env;
+    desk.send('/compact keep the plan');
+    await deskIdle(desk);
+    desk.send('hello');
+    await deskIdle(desk);
+    expect(ceo.turns.map((t) => t.message)).toEqual([
+      '/compact keep the plan',
+      '[Work folder: none (sandbox)]\n\n[Message from the user]\nhello',
+    ]);
+  });
+});

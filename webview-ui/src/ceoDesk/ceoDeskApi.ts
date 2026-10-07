@@ -9,6 +9,9 @@ import {
   type CeoApprovalAnswer,
   type CeoAttachment,
   type CeoAttachmentUpload,
+  type CeoCommandsResponse,
+  type CeoConnectorAddRequest,
+  type CeoConnectorsResponse,
   type CeoFolderCancelled,
   type CeoFolderResponse,
   type CeoFoldersResponse,
@@ -19,8 +22,9 @@ import { sessionToken } from '../sessionToken.js';
 /** The literal session id of the CEO desk chat (server: CAT_CEO_ID). */
 export const CEO_DESK_SESSION = 'cat-ceo';
 
-async function call<T>(method: string, leaf: string, body?: unknown): Promise<T> {
-  const query = sessionToken ? `?token=${encodeURIComponent(sessionToken)}` : '';
+async function call<T>(method: string, leaf: string, body?: unknown, params = ''): Promise<T> {
+  const parts = [params, sessionToken ? `token=${encodeURIComponent(sessionToken)}` : ''];
+  const query = parts.some(Boolean) ? `?${parts.filter(Boolean).join('&')}` : '';
   const res = await fetch(`${CEO_API_PREFIX}/${leaf}${query}`, {
     method,
     ...(body === undefined
@@ -60,6 +64,26 @@ export const ceoDeskApi = {
   newProject: (name: string) => call<CeoFolderResponse>('POST', 'folder/new', { name }),
   /** Turn on version history (git) for the current project. */
   startHistory: () => call<CeoFolderResponse>('POST', 'folder/history'),
+  /** Claude Code's slash commands in the CEO's folder. */
+  commands: () => call<CeoCommandsResponse>('GET', 'commands'),
+  /** Connectors (MCP servers) of Claude Code, shared by every cat; each change answers the new list. */
+  connectors: () => call<CeoConnectorsResponse>('GET', 'connectors'),
+  addConnector: (req: CeoConnectorAddRequest) =>
+    call<CeoConnectorsResponse>('POST', 'connectors', req),
+  removeConnector: (name: string, source: string) =>
+    call<CeoConnectorsResponse>(
+      'DELETE',
+      `connectors/${encodeURIComponent(name)}`,
+      undefined,
+      `source=${encodeURIComponent(source)}`,
+    ),
+  toggleConnector: (name: string, enabled: boolean) =>
+    call<CeoConnectorsResponse>('POST', `connectors/${encodeURIComponent(name)}/toggle`, {
+      enabled,
+    }),
+  /** Opens the browser; resolves when the user signed in. */
+  signIn: (name: string) =>
+    call<CeoConnectorsResponse>('POST', `connectors/${encodeURIComponent(name)}/login`),
   /** A stored file back as a File: Stop returns the queued files to the composer. */
   fetchAttachment: async (file: CeoAttachment): Promise<File> => {
     const query = sessionToken ? `?token=${encodeURIComponent(sessionToken)}` : '';

@@ -31,6 +31,8 @@ interface DockHeaderProps {
   stoppable: boolean;
   onStop(): void;
   onNewChat(): void;
+  /** Opens the Connectors card (also /mcp). */
+  onConnectors(): void;
   onCollapse(): void;
 }
 
@@ -45,6 +47,17 @@ export function DockHeader(props: DockHeaderProps) {
           {pill.label}
         </span>
         <span className="flex-1" />
+        {privileged && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={props.onConnectors}
+            title="Tools Claude can use, like your mail or files (also /mcp)"
+            data-testid="dock-connectors"
+          >
+            Connectors
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"

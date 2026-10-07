@@ -14,6 +14,7 @@ import { sessionToken } from '../sessionToken.js';
 import { ApprovalCard } from './ApprovalCard.js';
 import { CEO_DESK_SESSION, ceoDeskApi } from './ceoDeskApi.js';
 import { ModelPickers, ModePicker } from './ComposerPickers.js';
+import { ConnectorsCard } from './ConnectorsCard.js';
 import { DockComposer } from './DockComposer.js';
 import { CeoFace, DockHeader } from './DockHeader.js';
 import {
@@ -29,8 +30,10 @@ import {
   statusPill,
   unreadCount,
 } from './dockState.js';
+import { HelpCard } from './HelpCard.js';
 import type { JobCardActions } from './JobCard.js';
 import { UsageRing } from './UsageRing.js';
+import { useDockCommands } from './useDockCommands.js';
 
 const READ_ONLY_TEXT = 'Open the office with `catavasia` to chat with the CEO.';
 
@@ -68,6 +71,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
   const prevChat = useRef(dock.chat);
   const privileged = sessionToken !== null;
   const { chat, collapsed } = dock;
+  const slash = useDockCommands(privileged && !gone, chat.status.folder);
 
   useEffect(() => {
     if (!privileged) return;
@@ -121,7 +125,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [chat.entries, chat.status.busy, collapsed]);
+  }, [chat.entries, chat.status.busy, collapsed, slash.card]);
 
   // A question of a cat or the CEO opens the dock and shows its card.
   const approvals = chat.status.approvals ?? [];
@@ -197,6 +201,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         stoppable={chat.status.busy || (chat.status.queued ?? 0) > 0}
         onStop={stop}
         onNewChat={() => void ceoDeskApi.newChat().catch(() => {})}
+        onConnectors={() => slash.setCard('connectors')}
         onCollapse={() => setDock((s) => setCollapsed(s, true))}
       />
       <div
@@ -244,23 +249,37 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         {approvals.map((a) => (
           <ApprovalCard key={a.id} approval={a} />
         ))}
+        {slash.card === 'help' && (
+          <HelpCard
+            commands={slash.commands}
+            onPick={setDraft}
+            onClose={() => slash.setCard(null)}
+          />
+        )}
+        {slash.card === 'connectors' && <ConnectorsCard onClose={() => slash.setCard(null)} />}
       </div>
       {privileged && !gone && (
         <DockComposer
           draft={draft}
           onDraft={setDraft}
           onSend={async (text, attachments) => {
+            if (!attachments.length && slash.run(text)) return;
             await ceoDeskApi.send(text, attachments);
           }}
+          commands={slash.commands}
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}
           onRestored={() => setRestored(undefined)}
-          mode={settings && <ModePicker settings={settings} />}
+          mode={settings && <ModePicker settings={settings} openKey={slash.opens.mode} />}
           settings={
             <>
-              {settings && <ModelPickers settings={settings} />}
-              <UsageRing context={chat.status.context} limits={chat.status.limits} />
+              {settings && <ModelPickers settings={settings} openKeys={slash.opens} />}
+              <UsageRing
+                context={chat.status.context}
+                limits={chat.status.limits}
+                openKey={slash.opens.usage}
+              />
             </>
           }
         />

@@ -184,6 +184,13 @@ export function MessageRow({
       </div>
     );
   }
+  if (entry.kind === 'note') {
+    return (
+      <span className="self-center text-2xs text-text-muted" data-testid="chat-note">
+        {entry.text}
+      </span>
+    );
+  }
   // A reply is plain prose, no box (the Claude app look).
   return (
     <div

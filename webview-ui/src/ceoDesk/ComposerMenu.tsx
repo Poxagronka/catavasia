@@ -2,23 +2,29 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 /**
  * A quiet label in the row under the message box that opens a small menu
- * above it. A click outside or Esc closes the menu.
+ * above it. A click outside or Esc closes the menu. A new `openKey` opens it
+ * (a slash command asked for it).
  */
 export function ComposerMenu({
   label,
   title,
   testId,
   align = 'left',
+  openKey,
   children,
 }: {
   label: ReactNode;
   title: string;
   testId: string;
   align?: 'left' | 'right';
+  openKey?: number;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (openKey) setOpen(true);
+  }, [openKey]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {

@@ -64,7 +64,16 @@ function Ring({ part }: { part: number }) {
  * bars: the context used, and the 5-hour and weekly limits of the Claude
  * subscription (a limit the office has not seen yet is not shown).
  */
-export function UsageRing({ context, limits }: { context?: ContextUse; limits?: UsageLimits }) {
+export function UsageRing({
+  context,
+  limits,
+  openKey,
+}: {
+  context?: ContextUse;
+  limits?: UsageLimits;
+  /** /context or /usage opens it. */
+  openKey?: number;
+}) {
   const part = context ? context.used / context.window : 0;
   return (
     <ComposerMenu
@@ -72,6 +81,7 @@ export function UsageRing({ context, limits }: { context?: ContextUse; limits?: 
       title={contextText(context)}
       testId="dock-usage"
       align="right"
+      openKey={openKey}
     >
       {() => (
         <div className="flex flex-col gap-10 prose-small text-text-muted w-[240px]">

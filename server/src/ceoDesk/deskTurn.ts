@@ -37,6 +37,20 @@ export interface DeskTurnInput {
   onLine: (line: string) => void;
 }
 
+type DeskPart = DeskState['pending'][number];
+
+const isSlashCommand = (part: DeskPart | undefined) =>
+  part?.kind === 'user' && part.text.startsWith('/');
+
+/**
+ * Take the parts of the next turn from the queue: a slash command alone (it
+ * must be the whole message), else every part up to the next slash command.
+ */
+export function takeTurnParts(pending: DeskPart[]): DeskPart[] {
+  const next = isSlashCommand(pending[0]) ? 1 : pending.findIndex(isSlashCommand);
+  return pending.splice(0, next < 0 ? pending.length : next);
+}
+
 /**
  * Start the Claude turn that answers the queued parts. The CEO is plain Claude
  * Code with its persona appended: it runs in the work folder, so it loads the
@@ -47,10 +61,13 @@ export interface DeskTurnInput {
  */
 export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
   const { adapter, office, store, state, mcpUrl, parts, onLine } = input;
-  const message = turnMessage(
-    state.folder,
-    parts.map((p) => (p.kind === 'user' ? userPart(p.text) : p.text)),
-  );
+  // A slash command goes as typed: Claude Code runs it like in the terminal.
+  const message = isSlashCommand(parts[0])
+    ? parts[0].text
+    : turnMessage(
+        state.folder,
+        parts.map((p) => (p.kind === 'user' ? userPart(p.text) : p.text)),
+      );
   const settings = office.ceo.settings;
   const role = office.cats.prompts.read(CAT_CEO_ID).file.role;
   const { chatDir, systemPromptFile, mcpConfigFile } = store.writeTurnFiles(

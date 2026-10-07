@@ -41,13 +41,14 @@ function Choices({
 const set = (patch: Partial<CeoSettings>) => catCeo.setSettings(patch);
 
 /** "Auto": the CEO's permission mode; it opens the mode picker of the CEO settings. */
-export function ModePicker({ settings }: { settings: CeoSettings }) {
+export function ModePicker({ settings, openKey }: { settings: CeoSettings; openKey?: number }) {
   const mode = settings.permissionMode ?? 'auto';
   return (
     <ComposerMenu
       label={PERMISSION_MODE_LABELS[mode]}
       title={`What the CEO may do without asking: ${permissionHint('claude', settings.model, mode)}`}
       testId="dock-mode"
+      openKey={openKey}
     >
       {() => (
         <PermissionModeField
@@ -62,7 +63,14 @@ export function ModePicker({ settings }: { settings: CeoSettings }) {
 }
 
 /** The CEO's model and effort ("Opus 5.5", "Medium"); each opens its list. */
-export function ModelPickers({ settings }: { settings: CeoSettings }) {
+export function ModelPickers({
+  settings,
+  openKeys,
+}: {
+  settings: CeoSettings;
+  /** A slash command opens the model or the effort list. */
+  openKeys?: { model?: number; effort?: number };
+}) {
   const options = catsApi.engineOptions('claude');
   const models = options.models.includes(settings.model)
     ? options.models
@@ -74,6 +82,7 @@ export function ModelPickers({ settings }: { settings: CeoSettings }) {
         title="The model the CEO thinks with"
         testId="dock-model"
         align="right"
+        openKey={openKeys?.model}
       >
         {(close) => (
           <Choices
@@ -94,6 +103,7 @@ export function ModelPickers({ settings }: { settings: CeoSettings }) {
           title="How long the CEO thinks before it answers"
           testId="dock-effort"
           align="right"
+          openKey={openKeys?.effort}
         >
           {(close) => (
             <Choices
