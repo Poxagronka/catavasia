@@ -26,7 +26,7 @@ export function TodoChecklist({ todos }: { todos: TodoItem[] }) {
     >
       {todos.map((t, n) => (
         <li
-          key={t.id ?? n}
+          key={t.id ? `id:${t.id}` : `n:${n}`}
           className={`flex gap-6 break-words ${
             t.status === 'completed'
               ? 'text-text-muted line-through'

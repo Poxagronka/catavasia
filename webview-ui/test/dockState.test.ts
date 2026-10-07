@@ -239,6 +239,19 @@ describe('status and queue', () => {
     );
     expect(answered(busy.chat, after.chat)).toBe(true);
     expect(answered(after.chat, after.chat)).toBe(false);
+    // A background helper's call after the reply does not hide the answer.
+    const nested = run(
+      busy,
+      {
+        type: 'entries',
+        entries: [
+          { kind: 'text', text: 'Done.' },
+          { kind: 'tool', name: 'Bash', text: 'ls', parent: 1 },
+        ],
+      },
+      { type: 'status', status: idle },
+    );
+    expect(answered(busy.chat, nested.chat)).toBe(true);
   });
 
   it('the open dock narrows a wide office and overlays a narrow one', () => {

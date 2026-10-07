@@ -338,6 +338,26 @@ describe('system messages', () => {
     ]);
   });
 
+  it('a failed Stop hook after the final text keeps the reply held (no second copy)', () => {
+    const { stream, rows } = harness();
+    stream.line(text('All done.'));
+    const hook = { hook_id: 'h', hook_name: 'Stop', hook_event: 'Stop' };
+    stream.line(system('hook_response', { ...hook, stderr: 'lint failed', outcome: 'error' }));
+    expect(rows).toMatchObject([{ kind: 'note', text: 'Hook Stop failed: lint failed' }]);
+    expect(stream.held).toBe('All done.');
+  });
+
+  it("Stop's quiet stream still ends the notice at the result; a helper's output ends it too", () => {
+    const { stream } = harness();
+    stream.line(system('api_retry', { attempt: 1 }));
+    stream.line(result(), true);
+    expect(stream.notice).toBeUndefined();
+    stream.line(toolUse(AGENT, 'Agent', { prompt: 'x' }));
+    stream.line(system('api_retry', { attempt: 3 }));
+    stream.line(subToolUse(AGENT, 'toolu_s', 'Bash', { command: 'ls' }));
+    expect(stream.notice).toBeUndefined();
+  });
+
   it("a local command's output shows like a reply", () => {
     const { stream, rows } = harness();
     stream.line(system('local_command_output', { content: 'Version 2.1.293\n- New things' }));

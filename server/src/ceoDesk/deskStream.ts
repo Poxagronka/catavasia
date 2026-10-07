@@ -112,15 +112,14 @@ export class DeskStream {
     if (rec.type === 'system' && rec.subtype === 'background_tasks_changed') {
       return this.background(rec.tasks);
     }
+    // The result ends a passing state, also of a turn that Stop cut.
+    if (rec.type === 'result') this.setNotice(undefined);
     if (quiet) return;
     if (rec.type === 'system' && rec.subtype === 'init' && typeof rec.model === 'string') {
       this.model = rec.model;
       return;
     }
-    if (rec.type === 'result') {
-      this.setNotice(undefined);
-      return this.result(rec);
-    }
+    if (rec.type === 'result') return this.result(rec);
     if (rec.type === 'system' && rec.subtype === 'compact_boundary') return this.compacted(rec);
     if (rec.type === 'system') return this.system(rec);
     if (rec.type === 'rate_limit_event') {
@@ -130,7 +129,8 @@ export class DeskStream {
     }
     const sub = typeof rec.parent_tool_use_id === 'string' ? rec.parent_tool_use_id : undefined;
     if (sub && !this.helpers.has(sub)) return;
-    if (!sub) this.setNotice(undefined);
+    // Output of the CEO or of a helper: a retry of either is over.
+    this.setNotice(undefined);
     if (rec.type === 'stream_event') {
       if (!sub) this.partial(rec.event as Block | undefined);
       return;
@@ -169,8 +169,8 @@ export class DeskStream {
     this.host.status();
   }
 
+  /** A quiet note; the held reply stays held (a Stop hook comes after the final text). */
   private note(text: string): void {
-    this.flush();
     this.host.add({ kind: 'note', text: clip(text, NOTE_MAX_CHARS) });
   }
 

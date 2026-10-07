@@ -196,7 +196,8 @@ export function answered(before: CatConsoleState, after: CatConsoleState): boole
     before.loaded &&
     before.status.busy &&
     !after.status.busy &&
-    after.entries.at(-1)?.kind === 'text'
+    // A background helper's call may come after the reply: it is not the chat's last row.
+    after.entries.filter((e) => e.kind !== 'tool' || e.parent === undefined).at(-1)?.kind === 'text'
   );
 }
 
