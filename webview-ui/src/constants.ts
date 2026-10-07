@@ -759,7 +759,7 @@ export const CAT_PERSONALITY_TUNING: Record<
   scrappy: { fight: 5, spotFight: 2 },
   playful: { play: 3, tailChase: 3, chasePlay: 2, petActivity: 2 },
   pooper: { litter: 6, litterDue: 0.25, bowel: 3 },
-  sleepy: { sleep: 3, wander: 0.5 },
+  sleepy: { sleep: 3, wander: 0.5, fight: 0.5 },
   social: { encounter: 2.5, fight: 0.3, greetRub: 1.8 },
   zoomie: { wander: 3, zoomies: 2, sleep: 0.5 },
 };
