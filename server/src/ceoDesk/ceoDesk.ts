@@ -18,7 +18,12 @@ import type {
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
 import type { CeoAttachmentUpload, CeoStopResponse } from '../../../core/src/ceoDesk.js';
-import { CAT_CEO_DIR, CAT_CEO_ID, CAT_CEO_TIMEOUT_MS } from '../constants.js';
+import {
+  CAT_CEO_DIR,
+  CAT_CEO_ID,
+  CAT_CEO_TIMEOUT_MS,
+  CEO_SUGGESTION_WAIT_MS,
+} from '../constants.js';
 import type {
   EngineAdapter,
   PermissionAnswer,
@@ -167,7 +172,7 @@ export class CeoDesk implements OfficeToolHandler {
     const asked = this.opts.office.approvals
       .list()
       .find((a) => a.catId === CAT_CEO_ID && a.questions);
-    if (asked?.questions && !files?.attachments.length) {
+    if (asked?.questions && !files?.attachments.length && !text.startsWith('/')) {
       const answers = Object.fromEntries(asked.questions.map((q) => [q.question, text]));
       this.opts.office.approvals.answer(asked.id, { answers });
       return this.state.pending.length;
@@ -194,6 +199,7 @@ export class CeoDesk implements OfficeToolHandler {
     const had = !!this.turn || this.state.pending.length > 0;
     this.state.pending = [];
     this.suggestion = undefined;
+    this.lingering?.kill();
     this.store.save(this.state);
     this.killTurn();
     if (had) this.log.add({ kind: 'text', text: 'Stopped.' });
@@ -362,6 +368,7 @@ export class CeoDesk implements OfficeToolHandler {
     if (this.disposed) return;
     if (this.turn === turn) this.turn = undefined;
     this.lingering = turn.handle;
+    setTimeout(() => turn.handle.kill(), CEO_SUGGESTION_WAIT_MS).unref();
     this.opts.office.residents.setWorking(CAT_CEO_ID, false);
     // A New chat during the turn: the old chat's state is archived as it was.
     if (turn.chatId === this.state.chatId) {

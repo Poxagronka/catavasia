@@ -282,7 +282,9 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
             command={slash.card}
             onPick={(text) => {
               slash.setCard(null);
-              void send(text).catch(() => {});
+              // Claude Code is not ready: the pick waits in the box, as a typed command would.
+              if (problem) setDraft(text);
+              else void send(text).catch(() => {});
             }}
             onClose={() => slash.setCard(null)}
           />
