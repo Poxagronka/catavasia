@@ -128,6 +128,8 @@ components:
         # Layout
         - $ref: '#/components/schemas/LayoutLoaded'
         - $ref: '#/components/schemas/ResetAllResult'
+        # Feedback
+        - $ref: '#/components/schemas/FeedbackResult'
         # Pet care
         - $ref: '#/components/schemas/PetCareLoaded'
         # Assets
@@ -191,6 +193,7 @@ components:
         - $ref: '#/components/schemas/SavePromptItem'
         - $ref: '#/components/schemas/TidyPrompt'
         - $ref: '#/components/schemas/CheckEngines'
+        - $ref: '#/components/schemas/SubmitFeedback'
       discriminator: type
 
     # ── Server message variants ────────────────────────────────────
@@ -516,6 +519,26 @@ components:
         type:
           const: resetAllResult
         backupDir:
+          type: string
+        error:
+          type: string
+
+    FeedbackResult:
+      description: |
+        The answer to submitFeedback, sent to the requester only. `created`:
+        `url` is the new issue. `fallback`: the server did not create the
+        issue (no `gh`, no login, a failed call, or no edit rights), and `url`
+        is a prefilled GitHub new-issue form; `error` says why. `error`: the
+        input was refused and nothing happened.
+      type: object
+      additionalProperties: false
+      required: [type, status]
+      properties:
+        type:
+          const: feedbackResult
+        status:
+          $ref: '#/components/schemas/FeedbackStatus'
+        url:
           type: string
         error:
           type: string
@@ -1907,7 +1930,46 @@ components:
         rawToolStatus:
           type: boolean
 
+    SubmitFeedback:
+      description: |
+        Create a feedback issue in the catavasia repo with the user's local
+        `gh` login. Privileged (server token): it runs `gh` on this machine.
+        The server answers with feedbackResult.
+      type: object
+      additionalProperties: false
+      required: [type, title, description, images]
+      properties:
+        type:
+          const: submitFeedback
+        title:
+          type: string
+        description:
+          type: string
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackImage'
+
     # ── Supporting schemas ─────────────────────────────────────────
+
+    FeedbackStatus:
+      type: string
+      enum: [created, fallback, error]
+
+    FeedbackImage:
+      description: An image attached to a feedback issue.
+      type: object
+      additionalProperties: false
+      required: [name, type, data]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          description: MIME type (image/png, image/jpeg, image/gif or image/webp).
+        data:
+          type: string
+          description: The image bytes, base64.
 
     ReviewVerdict:
       type: string
