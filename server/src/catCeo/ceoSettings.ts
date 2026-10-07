@@ -68,7 +68,9 @@ export function readCeoSettings(raw: unknown): CeoSettings {
   const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const merged = { ...CEO_DEFAULTS };
   if (typeof rec.enabled === 'boolean') merged.enabled = rec.enabled;
-  const checked = checkCeoPatch(rec, merged);
+  // An unknown stored personality falls back to the default alone (as validateCat does).
+  const patch = isCatPersonality(rec.personality) ? rec : { ...rec, personality: undefined };
+  const checked = checkCeoPatch(patch, merged);
   return checked.ok ? checked.value : merged;
 }
 

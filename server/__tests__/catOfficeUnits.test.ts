@@ -332,6 +332,20 @@ describe('CatStore', () => {
     expect(checkCeoPatch({ personality: 'grumpy' }, CEO_DEFAULTS).ok).toBe(false);
   });
 
+  it('drops only a stored unknown CEO personality and keeps the other settings', () => {
+    const stored = {
+      ...CEO_DEFAULTS,
+      name: 'Boss',
+      maxEditsPerCatPerDay: 7,
+      personality: 'grumpy',
+    };
+    expect(readCeoSettings(stored)).toMatchObject({
+      name: 'Boss',
+      maxEditsPerCatPerDay: 7,
+      personality: CEO_DEFAULTS.personality,
+    });
+  });
+
   it('keeps a copy of an unreadable file and starts from the default team', () => {
     fs.writeFileSync(file(), '{nope');
     const store = new CatStore(file(), () => CATALOG, prompts());

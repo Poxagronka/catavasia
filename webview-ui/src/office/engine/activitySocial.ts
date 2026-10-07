@@ -107,9 +107,15 @@ export class ActivitySocial {
       kind: groupOf(a.activityId) === 'coffee' ? undefined : 'talk',
     });
     if (!kind) return null;
+    if (kind === 'fight') {
+      // A fight walks both cats to its standoff: their activities end here.
+      host.stop(a);
+      host.stop(b);
+      return 'fight';
+    }
     host.extend(a, ACTIVITY_TALK_EXTEND_SEC);
     host.extend(b, ACTIVITY_TALK_EXTEND_SEC);
-    return kind === 'fight' ? 'fight' : 'talk';
+    return 'talk';
   }
 
   private jointPlay(

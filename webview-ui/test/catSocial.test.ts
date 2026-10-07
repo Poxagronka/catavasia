@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
 import {
+  SOCIAL_BACKDOWN_SPEED_MUL,
   SOCIAL_CAT_COOLDOWN_SEC,
   SOCIAL_FIGHT_AVOID_SEC,
   SOCIAL_FIGHT_CHANCE,
@@ -391,4 +392,24 @@ test('standoff back down: the less scrappy cat backs down', () => {
   assert.ok(b.path.length >= 2, 'the default cat walks off');
   assert.equal(a.path.length, 0, 'the scrappy cat holds its ground');
   assert.equal(a.social?.pose, 'standoff', 'the winner still holds its puff');
+});
+
+test('standoff back down: the loser keeps its slow walk until it reaches its target', () => {
+  const social = new CatSocial({ rng: () => 0.99 }); // no fight
+  const a = idleCat(1, 6, 4);
+  const b = idleCat(2, 6, 5);
+  a.personality = 'scrappy';
+  const chars = office(a, b);
+  social.trySocialEncounter(a, b, { kind: 'fight' });
+  for (let t = 0; t < 15 && social.sceneInfo(1)?.phase !== 'backDown'; t += DT)
+    social.update(DT, chars, world0);
+  run(social, chars, world0, 3); // the FSM does not run: the loser is still on its way
+  assert.ok(b.path.length > 0, 'still walking');
+  assert.equal(b.speedMul, SOCIAL_BACKDOWN_SPEED_MUL, 'still slow');
+  assert.equal(social.isInScene(2), true, 'the scene waits for the walk');
+  b.path = [];
+  b.state = CharacterState.IDLE;
+  run(social, chars, world0, 0.1);
+  assert.equal(social.isInScene(2), false, 'the walk is over, so is the scene');
+  assert.equal(b.speedMul, undefined);
 });

@@ -9,6 +9,7 @@ import {
   SOCIAL_BACKDOWN_MAX_TILES,
   SOCIAL_BACKDOWN_MIN_TILES,
   SOCIAL_BACKDOWN_SPEED_MUL,
+  SOCIAL_BACKDOWN_TIMEOUT_SEC,
   SOCIAL_CHASE_DURATION_SEC,
   SOCIAL_CHASE_RANGE_MAX_TILES,
   SOCIAL_CHASE_RANGE_MIN_TILES,
@@ -470,7 +471,11 @@ function backDown(s: Scene, cast: SceneCast): StepResult {
   const hold = SOCIAL_STANDOFF_WINNER_HOLD_SEC;
   if (s.t < hold) puffed(winner, PEAK_FRAME, s.t);
   else if (s.t < hold + INTRO_SEC) puffed(winner, introFrame(s.t - hold, true), s.t);
-  else return 'done';
+  else {
+    Object.assign(view(winner), { pose: null, dx: 0, anger: null });
+    // finish() clears speedMul: wait until the loser's slow walk is over.
+    if (settled(loser) || s.t > SOCIAL_BACKDOWN_TIMEOUT_SEC) return 'done';
+  }
   return 'running';
 }
 

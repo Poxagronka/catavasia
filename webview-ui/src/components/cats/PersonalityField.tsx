@@ -4,6 +4,7 @@ import {
   CAT_PERSONALITY_BLURBS,
   CAT_PERSONALITY_LABELS,
   CAT_PERSONALITY_NONE_BLURB,
+  CAT_PERSONALITY_NONE_LABEL,
 } from '../../constants.js';
 import { Select } from './AgentFields.js';
 
@@ -29,7 +30,7 @@ export function PersonalityField({
         label="Personality"
         value={value ?? NONE}
         options={required ? [...CAT_PERSONALITY_IDS] : [NONE, ...CAT_PERSONALITY_IDS]}
-        labels={{ [NONE]: 'None', ...CAT_PERSONALITY_LABELS }}
+        labels={{ [NONE]: CAT_PERSONALITY_NONE_LABEL, ...CAT_PERSONALITY_LABELS }}
         onChange={(v) => onChange(v === NONE ? undefined : (v as CatPersonality))}
       />
       <span className="text-2xs text-text-muted" data-testid="personality-hint">

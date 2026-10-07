@@ -393,6 +393,8 @@ export const SOCIAL_STANDOFF_WINNER_HOLD_SEC = 1;
 export const SOCIAL_BACKDOWN_MIN_TILES = 2;
 export const SOCIAL_BACKDOWN_MAX_TILES = 4;
 export const SOCIAL_BACKDOWN_SPEED_MUL = 0.7;
+/** A back-down scene ends at the latest this long after it starts (the loser's walk). */
+export const SOCIAL_BACKDOWN_TIMEOUT_SEC = 8;
 /** Fight: dust cloud, then fleeing with the anger mark. */
 export const SOCIAL_FIGHT_CLOUD_SEC = 2.5;
 export const SOCIAL_FIGHT_FLEE_SEC = 4;
@@ -783,4 +785,5 @@ export const CAT_PERSONALITY_BLURBS: Record<CatPersonality, string> = {
 };
 
 /** Picker hint when a cat has no personality. */
+export const CAT_PERSONALITY_NONE_LABEL = 'None';
 export const CAT_PERSONALITY_NONE_BLURB = 'The default office cat behaviour.';
