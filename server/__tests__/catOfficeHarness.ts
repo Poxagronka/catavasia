@@ -11,7 +11,7 @@
  * - FAKE_MODE=hang: never answer (for interrupt tests); FAKE_HANG_CAT=<id>: only that cat hangs.
  * It speaks the Agent SDK protocol (claudeAdapter.ts): the persona comes in
  * the initialize request, the MCP config as inline JSON.
- * Every run appends {cat, args, cwd, message, persona, compactWindow} to $FAKE_LOG.
+ * Every run appends {cat, args, cwd, message, persona} to $FAKE_LOG.
  */
 
 import * as fs from 'fs';
@@ -62,8 +62,7 @@ process.stdin.on('end', () => running.then(() => process.exit(0)));
 const turn = async (message) => {
   const cat = /cat id is "([a-z0-9-]+)"/.exec(persona)[1];
   const sessionId = flag('--session-id') || flag('--resume');
-  const compactWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
-  fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message, persona, compactWindow }) + '\\n');
+  fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message, persona }) + '\\n');
   if (process.env.FAKE_MODE === 'hang' || process.env.FAKE_HANG_CAT === cat) return new Promise(() => {});
   // FAKE_MODE=authfail / loggedout: the headless turn of a logged-out CLI (recorded 2026-10-06).
   if (process.env.FAKE_MODE === 'authfail' || process.env.FAKE_MODE === 'loggedout') {
@@ -165,7 +164,6 @@ export interface FakeRun {
   cwd: string;
   message: string;
   persona: string;
-  compactWindow?: string;
 }
 
 export function readFakeLog(file: string): FakeRun[] {

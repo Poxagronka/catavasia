@@ -10,7 +10,7 @@
 
 import type { CatSessionEntry, ContextUse } from '../../../core/src/catSession.js';
 import type { CeoAttachment } from '../../../core/src/ceoDesk.js';
-import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
+import { DEFAULT_MAX_CONTEXT_TOKENS } from '../constants.js';
 import { relativePaths, summarizeInput } from '../taskBoard/streamJson.js';
 import type { DeskRow } from './deskStore.js';
 import { DESK_MCP_NAME } from './deskTools.js';
@@ -73,7 +73,7 @@ export class DeskStream {
     private readonly host: DeskStreamHost,
     last?: ContextUse,
   ) {
-    this.window = last?.window ?? CAT_AUTO_COMPACT_WINDOW;
+    this.window = last?.window ?? DEFAULT_MAX_CONTEXT_TOKENS;
   }
 
   line(line: string): void {
@@ -211,15 +211,12 @@ export class DeskStream {
     this.host.context({ used, window: this.window });
   }
 
-  /**
-   * The window: the model's (result `modelUsage`), at most the 200K at which
-   * every turn auto-compacts (claudeTurnEnv).
-   */
+  /** The window: the model's, as the result `modelUsage` reports it. */
   private result(rec: Record<string, unknown>): void {
     const models = (rec.modelUsage ?? {}) as Record<string, { contextWindow?: unknown }>;
     const own = (this.model && models[this.model]) || Object.values(models)[0];
     if (typeof own?.contextWindow !== 'number') return;
-    const window = Math.min(own.contextWindow, CAT_AUTO_COMPACT_WINDOW);
+    const window = own.contextWindow;
     if (window === this.window) return;
     this.window = window;
     if (this.used) this.host.context({ used: this.used, window });
