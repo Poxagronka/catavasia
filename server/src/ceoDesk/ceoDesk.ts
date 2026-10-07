@@ -211,6 +211,9 @@ export class CeoDesk implements OfficeToolHandler {
     this.halt();
     if (!turn) return queuedDraft(held);
     turn.stopped = true;
+    // New messages wait in `pending` until the interrupt settles: a teardown
+    // below must not take them with it.
+    turn.stopping = true;
     let waiting: DeskState['pending'] = [];
     try {
       const ids = await turn.session.interrupt();
@@ -221,7 +224,12 @@ export class CeoDesk implements OfficeToolHandler {
     } catch (err) {
       console.error(`[catavasia] CEO desk: interrupt failed: ${String(err)}`);
       if (this.turn === turn) this.teardown();
+    } finally {
+      turn.stopping = false;
+      this.pump();
     }
+    // A chat switch during the wait: these parts belong to the old chat.
+    if (turn.chatId !== this.state.chatId) return { draft: '' };
     return queuedDraft([...waiting, ...held]);
   }
 
@@ -338,6 +346,7 @@ export class CeoDesk implements OfficeToolHandler {
   /** Send what waits into the live session; open one first when there is none. */
   private pump(): void {
     if (!this.state.pending.length || !this.mcpUrl || this.disposed || this.closing) return;
+    if (this.turn?.stopping) return;
     const { adapter, office } = this.opts;
     let turn = this.turn;
     // A changed persona (name, Role & conduct) also needs a new process.
@@ -408,6 +417,8 @@ export class CeoDesk implements OfficeToolHandler {
     });
     const turn: Turn = {
       session,
+      chatId: this.state.chatId,
+      stopping: false,
       request: '',
       stream,
       busy: false,
@@ -488,9 +499,8 @@ export class CeoDesk implements OfficeToolHandler {
       if (!this.disposed) this.state.turnRunning = false;
     }
     const state = this.state;
-    const closing = turn.session
-      .close()
-      .then(() => turn.session.ended)
+    void turn.session.close();
+    const closing = turn.session.ended
       .then(({ sessionStarted }) => {
         // A message of this chat made the session: the next process resumes it.
         if (!sessionStarted || state !== this.state || state.started || this.disposed) return;

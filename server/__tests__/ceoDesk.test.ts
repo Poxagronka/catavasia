@@ -169,9 +169,11 @@ describe('CEO desk turns', () => {
     expect(ceo.turns.map((t) => t.message.slice(-6))).toEqual(['\nfirst', 'second']);
     // The CLI still holds "second": it would run after the interrupt, so the
     // desk closes the process and gives the text back.
-    expect(await desk.stop()).toEqual({ draft: 'second' });
-    expect(ceo.closes).toBe(1);
+    const stopped = desk.stop();
+    // Sent while Stop waits for the interrupt: it waits, then goes to the new process.
     desk.send('third');
+    expect(await stopped).toEqual({ draft: 'second' });
+    expect(ceo.closes).toBe(1);
     await deskIdle(desk);
     expect(texts(desk.snapshot().entries).at(-1)).toBe('ok third');
     expect(ceo.turns.map((t) => t.message.slice(-5))).toEqual(['first', 'econd', 'third']);

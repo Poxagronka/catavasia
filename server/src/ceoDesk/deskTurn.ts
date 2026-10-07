@@ -26,6 +26,10 @@ import { DESK_MCP_NAME } from './deskTools.js';
 /** The chat's live session: one Claude process for every turn of the chat. */
 export interface Turn {
   session: LiveSession;
+  /** The chat the session belongs to. */
+  chatId: string;
+  /** Stop waits for the interrupt: new parts wait in `pending`. */
+  stopping: boolean;
   /** The user's messages since the last result (edit_prompts checks `dictated` in them). */
   request: string;
   /** Rows from the session's stream (its newest text waits: the final text replaces it). */

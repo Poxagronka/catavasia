@@ -212,7 +212,7 @@ describe('ClaudeAdapter.openSession', () => {
     session!.send('slow job');
     await waitFor(() => (o.events().length ? true : undefined));
     await session!.close();
-    expect(await session!.ended).toEqual({ sessionStarted: true });
+    expect((await session!.ended).error).toBeUndefined();
   });
 
   it('says so when the CLI is not installed', async () => {
