@@ -62,7 +62,9 @@ export function floorPoopSpot(
   const byRoom = new Map<number, Tile[]>();
   for (const t of pool) {
     const id = roomOf[t.row][t.col];
-    byRoom.set(id, [...(byRoom.get(id) ?? []), t]);
+    const tiles = byRoom.get(id);
+    if (tiles) tiles.push(t);
+    else byRoom.set(id, [t]);
   }
   const piles = new Map<number, number>();
   for (const p of poops) {
