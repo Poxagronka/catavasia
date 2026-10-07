@@ -81,13 +81,6 @@ test.describe('Standalone / CEO dock', () => {
     await expect(log.getByText('Mock CEO: stream: live words')).toHaveCount(1);
     // A ```ts block gets syntax colors.
     await expect(log.locator('pre code.language-ts .hljs-keyword')).toHaveText('const');
-
-    // Retry under the newest reply sends the last message again as a new turn.
-    await log.getByTestId('reply-retry').click();
-    await expect(log.locator('li', { hasText: 'second point' })).toHaveCount(2, {
-      timeout: TURN_TIMEOUT_MS,
-    });
-    await expect(log.getByTestId('reply-retry')).toHaveCount(1);
   });
 
   test('a pasted image and a picked file reach the CEO and show in the sent row @area:standalone', async ({

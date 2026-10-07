@@ -104,13 +104,13 @@ describe('desk stream rows', () => {
     expect(stream.held).toBe('Done.');
   });
 
-  it('the window is the smaller of the model window and 200K', () => {
+  it('the window is the model window the result reports, uncapped', () => {
     const { stream, contexts } = harness({ used: 5, window: 150000 });
     stream.line(init('claude-opus-x'));
     stream.line(text('hi'));
     expect(contexts.at(-1)).toEqual({ used: 20909, window: 150000 });
     stream.line(result(1000000, 'claude-opus-x'));
-    expect(contexts.at(-1)).toEqual({ used: 20909, window: 200000 });
+    expect(contexts.at(-1)).toEqual({ used: 20909, window: 1000000 });
   });
 });
 

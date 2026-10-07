@@ -171,12 +171,6 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
     if (!attachments.length && slash.run(text)) return;
     await ceoDeskApi.send(text, attachments);
   };
-  // Retry asks the last question again; a message with files is not offered (they went once).
-  const lastAsk = [...chat.entries].reverse().find((e) => e.kind === 'user');
-  const retry =
-    !chat.status.busy && lastAsk?.kind === 'user' && lastAsk.text && !lastAsk.attachments?.length
-      ? () => void send(lastAsk.text)
-      : undefined;
   const jobActions: JobCardActions = {
     canControl: privileged,
     onDetails: onOpenTask,
@@ -252,7 +246,6 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
               job={jobActions}
               onOpenPromptHistory={onOpenPromptHistory}
               onLogin={() => engineUi.openLogin('claude')}
-              onRetry={retry}
             />
           ),
         )}

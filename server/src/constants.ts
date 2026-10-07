@@ -155,8 +155,6 @@ export const TURN_RETRY_DELAY_MS = 10_000;
 export const FLOWS_DIR = 'flows';
 /** Event logs of tasks older than this are deleted at server start. */
 export const FLOW_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-/** Auto-compact window of every cat turn (CLAUDE_CODE_AUTO_COMPACT_WINDOW). */
-export const CAT_AUTO_COMPACT_WINDOW = 200_000;
 /** ~/.pixel-agents/<dir>/<catId>.md: one prompt file per cat, in a local git repo. */
 export const PROMPTS_DIR = 'prompts';
 /** ~/.pixel-agents/<dir>/<timestamp>/: the files "Reset everything" replaced. */
