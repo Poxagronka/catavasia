@@ -184,7 +184,7 @@ describe('desk messages with attachments', () => {
     expect(env.ceo.turns).toHaveLength(0);
   });
 
-  it('gives the turn the folder, no edit tools, a budget and the user MCP servers', async () => {
+  it('gives the turn the folder and the CEO permission mode, no extra limits', async () => {
     env = await startDeskOffice(() => ({ text: 'ok' }));
     const turn = async (text: string) => {
       env!.desk.send(text);
@@ -197,18 +197,15 @@ describe('desk messages with attachments', () => {
     env.desk.setFolder(null);
     await turn('sandbox');
     const [first, second, third, fourth] = env.ceo.turns;
-    expect(first.userMcp).toBe(true);
     expect(first.images).toEqual([]);
-    expect(first.extraArgs).toEqual([
-      '--disallowedTools',
-      'Edit,Write,NotebookEdit',
-      '--max-budget-usd',
-      '5',
-    ]);
+    // Plain Claude Code: no denied tools, no budget cap; the mode is the CEO's (Auto).
+    expect(first.permissionMode).toBe('auto');
+    expect(first.addDirs).toEqual([]);
+    expect(first.askPermission).toBeTypeOf('function');
     // The project is the cwd (its CLAUDE.md, settings, MCP and skills load);
     // the chat folder stays readable for attachments.
     expect(second.cwd).toBe(env.tmp);
-    expect(second.extraArgs?.slice(0, 2)).toEqual(['--add-dir', first.cwd]);
+    expect(second.addDirs).toEqual([first.cwd]);
     // Sessions are keyed by cwd: a new folder starts a new session, the same one resumes it.
     expect(second).toMatchObject({ resume: false });
     expect(second.sessionId).not.toBe(first.sessionId);

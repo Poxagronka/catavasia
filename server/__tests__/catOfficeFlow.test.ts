@@ -147,15 +147,14 @@ describe('team task (1 boss + 2 workers)', () => {
     for (const run of bossRuns.slice(1)) {
       expect(run.args[run.args.indexOf('--resume') + 1]).toBe(sessionId);
     }
-    for (const flag of [
-      '--input-format',
-      '--append-system-prompt-file',
-      '--mcp-config',
-      '--strict-mcp-config',
-      '--dangerously-skip-permissions',
-    ]) {
+    // Plain Claude Code through the SDK: user, project and local settings, the
+    // office MCP server beside the user's own (no --strict-mcp-config), Auto.
+    for (const flag of ['--input-format', '--mcp-config', '--setting-sources=user,project,local']) {
       expect(bossRuns[0].args).toContain(flag);
     }
+    expect(bossRuns[0].args).not.toContain('--strict-mcp-config');
+    expect(bossRuns[0].args[bossRuns[0].args.indexOf('--permission-mode') + 1]).toBe('auto');
+    expect(bossRuns[0].persona).toContain('cat id is "boss"');
     expect(bossRuns[0].args[bossRuns[0].args.indexOf('--model') + 1]).toBe('opus');
     const murka = runs.find((r) => r.cat === 'murka')!;
     expect(murka.cwd).toBe(path.join(stateDir, 'worktrees', `${task.id}-murka`));

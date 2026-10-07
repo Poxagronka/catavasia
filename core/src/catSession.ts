@@ -8,7 +8,7 @@
  * in through the server's CatSessionSource interface without changing this file.
  */
 
-import type { CeoAttachment, JobCard } from './ceoDesk.js';
+import type { CeoApproval, CeoAttachment, JobCard } from './ceoDesk.js';
 
 /**
  * One row of the chat console. `at` (CEO desk): when the row was added, in ms,
@@ -47,6 +47,8 @@ export interface CatSessionStatus {
   folder?: string | null;
   /** CEO desk: what the chat's CEO session has cost so far. */
   costUsd?: number;
+  /** CEO desk: actions of the CEO or a cat that wait for the user's answer, oldest first. */
+  approvals?: CeoApproval[];
 }
 
 /** Server -> client frames on `/api/cat-sessions/:catId/events`. */

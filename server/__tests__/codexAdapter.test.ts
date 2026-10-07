@@ -9,10 +9,12 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { PermissionMode } from '../../core/src/messages.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
 import {
   CODEX_OFFICE_TOKEN_ENV,
   CodexAdapter,
+  codexModeArgs,
   codexTurnArgs,
   parseCodexModels,
   tomlString,
@@ -149,7 +151,9 @@ describe('codex adapter', () => {
     const req = { sessionId: 'abc', resume: false, model: 'gpt-6-luna', effort: 'low' };
     const fresh = codexTurnArgs(req as TurnRequest, 'Be "Kodi"\nmeow', 'http://h/mcp');
     expect(fresh.slice(0, 2)).toEqual(['exec', '--json']);
-    expect(fresh).toContain('--dangerously-bypass-approvals-and-sandbox');
+    // No mode: Auto (Codex's own reviewer answers, workspace-write sandbox).
+    expect(fresh).toContain('approvals_reviewer="auto_review"');
+    expect(fresh).not.toContain('--dangerously-bypass-approvals-and-sandbox');
     expect(fresh).toContain('--ignore-user-config');
     expect(fresh).toContain(`developer_instructions=${tomlString('Be "Kodi"\nmeow')}`);
     expect(fresh).toContain('mcp_servers.office.url="http://h/mcp"');
@@ -158,6 +162,25 @@ describe('codex adapter', () => {
     const resumed = codexTurnArgs({ ...req, resume: true } as TurnRequest, '', 'http://h/mcp');
     expect(resumed.slice(0, 4)).toEqual(['exec', 'resume', 'abc', '--json']);
     expect(tomlString('a\u007fb')).toBe('"a\\u007Fb"');
+  });
+
+  it('maps each permission mode to the closest Codex sandbox and approval policy', () => {
+    const pairs = (mode: PermissionMode) => codexModeArgs(mode).filter((a) => a !== '-c');
+    expect(codexModeArgs('bypass')).toEqual(['--dangerously-bypass-approvals-and-sandbox']);
+    expect(pairs('auto')).toEqual([
+      'sandbox_mode="workspace-write"',
+      'approval_policy="on-request"',
+      'approvals_reviewer="auto_review"',
+    ]);
+    expect(pairs('ask')).toEqual(['sandbox_mode="workspace-write"', 'approval_policy="never"']);
+    expect(pairs('readOnly')).toEqual(['sandbox_mode="read-only"', 'approval_policy="never"']);
+    // `codex exec resume` has no --sandbox flag: the mode rides on -c keys there too.
+    const resumed = codexTurnArgs(
+      { sessionId: 'abc', resume: true, model: 'm', permissionMode: 'readOnly' } as TurnRequest,
+      '',
+      'http://h/mcp',
+    );
+    expect(resumed).toContain('sandbox_mode="read-only"');
   });
 
   it('attaches each image with -i before the other flags (also on resume)', () => {

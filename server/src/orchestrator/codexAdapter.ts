@@ -8,8 +8,9 @@
  * - `--ignore-user-config`: the user's config.toml (and its MCP servers) is
  *   not loaded; auth still comes from CODEX_HOME. Same idea as Claude's
  *   `--strict-mcp-config`: only the office MCP server is attached.
- * - `--dangerously-bypass-approvals-and-sandbox`: no approvals and no
- *   sandbox, as `--dangerously-skip-permissions` for Claude cats.
+ * - The permission mode (codexModeArgs): `codex exec` has nobody to ask, so
+ *   each mode maps to the closest sandbox and approval policy. `-c` keys,
+ *   not `--sandbox`: `codex exec resume` has no sandbox flag (0.160.1).
  * - The persona goes in as `developer_instructions` (appended to the built-in
  *   instructions; `model_instructions_file` would replace them).
  * - The office MCP server: `mcp_servers.office.url` with the token read from
@@ -19,7 +20,8 @@
 import { execFileSync, spawn } from 'child_process';
 import * as fs from 'fs';
 
-import type { EngineStatus } from '../../../core/src/messages.js';
+import type { EngineStatus, PermissionMode } from '../../../core/src/messages.js';
+import { DEFAULT_PERMISSION_MODE } from '../../../core/src/permissionModes.js';
 import type { EngineChoices } from './catProfiles.js';
 import { parseCodexLine } from './codexEvents.js';
 import type {
@@ -63,6 +65,32 @@ export function tomlString(text: string): string {
   return JSON.stringify(text).replace(/\u007f/g, '\\u007F');
 }
 
+/**
+ * The closest Codex settings per mode (checked with codex-cli 0.160.1):
+ * Auto = `--approve-for-me` (on-request approvals that Codex's own reviewer
+ * answers, workspace-write sandbox); Ask = workspace-write and never ask (a
+ * background run has nobody to ask, so more is refused); Bypass = no sandbox,
+ * no approvals; Read only = read-only sandbox.
+ */
+export function codexModeArgs(mode: PermissionMode = DEFAULT_PERMISSION_MODE): string[] {
+  const config = (pairs: Record<string, string>) =>
+    Object.entries(pairs).flatMap(([key, value]) => ['-c', `${key}=${tomlString(value)}`]);
+  switch (mode) {
+    case 'bypass':
+      return ['--dangerously-bypass-approvals-and-sandbox'];
+    case 'auto':
+      return config({
+        sandbox_mode: 'workspace-write',
+        approval_policy: 'on-request',
+        approvals_reviewer: 'auto_review',
+      });
+    case 'ask':
+      return config({ sandbox_mode: 'workspace-write', approval_policy: 'never' });
+    case 'readOnly':
+      return config({ sandbox_mode: 'read-only', approval_policy: 'never' });
+  }
+}
+
 /** The `codex exec` arguments of one turn (stdin carries the message: `-`). */
 export function codexTurnArgs(req: TurnRequest, persona: string, mcpUrl: string): string[] {
   return [
@@ -73,7 +101,7 @@ export function codexTurnArgs(req: TurnRequest, persona: string, mcpUrl: string)
     '--json',
     '--ignore-user-config',
     '--skip-git-repo-check',
-    '--dangerously-bypass-approvals-and-sandbox',
+    ...codexModeArgs(req.permissionMode),
     '-m',
     req.model,
     ...(req.effort ? ['-c', `model_reasoning_effort=${tomlString(req.effort)}`] : []),

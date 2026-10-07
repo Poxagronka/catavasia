@@ -11,6 +11,7 @@ import { engineProblem } from '../engines/engineReadiness.js';
 import { engineUi } from '../engines/engineStore.js';
 import { playDoneSound } from '../notificationSound.js';
 import { sessionToken } from '../sessionToken.js';
+import { ApprovalCard } from './ApprovalCard.js';
 import { CEO_DESK_SESSION, ceoDeskApi } from './ceoDeskApi.js';
 import { DockComposer } from './DockComposer.js';
 import { CeoFace, DockHeader } from './DockHeader.js';
@@ -120,6 +121,15 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat.entries, chat.status.busy, collapsed]);
 
+  // A question of a cat or the CEO opens the dock and shows its card.
+  const approvals = chat.status.approvals ?? [];
+  useEffect(() => {
+    if (!approvals.length) return;
+    setDock((s) => setCollapsed(s, false));
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [approvals.length]);
+
   const name = settings?.name ?? 'CEO';
   const unread = unreadCount(dock);
 
@@ -228,6 +238,9 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
             {chat.status.busyText ?? `${name} is thinking...`}
           </span>
         )}
+        {approvals.map((a) => (
+          <ApprovalCard key={a.id} approval={a} />
+        ))}
       </div>
       {privileged && !gone && (
         <DockComposer

@@ -224,8 +224,11 @@ export const CEO_DESK_MAX_REWORKS = 2;
 export const CEO_DESK_NOTICE_MAX_CHARS = 50_000;
 /** Job card updates of one job are sent at most this often. */
 export const CEO_DESK_CARD_THROTTLE_MS = 1000;
-/** `--max-budget-usd` of one CEO desk turn: a safety rail, not a plan. */
-export const CEO_DESK_TURN_BUDGET_USD = 5;
+/**
+ * An approval card nobody answers counts as Deny after this long, so a turn
+ * never waits forever (below the CEO turn timeout, CAT_CEO_TIMEOUT_MS).
+ */
+export const APPROVAL_TIMEOUT_MS = 5 * 60_000;
 /** Body limit of POST /api/ceo/messages: 25 MB of files as base64, plus the text. */
 export const CEO_DESK_MESSAGE_BODY_LIMIT = 40 * 1024 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */

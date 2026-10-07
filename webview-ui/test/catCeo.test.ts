@@ -237,6 +237,7 @@ test('client store: settings, history and diff from the server; actions send the
     effort: 'high',
     maxEditsPerCatPerDay: 2,
     tidyUserItems: false,
+    permissionMode: 'auto',
     systemPrompt: 'judge',
   });
   assert.equal(store.getSnapshot().settings?.model, 'opus');
