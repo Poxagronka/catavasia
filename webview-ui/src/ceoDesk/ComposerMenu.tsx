@@ -74,7 +74,7 @@ export function ComposerMenu({
       <button
         ref={trigger}
         type="button"
-        className="composer-pick"
+        className="dock-ctl"
         title={title}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

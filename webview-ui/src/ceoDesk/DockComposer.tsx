@@ -9,7 +9,6 @@ import {
 } from 'react';
 
 import type { CeoAttachmentUpload, DeskCommand } from '../../../core/src/ceoDesk.js';
-import { Button } from '../components/ui/Button.js';
 import { AttachmentStrip } from './AttachmentStrip.js';
 import { attachError, type DraftAttachment } from './attachState.js';
 import { prepareAttachment, toUploads } from './prepareAttachment.js';
@@ -49,6 +48,15 @@ function SendIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+/** The attach glyph: a plus centered in its 28px box. */
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -176,7 +184,7 @@ export function DockComposer({
 
   return (
     <div
-      className={`border-t-2 p-8 flex flex-col gap-6 ${dragging ? 'border-accent bg-active-bg' : 'border-border'}`}
+      className={`border-t-2 px-16 py-12 flex flex-col gap-8 ${dragging ? 'border-accent bg-active-bg' : 'border-border'}`}
       onDragOver={onDragOver}
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
@@ -193,7 +201,10 @@ export function DockComposer({
       )}
       <AttachmentStrip files={files} onRemove={remove} />
       <SlashMenu menu={slash} />
-      <div className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] pl-4 pr-6">
+      <div
+        className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] pl-4 pr-6"
+        data-testid="dock-box"
+      >
         <textarea
           value={draft}
           onChange={(e) => onDraft(e.target.value)}
@@ -220,7 +231,7 @@ export function DockComposer({
           <SendIcon />
         </button>
       </div>
-      <div className="composer-meta flex items-center gap-12 min-w-0 px-4">
+      <div className="composer-meta flex items-center gap-8 min-w-0">
         <input
           ref={picker}
           type="file"
@@ -232,17 +243,16 @@ export function DockComposer({
           }}
           data-testid="dock-file-input"
         />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="composer-meta text-[18px]! text-text-soft! hover:text-text! w-24! h-24! rounded-[6px]!"
+        <button
+          type="button"
+          className="dock-ctl is-icon"
           onClick={() => picker.current?.click()}
           title="Attach images or files"
           aria-label="Attach images or files"
           data-testid="dock-attach"
         >
-          +
-        </Button>
+          <PlusIcon />
+        </button>
         {mode}
         <span className="flex-1 truncate">{preparing ? 'Preparing files...' : ''}</span>
         {settings}

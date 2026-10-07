@@ -341,4 +341,77 @@ test.describe('Standalone / CEO dock', () => {
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(2)).toContainText('web-tool');
   });
+
+  test('the dock sits on one grid: shared edges and centers at both widths @area:standalone', async ({
+    page,
+    standalone,
+  }, testInfo) => {
+    void standalone;
+    const box = async (id: string) => {
+      const b = await page.getByTestId(id).first().boundingBox();
+      if (!b) throw new Error(`no box for ${id}`);
+      return { left: b.x, right: b.x + b.width, mid: b.y + b.height / 2 };
+    };
+    const near = (a: number, b: number, what: string) =>
+      expect(Math.abs(a - b), `${what}: ${a.toString()} vs ${b.toString()}`).toBeLessThanOrEqual(1);
+    const check = async () => {
+      const composer = await box('dock-box');
+      const [collapse, status, newChat, connectors, project] = await Promise.all(
+        ['dock-collapse', 'dock-status', 'dock-new-chat', 'dock-connectors', 'dock-project'].map(
+          box,
+        ),
+      );
+      // Header: the actions end on the composer's right line, the project starts on its left line.
+      near(collapse.right, composer.right, 'collapse right');
+      near(newChat.right, composer.right, 'new chat right');
+      near(project.left, composer.left, 'project left');
+      near(status.mid, collapse.mid, 'header row 1 center');
+      near(connectors.mid, newChat.mid, 'header row 2 center');
+      near(project.mid, newChat.mid, 'project center');
+      // Composer row: "+" and the ring flush with the box, every control on one center.
+      const row = await Promise.all(
+        ['dock-attach', 'dock-mode', 'dock-model', 'dock-effort', 'dock-usage'].map(box),
+      );
+      near(row[0].left, composer.left, '+ left');
+      near(row[4].right, composer.right, 'ring right');
+      for (const item of row) near(item.mid, row[0].mid, 'composer row center');
+    };
+    const shot = (name: string) =>
+      page.getByTestId('ceo-dock').screenshot({ path: testInfo.outputPath(`${name}.png`) });
+
+    const input = page.getByTestId('dock-input');
+    for (const width of [1280, 380]) {
+      await page.setViewportSize({ width, height: 800 });
+      // The dock takes its new width on the next render: measure after it.
+      await expect
+        .poll(async () => (await page.getByTestId('ceo-dock').boundingBox())?.width)
+        .toBe(Math.min(460, width - 16));
+      await expect(input).toBeVisible();
+      await check();
+      await shot(`dock-${width.toString()}-empty`);
+    }
+    await input.fill('hello grid');
+    await input.press('Enter');
+    const log = page.getByTestId('dock-log');
+    await expect(log.getByText('Mock CEO: hello grid')).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await input.fill('start job: add a footer');
+    await input.press('Enter');
+    await expect(log.getByTestId('job-card')).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await page.getByTestId('dock-connectors').click();
+    await expect(log.getByTestId('connector-row')).toHaveCount(3, { timeout: TURN_TIMEOUT_MS });
+    for (const width of [1280, 380]) {
+      await page.setViewportSize({ width, height: 800 });
+      // The dock takes its new width on the next render: measure after it.
+      await expect
+        .poll(async () => (await page.getByTestId('ceo-dock').boundingBox())?.width)
+        .toBe(Math.min(460, width - 16));
+      await check();
+      // The transcript keeps the same column: cards end on the composer's right line.
+      // A real browser reserves the 6px scrollbar gutter; headless Chromium hides it.
+      const gutter = await log.evaluate((el) => el.offsetWidth - el.clientWidth);
+      near((await box('job-card')).right - 6 + gutter, (await box('dock-box')).right, 'job right');
+      near((await box('job-card')).left, (await box('dock-box')).left, 'job card left');
+      await shot(`dock-${width.toString()}-chat`);
+    }
+  });
 });
