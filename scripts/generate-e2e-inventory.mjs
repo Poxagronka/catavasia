@@ -28,7 +28,13 @@ function listTests() {
   const json = execFileSync(
     process.execPath,
     [PLAYWRIGHT_CLI, 'test', '--list', '--reporter=json', '--config=e2e/playwright.config.ts'],
-    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    {
+      cwd: REPO_ROOT,
+      // The inventory lists every spec, including the ones that open VS Code.
+      env: { ...process.env, E2E_VSCODE: '1' },
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    },
   );
   return JSON.parse(json);
 }
