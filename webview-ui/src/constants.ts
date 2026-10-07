@@ -610,6 +610,8 @@ export const HOUSE_PEEK_INNER_EAR_COLOR = '#E89AA8';
 export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;
 /** Head height of a pet above its feet, for its Zzz while it naps. */
 export const PET_HEAD_ABOVE_ANCHOR_PX = 12;
+/** Half the widest side pose of a pet (stretched out long): a table top narrower than it walks the cat lengthwise. */
+export const PET_SIDE_POSE_HALF_PX = 13;
 /** Outline for the ears / tail of a near-black cat, so they read against a dark doorway. */
 export const HOUSE_PEEK_RIM_COLOR = '#9A8AA0';
 
