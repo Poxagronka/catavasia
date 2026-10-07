@@ -495,9 +495,12 @@ export const PET_HYGIENE_DECAY_PER_FULL_BOX = 4;
 export const PET_REQUEST_THRESHOLD = 35;
 /** A cat walks to the bowl by itself when hunger/thirst drops under this. */
 export const PET_SEEK_THRESHOLD = 55;
-/** Bowel fill per meal and per office hour; at PET_BOWEL_MAX the cat poops. */
-export const PET_BOWEL_PER_MEAL = 40;
-export const PET_BOWEL_PER_HOUR = 6;
+/**
+ * Bowel fill per meal and per office hour; at PET_BOWEL_MAX the cat poops.
+ * Halved from 40 / 6 (user, 2026-10-07): a pet poops about half as often.
+ */
+export const PET_BOWEL_PER_MEAL = 20;
+export const PET_BOWEL_PER_HOUR = 3;
 export const PET_BOWEL_MAX = 100;
 /**
  * Litter box fill: piles 0 clean, 1, 2-3, PET_LITTER_FULL full (stink lines),
@@ -666,14 +669,17 @@ export const ACTIVITY_FX_COLORS = {
 export const SHELF_BACK_COLOR = '#301c1c';
 
 // ── Litter boxes and floor poop (all cats, see engine/litterLife.ts) ──
-/** Relative weight of a litter box visit in an agent cat's idle pick (low: a rare need). */
-export const LITTER_ACTIVITY_WEIGHT = 0.2;
+/**
+ * Relative weight of a litter box visit in an agent cat's idle pick (low: a
+ * rare need). Halved from 0.2 with LITTER_DUE_SEC (user, 2026-10-07).
+ */
+export const LITTER_ACTIVITY_WEIGHT = 0.1;
 /**
  * Idle-loop seconds after which an agent cat goes to a box at its next idle
  * pick, whatever the roll: the rare random visit alone left long droughts.
  * Each cat starts at a random point of this span, so visits do not bunch up.
  */
-export const LITTER_DUE_SEC = 30 * 60;
+export const LITTER_DUE_SEC = 60 * 60;
 /** Px a cat in an open box is drawn lower: the front wall hides its paws. */
 export const LITTER_SPOT_OFFSET_Y = 3;
 /** Chance of zoomies after a box visit, the dashes they last, and how far a dash runs (tiles). */
@@ -686,6 +692,8 @@ export const ZOOMIES_MAX_TILES = 9;
 export const ZOOMIES_PICKS = 12;
 /** Walk speed and walk-frame rate multiplier while a cat has the zoomies. */
 export const ZOOMIES_SPEED_MUL = 2.6;
+/** A floor accident lands at least this many tiles (Chebyshev) from every box and poop when it can. */
+export const POOP_SPACING_TILES = 3;
 /** A cat passing a floor poop may grimace: how long, how often per cat, how likely. */
 export const POOP_GRIMACE_SEC = 1.3;
 export const POOP_GRIMACE_COOLDOWN_SEC = 25;

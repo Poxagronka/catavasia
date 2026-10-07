@@ -109,36 +109,6 @@ export function findLitterBox(
 }
 
 /**
- * The nearest floor tile for an accident (every box refused): walkable, not
- * a litter box, no poop there yet, within two tiles of (col, row).
- */
-export function floorSpotNear(
-  col: number,
-  row: number,
-  env: Pick<PetCareEnv, 'furniture' | 'tileMap' | 'blockedTiles'>,
-  world: PetCareWorld,
-  canUse: (key: string) => boolean = () => true,
-): { col: number; row: number } | null {
-  const boxes = new Set(
-    env.furniture.filter((f) => isLitterBoxType(f.type)).map((f) => `${f.col},${f.row}`),
-  );
-  const poops = new Set(world.floorPoops.map((p) => `${p.col},${p.row}`));
-  const tiles: Array<{ col: number; row: number; d: number }> = [];
-  for (let dr = -2; dr <= 2; dr++) {
-    for (let dc = -2; dc <= 2; dc++) {
-      const c = col + dc;
-      const r = row + dr;
-      const key = `${c},${r}`;
-      if (boxes.has(key) || poops.has(key) || !canUse(key)) continue;
-      if (!isWalkable(c, r, env.tileMap, env.blockedTiles)) continue;
-      tiles.push({ col: c, row: r, d: Math.abs(dc) + Math.abs(dr) });
-    }
-  }
-  tiles.sort((a, b) => a.d - b.d);
-  return tiles[0] ? { col: tiles[0].col, row: tiles[0].row } : null;
-}
-
-/**
  * A random reachable floor tile ZOOMIES_MIN..MAX_TILES away (manhattan) for a
  * zoomies dash, with its path; not a litter box tile, and `canUse` it.
  */
