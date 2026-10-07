@@ -525,8 +525,12 @@ async function headlessTurn(argv) {
   const said = (at >= 0 ? message.slice(at + marker.length) : message).trim();
   const sessionId = flagValue(argv, '--session-id') || flagValue(argv, '--resume') || '';
   const fence = '`'.repeat(3);
+  // "start job: <task>" makes the CEO call its desk tool start_job.
+  const job = /^start job: (.+)$/.exec(said);
+  const started = job ? await callDeskTool(argv, 'start_job', { task: job[1] }) : undefined;
   const text = [
     `Mock CEO: ${said.replace(/\[Attached [^\n]*\n?/g, '').trim()}`,
+    ...(started ? ['', started] : []),
     ...(images || files ? ['', `Received ${images} images and ${files} files.`] : []),
     '',
     '- first point',
@@ -551,6 +555,25 @@ async function headlessTurn(argv) {
     num_turns: 1,
     usage: { input_tokens: 1, output_tokens: 1 },
   });
+}
+
+/** Call a tool of the `desk` MCP server in --mcp-config (the CEO desk); returns its text. */
+async function callDeskTool(argv, name, args) {
+  const config = JSON.parse(fs.readFileSync(flagValue(argv, '--mcp-config'), 'utf-8'));
+  const desk = config.mcpServers && config.mcpServers.desk;
+  if (!desk) return 'no desk tools';
+  const res = await fetch(desk.url, {
+    method: 'POST',
+    headers: { ...desk.headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name, arguments: args },
+    }),
+  });
+  const body = await res.json();
+  return ((body.result && body.result.content) || []).map((c) => c.text).join('\n');
 }
 
 async function main() {

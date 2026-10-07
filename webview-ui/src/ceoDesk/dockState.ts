@@ -199,3 +199,14 @@ export function shortFolder(folder: string | null | undefined): string {
   if (!folder) return 'Sandbox';
   return folder.replace(/^\/(Users|home)\/[^/]+/, '~');
 }
+
+/** The project's name for the bottom bar: the folder's last part, or "No project". */
+export function projectName(folder: string | null | undefined): string {
+  if (!folder) return 'No project';
+  return (
+    folder
+      .replace(/[\\/]+$/, '')
+      .split(/[\\/]/)
+      .pop() || folder
+  );
+}

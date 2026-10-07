@@ -1,7 +1,8 @@
 /**
  * Files of the CEO desk under ~/.pixel-agents/cat-ceo/:
  *
- * - desk.json: the live chat (session, folder, MCP token, cost, live jobs).
+ * - desk.json: the live chat (session, MCP token, cost, live jobs) and the
+ *   office's project folder with the recent projects (a New chat keeps both).
  * - chats/<chatId>.json: the history of a chat (version 2, newest rows kept).
  * - chats/<chatId>/: the chat's cwd (stable, so `claude --resume` finds the
  *   session) and its sandbox `work/`.
@@ -33,7 +34,10 @@ export interface DeskState {
   sessionId: string;
   /** The session exists: the next turn resumes it. */
   started: boolean;
+  /** The office's project folder (the Project button sets it), or null for the sandbox. */
   folder: string | null;
+  /** Projects picked before, newest first. */
+  recent?: string[];
   /** Bearer token of the desk tools for this chat's CEO. */
   mcpToken: string;
   /** Session cost so far (the CLI reports it cumulative). */

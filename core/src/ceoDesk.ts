@@ -101,9 +101,30 @@ export interface CeoFolderRequest {
   path: string | null;
 }
 
-/** GET /api/ceo/folders */
-export interface CeoFoldersResponse {
+/**
+ * The office's project after a change (PUT /api/ceo/folder, POST
+ * folder/pick, folder/new, folder/history). `git`: the folder has version
+ * history with a commit, so each job gets its own branch.
+ */
+export interface CeoFolderResponse {
   folder: string | null;
-  /** Folders of earlier tasks, newest first. */
+  git: boolean;
+}
+
+/** POST /api/ceo/folder/pick: the user closed the window without a folder. */
+export interface CeoFolderCancelled {
+  cancelled: true;
+}
+
+/** POST /api/ceo/folder/new: a project in ~/catavasia-projects/<name>. */
+export interface CeoNewProjectRequest {
+  name: string;
+}
+
+/** GET /api/ceo/folders */
+export interface CeoFoldersResponse extends CeoFolderResponse {
+  /** Projects picked before and folders of earlier tasks, newest first. */
   recent: string[];
+  /** The server can show the system folder window (else the panel offers a path box). */
+  canPick: boolean;
 }

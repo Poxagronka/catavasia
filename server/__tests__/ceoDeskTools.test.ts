@@ -58,12 +58,14 @@ describe('work folder checks', () => {
       const r = checkWorkFolder(p, state);
       return r.ok ? undefined : r.error;
     };
-    expect(error('proj')).toContain('Not an absolute path');
-    expect(error(path.join(tmp, 'file.txt'))).toContain('Not a folder');
-    expect(error(path.join(tmp, 'missing'))).toContain('Not a folder');
-    expect(error('/')).toContain('root');
-    expect(error(os.homedir())).toContain('home folder');
-    expect(error(path.join(state, 'cat-ceo'))).toContain('catavasia state');
+    expect(error('proj')).toContain('Type the full folder path');
+    expect(error(path.join(tmp, 'file.txt'))).toContain('is a file, not a folder');
+    expect(error(path.join(tmp, 'missing'))).toContain('There is no folder');
+    expect(error('/')).toContain('whole disk');
+    expect(error(os.homedir())).toBe(
+      'Pick a folder inside your home folder, not the home folder itself',
+    );
+    expect(error(path.join(state, 'cat-ceo'))).toContain("the office's own files");
     expect(checkWorkFolder(`${tmp}/`, state)).toEqual({ ok: true, path: tmp });
     fs.rmSync(tmp, { recursive: true, force: true });
   });
@@ -92,13 +94,26 @@ describe('desk tools', () => {
     expect((await list('/api/ceo-mcp', 'cat-token')).status).toBe(401);
   });
 
-  it('list_team, set_folder, and the start_job refusals', async () => {
+  it('has no folder tool: only the user picks the project', () => {
+    const names = DESK_TOOLS.map((t) => t.name);
+    expect(names).not.toContain('set_folder');
+    expect(names).toEqual([
+      'start_job',
+      'job_status',
+      'message_job',
+      'cancel_job',
+      'list_team',
+      'edit_prompts',
+    ]);
+    const startJob = DESK_TOOLS.find((t) => t.name === 'start_job')!;
+    expect(Object.keys(startJob.inputSchema.properties as object)).toEqual(['task', 'to', 'from']);
+  });
+
+  it('list_team and the start_job refusals', async () => {
     const { run } = await withTools();
-    const repo = makeRepo(path.join(env!.tmp, 'repo'));
-    const [team, badFolder, setFolder, unknownCat, unknownFrom] = await run([
+    const [team, setFolder, unknownCat, unknownFrom] = await run([
       ['list_team'],
-      ['set_folder', { path: os.homedir() }],
-      ['set_folder', { path: repo }],
+      ['set_folder', { path: env!.tmp }],
       ['start_job', { task: 'x', to: 'nobody' }],
       ['start_job', { task: 'x', from: 'ffffffff' }],
     ]);
@@ -109,9 +124,8 @@ describe('desk tools', () => {
         '- Milo (pushok): Developer, claude sonnet, reports to Oliver',
       ].join('\n'),
     );
-    expect(badFolder).toMatchObject({ isError: true });
-    expect(setFolder.text).toBe(`The work folder of this chat is now ${repo}.`);
-    expect(env!.desk.folder).toBe(repo);
+    expect(setFolder).toEqual({ isError: true, text: 'Unknown tool: set_folder' });
+    expect(env!.desk.folder).toBeNull();
     expect(unknownCat).toMatchObject({
       isError: true,
       text: expect.stringContaining('Unknown cat'),

@@ -12,15 +12,19 @@ import {
   CEO_API_PREFIX,
   CEO_ATTACH_MAX_COUNT,
   type CeoFolderRequest,
+  type CeoFolderResponse,
   type CeoFoldersResponse,
   type CeoMessageRequest,
+  type CeoNewProjectRequest,
   type CeoStopResponse,
 } from '../../../core/src/ceoDesk.js';
 import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import { CEO_DESK_MESSAGE_BODY_LIMIT, TASK_PROMPT_MAX_CHARS } from '../constants.js';
+import { inspectRepo, startHistory } from '../taskBoard/gitWorktree.js';
 import { attachmentFile } from './attachments.js';
 import type { CeoDesk } from './ceoDesk.js';
-import { checkWorkFolder } from './workFolder.js';
+import { dialogCommand, openFolderDialog } from './folderDialog.js';
+import { checkWorkFolder, newProjectPath } from './workFolder.js';
 
 export function registerCeoRoutes(
   app: FastifyInstance,
@@ -93,6 +97,17 @@ export function registerCeoRoutes(
 
   app.post(`${CEO_API_PREFIX}/new`, { onRequest }, async () => ({ chatId: desk.newChat() }));
 
+  // ── The office's project (the Project button of the bottom bar) ──
+
+  const folderReply = async (folder: string | null): Promise<CeoFolderResponse> => ({
+    folder,
+    git: !!folder && (await inspectRepo(folder)) !== null,
+  });
+  const use = async (folder: string | null) => {
+    desk.setFolder(folder);
+    return folderReply(folder);
+  };
+
   app.put<{ Body: CeoFolderRequest }>(
     `${CEO_API_PREFIX}/folder`,
     {
@@ -107,19 +122,77 @@ export function registerCeoRoutes(
     },
     async (request, reply) => {
       const asked = request.body.path;
-      if (asked === null || !asked.trim()) {
-        desk.setFolder(null);
-        return { folder: null };
-      }
+      if (asked === null || !asked.trim()) return use(null);
       const checked = checkWorkFolder(asked, stateDir);
       if (!checked.ok) return reply.code(400).send({ error: checked.error });
-      desk.setFolder(checked.path);
-      return { folder: checked.path };
+      return use(checked.path);
     },
   );
 
+  // The system folder window. The request waits until the user closes it.
+  app.post(`${CEO_API_PREFIX}/folder/pick`, { onRequest }, async (_request, reply) => {
+    const cmd = dialogCommand();
+    if (!cmd) return reply.code(400).send({ error: NO_WINDOW_TEXT });
+    const picked = await openFolderDialog(cmd);
+    if ('busy' in picked) return reply.code(409).send({ error: WINDOW_OPEN_TEXT });
+    if ('cancelled' in picked) return picked;
+    const checked = checkWorkFolder(picked.path, stateDir);
+    if (!checked.ok) return reply.code(400).send({ error: checked.error });
+    return use(checked.path);
+  });
+
+  // A new project: ~/catavasia-projects/<name> with version history (an existing one opens).
+  app.post<{ Body: CeoNewProjectRequest }>(
+    `${CEO_API_PREFIX}/folder/new`,
+    {
+      onRequest,
+      schema: {
+        body: {
+          type: 'object',
+          properties: { name: { type: 'string', maxLength: 255 } },
+          required: ['name'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const target = newProjectPath(request.body.name);
+      if (!target.ok) return reply.code(400).send({ error: target.error });
+      try {
+        fs.mkdirSync(target.path, { recursive: true });
+        if (!(await inspectRepo(target.path))) await startHistory(target.path);
+      } catch (err) {
+        return reply.code(500).send({ error: `Could not make the project: ${errorText(err)}` });
+      }
+      const checked = checkWorkFolder(target.path, stateDir);
+      if (!checked.ok) return reply.code(400).send({ error: checked.error });
+      return use(checked.path);
+    },
+  );
+
+  // Turn on version history (git) for the current project.
+  app.post(`${CEO_API_PREFIX}/folder/history`, { onRequest }, async (_request, reply) => {
+    const folder = desk.folder;
+    if (!folder) return reply.code(400).send({ error: 'Pick a project first' });
+    try {
+      if (!(await inspectRepo(folder))) await startHistory(folder);
+    } catch (err) {
+      return reply
+        .code(500)
+        .send({ error: `Could not turn on version history: ${errorText(err)}` });
+    }
+    return folderReply(folder);
+  });
+
   app.get(`${CEO_API_PREFIX}/folders`, { onRequest }, async (): Promise<CeoFoldersResponse> => ({
-    folder: desk.folder,
+    ...(await folderReply(desk.folder)),
     recent: desk.recentFolders(),
+    canPick: dialogCommand() !== null,
   }));
+}
+
+const NO_WINDOW_TEXT = 'This computer cannot show a folder window. Type the folder path instead.';
+const WINDOW_OPEN_TEXT = 'The folder window is already open. Look for it on your screen.';
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

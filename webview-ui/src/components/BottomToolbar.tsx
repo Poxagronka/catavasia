@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { WorkspaceFolder } from '../hooks/useExtensionMessages.js';
 import { isBrowserRuntime } from '../runtime.js';
+import { sessionToken } from '../sessionToken.js';
 import { transport } from '../transport/index.js';
+import { ProjectButton } from './ProjectButton.js';
 import { Button } from './ui/Button.js';
 import { Dropdown, DropdownItem } from './ui/Dropdown.js';
 
@@ -128,6 +130,8 @@ export function BottomToolbar({
           </Dropdown>
         </div>
       )}
+      {/* The CEO desk's project: standalone, with the server token. */}
+      {isBrowserRuntime && sessionToken !== null && <ProjectButton />}
       <Button
         variant={isCatsOpen ? 'active' : 'default'}
         onClick={onToggleCats}
