@@ -382,6 +382,10 @@ test.describe('Standalone / CEO dock', () => {
     const input = page.getByTestId('dock-input');
     for (const width of [1280, 380]) {
       await page.setViewportSize({ width, height: 800 });
+      // The dock takes its new width on the next render: measure after it.
+      await expect
+        .poll(async () => (await page.getByTestId('ceo-dock').boundingBox())?.width)
+        .toBe(Math.min(460, width - 16));
       await expect(input).toBeVisible();
       await check();
       await shot(`dock-${width.toString()}-empty`);
@@ -397,6 +401,10 @@ test.describe('Standalone / CEO dock', () => {
     await expect(log.getByTestId('connector-row')).toHaveCount(3, { timeout: TURN_TIMEOUT_MS });
     for (const width of [1280, 380]) {
       await page.setViewportSize({ width, height: 800 });
+      // The dock takes its new width on the next render: measure after it.
+      await expect
+        .poll(async () => (await page.getByTestId('ceo-dock').boundingBox())?.width)
+        .toBe(Math.min(460, width - 16));
       await check();
       // The transcript keeps the same column: cards end on the composer's right line.
       // A real browser reserves the 6px scrollbar gutter; headless Chromium hides it.
