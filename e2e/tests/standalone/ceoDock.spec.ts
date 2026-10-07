@@ -208,4 +208,83 @@ test.describe('Standalone / CEO dock', () => {
     await page.getByTestId('dock-effort-low').click();
     await expect(page.getByTestId('dock-effort')).toHaveText('Low');
   });
+
+  test('slash commands: the "/" menu, dock cards and pickers, and connectors @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    const menu = page.getByTestId('slash-menu');
+    const log = page.getByTestId('dock-log');
+    await expect(input).toBeVisible();
+
+    // "/" lists Claude Code's commands (built-ins, custom ones) and the dock's own.
+    await input.fill('/');
+    await expect(menu.getByTestId('slash-compact')).toBeVisible();
+    await expect(menu.getByTestId('slash-tidy-notes')).toContainText('Tidy my notes');
+    await expect(menu.getByTestId('slash-help')).toBeVisible();
+    await input.pressSequentially('mo');
+    await expect(menu.getByTestId('slash-model')).toContainText('<model>');
+    await expect(menu.getByTestId('slash-compact')).toBeHidden();
+    // Esc closes the menu; Enter completes a command that takes words.
+    await input.press('Escape');
+    await expect(menu).toBeHidden();
+    await input.fill('');
+    await input.fill('/mo');
+    await input.press('Enter');
+    await expect(input).toHaveValue('/model ');
+    // /model with nothing after it opens the model picker, like the terminal's screen.
+    await input.press('Enter');
+    await expect(page.getByTestId('dock-model-menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await input.fill('/model sonnet');
+    await input.press('Enter');
+    await expect(page.getByTestId('dock-model')).toHaveText('Sonnet');
+
+    // /usage opens the context and limits; /help lists the commands.
+    await input.fill('/usage');
+    await input.press('Enter');
+    await expect(page.getByTestId('dock-usage-menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await input.fill('/help');
+    await input.press('Enter');
+    await expect(log.getByTestId('help-card')).toContainText('Sent to Claude');
+    await expect(input).toHaveValue('');
+
+    // /compact goes to Claude as typed; the summary shows as a quiet line.
+    await input.fill('/compact');
+    await input.press('Enter');
+    await expect(log.getByTestId('chat-note')).toHaveText('Summarised the chat', {
+      timeout: TURN_TIMEOUT_MS,
+    });
+
+    // /mcp opens the Connectors card with each server's state in plain words.
+    await input.fill('/mcp');
+    await input.press('Enter');
+    const card = log.getByTestId('connectors-card');
+    await expect(card).toContainText('Changes apply to all cats');
+    const rows = card.getByTestId('connector-row');
+    await expect(rows).toHaveCount(3, { timeout: TURN_TIMEOUT_MS });
+    await expect(rows.nth(0)).toContainText('Working');
+    await expect(rows.nth(1)).toContainText('Needs sign-in');
+    await expect(rows.nth(2)).toContainText('Not working');
+    // No project: nothing to turn off for.
+    await expect(card.getByTestId('connector-turn-off')).toHaveCount(0);
+
+    await rows.nth(1).getByTestId('connector-sign-in').click();
+    await expect(rows.nth(1).getByTestId('connector-status')).toHaveText('Working');
+
+    await rows.nth(2).getByTestId('connector-remove').click();
+    await expect(card.getByTestId('connector-confirm')).toContainText('Every cat loses it');
+    await card.getByTestId('connector-remove-yes').click();
+    await expect(rows).toHaveCount(2);
+
+    await card.getByTestId('connector-add').click();
+    await card.getByTestId('connector-name').fill('web-tool');
+    await card.getByTestId('connector-target').fill('https://tools.example/mcp');
+    await card.getByTestId('connector-add-save').click();
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(2)).toContainText('web-tool');
+  });
 });

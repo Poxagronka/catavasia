@@ -37,6 +37,8 @@ export type CatSessionEntry = { at?: number } &
       }
     /** The CEO thought before it acted (the thought itself is not shown by Claude Code). */
     | { kind: 'thought'; ms: number }
+    /** A quiet line between rows ("Summarised the chat" after /compact). */
+    | { kind: 'note'; text: string }
     /** `login`: the engine is logged out; the console offers its login (CEO desk). */
     | { kind: 'error'; text: string; login?: boolean }
     /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */

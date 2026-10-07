@@ -526,7 +526,11 @@ async function headlessTurn(argv) {
         if (m.type === 'control_request') {
           out({
             type: 'control_response',
-            response: { subtype: 'success', request_id: m.request_id, response: {} },
+            response: {
+              subtype: 'success',
+              request_id: m.request_id,
+              response: controlAnswer(m.request),
+            },
           });
         } else if (m.type === 'control_response') answered(m.response.response);
         else if (m.type === 'user') resolve(m);
@@ -587,6 +591,17 @@ async function headlessTurn(argv) {
     process.stdout.write(`${JSON.stringify({ session_id: sessionId, ...record })}\n`);
   logInvocation(os.homedir(), sessionId, process.cwd(), argv);
   say({ type: 'system', subtype: 'init', model: MOCK_MODEL });
+  // "/compact": Claude Code summarises the chat and answers no text.
+  if (said.startsWith('/compact')) {
+    say({
+      type: 'system',
+      subtype: 'compact_boundary',
+      compact_metadata: { trigger: 'manual', pre_tokens: 84000, post_tokens: 9000 },
+    });
+    say({ type: 'result', subtype: 'success', is_error: false, result: '', num_turns: 0 });
+    await ended;
+    return;
+  }
   if (said === 'show tools') toolActivity(say, process.cwd());
   say({
     type: 'assistant',
@@ -605,6 +620,124 @@ async function headlessTurn(argv) {
     modelUsage: { [MOCK_MODEL]: { contextWindow: 200000 } },
   });
   await ended;
+}
+
+/** Slash commands the mock offers (the SDK's initialize answer). */
+const MOCK_COMMANDS = [
+  {
+    name: 'clear',
+    description: 'Start a new session',
+    argumentHint: '',
+    aliases: ['reset', 'new'],
+    builtin: true,
+  },
+  {
+    name: 'compact',
+    description: 'Free up context by summarizing the conversation so far',
+    argumentHint: '<optional custom summarization instructions>',
+    builtin: true,
+  },
+  {
+    name: 'mcp',
+    description: 'Manage MCP servers',
+    argumentHint: '[enable|disable [<server>]]',
+    builtin: true,
+  },
+  {
+    name: 'model',
+    description: 'Set the AI model for Claude Code',
+    argumentHint: '<model>',
+    builtin: true,
+  },
+  {
+    name: 'usage',
+    description: 'Show plan usage',
+    argumentHint: '',
+    aliases: ['cost'],
+    builtin: true,
+  },
+  { name: 'tidy-notes', description: 'Tidy my notes (a custom command)', argumentHint: '' },
+];
+
+/** The mock's MCP servers live in ~/.mock-mcp.json, so `claude mcp` changes show in mcp_status. */
+function mcpFile() {
+  return path.join(os.homedir(), '.mock-mcp.json');
+}
+function readMcp() {
+  try {
+    return JSON.parse(fs.readFileSync(mcpFile(), 'utf-8'));
+  } catch {
+    return [
+      {
+        name: 'files',
+        status: 'connected',
+        scope: 'user',
+        source: 'user',
+        config: { type: 'stdio', command: 'npx', args: ['files-mcp'] },
+      },
+      {
+        name: 'claude.ai Gmail',
+        status: 'needs-auth',
+        scope: 'claudeai',
+        source: 'claudeai',
+        config: { type: 'claudeai-proxy', url: 'https://mcp.example/gmail' },
+      },
+      {
+        name: 'old-notes',
+        status: 'failed',
+        scope: 'user',
+        source: 'user',
+        error: 'Connection closed',
+        config: { type: 'stdio', command: 'old-notes' },
+      },
+    ];
+  }
+}
+function writeMcp(list) {
+  fs.writeFileSync(mcpFile(), JSON.stringify(list));
+}
+
+/** Answers of the SDK's control requests (initialize, mcp_status, mcp_toggle). */
+function controlAnswer(request) {
+  const kind = request && request.subtype;
+  if (kind === 'initialize') return { commands: MOCK_COMMANDS };
+  if (kind === 'mcp_status') return { mcpServers: readMcp() };
+  if (kind === 'mcp_toggle') {
+    writeMcp(
+      readMcp().map((s) =>
+        s.name === request.serverName
+          ? { ...s, status: request.enabled ? 'connected' : 'disabled' }
+          : s,
+      ),
+    );
+  }
+  return {};
+}
+
+/** `claude mcp add|remove|login` against ~/.mock-mcp.json. */
+function mockMcpCli(argv) {
+  const [, verb, ...rest] = argv;
+  const list = readMcp();
+  if (verb === 'add') {
+    const scope = flagValue(rest, '--scope') || 'local';
+    const http = flagValue(rest, '--transport') === 'http';
+    const words = rest.filter(
+      (w, n) =>
+        !w.startsWith('--') &&
+        !rest[n - 1]?.startsWith('--scope') &&
+        !rest[n - 1]?.startsWith('--transport'),
+    );
+    const [name, ...target] = words;
+    const config = http
+      ? { type: 'http', url: target[0] }
+      : { type: 'stdio', command: target[0], args: target.slice(1) };
+    writeMcp([...list, { name, status: 'connected', scope, source: scope, config }]);
+  } else if (verb === 'remove') {
+    writeMcp(list.filter((s) => s.name !== rest[0]));
+  } else if (verb === 'login') {
+    writeMcp(list.map((s) => (s.name === rest[0] ? { ...s, status: 'connected' } : s)));
+  }
+  process.stdout.write(`mock mcp ${verb} done\n`);
 }
 
 const MOCK_MODEL = 'claude-mock-1';
@@ -687,6 +820,10 @@ async function callDeskTool(argv, name, args) {
 
 async function main() {
   const argv = process.argv.slice(2);
+  if (argv[0] === 'mcp') {
+    mockMcpCli(argv);
+    return;
+  }
   if (flagValue(argv, '--input-format') === 'stream-json') {
     await headlessTurn(argv);
     return;

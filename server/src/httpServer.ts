@@ -15,6 +15,7 @@ import { OfficeCatSource } from './catTerminal/officeCatSource.js';
 import { ptyModule } from './catTerminal/ptyModule.js';
 import type { CeoDesk } from './ceoDesk/ceoDesk.js';
 import { registerCeoRoutes } from './ceoDesk/ceoRoutes.js';
+import { registerConnectorRoutes } from './ceoDesk/connectorRoutes.js';
 import { DESK_TOOLS } from './ceoDesk/deskTools.js';
 import type {
   AssetCache,
@@ -131,6 +132,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   if (options.ceoDesk && options.orchestrator) {
     registerMcpRoute(app, CEO_MCP_PATH, DESK_TOOLS, options.ceoDesk);
     registerCeoRoutes(app, options.ceoDesk, options.orchestrator.stateDir, isPrivileged);
+    registerConnectorRoutes(app, options.ceoDesk, options.orchestrator.stateDir, isPrivileged);
   }
   if (options.update) registerUpdateRoutes(app, options.update, isPrivileged);
   if (options.tasks) {

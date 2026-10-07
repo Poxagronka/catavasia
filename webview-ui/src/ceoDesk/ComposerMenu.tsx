@@ -12,18 +12,21 @@ const ITEM = '[role="menuitemradio"]';
  * A quiet label in the row under the message box that opens a small menu
  * above the row, at its left or right edge. A click outside or Esc closes
  * the menu. In a list menu the arrows move between the rows, Enter picks one.
+ * A new `openKey` opens it (a slash command asked for it).
  */
 export function ComposerMenu({
   label,
   title,
   testId,
   align = 'left',
+  openKey,
   children,
 }: {
   label: ReactNode;
   title: string;
   testId: string;
   align?: 'left' | 'right';
+  openKey?: number;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +37,9 @@ export function ComposerMenu({
     setOpen(false);
     trigger.current?.focus();
   };
+  useEffect(() => {
+    if (openKey) setOpen(true);
+  }, [openKey]);
   useEffect(() => {
     if (!open) return;
     const at = (q: string) => menu.current?.querySelector<HTMLElement>(q);

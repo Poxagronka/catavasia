@@ -33,7 +33,7 @@ import { saveAttachments, type SavedAttachments } from './attachments.js';
 import { DeskJobs } from './deskJobs.js';
 import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, DESK_MCP_NAME, type DeskToolHost } from './deskTools.js';
-import { newDeskStream, spawnDeskTurn, type Turn } from './deskTurn.js';
+import { newDeskStream, spawnDeskTurn, takeTurnParts, type Turn } from './deskTurn.js';
 import { RECENT_FOLDERS_MAX, recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
@@ -274,7 +274,7 @@ export class CeoDesk implements OfficeToolHandler {
       this.statusChanged();
       return;
     }
-    const parts = this.state.pending.splice(0);
+    const parts = takeTurnParts(this.state.pending);
     if (parts.some((p) => p.kind === 'user')) this.reworkCount = 0;
     const request = parts
       .filter((p) => p.kind === 'user')

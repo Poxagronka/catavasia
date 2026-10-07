@@ -154,3 +154,54 @@ export interface CeoApproval {
 export interface CeoApprovalAnswer {
   answer: 'allow' | 'always' | 'deny';
 }
+
+/**
+ * A slash command Claude Code offers in the CEO's folder (GET /api/ceo/commands):
+ * built-ins, custom commands and skills, as the Agent SDK lists them.
+ */
+export interface DeskCommand {
+  name: string;
+  description: string;
+  /** What to type after the name ("<model>"); empty when it takes nothing. */
+  argumentHint: string;
+  aliases?: string[];
+  /** Claude Code's own command (not a user, project or plugin one). */
+  builtin?: boolean;
+}
+
+/** GET /api/ceo/commands */
+export interface CeoCommandsResponse {
+  commands: DeskCommand[];
+}
+
+/**
+ * One MCP server ("connector") of Claude Code, shared by the CEO and every cat.
+ * `source`: user, project, local, claudeai, plugin, managed... (the SDK's word).
+ */
+export interface Connector {
+  name: string;
+  status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled';
+  source: string;
+  /** The web address or the command it runs. */
+  target?: string;
+  error?: string;
+  /** It talks over the web: Sign in can apply. */
+  web: boolean;
+}
+
+/** GET /api/ceo/connectors and the answer of every change. */
+export interface CeoConnectorsResponse {
+  connectors: Connector[];
+  /** The office's project: Turn off / on applies to it (null: no project, no toggle). */
+  project: string | null;
+}
+
+/** POST /api/ceo/connectors: a command line or an http(s) address; `local`: this project only. */
+export interface CeoConnectorAddRequest {
+  name: string;
+  target: string;
+  scope: 'user' | 'local';
+}
+
+/** Names `claude mcp add` gets from the dock. */
+export const CONNECTOR_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;

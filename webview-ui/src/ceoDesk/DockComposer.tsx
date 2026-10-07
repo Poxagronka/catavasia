@@ -8,11 +8,13 @@ import {
   useState,
 } from 'react';
 
-import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
+import type { CeoAttachmentUpload, DeskCommand } from '../../../core/src/ceoDesk.js';
 import { Button } from '../components/ui/Button.js';
 import { AttachmentStrip } from './AttachmentStrip.js';
 import { attachError, type DraftAttachment } from './attachState.js';
 import { prepareAttachment, toUploads } from './prepareAttachment.js';
+import { SlashMenu } from './SlashMenu.js';
+import { useSlashMenu } from './useSlashMenu.js';
 
 interface DockComposerProps {
   draft: string;
@@ -31,6 +33,8 @@ interface DockComposerProps {
   mode?: ReactNode;
   /** The right of the row under the box: the CEO's model, effort and context ring. */
   settings?: ReactNode;
+  /** What "/" offers (Claude Code's commands); none: no menu. */
+  commands?: DeskCommand[];
 }
 
 /** A quiet return arrow (the Claude app send glyph). */
@@ -68,6 +72,7 @@ export function DockComposer({
   onRestored,
   mode,
   settings,
+  commands = [],
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
@@ -118,12 +123,12 @@ export function DockComposer({
     setError(null);
   };
 
-  const submit = async () => {
-    if (!canSend) return;
+  const submit = async (text = draft) => {
+    if (blocked || sending || preparing || (!text.trim() && !files.length)) return;
     setSending(true);
     setError(null);
     try {
-      await onSend(draft.trim(), await toUploads(files));
+      await onSend(text.trim(), await toUploads(files));
       onDraft('');
       files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
       setFiles([]);
@@ -134,7 +139,12 @@ export function DockComposer({
     }
   };
 
+  const slash = useSlashMenu(draft, commands, (text, send) =>
+    send ? void submit(text) : onDraft(text),
+  );
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slash.onKeyDown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       void submit();
@@ -178,6 +188,7 @@ export function DockComposer({
         </span>
       )}
       <AttachmentStrip files={files} onRemove={remove} />
+      <SlashMenu menu={slash} />
       <div className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] pl-4 pr-6">
         <textarea
           value={draft}
@@ -185,7 +196,7 @@ export function DockComposer({
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           rows={2}
-          placeholder="Ask the CEO anything. Paste or drop files here."
+          placeholder="Ask the CEO anything. Type / for commands."
           className="flex-1 min-w-0 resize-none bg-transparent border-0 outline-none px-8 py-6 prose-body"
           data-testid="dock-input"
         />

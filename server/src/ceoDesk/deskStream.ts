@@ -81,6 +81,7 @@ export class DeskStream {
       return;
     }
     if (rec.type === 'result') return this.result(rec);
+    if (rec.type === 'system' && rec.subtype === 'compact_boundary') return this.compacted(rec);
     if (rec.parent_tool_use_id) return;
     const message = rec.message as { content?: unknown; usage?: Record<string, unknown> };
     if (!Array.isArray(message?.content)) return;
@@ -89,6 +90,16 @@ export class DeskStream {
       else if (rec.type === 'user' && block.type === 'tool_result') this.toolResult(block);
     }
     if (rec.type === 'assistant' && message.usage) this.usage(message.usage);
+  }
+
+  /** /compact (or the auto-compact) summarised the chat: a quiet row; the context shrank. */
+  private compacted(rec: Record<string, unknown>): void {
+    this.flush();
+    this.host.add({ kind: 'note', text: 'Summarised the chat' });
+    const after = (rec.compact_metadata as { post_tokens?: unknown } | undefined)?.post_tokens;
+    if (typeof after !== 'number') return;
+    this.used = after;
+    this.host.context({ used: after, window: this.window });
   }
 
   /** The text before an action explains it: it goes before the action's row. */
