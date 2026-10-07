@@ -25,7 +25,7 @@ import {
   sandStage,
 } from '../src/office/petCare/litterStages.js';
 import type { PetCareEnv } from '../src/office/petCare/petCareNav.js';
-import { findLitterBox, floorSpotNear, hitTestCare } from '../src/office/petCare/petCareNav.js';
+import { findLitterBox, hitTestCare } from '../src/office/petCare/petCareNav.js';
 import { PetCareSystem } from '../src/office/petCare/petCareSystem.js';
 import { PetCareWorld } from '../src/office/petCare/petCareWorld.js';
 import {
@@ -245,21 +245,6 @@ test('a box another cat is using: the pet waits for it, no accident on the floor
   run(care, env, pet, 25);
   assert.equal(care.world.boxCount('a'), 1);
   assert.equal(care.world.floorPoops.length, 0);
-});
-
-test('the floor spot for an accident skips boxes, poops and taken tiles', () => {
-  const w = new PetCareWorld();
-  w.floorPoop(3, 1);
-  const env = {
-    furniture: [BOX_A],
-    tileMap: Array.from({ length: 3 }, () =>
-      Array.from({ length: 5 }, () => TileType.FLOOR_1 as TileTypeVal),
-    ),
-    blockedTiles: new Set<string>(),
-  };
-  const spot = floorSpotNear(2, 1, env, w, (k) => k !== '1,1');
-  assert.ok(spot);
-  assert.ok(!['2,1', '3,1', '1,1'].includes(`${spot.col},${spot.row}`));
 });
 
 test('a refused box counts again once it is cleaned', () => {

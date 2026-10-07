@@ -57,7 +57,6 @@ import {
   faceTowards,
   findBowlSpot,
   findLitterBox,
-  floorSpotNear,
   pathTo,
   PET_BOWL_TYPE,
   zoomiesTarget,
@@ -85,6 +84,7 @@ import {
 import { PetCareWorld } from './petCareWorld.js';
 import type { Needs, RequestKind } from './petNeeds.js';
 import { NEED_KEYS, pickRequest, raiseNeed } from './petNeeds.js';
+import { floorPoopSpot } from './poopSpots.js';
 
 export class PetCareSystem {
   world = new PetCareWorld();
@@ -316,8 +316,15 @@ export class PetCareSystem {
       }
       // A box another cat is using: wait for it (decide again soon), no accident.
       if (findLitterBox(pet, env, this.world, undefined, r.refused)) return;
-      // Every box refused (or none reachable): an accident on the floor, off the boxes.
-      const spot = floorSpotNear(pet.tileCol, pet.tileRow, env, this.world, this.canTarget(pet));
+      // Every box refused (or none reachable): an accident on a random floor tile.
+      const spot = floorPoopSpot(
+        pet.tileCol,
+        pet.tileRow,
+        env,
+        this.world,
+        Math.random,
+        this.canTarget(pet),
+      );
       const path = spot ? pathTo(pet, spot.col, spot.row, env) : null;
       if (spot && path && path.length > 0)
         this.reserve(pet, { uid: '', ...spot, path }, env, 'poop');
