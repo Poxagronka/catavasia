@@ -786,6 +786,7 @@ export const CAT_PERSONALITY_BLURBS: Record<CatPersonality, string> = {
   zoomie: 'Always on the move, with extra zoomies and short naps.',
 };
 
-/** Picker hint when a cat has no personality. */
+/** Picker label when a cat has no personality. */
 export const CAT_PERSONALITY_NONE_LABEL = 'None';
+/** Picker hint when a cat has no personality. */
 export const CAT_PERSONALITY_NONE_BLURB = 'The default office cat behaviour.';
