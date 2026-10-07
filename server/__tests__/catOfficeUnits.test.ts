@@ -5,10 +5,12 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CatProfile } from '../../core/src/messages.js';
+import { CEO_DEFAULTS, readCeoSettings } from '../src/catCeo/ceoSettings.js';
 import { FLOW_LOG_RETENTION_MS } from '../src/constants.js';
 import {
   CAT_BREED_IDS,
   CatStore,
+  defaultTeam,
   type EngineCatalog,
   validateCat,
 } from '../src/orchestrator/catProfiles.js';
@@ -152,7 +154,7 @@ describe('CatStore', () => {
     const store = new CatStore(file(), () => CATALOG, prompts());
     const cats = store.list();
     expect(cats.map((c) => [c.id, c.model, c.effort, c.parentId])).toEqual([
-      ['boss', 'opus', 'high', null],
+      ['boss', 'opus', 'medium', null],
       ['murka', 'sonnet', 'medium', 'boss'],
       ['pushok', 'sonnet', 'medium', 'boss'],
       ['ryzhik', 'sonnet', 'medium', 'boss'],
@@ -197,6 +199,59 @@ describe('CatStore', () => {
       ['ryzhik', 'murka'],
     ]);
     expect(tree(new CatStore(file(), () => CATALOG, prompts()))).toEqual(tree(store));
+  });
+
+  it('gives a fresh install a Cat CEO on opus / medium', () => {
+    const store = new CatStore(file(), () => CATALOG, prompts());
+    const ceo = readCeoSettings(store.catCeo);
+    expect([ceo.model, ceo.effort]).toEqual(['opus', 'medium']);
+  });
+
+  /** cats.json of an older build: the default team, the lead and the CEO on the given values. */
+  const oldFile = (boss: [string, string], ceo: [string, string]) => {
+    const cats = defaultTeam().map((c) =>
+      c.id === 'boss' ? { ...c, model: boss[0], effort: boss[1] } : c,
+    );
+    const catCeo = { ...CEO_DEFAULTS, model: ceo[0], effort: ceo[1] };
+    fs.writeFileSync(file(), JSON.stringify({ version: 1, cats, catCeo }));
+  };
+  const values = (store: CatStore) => {
+    const ceo = readCeoSettings(store.catCeo);
+    const boss = store.get('boss')!;
+    return [boss.model, boss.effort, ceo.model, ceo.effort];
+  };
+
+  it('moves an untouched old default (lead and CEO opus / high) to medium once', () => {
+    oldFile(['opus', 'high'], ['opus', 'high']);
+    const store = new CatStore(file(), () => CATALOG, prompts());
+    expect(values(store)).toEqual(['opus', 'medium', 'opus', 'medium']);
+    expect(JSON.parse(fs.readFileSync(file(), 'utf-8')).modelDefaults).toBe(2);
+    // A later pick of high is the user's: the next load keeps it.
+    expect(store.saveCat({ ...store.get('boss'), effort: 'high' }).ok).toBe(true);
+    store.setCatCeo({ ...readCeoSettings(store.catCeo), effort: 'high' });
+    expect(values(new CatStore(file(), () => CATALOG, prompts()))).toEqual([
+      'opus',
+      'high',
+      'opus',
+      'high',
+    ]);
+  });
+
+  it('keeps a model or effort the user changed from the old default', () => {
+    oldFile(['sonnet', 'high'], ['sonnet', 'high']);
+    const store = new CatStore(file(), () => CATALOG, prompts());
+    expect(values(store)).toEqual(['sonnet', 'high', 'sonnet', 'high']);
+    // A non-default lead on opus / high is the user's own cat: it stays too.
+    oldFile(['opus', 'high'], ['opus', 'low']);
+    const raw = JSON.parse(fs.readFileSync(file(), 'utf-8'));
+    delete raw.cats[0].isDefault;
+    fs.writeFileSync(file(), JSON.stringify(raw));
+    expect(values(new CatStore(file(), () => CATALOG, prompts()))).toEqual([
+      'opus',
+      'high',
+      'opus',
+      'low',
+    ]);
   });
 
   it('keeps a copy of an unreadable file and starts from the default team', () => {

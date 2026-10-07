@@ -50,7 +50,7 @@ export function localSeed(): CatsSnapshot {
       {
         ...worker('boss', 'Marmalade', 'marmalade', 'Team lead'),
         model: 'opus',
-        effort: 'high',
+        effort: 'medium',
         parentId: null,
         systemPrompt: 'You lead the team. Split the task, delegate, review the reports.',
       },
