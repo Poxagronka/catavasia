@@ -11,7 +11,10 @@ import * as fs from 'fs';
 import {
   CEO_API_PREFIX,
   CEO_ATTACH_MAX_COUNT,
+  CEO_CHAT_TITLE_MAX,
   type CeoApprovalAnswer,
+  type CeoChatRenameRequest,
+  type CeoChatsResponse,
   type CeoFolderRequest,
   type CeoFolderResponse,
   type CeoFoldersResponse,
@@ -97,6 +100,53 @@ export function registerCeoRoutes(
   );
 
   app.post(`${CEO_API_PREFIX}/new`, { onRequest }, async () => ({ chatId: desk.newChat() }));
+
+  // ── Chat history (the chat title menu of the dock) ──
+
+  app.get(`${CEO_API_PREFIX}/chats`, { onRequest }, async (): Promise<CeoChatsResponse> => ({
+    chats: desk.chats.list(),
+  }));
+
+  const chatParams = {
+    type: 'object',
+    properties: { id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' } },
+    required: ['id'],
+  };
+  const noChat = (reply: FastifyReply) => reply.code(404).send({ error: 'This chat is gone' });
+
+  // Open a chat: the live one is archived (its running answer stops).
+  app.post<{ Params: { id: string } }>(
+    `${CEO_API_PREFIX}/chats/:id/open`,
+    { onRequest, schema: { params: chatParams } },
+    async (request, reply) => (desk.chats.open(request.params.id) ? { ok: true } : noChat(reply)),
+  );
+
+  app.put<{ Params: { id: string }; Body: CeoChatRenameRequest }>(
+    `${CEO_API_PREFIX}/chats/:id`,
+    {
+      onRequest,
+      schema: {
+        params: chatParams,
+        body: {
+          type: 'object',
+          properties: { title: { type: 'string', maxLength: CEO_CHAT_TITLE_MAX } },
+          required: ['title'],
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!request.body.title.trim()) return reply.code(400).send({ error: 'Name is empty' });
+      return desk.chats.rename(request.params.id, request.body.title)
+        ? { ok: true }
+        : noChat(reply);
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    `${CEO_API_PREFIX}/chats/:id`,
+    { onRequest, schema: { params: chatParams } },
+    async (request, reply) => (desk.chats.remove(request.params.id) ? { ok: true } : noChat(reply)),
+  );
 
   // The user's answer to an approval card (a cat or the CEO waits for it).
   app.post<{ Params: { id: string }; Body: CeoApprovalAnswer }>(

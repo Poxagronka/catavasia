@@ -9,6 +9,7 @@ import {
   type CeoApprovalAnswer,
   type CeoAttachment,
   type CeoAttachmentUpload,
+  type CeoChatsResponse,
   type CeoCommandsResponse,
   type CeoConnectorAddRequest,
   type CeoConnectorsResponse,
@@ -52,6 +53,13 @@ export const ceoDeskApi = {
   /** Stop the turn; the queued user messages come back for the draft. */
   stop: () => call<CeoStopResponse>('POST', 'stop'),
   newChat: () => call<{ chatId: string }>('POST', 'new'),
+  /** Every chat with a message, newest first (the chat title menu). */
+  chats: () => call<CeoChatsResponse>('GET', 'chats'),
+  /** Open a chat: the server archives the open one (its running answer stops). */
+  openChat: (id: string) => call<{ ok: boolean }>('POST', `chats/${encodeURIComponent(id)}/open`),
+  renameChat: (id: string, title: string) =>
+    call<{ ok: boolean }>('PUT', `chats/${encodeURIComponent(id)}`, { title }),
+  deleteChat: (id: string) => call<{ ok: boolean }>('DELETE', `chats/${encodeURIComponent(id)}`),
   /** The user's answer to an approval card (a cat or the CEO waits for it). */
   answerApproval: (
     id: string,

@@ -70,6 +70,8 @@ export interface CatSessionStatus {
   approvals?: CeoApproval[];
   /** CEO desk: how full the CEO session's context window is (absent: not known yet). */
   context?: ContextUse;
+  /** CEO desk: the open chat; an empty title is a new chat with no message yet. */
+  chat?: { id: string; title: string };
   /** CEO desk: the Claude subscription's limits as the newest turn saw them. */
   limits?: UsageLimits;
 }

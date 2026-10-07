@@ -5,10 +5,11 @@
 
 import * as fs from 'fs';
 
-import type { CatSessionFrame } from '../../../core/src/catSession.js';
-import { CEO_ATTACH_MAX_COUNT } from '../../../core/src/ceoDesk.js';
+import type { CatSessionEntry, CatSessionFrame } from '../../../core/src/catSession.js';
+import { CEO_ATTACH_MAX_COUNT, type CeoStopResponse } from '../../../core/src/ceoDesk.js';
 import { CAT_CEO_ID } from '../constants.js';
 import type { EngineAdapter, TurnHandle } from '../orchestrator/engineAdapter.js';
+import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { saveAttachments } from './attachments.js';
 import { deskPersona, turnMessage, userPart } from './deskPrompt.js';
@@ -76,7 +77,7 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     deskPersona(settings.name, role),
     adapter.mcpConfig({ url: mcpUrl, token: state.mcpToken, name: DESK_MCP_NAME }),
   );
-  const cwd = state.folder && fs.existsSync(state.folder) ? state.folder : chatDir;
+  const cwd = turnCwd(state, chatDir);
   // Claude keys sessions by cwd: a turn in another folder starts a new session.
   if (state.started && (state.sessionCwd ?? chatDir) !== cwd) {
     state.sessionId = freshDesk().sessionId;
@@ -100,6 +101,37 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     askPermission: (ask) => office.approvals.ask({ catId: CAT_CEO_ID, name: settings.name }, ask),
     onLine,
   });
+}
+
+/** Why the CEO cannot answer now (Claude Code missing or logged out); false: it can. */
+export function claudeDown(adapter: EngineAdapter, office: Orchestrator): string | false {
+  const missing = adapter.choices().unavailable;
+  if (missing) return `${missing}.`;
+  return !!office.notReady('claude') && office.engineDown('claude', false);
+}
+
+/** The error row of a failed turn; a login problem offers the login. */
+export function failureRow(error: string | undefined, office: Orchestrator): CatSessionEntry {
+  const auth = isAuthError(error);
+  const fix = auth ? ` ${office.engineDown('claude', true)}` : '';
+  const text = `The CEO could not answer: ${error}${fix}`;
+  return { kind: 'error', text, ...(auth ? { login: true } : {}) };
+}
+
+/** The queued user messages and their files, which Stop gives back to the draft. */
+export function queuedDraft(pending: DeskPart[]): CeoStopResponse {
+  const queued = pending.filter((p) => p.kind === 'user');
+  const draft = queued
+    .map((p) => p.draft ?? p.text)
+    .filter(Boolean)
+    .join('\n\n');
+  const attachments = queued.flatMap((p) => p.attachments ?? []);
+  return { draft, ...(attachments.length ? { attachments } : {}) };
+}
+
+/** The cwd of the chat's next turn: the project folder, or the chat folder without one. */
+export function turnCwd(state: DeskState, chatDir: string): string {
+  return state.folder && fs.existsSync(state.folder) ? state.folder : chatDir;
 }
 
 /** What the desk gives a new turn's stream: its rows and its frames. */
