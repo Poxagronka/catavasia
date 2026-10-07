@@ -1,6 +1,7 @@
 /**
  * Claude Code engine adapter: one Claude Agent SDK `query()` per turn, which
- * drives the user's installed `claude` (never the SDK's own binary).
+ * drives the user's installed `claude` (never the SDK's own binary). The CEO
+ * dock keeps one live `query()` per chat instead (claudeSession.ts).
  *
  * A turn is plain Claude Code plus our persona: its default system prompt,
  * the user, project and local settings (CLAUDE.md, hooks, skills, the user's
@@ -16,7 +17,6 @@ import type {
   McpServerConfig,
   Options,
   PermissionMode as SdkPermissionMode,
-  SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -27,17 +27,24 @@ import { effectiveMode } from '../../../core/src/permissionModes.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import { officeLimits } from '../usageLimits.js';
 import type { EngineChoices } from './catProfiles.js';
+import {
+  claudeOutcome,
+  claudeUserMessage,
+  errorText,
+  openClaudeSession,
+  STDERR_TAIL_CHARS,
+} from './claudeSession.js';
 import type {
   CompactInfo,
-  EngineAdapter,
+  LiveSession,
   OfficeMcpEndpoint,
+  SessionEngine,
+  SessionRequest,
   TurnHandle,
-  TurnOutcome,
   TurnRequest,
+  TurnSetup,
 } from './engineAdapter.js';
 import { probeEngine } from './engineStatus.js';
-
-const STDERR_TAIL_CHARS = 2000;
 /** `claude --help` says the CLI also takes "a model's full name". */
 const FULL_MODEL_PATTERN = /^claude-[a-z0-9][a-z0-9.-]*$/;
 
@@ -69,39 +76,6 @@ export function parseClaudeHelp(help: string): EngineChoices {
  */
 export function claudeTurnEnv(cwd: string): NodeJS.ProcessEnv {
   return { ...process.env, PWD: cwd };
-}
-
-const IMAGE_MEDIA_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-};
-
-/**
- * The user message of a turn: plain text, or a content-block array (text,
- * then one base64 image block per image) when it has images.
- */
-export function claudeUserMessage(text: string, images: string[] = []): SDKUserMessage {
-  const content = images.length
-    ? [
-        { type: 'text', text },
-        ...images.map((file) => ({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: IMAGE_MEDIA_TYPES[path.extname(file).toLowerCase()] ?? 'image/png',
-            data: fs.readFileSync(file).toString('base64'),
-          },
-        })),
-      ]
-    : text;
-  return {
-    type: 'user',
-    message: { role: 'user', content: content as SDKUserMessage['message']['content'] },
-    parent_tool_use_id: null,
-  };
 }
 
 /** AGENTS.md of `cwd` for the appended system prompt, when Claude Code would skip it. */
@@ -137,7 +111,7 @@ const READ_ONLY_TOOLS = ['WebFetch', 'WebSearch'];
  * mode that asks routes the question to `req.askPermission`; the office's
  * own tools never ask.
  */
-export function claudeTurnOptions(req: TurnRequest, executable: string): Options {
+export function claudeTurnOptions(req: TurnSetup, executable: string): Options {
   const mcpServers = (
     JSON.parse(fs.readFileSync(req.mcpConfigFile, 'utf-8')) as {
       mcpServers: Record<string, McpServerConfig>;
@@ -189,7 +163,6 @@ export function claudeTurnOptions(req: TurnRequest, executable: string): Options
     ...(mode === 'readOnly' ? { allowedTools: [...READ_ONLY_TOOLS, ...ownTools] } : {}),
     ...(mode === 'auto' || mode === 'ask' ? { canUseTool } : {}),
     ...(req.partialText ? { includePartialMessages: true } : {}),
-    ...(req.onSuggestion ? { promptSuggestions: true } : {}),
   };
 }
 
@@ -236,7 +209,7 @@ export function parseCompactBoundary(line: string): CompactInfo | undefined {
   }
 }
 
-export class ClaudeAdapter implements EngineAdapter {
+export class ClaudeAdapter implements SessionEngine {
   readonly engine = 'claude' as const;
   private cachedChoices?: EngineChoices;
 
@@ -303,8 +276,6 @@ export class ClaudeAdapter implements EngineAdapter {
     let result: StreamResult | undefined;
     let sessionStarted = false;
     let stderr = '';
-    let resulted = () => {};
-    const resultSeen = new Promise<undefined>((resolve) => (resulted = () => resolve(undefined)));
     const onMessage = (line: string): void => {
       if (line.includes('"session_id"')) sessionStarted = true;
       officeLimits.observe(line);
@@ -312,20 +283,16 @@ export class ClaudeAdapter implements EngineAdapter {
       const compact = parseCompactBoundary(line);
       if (compact) req.onCompact?.(compact);
       const parsed = parseStreamLine(line);
-      if (parsed.result) {
-        result = parsed.result;
-        if (req.onSuggestion) resulted();
-      }
+      if (parsed.result) result = parsed.result;
       for (const entry of parsed.log) req.onLog?.(entry);
     };
-    const failure = (err: unknown) => (err instanceof Error ? err.message : String(err));
     const run = async (): Promise<string | undefined> => {
       const executable = resolveExecutable(this.bin);
       if (!executable) return 'Claude Code CLI not found';
       // The SDK is ESM: a CommonJS build loads it on first use.
       const { query } = await import('@anthropic-ai/claude-agent-sdk');
       // One user message; the SDK keeps the input open while a question waits.
-      async function* prompt(): AsyncGenerator<SDKUserMessage> {
+      async function* prompt() {
         yield claudeUserMessage(req.message, req.images);
       }
       const turn = query({
@@ -339,34 +306,25 @@ export class ClaudeAdapter implements EngineAdapter {
         },
       });
       try {
-        for await (const message of turn) {
-          if (message.type === 'prompt_suggestion') req.onSuggestion?.(message.suggestion);
-          onMessage(JSON.stringify(message));
-        }
+        for await (const message of turn) onMessage(JSON.stringify(message));
       } catch (err) {
-        return stderr.trim() ? `${failure(err)}: ${stderr.trim()}` : failure(err);
+        return stderr.trim() ? `${errorText(err)}: ${stderr.trim()}` : errorText(err);
       }
       return undefined;
     };
-    // A turn that waits for the suggestion ends at its result.
-    const done = Promise.race([run(), resultSeen])
-      .catch(failure)
-      .then((failed): TurnOutcome => {
-        const ok = !failed && result !== undefined && !result.isError;
-        return {
-          ok,
-          text: result?.text,
-          sessionCostUsd: result?.costUsd,
-          usage: result?.usage,
-          sessionStarted,
-          // The result's own error ("Not logged in") says more than the exit code.
-          error: ok
-            ? undefined
-            : result?.isError
-              ? (result.text ?? 'The turn reported an error')
-              : (failed ?? 'The turn ended without a result'),
-        };
-      });
+    const done = run()
+      .catch(errorText)
+      .then((failed) => claudeOutcome(result, failed, sessionStarted));
     return { done, kill: () => abort.abort() };
+  }
+
+  /** The CEO dock's live session (claudeSession.ts). */
+  openSession(req: SessionRequest): LiveSession {
+    const executable = resolveExecutable(this.bin);
+    return openClaudeSession(
+      executable,
+      (setup) => claudeTurnOptions(setup, executable ?? this.bin),
+      req,
+    );
   }
 }

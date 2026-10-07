@@ -3,7 +3,8 @@
  *
  * One call to `spawnTurn` is one turn of one cat: a short-lived process that
  * starts (or resumes) the cat's session, reads one user message, streams its
- * events, and exits. The prompt cache lives on the provider side, so a resumed
+ * events, and exits. The CEO dock keeps one live process per chat instead
+ * (`openSession`). The prompt cache lives on the provider side, so a resumed
  * session keeps it while its TTL holds (measured: docs/catavasia/ROADMAP.md).
  * Adapters: Claude Code (`claudeAdapter.ts`) and Codex (`codexAdapter.ts`).
  */
@@ -13,7 +14,8 @@ import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import type { StreamUsage } from '../taskBoard/streamJson.js';
 import type { EngineChoices } from './catProfiles.js';
 
-export interface TurnRequest {
+/** What a turn or a live session runs with (everything but the user message). */
+export interface TurnSetup {
   sessionId: string;
   /** false: start the session with this id; true: resume it. */
   resume: boolean;
@@ -24,10 +26,6 @@ export interface TurnRequest {
   systemPromptFile: string;
   /** File with the engine's MCP config for the office server. */
   mcpConfigFile: string;
-  /** The user message of this turn. */
-  message: string;
-  /** Image files the message carries (PNG, JPEG, GIF, WebP). */
-  images?: string[];
   /** What the turn may do without asking (absent: Auto). */
   permissionMode?: PermissionMode;
   /** More folders the turn may read and write (Claude only: the CEO's chat folder). */
@@ -51,12 +49,50 @@ export interface TurnRequest {
   onActivity?: (activity: ToolActivity) => void;
   /** The engine compacted the conversation (Claude: `system/compact_boundary`). */
   onCompact?: (info: CompactInfo) => void;
-  /**
-   * Claude's guess of the user's next message (SDK `prompt_suggestion`). It
-   * comes after the result, so with this set `done` resolves at the result and
-   * the stream runs on for the guess (`kill` ends it).
-   */
+}
+
+export interface TurnRequest extends TurnSetup {
+  /** The user message of this turn. */
+  message: string;
+  /** Image files the message carries (PNG, JPEG, GIF, WebP). */
+  images?: string[];
+}
+
+/** A live session (Claude only: the CEO dock): one process that serves many turns. */
+export interface SessionRequest extends TurnSetup {
+  /** One turn ended (its `result`): a turn may answer several messages. */
+  onResult: (outcome: TurnOutcome) => void;
+  /** Claude started or ended its work (busy until every sent message is answered). */
+  onBusy: (busy: boolean) => void;
+  /** Claude's guess of the user's next message (SDK `prompt_suggestion`, after a result). */
   onSuggestion?: (text: string) => void;
+}
+
+/**
+ * The live session: its input stays open, like the terminal, so background
+ * tasks live on between turns. Only `close` ends the process.
+ */
+export interface LiveSession {
+  /** Send a user message now: it joins the running turn or starts the next one. Returns its id. */
+  send(message: string, images?: string[]): string;
+  /**
+   * Stop the running turn (Esc in the terminal); the session stays. Returns
+   * the ids of sent messages that did not start yet: they would still run.
+   */
+  interrupt(): Promise<string[]>;
+  /** Apply a model or mode change to the running process. False: it needs a new process. */
+  update(change: Pick<TurnSetup, 'model' | 'effort' | 'permissionMode'>): boolean;
+  /** End the input and the process; resolves when the process is gone. */
+  close(): Promise<void>;
+  /** Settles when the process ends for any reason. */
+  readonly ended: Promise<SessionEnd>;
+}
+
+export interface SessionEnd {
+  /** Why the process ended, when it was not closed. */
+  error?: string;
+  /** The CLI created or resumed the session (the next process can resume it). */
+  sessionStarted: boolean;
 }
 
 /** One action the engine wants the user to allow. */
@@ -128,4 +164,10 @@ export interface EngineAdapter {
     sessionId: string,
     mode: PermissionMode,
   ): { command: string; args: string[] };
+}
+
+/** An engine that also keeps live sessions (Claude: the CEO dock). */
+export interface SessionEngine extends EngineAdapter {
+  /** One live process for many turns. */
+  openSession(req: SessionRequest): LiveSession;
 }

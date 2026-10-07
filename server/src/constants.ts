@@ -222,13 +222,14 @@ export const CEO_DESK_MAX_REWORKS = 2;
 export const CEO_DESK_NOTICE_MAX_CHARS = 50_000;
 /** Job card updates of one job are sent at most this often. */
 export const CEO_DESK_CARD_THROTTLE_MS = 1000;
-/**
- * An approval card nobody answers counts as Deny after this long, so a turn
- * never waits forever (below the CEO turn timeout, CAT_CEO_TIMEOUT_MS).
- */
+/** An approval card nobody answers counts as Deny after this long, so a turn never waits forever. */
 export const APPROVAL_TIMEOUT_MS = 5 * 60_000;
-/** An ended CEO turn waits this long for Claude's prompt suggestion, then its process is killed. */
-export const CEO_SUGGESTION_WAIT_MS = 60_000;
+/**
+ * The env flag that makes Claude Code emit `system/session_state_changed`
+ * (running, requires_action, idle): the CEO dock's live session reads its
+ * busy state from it (checked with CLI 2.1.293: absent without the flag).
+ */
+export const CLAUDE_SESSION_STATE_ENV = 'CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS';
 /** Body limit of POST /api/ceo/messages: 25 MB of files as base64, plus the text. */
 export const CEO_DESK_MESSAGE_BODY_LIMIT = 40 * 1024 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */

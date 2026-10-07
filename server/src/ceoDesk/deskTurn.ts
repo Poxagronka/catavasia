@@ -1,6 +1,7 @@
 /**
- * One turn of the CEO desk (ceoDesk.ts): the Claude request built from the
- * queued messages and notices, and the rows the turn's activity log becomes.
+ * The live Claude session of the CEO desk (ceoDesk.ts): how it opens, the
+ * message built from the user's messages and job notices, and the rows its
+ * activity log becomes.
  */
 
 import * as fs from 'fs';
@@ -8,7 +9,12 @@ import * as fs from 'fs';
 import type { CatSessionEntry, CatSessionFrame } from '../../../core/src/catSession.js';
 import { CEO_ATTACH_MAX_COUNT, type CeoStopResponse } from '../../../core/src/ceoDesk.js';
 import { CAT_CEO_ID } from '../constants.js';
-import type { EngineAdapter, TurnHandle } from '../orchestrator/engineAdapter.js';
+import type {
+  EngineAdapter,
+  LiveSession,
+  SessionEngine,
+  SessionRequest,
+} from '../orchestrator/engineAdapter.js';
 import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { saveAttachments } from './attachments.js';
@@ -17,29 +23,33 @@ import { type DeskState, type DeskStore, freshDesk } from './deskStore.js';
 import { DeskStream, type DeskStreamHost } from './deskStream.js';
 import { DESK_MCP_NAME } from './deskTools.js';
 
+/** The chat's live session: one Claude process for every turn of the chat. */
 export interface Turn {
-  chatId: string;
-  handle: TurnHandle;
-  /** The user's messages this turn answers (edit_prompts checks `dictated` in them). */
+  session: LiveSession;
+  /** The user's messages since the last result (edit_prompts checks `dictated` in them). */
   request: string;
-  /** Rows from the turn's stream (its newest text waits: the final text replaces it). */
+  /** Rows from the session's stream (its newest text waits: the final text replaces it). */
   stream: DeskStream;
+  /** Claude works on a message (until the session is idle). */
+  busy: boolean;
+  /** Stop interrupted the turn: its error result shows no error row. */
   stopped: boolean;
-  timer: NodeJS.Timeout;
+  /** The project folder or a setting changed that the process cannot take: open a new one. */
+  stale: boolean;
+  /** The persona the process runs with (a changed name or role needs a new process). */
+  persona: string;
+  /** The parts of each sent message by its id, until idle: Stop gives back the ones not started. */
+  sent: Map<string, DeskPart[]>;
 }
 
-export interface DeskTurnInput {
-  adapter: EngineAdapter;
+export type DeskSessionInput = {
+  adapter: SessionEngine;
   office: Orchestrator;
   store: DeskStore;
   state: DeskState;
   mcpUrl: string;
-  parts: DeskState['pending'];
-  /** Every stream line of the turn (deskStream.ts makes the rows). */
-  onLine: (line: string) => void;
-  /** Claude's guess of the user's next message, after the turn's result. */
-  onSuggestion: (text: string) => void;
-}
+  persona: string;
+} & Pick<SessionRequest, 'onLine' | 'onResult' | 'onBusy' | 'onSuggestion'>;
 
 type DeskPart = DeskState['pending'][number];
 
@@ -56,53 +66,69 @@ export function takeTurnParts(pending: DeskPart[]): DeskPart[] {
 }
 
 /**
- * Start the Claude turn that answers the queued parts. The CEO is plain Claude
- * Code with its persona appended: it runs in the work folder, so it loads the
- * project's CLAUDE.md, settings, MCP servers and skills like the user's own
- * Claude Code; the chat folder (attachments) stays readable (addDirs). Its
- * permission mode comes from its settings (Auto by default); a question shows
- * an approval card in the dock.
+ * The message that carries queued parts: a slash command goes as typed
+ * (Claude Code runs it like in the terminal), else the work folder line and
+ * every part.
  */
-export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
-  const { adapter, office, store, state, mcpUrl, parts, onLine, onSuggestion } = input;
-  // A slash command goes as typed: Claude Code runs it like in the terminal.
-  const message = isSlashCommand(parts[0])
+export function deskMessage(folder: string | null, parts: DeskPart[]): string {
+  return isSlashCommand(parts[0])
     ? parts[0].text
     : turnMessage(
-        state.folder,
+        folder,
         parts.map((p) => (p.kind === 'user' ? userPart(p.text) : p.text)),
       );
-  const settings = office.ceo.settings;
+}
+
+/** The CEO's settings that a live session applies (the dock's model and mode pickers). */
+export function sessionSettings(office: Orchestrator): Parameters<LiveSession['update']>[0] {
+  const { model, effort, permissionMode } = office.ceo.settings;
+  return { model, effort, permissionMode };
+}
+
+/** The CEO's persona now: its name, Role & conduct, and the desk rules. */
+export function currentPersona(office: Orchestrator): string {
   const role = office.cats.prompts.read(CAT_CEO_ID).file.role;
+  return deskPersona(office.ceo.settings.name, role);
+}
+
+/**
+ * Open the chat's live session. The CEO is plain Claude Code with its persona
+ * appended: it runs in the work folder, so it loads the project's CLAUDE.md,
+ * settings, MCP servers and skills like the user's own Claude Code; the chat
+ * folder (attachments) stays readable (addDirs). Its permission mode comes
+ * from its settings (Auto by default); a question shows an approval card in
+ * the dock.
+ */
+export function openDeskSession(input: DeskSessionInput): LiveSession {
+  const { adapter, office, store, state, mcpUrl } = input;
   const { chatDir, systemPromptFile, mcpConfigFile } = store.writeTurnFiles(
     state.chatId,
-    deskPersona(settings.name, role),
+    input.persona,
     adapter.mcpConfig({ url: mcpUrl, token: state.mcpToken, name: DESK_MCP_NAME }),
   );
   const cwd = turnCwd(state, chatDir);
-  // Claude keys sessions by cwd: a turn in another folder starts a new session.
+  // Claude keys sessions by cwd: a session in another folder starts a new one.
   if (state.started && (state.sessionCwd ?? chatDir) !== cwd) {
     state.sessionId = freshDesk().sessionId;
     state.started = false;
     state.context = undefined;
   }
   state.sessionCwd = cwd;
-  return adapter.spawnTurn({
+  return adapter.openSession({
     sessionId: state.sessionId,
     resume: state.started,
     cwd,
-    model: settings.model,
-    effort: settings.effort,
+    ...sessionSettings(office),
     systemPromptFile,
     mcpConfigFile,
-    message,
-    images: parts.flatMap((p) => p.images ?? []),
     addDirs: cwd === chatDir ? [] : [chatDir],
-    permissionMode: settings.permissionMode,
     partialText: true,
-    askPermission: (ask) => office.approvals.ask({ catId: CAT_CEO_ID, name: settings.name }, ask),
-    onLine,
-    onSuggestion,
+    askPermission: (ask) =>
+      office.approvals.ask({ catId: CAT_CEO_ID, name: office.ceo.settings.name }, ask),
+    onLine: input.onLine,
+    onResult: input.onResult,
+    onBusy: input.onBusy,
+    onSuggestion: input.onSuggestion,
   });
 }
 

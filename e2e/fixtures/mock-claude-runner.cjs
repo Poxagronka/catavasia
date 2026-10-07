@@ -503,11 +503,12 @@ function idFlag(argv, name) {
 }
 
 /**
- * Headless turn through the Claude Agent SDK (`--input-format stream-json`,
+ * Headless session through the Claude Agent SDK (`--input-format stream-json`,
  * the CEO desk and the cat office). Speaks the SDK's control protocol: control
- * requests get a success, the one user message runs the turn, and stdin EOF
- * ends the process. Answers like the real CLI: init, one assistant message,
- * the result. The answer echoes the user's words, plus a markdown list and a
+ * requests get a success, each user message runs one turn (one after another:
+ * the CEO desk keeps its input open), an interrupt ends the running turn with
+ * an error result, and stdin EOF ends the process. Answers like the real CLI:
+ * init, one assistant message, the result. The answer echoes the user's words, plus a markdown list and a
  * code block. "ask: <command>" first asks can_use_tool for a Bash call and
  * says the answer. "question: <text>" asks it for AskUserQuestion and says
  * the answers the tool got. "stream: <text>" with --include-partial-messages
@@ -515,29 +516,53 @@ function idFlag(argv, name) {
  */
 async function headlessTurn(argv) {
   const out = (record) => process.stdout.write(`${JSON.stringify(record)}\n`);
-  let answered = () => {};
-  const ended = new Promise((resolve) => process.stdin.on('end', resolve));
-  const first = await new Promise((resolve) => {
-    let buf = '';
-    process.stdin.on('data', (chunk) => {
-      buf += chunk;
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      for (const line of lines.filter(Boolean)) {
-        const m = JSON.parse(line);
-        if (m.type === 'control_request') {
-          out({
-            type: 'control_response',
-            response: {
-              subtype: 'success',
-              request_id: m.request_id,
-              response: controlAnswer(m.request),
-            },
-          });
-        } else if (m.type === 'control_response') answered(m.response.response);
-        else if (m.type === 'user') resolve(m);
+  const io = { answered: () => {}, interrupt: () => {} };
+  const queue = [];
+  let wake = () => {};
+  let closed = false;
+  let buf = '';
+  process.stdin.on('data', (chunk) => {
+    buf += chunk;
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines.filter(Boolean)) {
+      const m = JSON.parse(line);
+      if (m.type === 'control_request') {
+        if (m.request && m.request.subtype === 'interrupt') io.interrupt();
+        out({
+          type: 'control_response',
+          response: {
+            subtype: 'success',
+            request_id: m.request_id,
+            response: controlAnswer(m.request),
+          },
+        });
+      } else if (m.type === 'control_response') io.answered(m.response.response);
+      else if (m.type === 'user') {
+        queue.push(m);
+        wake();
       }
-    });
+    }
+  });
+  process.stdin.on('end', () => {
+    closed = true;
+    wake();
+  });
+  for (;;) {
+    if (queue.length) await mockTurn(argv, queue.shift(), out, io);
+    else if (closed) return;
+    else await new Promise((resolve) => (wake = resolve));
+  }
+}
+
+/** One turn of the mock session: the answer to one user message. */
+async function mockTurn(argv, first, out, io) {
+  let stopped = false;
+  const interrupted = new Promise((resolve) => {
+    io.interrupt = () => {
+      stopped = true;
+      resolve();
+    };
   });
   const content = first.message ? first.message.content : '';
   // A content-block array (attached images): its text blocks are the message.
@@ -564,7 +589,7 @@ async function headlessTurn(argv) {
   const question = /^question: (.+)$/.exec(said);
   let answer;
   if (ask || question) {
-    const reply = new Promise((resolve) => (answered = resolve));
+    const reply = new Promise((resolve) => (io.answered = resolve));
     out({
       type: 'control_request',
       request_id: 'mock-ask',
@@ -619,7 +644,6 @@ async function headlessTurn(argv) {
       compact_metadata: { trigger: 'manual', pre_tokens: 84000, post_tokens: 9000 },
     });
     say({ type: 'result', subtype: 'success', is_error: false, result: '', num_turns: 0 });
-    await ended;
     return;
   }
   if (said === 'show tools') toolActivity(say, process.cwd());
@@ -630,7 +654,12 @@ async function headlessTurn(argv) {
     event({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
     const half = text.indexOf('- first');
     delta(text.slice(0, half));
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await Promise.race([new Promise((resolve) => setTimeout(resolve, 3000)), interrupted]);
+    // Stop (Esc) in the pause: the turn ends like the real CLI's interrupted turn.
+    if (stopped) {
+      say({ type: 'result', subtype: 'error_during_execution', is_error: true, errors: [] });
+      return;
+    }
     delta(text.slice(half));
   }
   say({
@@ -649,7 +678,6 @@ async function headlessTurn(argv) {
     usage: { input_tokens: 1, output_tokens: 1 },
     modelUsage: { [MOCK_MODEL]: { contextWindow: 200000 } },
   });
-  await ended;
 }
 
 /** Slash commands the mock offers (the SDK's initialize answer). */

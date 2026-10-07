@@ -1,8 +1,8 @@
 /**
- * Test harness for the CEO desk: a fake EngineAdapter for the CEO (a script
- * per turn that may call the desk tools over the real MCP route), and an
- * office of 1 boss + 2 workers whose cats run the fake `claude` of
- * catOfficeHarness.ts.
+ * Test harness for the CEO desk: a fake live-session engine for the CEO (one
+ * fake process per session; a script per message that may call the desk
+ * tools over the real MCP route), and an office of 1 boss + 2 workers whose
+ * cats run the fake `claude` of catOfficeHarness.ts.
  */
 
 import { execFileSync } from 'child_process';
@@ -17,11 +17,12 @@ import { CEO_MCP_PATH } from '../src/constants.js';
 import { createHttpServer, type HttpServerHandle } from '../src/httpServer.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
 import type {
-  EngineAdapter,
+  LiveSession,
   OfficeMcpEndpoint,
+  SessionEnd,
+  SessionEngine,
+  SessionRequest,
   TurnHandle,
-  TurnOutcome,
-  TurnRequest,
 } from '../src/orchestrator/engineAdapter.js';
 import { Orchestrator } from '../src/orchestrator/orchestrator.js';
 import { TaskManager } from '../src/taskBoard/taskManager.js';
@@ -32,8 +33,11 @@ export interface ToolReply {
   isError: boolean;
 }
 
+/** One message the desk sent into a session, with that session's setup. */
+export type FakeTurn = SessionRequest & { message: string; images?: string[] };
+
 export interface CeoTurn {
-  req: TurnRequest;
+  req: FakeTurn;
   /** Call a desk tool like the real CLI: over HTTP with the token of the MCP config. */
   call(name: string, args?: Record<string, unknown>): Promise<ToolReply>;
 }
@@ -48,14 +52,27 @@ export interface CeoReply {
   lines?: string[];
 }
 
-/** Never answers: the turn runs until it is killed. */
+/** Never answers: the turn runs until it is interrupted or the session closes. */
 export const HANG: Promise<CeoReply> = new Promise(() => {});
 
-export class FakeCeoAdapter implements EngineAdapter {
+export class FakeCeoAdapter implements SessionEngine {
   readonly engine = 'claude' as const;
-  readonly turns: TurnRequest[] = [];
+  /** Every message, in order. */
+  readonly turns: FakeTurn[] = [];
+  /** Every process (live session) the desk opened. */
+  readonly sessions: SessionRequest[] = [];
   readonly replies: ToolReply[] = [];
+  /** Live changes the desk applied (`update`), and how many interrupts and closes it sent. */
+  readonly updates: Array<Parameters<LiveSession['update']>[0]> = [];
+  interrupts = 0;
+  closes = 0;
+  /** What `update` answers: false means the change needs a new process. */
+  liveUpdates = true;
   unavailable: string | undefined;
+  /** `close` resolves only after this (the old process takes time to exit). */
+  closeGate: Promise<void> = Promise.resolve();
+  /** End the newest session as a crash would, with this error. */
+  crash: (error: string) => void = () => {};
 
   constructor(public script: (turn: CeoTurn) => CeoReply | Promise<CeoReply>) {}
 
@@ -76,10 +93,12 @@ export class FakeCeoAdapter implements EngineAdapter {
     return { command: 'claude', args: ['--resume', sessionId] };
   }
 
-  spawnTurn(req: TurnRequest): TurnHandle {
-    this.turns.push(req);
-    let kill = () => {};
-    const killed = new Promise<undefined>((resolve) => (kill = () => resolve(undefined)));
+  spawnTurn(): TurnHandle {
+    throw new Error('The CEO desk runs in a live session (openSession)');
+  }
+
+  openSession(req: SessionRequest): LiveSession {
+    this.sessions.push(req);
     const endpoint = JSON.parse(fs.readFileSync(req.mcpConfigFile, 'utf-8')) as OfficeMcpEndpoint;
     let rpcId = 0;
     const call = async (name: string, args: Record<string, unknown> = {}): Promise<ToolReply> => {
@@ -100,21 +119,81 @@ export class FakeCeoAdapter implements EngineAdapter {
       this.replies.push(reply);
       return reply;
     };
-    const done = (async (): Promise<TurnOutcome> => {
-      const reply = await Promise.race([Promise.resolve(this.script({ req, call })), killed]);
-      if (!reply) return { ok: false, error: 'Exit code none: killed', sessionStarted: true };
-      for (const line of reply.lines ?? []) req.onLine?.(line);
-      for (const entry of reply.log ?? []) req.onLog?.(entry);
-      const ok = reply.ok ?? true;
-      return {
+    // Messages run one after another, like turns of one process.
+    let chain = Promise.resolve();
+    let waiting = 0;
+    let busy = false;
+    let closed = false;
+    let interrupt = () => {};
+    let end: (error?: string) => void = () => {};
+    const ended = new Promise<SessionEnd>(
+      (resolve) =>
+        (end = (error) => resolve({ ...(error ? { error } : {}), sessionStarted: true })),
+    );
+    /** Sent messages that did not start yet (an interrupt reports them, like the CLI). */
+    const waitingIds = new Set<string>();
+    const setBusy = (next: boolean) => {
+      if (next === busy) return;
+      busy = next;
+      req.onBusy(next);
+    };
+    const run = async (turn: FakeTurn, id: string) => {
+      waitingIds.delete(id);
+      if (closed) return;
+      const interrupted = new Promise<undefined>(
+        (resolve) => (interrupt = () => resolve(undefined)),
+      );
+      const reply = await Promise.race([
+        Promise.resolve(this.script({ req: turn, call })),
+        interrupted,
+      ]);
+      if (closed) return;
+      for (const line of reply?.lines ?? []) req.onLine?.(line);
+      for (const entry of reply?.log ?? []) req.onLog?.(entry);
+      const ok = reply ? (reply.ok ?? true) : false;
+      req.onResult({
         ok,
-        text: reply.text,
+        text: reply?.text,
         sessionStarted: true,
         sessionCostUsd: 0.01 * this.turns.length,
-        ...(ok ? {} : { error: reply.error ?? 'failed' }),
-      };
-    })();
-    return { done, kill };
+        ...(ok ? {} : { error: reply ? (reply.error ?? 'failed') : 'interrupted' }),
+      });
+      if (--waiting === 0) setBusy(false);
+    };
+    this.crash = (error) => {
+      closed = true;
+      interrupt();
+      end(error);
+    };
+    return {
+      send: (message, images) => {
+        const turn: FakeTurn = { ...req, message, images };
+        const id = `m${this.turns.push(turn)}`;
+        waiting++;
+        waitingIds.add(id);
+        setBusy(true);
+        chain = chain.then(() => run(turn, id));
+        return id;
+      },
+      interrupt: async () => {
+        this.interrupts++;
+        const queued = [...waitingIds];
+        interrupt();
+        return queued;
+      },
+      update: (change) => {
+        this.updates.push(change);
+        return this.liveUpdates;
+      },
+      close: async () => {
+        this.closes++;
+        closed = true;
+        interrupt();
+        await this.closeGate;
+        end();
+      },
+      ended,
+    };
   }
 }
 
