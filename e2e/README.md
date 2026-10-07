@@ -263,7 +263,7 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 - `e2e/standalone/hooks.spec.ts:169` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)
 - `e2e/standalone/hooks.spec.ts:201` — the hooks checkbox reflects install state and its click is the consent grant (Standalone / hooks consent)
 - `e2e/standalone/multi-server-hooks.spec.ts:36` — extension and standalone both stay hook-driven without cross-contamination (Standalone / multi-server hooks)
-- `e2e/standalone/projectFolder.spec.ts:48` — pick a project in the bottom bar; a CEO job runs in it (Standalone / Project folder)
+- `e2e/standalone/projectFolder.spec.ts:53` — pick a project in the bottom bar; a CEO job runs in it (Standalone / Project folder)
 - `e2e/standalone/ui.spec.ts:31` — closeAgent despawns the character (Standalone / UI)
 - `e2e/standalone/ui.spec.ts:78` — Debug View renders JSONL diagnostics in standalone (Standalone / UI)
 - `e2e/standalone/ui.spec.ts:117` — adding an external asset directory triggers a live asset reload (Standalone / UI)
