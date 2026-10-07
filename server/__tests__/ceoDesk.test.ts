@@ -5,10 +5,12 @@ import { WebSocket } from 'ws';
 
 import type { CatSessionEntry, CatSessionFrame } from '../../core/src/catSession.js';
 import { OfficeCatSource } from '../src/catTerminal/officeCatSource.js';
+import { attachmentFile } from '../src/ceoDesk/attachments.js';
 import { RESTARTED_TEXT } from '../src/ceoDesk/ceoDesk.js';
 import { DESK_RULES } from '../src/ceoDesk/deskPrompt.js';
 import { ADOPTED_TEXT } from '../src/ceoDesk/deskStore.js';
 import { ClaudeAdapter } from '../src/orchestrator/claudeAdapter.js';
+import { officeLimits } from '../src/usageLimits.js';
 import { waitFor } from './catOfficeHarness.js';
 import {
   type CeoTurn,
@@ -19,6 +21,16 @@ import {
   makeRepo,
   startDeskOffice,
 } from './ceoDeskHarness.js';
+import {
+  imageBlock,
+  init,
+  rateLimit,
+  result,
+  text,
+  thinking,
+  toolResult,
+  toolUse,
+} from './fixtures/sdkLines.js';
 
 let env: DeskOffice | undefined;
 
@@ -74,13 +86,17 @@ describe('CEO desk turns', () => {
   it('streams tools and text, and replaces the newest text with the full final text', async () => {
     env = await startDeskOffice(() => ({
       text: 'FULL final answer',
-      log: [
-        { kind: 'text', text: 'Let me look.' },
-        { kind: 'tool', name: 'Read', text: 'README.md' },
-        { kind: 'text', text: 'Asking the team.' },
+      lines: [
+        init(),
+        text('Let me look.'),
+        thinking(1500),
+        toolUse('t1', 'Read', { file_path: '/tmp/x/README.md' }),
+        toolResult('t1', [imageBlock()]),
+        text('Asking the team.'),
         // A desk tool's raw input: callTool writes its readable row instead.
-        { kind: 'tool', name: 'mcp__desk__list_team', text: '{}' },
-        { kind: 'text', text: 'FULL fin… (cut)' },
+        toolUse('d1', 'mcp__desk__list_team', {}),
+        text('FULL fin… (cut)'),
+        result(),
       ],
     }));
     const frames: CatSessionFrame[] = [];
@@ -91,7 +107,8 @@ describe('CEO desk turns', () => {
     expect(rows).toMatchObject([
       { kind: 'user', text: 'look' },
       { kind: 'text', text: 'Let me look.' },
-      { kind: 'tool', name: 'Read', text: 'README.md' },
+      { kind: 'thought', ms: 1500 },
+      { kind: 'tool', name: 'Read', text: '/tmp/x/README.md', images: [{ image: true }] },
       { kind: 'text', text: 'Asking the team.' },
       { kind: 'text', text: 'FULL final answer' },
     ]);
@@ -102,6 +119,21 @@ describe('CEO desk turns', () => {
     const sent = frames.flatMap((f) => (f.type === 'entries' ? f.entries : []));
     expect(sent.map((r) => r.at)).toEqual(ats);
     expect(frames.some((f) => f.type === 'status' && f.status.busy)).toBe(true);
+    // The tool's result came later: an update frame replaced its row in place.
+    const update = frames.find((f) => f.type === 'update');
+    expect(update).toMatchObject({ entry: { kind: 'tool', at: rows[3].at } });
+    // The picture is a chat attachment, served by the attachments route.
+    const tool = rows[3] as Extract<CatSessionEntry, { kind: 'tool' }>;
+    const [, chat, file] = /attachments\/([^/]+)\/(.+)$/.exec(tool.images![0].url)!;
+    expect(attachmentFile(env.stateDir, chat, decodeURIComponent(file))?.type).toBe('image/png');
+    // Context of the last request, and the subscription limits of every Claude turn.
+    expect(env.desk.snapshot().status.context).toEqual({ used: 20909, window: 200000 });
+    // Any Claude turn of the office (the adapter feeds officeLimits) updates the dock.
+    frames.length = 0;
+    officeLimits.observe(rateLimit(0.07, 0.56));
+    expect(frames).toMatchObject([
+      { type: 'status', status: { limits: { fiveHour: { used: 0.07 }, weekly: { used: 0.56 } } } },
+    ]);
   });
 
   it('queues messages while busy; Stop kills the turn and returns queued messages', async () => {

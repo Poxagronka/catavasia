@@ -13,6 +13,7 @@ import { playDoneSound } from '../notificationSound.js';
 import { sessionToken } from '../sessionToken.js';
 import { ApprovalCard } from './ApprovalCard.js';
 import { CEO_DESK_SESSION, ceoDeskApi } from './ceoDeskApi.js';
+import { ModelPickers, ModePicker } from './ComposerPickers.js';
 import { DockComposer } from './DockComposer.js';
 import { CeoFace, DockHeader } from './DockHeader.js';
 import {
@@ -25,11 +26,11 @@ import {
   parseSavedDock,
   queuedRows,
   setCollapsed,
-  settingLabel,
   statusPill,
   unreadCount,
 } from './dockState.js';
 import type { JobCardActions } from './JobCard.js';
+import { UsageRing } from './UsageRing.js';
 
 const READ_ONLY_TEXT = 'Open the office with `catavasia` to chat with the CEO.';
 
@@ -255,26 +256,12 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}
           onRestored={() => setRestored(undefined)}
+          mode={settings && <ModePicker settings={settings} />}
           settings={
-            settings && (
-              <>
-                {/* Later phases: the permission mode label goes first, the context ring last. */}
-                <span
-                  className="shrink-0"
-                  title="The model the CEO thinks with. Change it in the Cats menu."
-                  data-testid="dock-model"
-                >
-                  {settingLabel(settings.model)}
-                </span>
-                <span
-                  className="shrink-0"
-                  title="How long the CEO thinks before it answers. Change it in the Cats menu."
-                  data-testid="dock-effort"
-                >
-                  {settingLabel(settings.effort)}
-                </span>
-              </>
-            )
+            <>
+              {settings && <ModelPickers settings={settings} />}
+              <UsageRing context={chat.status.context} limits={chat.status.limits} />
+            </>
           }
         />
       )}

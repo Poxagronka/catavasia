@@ -26,6 +26,7 @@ import type { EngineStatus, PermissionMode } from '../../../core/src/messages.js
 import { effectiveMode } from '../../../core/src/permissionModes.js';
 import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
+import { officeLimits } from '../usageLimits.js';
 import type { EngineChoices } from './catProfiles.js';
 import type {
   CompactInfo,
@@ -158,7 +159,13 @@ export function claudeTurnOptions(req: TurnRequest, executable: string): Options
     }
     const canAlwaysAllow = !!opts.suggestions?.length && !opts.suppressAlwaysAllowRule;
     const answer = req.askPermission
-      ? await req.askPermission({ toolName, input, canAlwaysAllow, signal: opts.signal })
+      ? await req.askPermission({
+          toolName,
+          input,
+          canAlwaysAllow,
+          signal: opts.signal,
+          folders: [req.cwd, ...(req.addDirs ?? [])],
+        })
       : 'deny';
     if (answer === 'deny') return { behavior: 'deny', message: 'The user did not allow this.' };
     return {
@@ -282,6 +289,8 @@ export class ClaudeAdapter implements EngineAdapter {
     let stderr = '';
     const onMessage = (line: string): void => {
       if (line.includes('"session_id"')) sessionStarted = true;
+      officeLimits.observe(line);
+      req.onLine?.(line);
       const compact = parseCompactBoundary(line);
       if (compact) req.onCompact?.(compact);
       const parsed = parseStreamLine(line);

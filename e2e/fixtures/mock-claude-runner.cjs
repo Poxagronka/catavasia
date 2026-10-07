@@ -215,9 +215,7 @@ function isPixelAgentsHookCommand(homeDir, command) {
     path.join(homeDir, '.pixel-agents', 'hooks', 'claude-hook.js'),
   );
 
-  return (
-    normalizedCommand.includes(currentHookPath)
-  );
+  return normalizedCommand.includes(currentHookPath);
 }
 
 function resolveTemplateString(template, context) {
@@ -277,10 +275,7 @@ function buildContext(homeDir, scenario, sessionId, cwd) {
 
   for (const sessionDefinition of scenario.sessions || []) {
     const resolvedSessionId = resolveTemplateString(sessionDefinition.sessionIdTemplate, context);
-    const resolvedCwd = resolveTemplateString(
-      sessionDefinition.cwdTemplate || '{{cwd}}',
-      context,
-    );
+    const resolvedCwd = resolveTemplateString(sessionDefinition.cwdTemplate || '{{cwd}}', context);
     const resolvedTranscriptPath = sessionDefinition.transcriptPathTemplate
       ? resolveTemplateString(sessionDefinition.transcriptPathTemplate, context)
       : undefined;
@@ -365,7 +360,11 @@ async function emitHook(homeDir, context, payload) {
   for (const entry of entries) {
     const hooks = Array.isArray(entry?.hooks) ? entry.hooks : [];
     for (const hook of hooks) {
-      if (hook?.type !== 'command' || typeof hook.command !== 'string' || hook.command.length === 0) {
+      if (
+        hook?.type !== 'command' ||
+        typeof hook.command !== 'string' ||
+        hook.command.length === 0
+      ) {
         continue;
       }
       if (!isPixelAgentsHookCommand(homeDir, hook.command)) {
@@ -587,8 +586,13 @@ async function headlessTurn(argv) {
   const say = (record) =>
     process.stdout.write(`${JSON.stringify({ session_id: sessionId, ...record })}\n`);
   logInvocation(os.homedir(), sessionId, process.cwd(), argv);
-  say({ type: 'system', subtype: 'init' });
-  say({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
+  say({ type: 'system', subtype: 'init', model: MOCK_MODEL });
+  if (said === 'show tools') toolActivity(say, process.cwd());
+  say({
+    type: 'assistant',
+    message: { content: [{ type: 'text', text }], usage: MOCK_USAGE },
+    parent_tool_use_id: null,
+  });
   say({
     type: 'result',
     subtype: 'success',
@@ -598,8 +602,67 @@ async function headlessTurn(argv) {
     duration_ms: 5,
     num_turns: 1,
     usage: { input_tokens: 1, output_tokens: 1 },
+    modelUsage: { [MOCK_MODEL]: { contextWindow: 200000 } },
   });
   await ended;
+}
+
+const MOCK_MODEL = 'claude-mock-1';
+/** The context of the last request: 84K of the 200K window (42%). */
+const MOCK_USAGE = {
+  input_tokens: 4000,
+  cache_creation_input_tokens: 0,
+  cache_read_input_tokens: 80000,
+};
+/** An 8x8 red PNG. */
+const RED_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC';
+
+/**
+ * "show tools": the stream of a turn that thinks, reads a picture and runs a
+ * command (shapes of CLI 2.1.292 through the Agent SDK), with the limits.
+ */
+function toolActivity(say, cwd) {
+  const assistant = (block, extra = {}) =>
+    say({
+      type: 'assistant',
+      message: { content: [block], usage: MOCK_USAGE },
+      parent_tool_use_id: null,
+      ...extra,
+    });
+  const result = (id, content) =>
+    say({
+      type: 'user',
+      message: { role: 'user', content: [{ tool_use_id: id, type: 'tool_result', content }] },
+      parent_tool_use_id: null,
+    });
+  say({
+    type: 'rate_limit_event',
+    rate_limit_info: {
+      status: 'allowed',
+      unifiedWindows: {
+        five_hour: { utilization: 0.07, resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 },
+        seven_day: { utilization: 0.56, resetsAt: Math.floor(Date.now() / 1000) + 4 * 86400 },
+      },
+    },
+  });
+  assistant({ type: 'thinking', thinking: '', signature: 'mock' }, { thinking_duration_ms: 2300 });
+  assistant({
+    type: 'tool_use',
+    id: 'mock-read',
+    name: 'Read',
+    input: { file_path: `${cwd}/red.png` },
+  });
+  result('mock-read', [
+    { type: 'image', source: { type: 'base64', media_type: 'image/png', data: RED_PNG } },
+  ]);
+  assistant({
+    type: 'tool_use',
+    id: 'mock-bash',
+    name: 'Bash',
+    input: { command: 'ls', description: 'List the files' },
+  });
+  result('mock-bash', 'README.md\nred.png');
 }
 
 /** Call a tool of the `desk` MCP server in --mcp-config (the CEO desk); returns its text. */

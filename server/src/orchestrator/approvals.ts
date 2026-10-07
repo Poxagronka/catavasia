@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 
 import type { CeoApproval } from '../../../core/src/ceoDesk.js';
 import { APPROVAL_TIMEOUT_MS } from '../constants.js';
-import { summarizeInput } from '../taskBoard/streamJson.js';
+import { relativePaths, summarizeInput } from '../taskBoard/streamJson.js';
 import type { PermissionAnswer, PermissionAsk } from './engineAdapter.js';
 
 /** Claude Code tools in plain words ("wants to ..."). */
@@ -28,16 +28,17 @@ const ACTIONS: Record<string, string> = {
   Task: 'start a helper',
 };
 
-/** What a tool call does, in plain words, and its command, file or address. */
+/** What a tool call does, in plain words, and its command, file or address (relative to `folders`). */
 export function describeAction(
   toolName: string,
   input: Record<string, unknown>,
+  folders: string[] = [],
 ): { action: string; detail: string } {
   const mcp = /^mcp__(.+?)__(.+)$/.exec(toolName);
   const action =
     ACTIONS[toolName] ??
     (mcp ? `use ${mcp[2].replace(/_/g, ' ')} (${mcp[1]})` : `use the ${toolName} tool`);
-  return { action, detail: summarizeInput(input) };
+  return { action, detail: relativePaths(summarizeInput(input), folders) };
 }
 
 interface Open {
@@ -71,7 +72,7 @@ export class Approvals {
         id,
         catId: who.catId,
         who: who.name,
-        ...describeAction(ask.toolName, ask.input),
+        ...describeAction(ask.toolName, ask.input, ask.folders),
         canAlwaysAllow: ask.canAlwaysAllow,
         expiresAt: Date.now() + this.timeoutMs,
       };

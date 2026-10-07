@@ -19,7 +19,24 @@ export type CatSessionEntry = { at?: number } &
   (
     | { kind: 'user'; text: string; attachments?: CeoAttachment[] }
     | { kind: 'text'; text: string }
-    | { kind: 'tool'; name: string; text: string }
+    /**
+     * A tool call. `text`: its command, file or address in short. CEO desk only:
+     * `about` (what a command or helper is for, in the model's words), `input`
+     * (when it says more than `text`), `result`, `isError` and the `images` it
+     * returned, all cut to a few KB.
+     */
+    | {
+        kind: 'tool';
+        name: string;
+        text: string;
+        about?: string;
+        input?: string;
+        result?: string;
+        isError?: boolean;
+        images?: CeoAttachment[];
+      }
+    /** The CEO thought before it acted (the thought itself is not shown by Claude Code). */
+    | { kind: 'thought'; ms: number }
     /** `login`: the engine is logged out; the console offers its login (CEO desk). */
     | { kind: 'error'; text: string; login?: boolean }
     /** Prompt edits a chat applied (Cat CEO): the console links each cat's Prompt history. */
@@ -49,6 +66,28 @@ export interface CatSessionStatus {
   costUsd?: number;
   /** CEO desk: actions of the CEO or a cat that wait for the user's answer, oldest first. */
   approvals?: CeoApproval[];
+  /** CEO desk: how full the CEO session's context window is (absent: not known yet). */
+  context?: ContextUse;
+  /** CEO desk: the Claude subscription's limits as the newest turn saw them. */
+  limits?: UsageLimits;
+}
+
+/** Tokens of the last request (input + cache writes + cache reads) of the window. */
+export interface ContextUse {
+  used: number;
+  window: number;
+}
+
+/** One limit window: `used` 0..1, `resetsAt` in Unix seconds. */
+export interface LimitWindow {
+  used: number;
+  resetsAt: number;
+}
+
+/** The windows a Claude turn reported; a window the office has not seen is absent. */
+export interface UsageLimits {
+  fiveHour?: LimitWindow;
+  weekly?: LimitWindow;
 }
 
 /** Server -> client frames on `/api/cat-sessions/:catId/events`. */
@@ -57,7 +96,9 @@ export type CatSessionFrame =
   | { type: 'entries'; entries: CatSessionEntry[] }
   | { type: 'status'; status: CatSessionStatus }
   /** CEO desk: the new state of a job card (replace the `job` entry with this jobId). */
-  | { type: 'job'; text: string; job: JobCard };
+  | { type: 'job'; text: string; job: JobCard }
+  /** CEO desk: a row changed (a tool's result came): replace the entry with the same `at`. */
+  | { type: 'update'; entry: CatSessionEntry };
 
 /** Client -> server frames on `/api/cat-sessions/:catId/terminal`. */
 export type WheelClientFrame =

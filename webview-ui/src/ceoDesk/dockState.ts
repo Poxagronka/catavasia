@@ -10,7 +10,12 @@
  * windows have no storage).
  */
 
-import type { CatSessionEntry, CatSessionFrame } from '../../../core/src/catSession.js';
+import type {
+  CatSessionEntry,
+  CatSessionFrame,
+  ContextUse,
+  LimitWindow,
+} from '../../../core/src/catSession.js';
 import type { JobCard } from '../../../core/src/ceoDesk.js';
 import { applyFrame, type CatConsoleState, EMPTY_CONSOLE } from '../catTerminal/consoleState.js';
 
@@ -220,4 +225,25 @@ export function settingLabel(value: string): string {
   const full = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(value);
   if (full) return `${settingLabel(full[1])} ${full[2]}.${full[3]}`;
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** 0..1 -> "42%" (a little use shows as 1%, never 0% by rounding). */
+export function percent(part: number): string {
+  const p = Math.round(Math.min(1, Math.max(0, part)) * 100);
+  return `${p === 0 && part > 0 ? 1 : p}%`;
+}
+
+/** "Context: 42% used", or that it is not known yet. */
+export function contextText(context: ContextUse | undefined): string {
+  return context
+    ? `Context: ${percent(context.used / context.window)} used`
+    : 'Context: shown after the first answer';
+}
+
+/** "resets at 17:00" (5-hour) or "resets Mon" (weekly). */
+export function resetText(window: LimitWindow, weekly: boolean, locale?: string): string {
+  const at = new Date(window.resetsAt * 1000);
+  return weekly
+    ? `resets ${at.toLocaleDateString(locale, { weekday: 'short' })}`
+    : `resets at ${at.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}`;
 }

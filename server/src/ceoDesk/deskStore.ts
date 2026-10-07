@@ -17,7 +17,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import type { CatSessionEntry } from '../../../core/src/catSession.js';
+import type { CatSessionEntry, ContextUse } from '../../../core/src/catSession.js';
 import type { CeoAttachment } from '../../../core/src/ceoDesk.js';
 import { CEO_DESK_CHATS_DIR, CEO_DESK_FILE, CEO_DESK_HISTORY_MAX } from '../constants.js';
 
@@ -44,6 +44,8 @@ export interface DeskState {
   mcpToken: string;
   /** Session cost so far (the CLI reports it cumulative). */
   costUsd: number;
+  /** How full the session's context window was after the last request. */
+  context?: ContextUse;
   /** The interrupted tasks of the old Tasks board joined a chat (once, on the first start). */
   boardAdopted?: boolean;
   /** Jobs of this chat whose end the CEO has not been told yet. */
