@@ -207,7 +207,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
       />
       <div
         ref={listRef}
-        className="flex-1 min-h-0 overflow-y-auto pixel-scrollbar flex flex-col gap-10 p-10"
+        className="dock-log flex-1 min-h-0 overflow-y-auto pixel-scrollbar flex flex-col gap-12"
         data-testid="dock-log"
       >
         {(!privileged || gone) && (

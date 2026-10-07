@@ -1,6 +1,5 @@
 import type { Appearance } from '../cats/catsApi.js';
 import { CatSprite } from '../components/cats/CatSprite.js';
-import { Button } from '../components/ui/Button.js';
 import { projectName, type StatusPill } from './dockState.js';
 
 const PILL_CLASS: Record<StatusPill['tone'], string> = {
@@ -36,21 +35,76 @@ interface DockHeaderProps {
   onCollapse(): void;
 }
 
+/** The collapse chevron: points right, toward the edge the dock folds into. */
+function ChevronIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M6 3.5L10.5 8L6 12.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Two rows on the dock grid (16px sides, 28px controls, 8px gaps): the face,
+ * name, status and collapse; then the project line and the chat actions.
+ */
 export function DockHeader(props: DockHeaderProps) {
   const { pill, privileged } = props;
   return (
-    <div className="flex flex-col gap-4 px-10 pt-6 pb-6 border-b-2 border-border">
+    <div className="flex flex-col gap-8 px-16 py-12 border-b-2 border-border">
       <div className="flex items-center gap-8 min-w-0">
         <CeoFace appearance={props.appearance} />
         <span className="text-accent-bright text-lg truncate">{props.name}</span>
-        <span className={`text-xs shrink-0 ${PILL_CLASS[pill.tone]}`} data-testid="dock-status">
+        <span className={`dock-label shrink-0 ${PILL_CLASS[pill.tone]}`} data-testid="dock-status">
           {pill.label}
         </span>
         <span className="flex-1" />
+        <button
+          type="button"
+          className="dock-ctl is-icon"
+          onClick={props.onCollapse}
+          title="Collapse"
+          aria-label="Collapse"
+          data-testid="dock-collapse"
+        >
+          <ChevronIcon />
+        </button>
+      </div>
+      <div className="flex items-center gap-8 min-w-0 h-28">
+        {/* Read only: the Project button of the bottom bar picks it. */}
+        <span
+          className="dock-label truncate min-w-0"
+          title={props.folder ?? 'No project folder: the cats work in a sandbox'}
+          data-testid="dock-project"
+        >
+          Project: {projectName(props.folder)}
+        </span>
+        {props.costUsd !== undefined && (
+          <span className="dock-label shrink-0" title="What this chat has cost">
+            ${props.costUsd.toFixed(2)}
+          </span>
+        )}
+        <span className="flex-1" />
+        {privileged && props.stoppable && (
+          <button
+            type="button"
+            className="dock-ctl bg-btn-bg"
+            onClick={props.onStop}
+            data-testid="dock-stop"
+          >
+            Stop
+          </button>
+        )}
         {privileged && (
           <button
             type="button"
-            className="quiet-btn"
+            className="dock-ctl"
             onClick={props.onConnectors}
             title="Tools Claude can use, like your mail or files (also /mcp)"
             data-testid="dock-connectors"
@@ -58,40 +112,15 @@ export function DockHeader(props: DockHeaderProps) {
             Connectors
           </button>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={props.onCollapse}
-          title="Collapse"
-          data-testid="dock-collapse"
-        >
-          {'>'}
-        </Button>
-      </div>
-      <div className="flex items-center gap-6 min-w-0">
-        {/* Read only: the Project button of the bottom bar picks it. */}
-        <span
-          className="text-xs text-text-muted truncate min-w-0"
-          title={props.folder ?? 'No project folder: the cats work in a sandbox'}
-          data-testid="dock-project"
-        >
-          Project: {projectName(props.folder)}
-        </span>
-        {props.costUsd !== undefined && (
-          <span className="text-xs text-text-muted shrink-0" title="What this chat has cost">
-            ${props.costUsd.toFixed(2)}
-          </span>
-        )}
-        <span className="flex-1" />
-        {privileged && props.stoppable && (
-          <Button size="sm" onClick={props.onStop} data-testid="dock-stop">
-            Stop
-          </Button>
-        )}
         {privileged && (
-          <Button size="sm" variant="ghost" onClick={props.onNewChat} data-testid="dock-new-chat">
+          <button
+            type="button"
+            className="dock-ctl"
+            onClick={props.onNewChat}
+            data-testid="dock-new-chat"
+          >
             New chat
-          </Button>
+          </button>
         )}
       </div>
     </div>

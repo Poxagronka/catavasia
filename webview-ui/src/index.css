@@ -280,24 +280,51 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  /* A setting label under the composer ("Auto", "Opus 5.5") and its menu above it. */
-  .composer-pick {
-    display: flex;
+  /* The CEO dock grid: one 16px side padding (px-16) for every row and a 4px
+     spacing scale (4/8/12/16/24). A header or composer-row control is one
+     28px box in the body font: a label ("Auto", "New chat") or an icon. */
+  .dock-ctl {
+    display: inline-flex;
     align-items: center;
-    height: 24px;
-    padding: 0 6px;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 28px;
+    padding: 0 8px;
     border: 0;
     border-radius: 6px;
     background: transparent;
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--color-text-soft);
     cursor: pointer;
   }
-  .composer-pick:hover,
-  .composer-pick[aria-expanded='true'] {
+  .dock-ctl.is-icon {
+    width: 28px;
+    padding: 0;
+  }
+  .dock-ctl:hover,
+  .dock-ctl:focus-visible,
+  .dock-ctl[aria-expanded='true'] {
     background: var(--color-btn-bg);
   }
-  .composer-pick:hover,
-  .composer-pick:hover * {
+  .dock-ctl:hover,
+  .dock-ctl:hover * {
     color: var(--color-text);
+  }
+  /* A plain header label (status, project, cost) in the same font as the controls. */
+  .dock-label {
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 16px;
+    color: var(--color-text-soft);
+  }
+  /* The transcript: the gutter keeps the 6px scrollbar inside the right padding,
+     so the content ends on the same 16px line with or without a scrollbar. */
+  .dock-log {
+    padding: 16px 10px 16px 16px;
+    scrollbar-gutter: stable;
   }
   .composer-menu {
     position: absolute;
