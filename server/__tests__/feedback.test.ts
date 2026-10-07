@@ -69,6 +69,8 @@ function happyGh(over: (args: string[]) => Partial<GhResult> | undefined = () =>
     if (special) return special;
     const path = args[3] ?? '';
     if (path.endsWith('/issues')) return ok({ html_url: ISSUE_URL });
+    if (path === `repos/${UPDATE_REPO}`)
+      return ok({ default_branch: 'main', permissions: { push: true } });
     return ok({});
   });
 }
@@ -186,7 +188,6 @@ describe('submitFeedback', () => {
   it('creates the assets branch from the default branch when it is missing', async () => {
     const gh = happyGh((args) => {
       if (args[3] === `repos/${UPDATE_REPO}/branches/${FEEDBACK_ASSETS_BRANCH}`) return notFound;
-      if (args[3] === `repos/${UPDATE_REPO}`) return ok({ default_branch: 'main' });
       if (args[3] === `repos/${UPDATE_REPO}/git/ref/heads/main`)
         return ok({ object: { sha: 'abc' } });
       return undefined;
@@ -197,6 +198,37 @@ describe('submitFeedback', () => {
       ref: `refs/heads/${FEEDBACK_ASSETS_BRANCH}`,
       sha: 'abc',
     });
+  });
+
+  it('takes a branch that a parallel send created first (422) as ready', async () => {
+    const gh = happyGh((args) => {
+      if (args[3] === `repos/${UPDATE_REPO}/branches/${FEEDBACK_ASSETS_BRANCH}`) return notFound;
+      if (args[3] === `repos/${UPDATE_REPO}/git/ref/heads/main`)
+        return ok({ object: { sha: 'abc' } });
+      if (args[3] === `repos/${UPDATE_REPO}/git/refs`)
+        return { code: 1, stderr: 'gh: Reference already exists (HTTP 422)' };
+      return undefined;
+    });
+    const result = await submitFeedback(msg, { privileged: true, env: ENV, gh, now });
+    expect(result.status).toBe('created');
+  });
+
+  it('falls back before any upload when the account cannot push', async () => {
+    const gh = happyGh((args) =>
+      args[3] === `repos/${UPDATE_REPO}`
+        ? ok({ default_branch: 'main', permissions: { push: false } })
+        : undefined,
+    );
+    const result = await submitFeedback(msg, { privileged: true, env: ENV, gh, now });
+    expect(result.status).toBe('fallback');
+    expect(result.error).toMatch(/cannot upload images/);
+    expect(gh.calls.some((c) => c.args[2] === 'PUT' || c.args[2] === 'POST')).toBe(false);
+  });
+
+  it('says gh did not answer on a timeout (not "not logged in")', async () => {
+    const gh = fakeGh(() => ({ code: -1, stderr: '' }));
+    const result = await submitFeedback(msg, { privileged: true, env: ENV, gh, now });
+    expect(result.error).toMatch(/did not answer/);
   });
 
   it('sends without the label when the repo has none', async () => {

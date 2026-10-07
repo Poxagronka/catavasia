@@ -712,3 +712,7 @@ export const LITTER_FX_COLORS = {
   tongue: '#ff8fa8',
   speed: '#f4f4f8',
 } as const;
+
+// ── Feedback ─────────────────────────────────────────────────
+/** The form stops waiting for feedbackResult after this (each server gh call has 60 s). */
+export const FEEDBACK_REPLY_TIMEOUT_MS = 10 * 60 * 1000;

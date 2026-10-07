@@ -145,25 +145,25 @@ export function validateFeedback(msg: Record<string, unknown>): ValidFeedback | 
 }
 
 /** Create FEEDBACK_ASSETS_BRANCH from the default branch when it is missing. */
-async function ensureAssetsBranch(gh: GhRunner): Promise<void> {
+async function ensureAssetsBranch(gh: GhRunner, defaultBranch: string): Promise<void> {
   try {
     await api(gh, 'GET', `repos/${UPDATE_REPO}/branches/${FEEDBACK_ASSETS_BRANCH}`);
     return;
   } catch (e) {
     if (!(e instanceof GhError && e.notFound)) throw e;
   }
-  const repo = await api(gh, 'GET', `repos/${UPDATE_REPO}`);
-  const ref = await api(
-    gh,
-    'GET',
-    `repos/${UPDATE_REPO}/git/ref/heads/${String(repo.default_branch)}`,
-  );
+  const ref = await api(gh, 'GET', `repos/${UPDATE_REPO}/git/ref/heads/${defaultBranch}`);
   const sha = (ref.object as { sha?: string } | undefined)?.sha;
   if (!sha) throw new GhError('Could not read the default branch.');
-  await api(gh, 'POST', `repos/${UPDATE_REPO}/git/refs`, {
-    ref: `refs/heads/${FEEDBACK_ASSETS_BRANCH}`,
-    sha,
-  });
+  try {
+    await api(gh, 'POST', `repos/${UPDATE_REPO}/git/refs`, {
+      ref: `refs/heads/${FEEDBACK_ASSETS_BRANCH}`,
+      sha,
+    });
+  } catch (e) {
+    // A send at the same time created it first ("Reference already exists").
+    if (!(e instanceof GhError && /HTTP 422/.test(e.message))) throw e;
+  }
 }
 
 /** Upload each image to the assets branch. Returns the raw URLs, in order. */
@@ -172,7 +172,12 @@ async function uploadImages(
   images: ValidImage[],
   now: Date,
 ): Promise<Array<{ name: string; url: string }>> {
-  await ensureAssetsBranch(gh);
+  // Only a collaborator can write the branch. Check first, so nothing is half uploaded.
+  const repo = await api(gh, 'GET', `repos/${UPDATE_REPO}`);
+  if ((repo.permissions as { push?: boolean } | undefined)?.push !== true) {
+    throw new GhError('your GitHub account cannot upload images to the repo.');
+  }
+  await ensureAssetsBranch(gh, String(repo.default_branch));
   // Our own name only: no user text in the API path.
   const stamp = `${now.toISOString().replace(/[:.]/g, '-')}-${randomBytes(3).toString('hex')}`;
   const urls: Array<{ name: string; url: string }> = [];
@@ -227,9 +232,11 @@ export async function submitFeedback(
   const auth = await gh(['auth', 'status', '--hostname', 'github.com']);
   if (auth.code !== 0) {
     return fallback(
-      auth.code === -1 && /ENOENT/.test(auth.stderr)
-        ? 'The GitHub CLI (gh) is not installed.'
-        : 'The GitHub CLI (gh) is not logged in (run: gh auth login).',
+      auth.code !== -1
+        ? 'The GitHub CLI (gh) is not logged in (run: gh auth login).'
+        : /ENOENT/.test(auth.stderr)
+          ? 'The GitHub CLI (gh) is not installed.'
+          : 'The GitHub CLI (gh) did not answer.',
     );
   }
   try {

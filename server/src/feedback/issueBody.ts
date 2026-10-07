@@ -68,7 +68,7 @@ export function fallbackIssueUrl(
   max = FEEDBACK_URL_MAX_CHARS,
 ): string {
   const note = imageCount
-    ? `\n\n_${imageCount} image(s) to paste here: the first is on the clipboard when the browser allowed it._`
+    ? `\n\n_${imageCount} image(s) to paste here (the Feedback form copies each one)._`
     : '';
   const body = (text: string) => buildIssueBody(text + note, env);
   const url = newIssueUrl(title, body(description));

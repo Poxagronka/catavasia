@@ -18,6 +18,7 @@ import { prepareAttachment, toUploads } from '../ceoDesk/prepareAttachment.js';
 import { FIELD } from '../components/cats/fields.js';
 import { Button } from '../components/ui/Button.js';
 import { Modal } from '../components/ui/Modal.js';
+import { FEEDBACK_REPLY_TIMEOUT_MS } from '../constants.js';
 import { transport } from '../transport/index.js';
 import { captureOffice, copyImage } from './feedbackImages.js';
 import { feedbackAttachError } from './feedbackLimits.js';
@@ -40,6 +41,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
   const filesRef = useRef(files);
   filesRef.current = files;
 
+  const busyRef = useRef(false);
   const unsubscribe = useRef<(() => void) | null>(null);
 
   // Thumbnails are object URLs: free them when the form goes away.
@@ -51,8 +53,16 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
     [],
   );
 
+  const stopListening = () => {
+    unsubscribe.current?.();
+    unsubscribe.current = null;
+  };
+
   const addFiles = async (list: File[]) => {
     if (!list.length) return;
+    // One add at a time: two at once would both check the limits against the old list.
+    if (busyRef.current) return setError('Wait until the images are ready');
+    busyRef.current = true;
     setError(null);
     setBusy(true);
     try {
@@ -65,6 +75,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
       }
       setFiles((current) => [...current, ...ready]);
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -93,25 +104,33 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
     if (!title.trim() || busy) return;
     setError(null);
     setPhase({ kind: 'sending' });
+    const fail = (message: string) => {
+      stopListening();
+      setError(message);
+      setPhase({ kind: 'editing' });
+    };
     // The server answers a submitFeedback with one feedbackResult. Listen before the send.
-    unsubscribe.current?.();
-    unsubscribe.current = transport.onMessage((msg) => {
+    // A lost answer (socket drop, server restart) must not lock the form.
+    stopListening();
+    const timer = setTimeout(
+      () => fail('No answer from the server. Check GitHub before you send again.'),
+      FEEDBACK_REPLY_TIMEOUT_MS,
+    );
+    const off = transport.onMessage((msg) => {
       if (msg.type !== 'feedbackResult') return;
-      unsubscribe.current?.();
-      unsubscribe.current = null;
-      if (msg.status === 'error') {
-        setError(msg.error ?? 'The server refused the feedback');
-        setPhase({ kind: 'editing' });
-      } else setPhase({ kind: 'done', result: msg });
+      stopListening();
+      if (msg.status === 'error') fail(msg.error ?? 'The server refused the feedback');
+      else setPhase({ kind: 'done', result: msg });
     });
+    unsubscribe.current = () => {
+      clearTimeout(timer);
+      off();
+    };
     try {
       const images = await toUploads(files);
       transport.send({ type: 'submitFeedback', title: title.trim(), description, images });
     } catch (err) {
-      unsubscribe.current?.();
-      unsubscribe.current = null;
-      setError(err instanceof Error ? err.message : String(err));
-      setPhase({ kind: 'editing' });
+      fail(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -126,12 +145,14 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
   };
 
   const close = () => {
-    // Sent (or handed to the browser): start clean next time. Else keep the draft.
-    if (phase.kind === 'done') reset();
+    // Created: start clean next time. A fallback keeps the draft and its images
+    // because the user still pastes them into the GitHub form.
+    if (phase.kind === 'done' && phase.result.status === 'created') reset();
+    else if (phase.kind === 'done') setPhase({ kind: 'editing' });
     onClose();
   };
 
-  // Click handler of the fallback link: the click is the gesture the clipboard needs.
+  // Click handlers: the click is the gesture the clipboard needs.
   const openFallback = () => {
     if (files[0]) void copyImage(files[0].blob).then(setCopied);
   };
@@ -169,11 +190,24 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
               Open the GitHub issue form
             </a>
             {files.length > 0 && (
-              <span className="prose-small text-text-muted">
-                {copied
-                  ? 'The first image is on the clipboard: paste it into the form (Cmd/Ctrl+V).'
-                  : 'Drag or paste your images into the GitHub form: links cannot carry them.'}
-              </span>
+              <>
+                <span className="prose-small text-text-muted">
+                  {copied
+                    ? 'An image is on the clipboard: paste it into the form (Cmd/Ctrl+V).'
+                    : 'Paste your images into the GitHub form: a link cannot carry them.'}
+                </span>
+                <div className="flex flex-wrap gap-4">
+                  {files.map((f, i) => (
+                    <Button
+                      key={f.id}
+                      size="sm"
+                      onClick={() => void copyImage(f.blob).then(setCopied)}
+                    >
+                      Copy image {i + 1}
+                    </Button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
