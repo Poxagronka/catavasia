@@ -98,6 +98,58 @@ describe('CEO desk approvals', () => {
     expect(got).toEqual({ answers: { 'Which color?': 'Blue, and a bit of green' } });
   });
 
+  it("a composer message answers the CEO's open question card and clears it", async () => {
+    let got: PermissionAnswer | undefined;
+    const questions = [
+      { question: 'Which color?', header: 'Color', options: [], multiSelect: false },
+      { question: 'Which size?', header: 'Size', options: [], multiSelect: false },
+    ];
+    env = await startDeskOffice(async ({ req }) => {
+      got = await req.askPermission!({
+        toolName: 'AskUserQuestion',
+        input: { questions },
+        canAlwaysAllow: false,
+        signal: new AbortController().signal,
+      });
+      return { text: 'ok' };
+    });
+    env.desk.send('pick a color');
+    await waitFor(() => env!.desk.snapshot().status.approvals?.[0]);
+    expect(env.desk.send('Blue, small')).toBe(0);
+    expect(env.desk.snapshot().status.approvals).toEqual([]);
+    await deskIdle(env.desk);
+    expect(got).toEqual({
+      answers: { 'Which color?': 'Blue, small', 'Which size?': 'Blue, small' },
+    });
+    const users = env.desk.snapshot().entries.filter((e) => e.kind === 'user');
+    expect(users.map((e) => e.kind === 'user' && e.text)).toEqual(['pick a color', 'Blue, small']);
+  });
+
+  it('a slash command queues past the open question; a path answers it', async () => {
+    const answers: PermissionAnswer[] = [];
+    const questions = [{ question: 'Which folder?', header: '', options: [], multiSelect: false }];
+    env = await startDeskOffice(async ({ req }) => {
+      if (req.message.startsWith('/')) return { text: 'compacted' };
+      answers.push(
+        await req.askPermission!({
+          toolName: 'AskUserQuestion',
+          input: { questions },
+          canAlwaysAllow: false,
+          signal: new AbortController().signal,
+        }),
+      );
+      return { text: 'ok' };
+    });
+    env.desk.send('pick a folder');
+    await waitFor(() => env!.desk.snapshot().status.approvals?.[0]);
+    expect(env.desk.send('/compact')).toBe(1);
+    expect(env.desk.snapshot().status.approvals).toHaveLength(1);
+    expect(env.desk.send('/Users/me/project')).toBe(1);
+    expect(env.desk.snapshot().status.approvals).toEqual([]);
+    await deskIdle(env.desk);
+    expect(answers).toEqual([{ answers: { 'Which folder?': '/Users/me/project' } }]);
+  });
+
   it('answers on a card without questions count as a plain Allow', async () => {
     env = await startDeskOffice(() => ({ text: 'ok' }));
     const luna = env.office.cats.list().find((c) => c.id === 'murka')!;

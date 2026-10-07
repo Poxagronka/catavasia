@@ -16,6 +16,7 @@ import type { SpotContext } from './activitySpots.js';
 import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
 import { BED_ACTIVITIES } from './bedActivities.js';
 import { COFFEE_ACTIVITIES } from './coffeeActivities.js';
+import { DESK_NAP_ACTIVITY } from './deskNapActivities.js';
 import { GROOM, LOAF, NAP, SIP, STRETCH, TAIL_CHASE, YAWN } from './idleAnims.js';
 import { LITTER_ACTIVITIES } from './litterActivities.js';
 import { activityMul } from './personality.js';
@@ -100,6 +101,7 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
   { id: 'loaf', weight: 1, durationSec: [10, 20], ...LOAF, inPlace: 'front' },
   ...TOY_ACTIVITIES,
   ...BED_ACTIVITIES,
+  DESK_NAP_ACTIVITY,
   ...LITTER_ACTIVITIES,
   SKILL_READ,
 ];

@@ -203,6 +203,8 @@ export interface DeskCommand {
   aliases?: string[];
   /** Claude Code's own command (not a user, project or plugin one). */
   builtin?: boolean;
+  /** The values it takes, for the dock's picker (output styles, the words of "[on|off]"). */
+  choices?: string[];
 }
 
 /** GET /api/ceo/commands */

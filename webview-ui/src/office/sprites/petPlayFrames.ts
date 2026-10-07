@@ -14,6 +14,8 @@ import type { PetSpriteFrames } from './petSpriteData.js';
  * - curl: the body settles flat onto the floor, the head on the paws.
  * - box: only the head shows above the rim (the rest is cut away).
  * - climb: the back view, used on the cat tree's post.
+ * - desk naps: knead and loaf (work desks), sprawl and belly-up (big table),
+ *   a tight donut (small table), a long stretch (coffee table).
  *
  * Each pose has a side view (facing right; callers flip it for left) and may
  * have a front (`down`) and back (`up`) view. Without one, the side view is
@@ -48,6 +50,23 @@ export const PET_POSE_NAMES = [
   'perch',
   'perchL',
   'perchR',
+  'kneadA',
+  'kneadB',
+  'loafBreath',
+  'stepA',
+  'stepB',
+  'faceDown',
+  'faceUp',
+  'faceLeft',
+  'bow',
+  'sprawlA',
+  'sprawlB',
+  'bellyUp',
+  'donutA',
+  'donutB',
+  'longA',
+  'longB',
+  'longTwitch',
 ] as const;
 export type PetPoseName = (typeof PET_POSE_NAMES)[number];
 export type PetPlayPoses = Record<PetPoseName, DirPose>;
@@ -66,6 +85,13 @@ const BOX_LOW_FRACTION = 0.5;
 const BOX_PEEK_FRACTION = 0.65;
 /** Rows of the front view that are the head (a perch look turns only these). */
 const HEAD_FRACTION = 0.45;
+/** Play bow: px the rump lifts per column behind the hind legs. */
+const BOW_SLOPE = 0.35;
+/** Columns a sprawl adds to the body, and the longer stretch on the coffee table. */
+const SPRAWL_PX = 2;
+const LONG_PX = 4;
+/** A donut drops every Nth column of the curled body (a tighter ball). */
+const DONUT_EVERY = 3;
 
 const isEmpty = (b: Box) => b.maxX < 0;
 
@@ -167,6 +193,49 @@ function headTurn(s: SpriteData, dx: number): SpriteData {
   return s.map((row, y) => (y < cut ? moved[y] : [...row]));
 }
 
+const mirrorX = (s: SpriteData): SpriteData => s.map((r) => [...r].reverse());
+
+/** Play bow (a stretch): the rump lifts, the front stays low. */
+const bow = (s: SpriteData): SpriteData => mirrorX(shear(mirrorX(s), BOW_SLOPE));
+
+/** Longer: the body's middle column repeated `n` times (a cat stretched out). */
+function stretchX(s: SpriteData, n: number): SpriteData {
+  const b = bbox(s);
+  if (isEmpty(b)) return s.map((r) => [...r]);
+  const mid = Math.round((b.minX + b.maxX) / 2);
+  return s.map((r) => [...r.slice(0, mid), ...new Array<string>(n).fill(r[mid]), ...r.slice(mid)]);
+}
+
+/** Shorter: every `k`-th column of the body dropped (a tight ball). */
+function squeezeX(s: SpriteData, k: number): SpriteData {
+  const b = bbox(s);
+  return s.map((r) => r.filter((_, x) => x < b.minX || x > b.maxX || (x - b.minX) % k !== k - 1));
+}
+
+/** Upside down in its own box, still on the bottom row: rolled onto the back, paws up. */
+function upsideDown(s: SpriteData): SpriteData {
+  const b = bbox(s);
+  const out = s.map((r) => r.map(() => ''));
+  for (let y = b.minY; y <= b.maxY; y++) out[b.minY + b.maxY - y] = [...s[y]];
+  return out;
+}
+
+/** Kneading: the paws of one half (-1 left, 1 right) of a front view lift a pixel. */
+function knead(front: SpriteData, half: -1 | 1): SpriteData {
+  const b = bbox(front);
+  if (isEmpty(b)) return front.map((r) => [...r]);
+  const legTop = b.minY + Math.round((b.maxY - b.minY + 1) * LEG_FRACTION);
+  const mid = (b.minX + b.maxX) / 2;
+  const out = front.map((r) => [...r]);
+  const inHalf = (x: number) => (half < 0 ? x < mid : x > mid);
+  for (let y = legTop; y <= b.maxY; y++)
+    for (let x = b.minX; x <= b.maxX; x++) if (inHalf(x)) out[y][x] = '';
+  for (let y = legTop; y <= b.maxY; y++)
+    for (let x = b.minX; x <= b.maxX; x++)
+      if (inHalf(x) && front[y][x]) out[y - 1][x] = front[y][x];
+  return out;
+}
+
 export function buildPlayPoses(p: PetSpriteFrames): PetPlayPoses {
   // Pet sheets author no side idle: the first walk frame is the side pose.
   const side = p.walkRight[0];
@@ -202,6 +271,24 @@ export function buildPlayPoses(p: PetSpriteFrames): PetPlayPoses {
     perch: { side: loaf },
     perchL: { side: headTurn(loaf, -1) },
     perchR: { side: headTurn(loaf, 1) },
+    // Desk naps: side-only poses, so a cat on a table top (facing the viewer) shows them as drawn.
+    kneadA: { side: knead(loaf, -1) },
+    kneadB: { side: knead(loaf, 1) },
+    loafBreath: { side: frontDip(front, 3) },
+    stepA: { side: p.walkRight[1] },
+    stepB: { side: p.walkRight[2] },
+    faceDown: { side: front },
+    faceUp: { side: back },
+    faceLeft: { side: mirrorX(side) },
+    bow: { side: bow(side) },
+    sprawlA: { side: curl(stretchX(side, SPRAWL_PX), 0) },
+    sprawlB: { side: curl(stretchX(side, SPRAWL_PX), 1) },
+    bellyUp: { side: upsideDown(stretchX(p.walkRight[1], SPRAWL_PX)) },
+    donutA: { side: squeezeX(curl(side, 0), DONUT_EVERY) },
+    donutB: { side: squeezeX(curl(side, 1), DONUT_EVERY) },
+    longA: { side: curl(stretchX(side, LONG_PX), 0) },
+    longB: { side: curl(stretchX(side, LONG_PX), 1) },
+    longTwitch: { side: dig(curl(stretchX(side, LONG_PX), 0), 1) },
   };
 }
 
