@@ -293,10 +293,9 @@ export class CatCeo {
         history: Object.fromEntries(team.map((c) => [c, this.history(c)])),
       });
       const result = await this.judge(JUDGE_RULES, digest);
-      if (!result.ok) throw new Error(`${result.error}${costNote(result.costUsd)}`);
+      if (!result.ok) throw new Error(result.error);
       const parsed = parseJudgeOutput(result.output);
-      if (!parsed.ok)
-        throw new Error(`bad judge output: ${parsed.error}${costNote(result.costUsd)}`);
+      if (!parsed.ok) throw new Error(`bad judge output: ${parsed.error}`);
       this.finish(task, state, sink, reviewId, parsed.value, team, result.costUsd);
     } catch (err) {
       this.fail(task, sink, reviewId, errorText(err));
@@ -405,7 +404,8 @@ export class CatCeo {
     this.opts.emit(finished);
     this.opts.consoles.push(CAT_CEO_ID, {
       kind: 'text',
-      text: `${out.verdict}: ${out.summary}${costNote(costUsd)}`,
+      // No cost in the text: the UI shows money only to API-key users (structured costUsd).
+      text: `${out.verdict}: ${out.summary}`,
     });
     this.tidy.afterReview([...new Set(scores.map((x) => x.catId))]);
   }
@@ -437,10 +437,6 @@ export class CatCeo {
 function shaOf(state: TaskState, catId: string, assignmentId: string): string | undefined {
   const a = state.assignments.find((x) => x.id === assignmentId && x.child === catId);
   return a?.promptSha ?? state.members[catId]?.promptSha;
-}
-
-function costNote(costUsd: number | undefined): string {
-  return costUsd === undefined ? '' : ` ($${costUsd.toFixed(3)})`;
 }
 
 function errorText(err: unknown): string {

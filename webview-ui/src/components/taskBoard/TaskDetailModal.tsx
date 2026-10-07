@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import type { TaskDetail } from '../../../../core/src/tasks.js';
 import { useCats } from '../../cats/useCats.js';
 import { TASK_POLL_INTERVAL_MS } from '../../constants.js';
+import { useMoneyShown } from '../../engines/money.js';
 import { Modal } from '../ui/Modal.js';
 import { CatAvatar } from './CatAvatar.js';
 import { Markdown } from './Markdown.js';
@@ -29,6 +30,7 @@ function diffLineClass(line: string): string {
 
 function Meta({ task }: { task: TaskDetail }) {
   const { cats } = useCats();
+  const showMoney = useMoneyShown();
   const facts: Array<[string, string]> = [
     ['Status', task.status],
     ['Cat', taskCatLabel(task, cats)],
@@ -38,11 +40,11 @@ function Meta({ task }: { task: TaskDetail }) {
   if (task.finishedAt !== undefined) {
     facts.push(['Elapsed', formatElapsed(task.finishedAt - task.createdAt)]);
   }
-  if (task.costUsd !== undefined) facts.push(['Cost', `$${task.costUsd.toFixed(4)}`]);
+  if (showMoney && task.costUsd !== undefined) facts.push(['Cost', `$${task.costUsd.toFixed(4)}`]);
   if (task.durationMs !== undefined) facts.push(['Run time', formatElapsed(task.durationMs)]);
   if (task.numTurns !== undefined) facts.push(['Turns', String(task.numTurns)]);
   // The Cat CEO judge review (the task board's badge before the CEO desk).
-  const review = reviewBadge(task.review);
+  const review = reviewBadge(task.review, showMoney);
   if (review)
     facts.push(['Review', review.title ? `${review.text}: ${review.title}` : review.text]);
   return (

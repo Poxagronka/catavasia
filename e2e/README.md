@@ -254,8 +254,8 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 ### `@area:standalone` (18 tests)
 
 - `e2e/standalone/ceoDock.spec.ts:28` — the CEO answers in the dock with markdown; the dock collapses to a tab (Standalone / CEO dock)
-- `e2e/standalone/ceoDock.spec.ts:55` — a pasted image and a picked file reach the CEO and show in the sent row (Standalone / CEO dock)
-- `e2e/standalone/ceoDock.spec.ts:107` — a question of the CEO shows a card; Allow sends the answer back (Standalone / CEO dock)
+- `e2e/standalone/ceoDock.spec.ts:61` — a pasted image and a picked file reach the CEO and show in the sent row (Standalone / CEO dock)
+- `e2e/standalone/ceoDock.spec.ts:120` — a question of the CEO shows a card; Allow sends the answer back (Standalone / CEO dock)
 - `e2e/standalone/decor.spec.ts:79` — the whiteboard is decor; a click on the CEO cat opens the CEO chat (Standalone / board removed › office)
 - `e2e/standalone/decor.spec.ts:120` — seven steps; the engines step hides the banner and says "not logged in" once; the CEO step opens the chat (Standalone / board removed › onboarding)
 - `e2e/standalone/engines.spec.ts:44` — a logged-out Claude Code: notice, blocked Send, and Log in in the terminal (Standalone / engines)

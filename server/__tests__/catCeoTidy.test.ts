@@ -143,7 +143,7 @@ describe('tidy run', () => {
     expect(store.lastTidy('murka')).toMatchObject({ sha: head.sha, head: head.sha, costUsd: 0.04 });
     expect(emitted.map((m) => (m as { state?: string }).state)).toEqual(['queued', 'done']);
     expect(last()).toMatchObject({ sha: head.sha, changed: 2 });
-    expect(last().text).toBe('murka: tidied 2 items, 1 marked for you ($0.040)');
+    expect(last().text).toBe('murka: tidied 2 items, 1 marked for you');
     // Nothing changed since: no second run, no second cost.
     expect(tidy.requestManual('murka')).toBe('Nothing to tidy: no change since the last tidy.');
     expect(tidy.requestManual('cat-ceo')).toContain('never tidies its own prompt');
@@ -220,7 +220,7 @@ describe('tidy triggers and limits', () => {
     output = { summary: 'fine', ops: [] };
     tidy.afterReview(['murka']);
     await drain();
-    expect(last().text).toBe('murka: nothing to tidy ($0.040)');
+    expect(last().text).toBe('murka: nothing to tidy');
     expect(store.lastTidy('murka')?.trigger).toBe('cap');
     // A change after the tidy, but the daily limit holds for automatic tidies.
     repo.write('murka', { ...file, rules: rules(11) }, 'user(murka): eleven');

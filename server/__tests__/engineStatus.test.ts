@@ -54,6 +54,7 @@ describe('parsing the CLI status output', () => {
     expect(parseClaudeAuthStatus(CLAUDE_LOGGED_IN)).toEqual({
       loggedIn: true,
       detail: 'logged in (claude.ai)',
+      apiKey: false,
     });
     expect(parseClaudeAuthStatus(CLAUDE_LOGGED_OUT)).toEqual({
       loggedIn: false,
@@ -64,10 +65,25 @@ describe('parsing the CLI status output', () => {
     expect(parseClaudeAuthStatus('')).toEqual({});
   });
 
+  it('tells an API key login (money shown) from a subscription (money hidden)', () => {
+    const auth = (authMethod: string) =>
+      parseClaudeAuthStatus(JSON.stringify({ loggedIn: true, authMethod })).apiKey;
+    // authMethod values of `claude auth status` in CLI 2.1.292.
+    expect(auth('api_key')).toBe(true);
+    expect(auth('api_key_helper')).toBe(true);
+    expect(auth('third_party')).toBe(true);
+    expect(auth('claude.ai')).toBe(false);
+    expect(auth('oauth_token')).toBe(false);
+    // A method this code does not know: unknown, so the UI hides money.
+    expect(auth('something_new')).toBeUndefined();
+    expect(parseClaudeAuthStatus(CLAUDE_LOGGED_OUT).apiKey).toBeUndefined();
+  });
+
   it('reads codex login status: logged in, logged out, unknown; never shows an API key', () => {
     expect(parseCodexLoginStatus('Logged in using ChatGPT\n')).toEqual({
       loggedIn: true,
       detail: 'Logged in using ChatGPT',
+      apiKey: false,
     });
     expect(parseCodexLoginStatus('Not logged in\n')).toEqual({
       loggedIn: false,
@@ -76,6 +92,7 @@ describe('parsing the CLI status output', () => {
     expect(parseCodexLoginStatus('Logged in using an API key - sk-proj-***ABCD')).toEqual({
       loggedIn: true,
       detail: 'Logged in using an API key',
+      apiKey: true,
     });
     expect(parseCodexLoginStatus('something else')).toEqual({});
   });

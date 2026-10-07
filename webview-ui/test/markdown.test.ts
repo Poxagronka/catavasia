@@ -130,4 +130,11 @@ describe('Markdown', () => {
     expect(out).toContain('<p>До воскресенья будет сухо и тепло.</p>');
     expect(out).not.toContain('|');
   });
+
+  it('gives a code block a Copy button, and inline code none', () => {
+    const out = html('Run `npm ci` first:\n\n```\nnpm ci\n```');
+    expect(out).toContain('<code>npm ci</code>');
+    expect(out.match(/data-testid="code-copy"/g)).toHaveLength(1);
+    expect(out).toMatch(/<div class="markdown-code"><pre><code>npm ci\n<\/code><\/pre><button/);
+  });
 });

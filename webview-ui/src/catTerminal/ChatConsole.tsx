@@ -6,22 +6,31 @@ import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import { JobCard, type JobCardActions } from '../ceoDesk/JobCard.js';
 import { Markdown } from '../components/taskBoard/Markdown.js';
 import { Button } from '../components/ui/Button.js';
+import { CopyButton } from '../components/ui/CopyButton.js';
 import { sessionToken } from '../sessionToken.js';
-import { type CatConsoleState, type ConsoleRow, type ToolEntry, toRows } from './consoleState.js';
+import {
+  type CatConsoleState,
+  type ConsoleRow,
+  relativeTime,
+  type ToolEntry,
+  toRows,
+} from './consoleState.js';
+import { ImageLightbox } from './ImageLightbox.js';
 
+const CLOCK_TICK_MS = 30_000;
+
+/** A run of tool calls: one grey line ("Used 3 tools >") that opens to the list. */
 function ToolRow({ tools }: { tools: ToolEntry[] }) {
-  const names = [...new Set(tools.map((t) => t.name))].join(', ');
-  const label = tools.length === 1 ? '1 tool call' : `${tools.length} tool calls`;
+  const label = tools.length === 1 ? 'Used 1 tool' : `Used ${tools.length} tools`;
   return (
-    <details className="self-start max-w-full text-xs border-l-2 border-status-active pl-6">
-      <summary className="cursor-pointer text-text-muted truncate">
-        <span className="text-status-active">{label}</span>{' '}
-        <span className="prose-code">{names}</span>
+    <details className="tool-row self-start max-w-full prose-body prose-small text-text-muted">
+      <summary className="cursor-pointer hover:text-text list-none">
+        {label} <span className="tool-row-chevron">&gt;</span>
       </summary>
-      <div className="prose-code flex flex-col gap-2 mt-4 text-text-muted">
+      <div className="prose-code flex flex-col gap-2 mt-4 pl-8 border-l-2 border-border">
         {tools.map((t, n) => (
           <div key={n} className="break-all">
-            <span className="text-status-active">{t.name} </span>
+            <span className="text-text">{t.name} </span>
             <span>{t.text}</span>
           </div>
         ))}
@@ -30,11 +39,43 @@ function ToolRow({ tools }: { tools: ToolEntry[] }) {
   );
 }
 
-/** A desk tool row: one readable line ("Started job a1b2 → Team (Oliver)"). */
+/** The time now, re-read every half minute while `on` (the "2 min ago" labels). */
+function useNow(on: boolean): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!on) return;
+    const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
+    return () => clearInterval(timer);
+  }, [on]);
+  return now;
+}
+
+/** Under a reply: copy it, and when it came ("2 min ago"). Shown on hover, always on the last reply. */
+function ReplyActions({ text, at, last }: { text: string; at?: number; last?: boolean }) {
+  const now = useNow(at !== undefined);
+  return (
+    <div
+      className={`reply-actions flex items-center gap-8 text-text-muted -ml-4 ${last ? 'is-last' : ''}`}
+      data-testid="reply-actions"
+    >
+      <CopyButton text={() => text} title="Copy the reply" testId="reply-copy" />
+      {at !== undefined && (
+        <span
+          className="prose-body prose-small text-text-muted"
+          title={new Date(at).toLocaleString()}
+        >
+          {relativeTime(at, now)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** A desk tool row: one readable line ("Gave the job to Oliver's team"). */
 function ActionRow({ tool }: { tool: ToolEntry }) {
   return (
     <div
-      className="self-start max-w-full prose-body prose-small text-text-muted border-l-2 border-status-active pl-8 break-words"
+      className="self-start max-w-full prose-body prose-small text-text-muted break-words"
       title={tool.name}
       data-testid="desk-action"
     >
@@ -48,23 +89,37 @@ function attachmentHref(url: string): string {
   return sessionToken ? `${url}?token=${encodeURIComponent(sessionToken)}` : url;
 }
 
-/** The files of a sent message: thumbnails that open the image, chips that download the file. */
+/** The files of a sent message: thumbnails that open in the lightbox, chips that download the file. */
 function SentAttachments({ files }: { files: CeoAttachment[] }) {
+  const [open, setOpen] = useState<CeoAttachment | null>(null);
   return (
     <div
       className="self-end flex flex-wrap justify-end gap-6 max-w-[85%]"
       data-testid="sent-attachments"
     >
+      {open && (
+        <ImageLightbox
+          src={attachmentHref(open.url)}
+          alt={open.name}
+          onClose={() => setOpen(null)}
+        />
+      )}
       {files.map((f, n) =>
         f.image ? (
-          <a key={n} href={attachmentHref(f.url)} target="_blank" rel="noreferrer" title={f.name}>
+          <button
+            key={n}
+            type="button"
+            onClick={() => setOpen(f)}
+            title={`${f.name}: click to enlarge`}
+            className="p-0 bg-transparent border-0 cursor-zoom-in"
+          >
             <img
               src={attachmentHref(f.url)}
               alt={f.name}
-              className="max-w-[160px] max-h-[120px] border-2 border-accent block"
+              className="max-w-[160px] max-h-[120px] border-2 border-border hover:border-accent rounded-[8px] block"
               data-testid="sent-thumb"
             />
-          </a>
+          </button>
         ) : (
           <a
             key={n}
@@ -84,11 +139,17 @@ function SentAttachments({ files }: { files: CeoAttachment[] }) {
 
 export function MessageRow({
   entry,
+  replyEnd,
+  lastReply,
   onOpenPromptHistory,
   job,
   onLogin,
 }: {
   entry: Exclude<CatSessionEntry, ToolEntry>;
+  /** The last text of a reply: copy and time show under it (on hover). */
+  replyEnd?: boolean;
+  /** The newest reply of the chat: its copy and time always show. */
+  lastReply?: boolean;
   onOpenPromptHistory?: (catId: string) => void;
   /** Job card actions (CEO desk); without them a job row is its one-line text. */
   job?: JobCardActions;
@@ -120,7 +181,7 @@ export function MessageRow({
   }
   if (entry.kind === 'user') {
     const bubble = entry.text && (
-      <div className="self-end max-w-[85%] prose-measure bg-active-bg border-2 border-accent px-10 py-6 shadow-pixel prose-body whitespace-pre-wrap break-words">
+      <div className="self-end max-w-[85%] prose-measure bg-btn-bg border-2 border-border rounded-[12px] px-12 py-6 prose-body whitespace-pre-wrap break-words">
         {entry.text}
       </div>
     );
@@ -146,9 +207,14 @@ export function MessageRow({
       </div>
     );
   }
+  // A reply is plain prose, no box (the Claude app look).
   return (
-    <div className="self-start max-w-[92%] prose-measure bg-btn-bg border-2 border-border px-12 py-8 shadow-pixel break-words">
+    <div
+      className="reply self-stretch prose-measure flex flex-col gap-6 break-words"
+      data-testid="reply"
+    >
       <Markdown text={entry.text} />
+      {replyEnd && <ReplyActions text={entry.text} at={entry.at} last={lastReply} />}
     </div>
   );
 }
@@ -170,6 +236,8 @@ export function ConsoleRowView({
   return (
     <MessageRow
       entry={row.entry}
+      replyEnd={row.replyEnd}
+      lastReply={row.lastReply}
       onOpenPromptHistory={onOpenPromptHistory}
       job={job}
       onLogin={onLogin}

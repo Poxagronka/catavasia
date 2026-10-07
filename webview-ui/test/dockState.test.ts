@@ -25,6 +25,7 @@ import {
   parseSavedDock,
   queuedRows,
   setCollapsed,
+  settingLabel,
   shortFolder,
   statusPill,
   unreadCount,
@@ -251,5 +252,13 @@ describe('status and queue', () => {
     expect(shortFolder('/home/me/proj')).toBe('~/proj');
     expect(shortFolder('/srv/proj')).toBe('/srv/proj');
     expect(shortFolder(null)).toBe('Sandbox');
+  });
+
+  it('labels the CEO model and effort under the composer', () => {
+    expect(settingLabel('opus')).toBe('Opus');
+    expect(settingLabel('medium')).toBe('Medium');
+    expect(settingLabel('xhigh')).toBe('Extra high');
+    expect(settingLabel('claude-opus-5-5')).toBe('Opus 5.5');
+    expect(settingLabel('claude-sonnet-5-1-20260901')).toBe('Sonnet 5.1');
   });
 });

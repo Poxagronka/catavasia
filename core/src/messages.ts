@@ -294,6 +294,7 @@ export interface EngineStatus {
   version?: string;
   loggedIn?: boolean;
   detail?: string;
+  apiKey?: boolean;
 }
 
 export interface CatProfileSaved {

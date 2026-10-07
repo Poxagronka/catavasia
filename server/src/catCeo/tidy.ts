@@ -239,12 +239,13 @@ export class CatTidy {
         applied.length ? `tidied ${count(applied.length, 'item')}` : 'nothing to tidy',
         ...(marked ? [`${marked} marked for you`] : []),
       ].join(', ');
-      this.tell(catId, 'done', `${catId}: ${text}${cost(costUsd)}`, {
+      // No cost in the texts: the UI shows money only to API-key users (structured costUsd).
+      this.tell(catId, 'done', `${catId}: ${text}`, {
         ...(sha ? { sha } : {}),
         changed: applied.length,
         ...(costUsd !== undefined ? { costUsd } : {}),
       });
-      this.host.log('text', `Tidy of ${catId}: ${text}. ${parsed.value.summary}${cost(costUsd)}`);
+      this.host.log('text', `Tidy of ${catId}: ${text}. ${parsed.value.summary}`);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       // A failed run still counts for the daily limit: no retry loop after every review.
@@ -258,7 +259,7 @@ export class CatTidy {
         rows: [],
         rejected: [],
       });
-      this.tell(catId, 'failed', `Tidy of ${catId} failed: ${error}${cost(costUsd)}`);
+      this.tell(catId, 'failed', `Tidy of ${catId} failed: ${error}`);
       this.host.log('error', `Tidy of ${catId}: ${error}`);
     } finally {
       this.host.working(false);
@@ -268,7 +269,6 @@ export class CatTidy {
 }
 
 const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const cost = (usd: number | undefined) => (usd === undefined ? '' : ` ($${usd.toFixed(3)})`);
 const cut = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 1)}…` : text);
 
 /** `cat-ceo(<cat>): tidy — merged N, rewrote M, removed K` with the changes and trailers. */

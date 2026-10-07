@@ -22,7 +22,7 @@ export const DESK_MCP_NAME = 'desk';
 
 /** A tool reply, plus the chat row that says what happened (on success). */
 export interface DeskToolResult extends OfficeToolResult {
-  /** "Started job a1b2 → Team (Oliver)". */
+  /** "Gave the job to Oliver's team". */
   row?: string;
   /** start_job: the new job, whose card follows the row. */
   jobId?: string;
@@ -131,7 +131,7 @@ export async function callDeskTool(
       const jobId = arg(args, 'jobId');
       const result = jobStatus(host, jobId);
       if (result.isError) return result;
-      return { ...result, row: jobId ? `Checked job ${jobId}` : 'Checked the jobs' };
+      return { ...result, row: jobId ? 'Checked the job' : 'Checked the jobs' };
     }
     case 'message_job': {
       const task = chatTask(host, arg(args, 'jobId'));
@@ -209,10 +209,11 @@ async function startJob(
     });
     if (task.status === 'error') return fail(`Job ${task.id} could not start: ${task.error}`);
     host.jobStarted(task, !!fromId, chatId);
-    const who = to === 'team' ? `Team (${lead.name})` : lead.name;
+    // The chat row reads as plain words, with no job id.
+    const who = to === 'team' ? `${lead.name}'s team` : lead.name;
     return {
       jobId: task.id,
-      row: `Started job ${task.id} → ${who}${fromId ? `, reworking job ${fromId}` : ''}`,
+      row: fromId ? `Gave the rework to ${who}` : `Gave the job to ${who}`,
       text: [
         `Job ${task.id} started: ${to === 'team' ? `Team: ${lead.name} leads` : lead.name}.`,
         `Folder: ${folder ?? 'none (sandbox)'}.`,

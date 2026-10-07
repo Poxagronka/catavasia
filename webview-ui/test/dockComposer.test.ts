@@ -102,3 +102,18 @@ test('a sent row shows thumbnails and chips; an auth error row offers Log in', (
   );
   assert.doesNotMatch(plain, /Log in/);
 });
+
+test('a reply is prose with no box; its last text offers Copy and the time', () => {
+  const at = Date.now() - 2 * 60_000;
+  const end = renderToStaticMarkup(
+    createElement(MessageRow, { entry: { kind: 'text', text: 'Done', at }, replyEnd: true }),
+  );
+  assert.match(end, /data-testid="reply"/);
+  assert.doesNotMatch(end, /border-2/);
+  assert.match(end, /data-testid="reply-copy"/);
+  assert.match(end, />2 min ago</);
+  const middle = renderToStaticMarkup(
+    createElement(MessageRow, { entry: { kind: 'text', text: 'Looking', at } }),
+  );
+  assert.doesNotMatch(middle, /reply-actions/);
+});

@@ -41,6 +41,12 @@ test.describe('Standalone / CEO dock', () => {
     await expect(log.getByText('Mock CEO: hello dock')).toBeVisible({ timeout: TURN_TIMEOUT_MS });
     await expect(log.locator('li', { hasText: 'second point' })).toBeVisible();
     await expect(log.locator('pre', { hasText: 'echo mock' })).toBeVisible();
+    // The Claude app look: a Copy button on the code block, Copy and the time under the reply.
+    await expect(log.getByTestId('code-copy')).toBeVisible();
+    await expect(log.getByTestId('reply-copy')).toBeVisible();
+    await expect(log.getByTestId('reply-actions')).toContainText('just now');
+    // A subscription login (authMethod claude.ai): no money anywhere in the dock.
+    await expect(dock).not.toContainText('$');
     await expect(input).toHaveValue('');
     await expect(page.getByTestId('dock-status')).toHaveText('idle');
 
@@ -101,6 +107,13 @@ test.describe('Standalone / CEO dock', () => {
     await expect
       .poll(() => thumb.evaluate((img) => (img as HTMLImageElement).naturalWidth))
       .toBe(40);
+    // A click enlarges the picture in the page; Esc closes it and keeps the dock open.
+    await thumb.click();
+    const lightbox = page.getByTestId('image-lightbox');
+    await expect(lightbox).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(lightbox).toBeHidden();
+    await expect(page.getByTestId('ceo-dock')).toBeVisible();
     await expect(log.getByTestId('sent-chip')).toContainText('notes.md');
   });
 

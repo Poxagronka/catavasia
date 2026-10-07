@@ -1,11 +1,13 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+import { CopyButton } from '../ui/CopyButton.js';
 
 /**
  * GitHub-flavored markdown for task results and chats: tables, headings,
  * lists (nested, task lists), blockquotes, code, strikethrough, links and
- * autolinks. Raw HTML in the source stays text (no rehype-raw), so agent
+ * autolinks; a code block has a copy button. Raw HTML in the source stays text (no rehype-raw), so agent
  * output can never inject markup. Links open in a new tab and only for
  * http(s) and mailto URLs. Any other scheme renders as plain text.
  * Element styles live in `.markdown` in index.css.
@@ -25,7 +27,7 @@ function SafeLink({ href, children }: { href?: string; children: ReactNode }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-accent-bright underline break-all"
+      className="text-link underline underline-offset-2 break-all"
     >
       {children}
     </a>
@@ -34,7 +36,25 @@ function SafeLink({ href, children }: { href?: string; children: ReactNode }) {
   );
 }
 
+/** A fenced code block with a Copy button in its corner. */
+function CodeBlock({ children }: { children: ReactNode }) {
+  const pre = useRef<HTMLPreElement>(null);
+  return (
+    <div className="markdown-code">
+      <pre ref={pre}>{children}</pre>
+      <CopyButton
+        text={() => pre.current?.textContent ?? ''}
+        title="Copy the code"
+        label="Copy"
+        className="markdown-code-copy"
+        testId="code-copy"
+      />
+    </div>
+  );
+}
+
 const components: Components = {
+  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   a: ({ href, children }) => <SafeLink href={href}>{children}</SafeLink>,
   // An image never loads: a remote URL in agent output could leak data.
   // It renders as a link to the image instead.
