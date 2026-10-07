@@ -19,7 +19,8 @@ gives each item one of three schemes (`getRotationScheme`):
 | `symmetric` | `"rotationScheme": "symmetric"` on the manifest root | accepted, nothing changes, the banner says "Looks the same turned"                   |
 
 - Pick `symmetric` only when the art looks the same flipped, or when it must
-  not flip (lettering: `CEO_PLAQUE`, `CLOCK`, `WHITEBOARD`).
+  not flip (lettering: `CEO_PLAQUE`, `CLOCK`, `WHITEBOARD`; a masterpiece:
+  the `PAINTING_*` homages).
 - `rotateFurniture()` (`editor/editorActions.ts`) checks `canPlaceFurniture`
   with the turned type. If the turned footprint overlaps something or leaves
   the room, the item stays and the banner says "No room to turn it here".
@@ -117,7 +118,7 @@ pass `rotationScheme` through for single-asset manifests too.
 ## 8. Generators
 
 Art is code: `scripts/generate-*-sprites.mjs` with art modules in
-`scripts/<group>/` (toys, beds, coffee, executive, petCare). Each writes the
+`scripts/<group>/` (toys, beds, coffee, executive, petCare, paintings). Each writes the
 PNGs and `manifest.json` of its items. Pass `rotationScheme` and views through
 the generator, never by hand-editing generated manifests. Cat poses for a new
 activity go in `scripts/cats/*Poses.mjs` and are rendered by

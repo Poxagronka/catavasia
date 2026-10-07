@@ -1,0 +1,14 @@
+{
+  "id": "PAINTING_ROTHKO",
+  "name": "Rust and Blue (after Rothko)",
+  "category": "wall",
+  "type": "asset",
+  "rotationScheme": "symmetric",
+  "canPlaceOnWalls": true,
+  "canPlaceOnSurfaces": false,
+  "backgroundTiles": 0,
+  "width": 32,
+  "height": 32,
+  "footprintW": 2,
+  "footprintH": 2
+}
