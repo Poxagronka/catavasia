@@ -181,13 +181,24 @@ test.describe('Standalone / CEO dock', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('dock-usage-menu')).toBeHidden();
 
-    // The permission mode label opens the CEO's mode picker.
+    // The permission mode label opens the CEO's mode menu: four rows, a check on the current one.
     await expect(page.getByTestId('dock-mode')).toHaveText('Auto');
     await page.getByTestId('dock-mode').click();
-    await expect(page.getByTestId('dock-mode-menu').getByTestId('permission-mode')).toBeVisible();
-    await page.getByTestId('dock-mode-menu').locator('select').selectOption('ask');
+    const modeMenu = page.getByTestId('dock-mode-menu');
+    await expect(modeMenu.getByRole('menuitemradio')).toHaveCount(4);
+    await expect(page.getByTestId('dock-mode-auto')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('dock-mode-ask').click();
+    await expect(modeMenu).toBeHidden();
     await expect(page.getByTestId('dock-mode')).toHaveText('Ask before actions');
+    // Keyboard: the arrows move from the current row, Enter picks, Esc closes.
+    await page.getByTestId('dock-mode').click();
+    await expect(page.getByTestId('dock-mode-ask')).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('dock-mode')).toHaveText('Auto');
+    await page.getByTestId('dock-mode').click();
     await page.keyboard.press('Escape');
+    await expect(modeMenu).toBeHidden();
 
     // Model and effort are pickers that change the CEO's settings.
     await page.getByTestId('dock-model').click();
