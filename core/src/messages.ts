@@ -279,7 +279,7 @@ export interface PromptItem {
 
 export type CatEngine = 'claude' | 'codex';
 
-export type PermissionMode = 'auto' | 'ask' | 'bypass' | 'readOnly';
+export type PermissionMode = 'auto' | 'ask' | 'acceptEdits' | 'plan' | 'bypass' | 'readOnly';
 
 export interface EngineOptions {
   engine: CatEngine;

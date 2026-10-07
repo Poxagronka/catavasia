@@ -8,7 +8,7 @@ import {
 import { Select } from './AgentFields.js';
 
 /**
- * The permission mode picker of a cat and of the Cat CEO: the four modes in
+ * The permission mode picker of a cat and of the Cat CEO: the modes in
  * plain words, with one line under it that says what the picked mode does
  * (and when this model runs Auto as Bypass).
  */

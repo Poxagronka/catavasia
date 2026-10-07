@@ -10,7 +10,11 @@ import {
   resolveExecutable,
 } from '../src/orchestrator/claudeAdapter.js';
 import { claudeUserMessage } from '../src/orchestrator/claudeSession.js';
-import type { PermissionAsk, TurnRequest } from '../src/orchestrator/engineAdapter.js';
+import type {
+  PermissionAnswer,
+  PermissionAsk,
+  TurnRequest,
+} from '../src/orchestrator/engineAdapter.js';
 
 const PNG = Buffer.from('89504e470d0a1a0a0000', 'hex');
 
@@ -90,6 +94,41 @@ describe('claudeTurnOptions', () => {
     });
     expect(mode('auto', 'haiku')).toMatchObject({ permissionMode: 'bypassPermissions' });
     expect(mode('auto', 'claude-sonnet-4-6')).toMatchObject({ permissionMode: 'auto' });
+    // Accept edits and Plan mode are the SDK's own modes; both keep the questions.
+    expect(mode('acceptEdits')).toMatchObject({ permissionMode: 'acceptEdits' });
+    expect(mode('acceptEdits').canUseTool).toBeTypeOf('function');
+    expect(mode('plan')).toMatchObject({ permissionMode: 'plan' });
+    expect(mode('plan').canUseTool).toBeTypeOf('function');
+    expect(mode('readOnly').canUseTool).toBeUndefined();
+  });
+
+  it('answers ExitPlanMode with each plan choice: Approve switches the mode, Keep planning denies', async () => {
+    let answer: PermissionAnswer = { mode: 'acceptEdits' };
+    const opts = claudeTurnOptions(req({ ...files(), askPermission: async () => answer }), 'c');
+    const base = { signal: new AbortController().signal, toolUseID: 't', requestId: 'r' };
+    const input = { plan: '1. Write hello.txt', planFilePath: '/p/plan.md' };
+    const setMode = (mode: string) => [{ type: 'setMode', mode, destination: 'session' }];
+    expect(await opts.canUseTool!('ExitPlanMode', input, base)).toEqual({
+      behavior: 'allow',
+      updatedInput: input,
+      updatedPermissions: setMode('acceptEdits'),
+    });
+    answer = { mode: 'ask' };
+    expect(await opts.canUseTool!('ExitPlanMode', input, base)).toEqual({
+      behavior: 'allow',
+      updatedInput: input,
+      updatedPermissions: setMode('default'),
+    });
+    answer = { keepPlanning: '  Add a test step. ' };
+    expect(await opts.canUseTool!('ExitPlanMode', input, base)).toEqual({
+      behavior: 'deny',
+      message: 'The user did not approve the plan. Keep planning: Add a test step.',
+    });
+    answer = { keepPlanning: '' };
+    expect(await opts.canUseTool!('ExitPlanMode', input, base)).toEqual({
+      behavior: 'deny',
+      message: 'The user did not approve the plan. Keep planning.',
+    });
   });
 
   it("opens Take the wheel in the cat's permission mode (claude --help: --permission-mode)", () => {
@@ -101,6 +140,7 @@ describe('claudeTurnOptions', () => {
     });
     expect(wheel('ask').args).toEqual(['--resume', 'sid', '--permission-mode', 'default']);
     expect(wheel('bypass').args).toEqual(['--resume', 'sid', '--dangerously-skip-permissions']);
+    expect(wheel('plan').args).toEqual(['--resume', 'sid', '--permission-mode', 'plan']);
     expect(wheel('readOnly').args).toEqual([
       '--resume',
       'sid',

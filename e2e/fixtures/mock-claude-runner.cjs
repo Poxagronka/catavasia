@@ -511,7 +511,9 @@ function idFlag(argv, name) {
  * init, one assistant message, the result. The answer echoes the user's words, plus a markdown list and a
  * code block. "ask: <command>" first asks can_use_tool for a Bash call and
  * says the answer. "question: <text>" asks it for AskUserQuestion and says
- * the answers the tool got. "stream: <text>" with --include-partial-messages
+ * the answers the tool got. "plan: <step>" asks it for ExitPlanMode with a
+ * markdown plan, says the answer, and on a `setMode` switches its mode (a
+ * status line, as CLI 2.1.293 does). "stream: <text>" with --include-partial-messages
  * first sends the text as deltas, with a pause halfway, and a TypeScript block.
  */
 async function headlessTurn(argv) {
@@ -591,18 +593,21 @@ async function mockTurn(argv, first, out, io) {
   const started = job ? await callDeskTool(argv, 'start_job', { task: job[1] }) : undefined;
   const ask = /^ask: (.+)$/.exec(said);
   const question = /^question: (.+)$/.exec(said);
+  const plan = /^plan: (.+)$/.exec(said);
   let answer;
-  if (ask || question) {
+  if (ask || question || plan) {
     const reply = new Promise((resolve) => (io.answered = resolve));
     out({
       type: 'control_request',
       request_id: 'mock-ask',
       request: {
         subtype: 'can_use_tool',
-        tool_name: ask ? 'Bash' : 'AskUserQuestion',
+        tool_name: ask ? 'Bash' : plan ? 'ExitPlanMode' : 'AskUserQuestion',
         input: ask
           ? { command: ask[1] }
-          : {
+          : plan
+            ? { plan: `## The plan\n\n- ${plan[1]}\n- Run the tests` }
+            : {
               questions: [
                 {
                   question: question[1],
@@ -619,10 +624,16 @@ async function mockTurn(argv, first, out, io) {
       },
     });
     const got = await reply;
+    const mode = got.updatedPermissions && got.updatedPermissions[0].mode;
+    if (plan && mode) {
+      out({ type: 'system', subtype: 'status', status: null, permissionMode: mode, session_id: sessionId });
+    }
     answer =
       got.updatedInput && got.updatedInput.answers
         ? `${got.behavior} ${JSON.stringify(got.updatedInput.answers)}`
-        : got.behavior;
+        : plan
+          ? `${got.behavior} ${mode || got.message}`
+          : got.behavior;
   }
   const text = [
     `Mock CEO: ${said.replace(/\[Attached [^\n]*\n?/g, '').trim()}`,

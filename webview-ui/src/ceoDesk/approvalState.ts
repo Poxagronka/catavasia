@@ -1,6 +1,6 @@
 /** Pure helpers of the approval and question cards (ApprovalCard, QuestionCard). */
 
-import type { CeoQuestion } from '../../../core/src/ceoDesk.js';
+import type { CeoApprovalAnswer, CeoQuestion } from '../../../core/src/ceoDesk.js';
 
 /** "14:32": when an unanswered card counts as No. */
 export function deadline(expiresAt: number): string {
@@ -38,4 +38,14 @@ export function togglePick(q: CeoQuestion, pick: QuestionPick, label: string): Q
     ? pick.picked.filter((l) => l !== label)
     : q.options.map((o) => o.label).filter((l) => l === label || pick.picked.includes(l));
   return { ...pick, picked };
+}
+
+/** The plan card's choices (the CLI's ExitPlanMode dialog). */
+export type PlanChoice = 'acceptEdits' | 'ask' | 'keepPlanning';
+
+/** The wire answer of a plan choice: Approve switches the mode, Keep planning sends the words. */
+export function planAnswer(choice: PlanChoice, feedback: string): CeoApprovalAnswer {
+  return choice === 'keepPlanning'
+    ? { answer: 'deny', feedback: feedback.trim() }
+    : { answer: 'allow', mode: choice };
 }

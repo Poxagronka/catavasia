@@ -238,6 +238,12 @@ export const CLAUDE_SESSION_STATE_ENV = 'CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS';
 export const CLAUDE_TODO_TOOLS_ENV = 'CLAUDE_CODE_ENABLE_TODO_TOOLS';
 /** Body limit of POST /api/ceo/messages: 25 MB of files as base64, plus the text. */
 export const CEO_DESK_MESSAGE_BODY_LIMIT = 40 * 1024 * 1024;
+/** The `@` menu of the CEO dock: at most this many files per answer. */
+export const CEO_MENTION_MAX_FILES = 50;
+/** The longest `@` query the files route takes. */
+export const CEO_MENTION_QUERY_MAX = 200;
+/** stdout limit of `git ls-files` for the `@` menu (a big repo lists many files). */
+export const CEO_MENTION_GIT_MAX_BUFFER = 64 * 1024 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
 export const TASK_RESTORE_MAX_CATS = 6;
 /** Self-update: how long the old server stays up after spawning the new one,

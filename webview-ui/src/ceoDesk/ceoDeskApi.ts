@@ -13,6 +13,7 @@ import {
   type CeoCommandsResponse,
   type CeoConnectorAddRequest,
   type CeoConnectorsResponse,
+  type CeoFilesResponse,
   type CeoFolderCancelled,
   type CeoFolderResponse,
   type CeoFoldersResponse,
@@ -63,15 +64,11 @@ export const ceoDeskApi = {
     call<{ ok: boolean }>('PUT', `chats/${encodeURIComponent(id)}`, { title }),
   deleteChat: (id: string) => call<{ ok: boolean }>('DELETE', `chats/${encodeURIComponent(id)}`),
   /** The user's answer to an approval card (a cat or the CEO waits for it). */
-  answerApproval: (
-    id: string,
-    answer: CeoApprovalAnswer['answer'],
-    answers?: CeoApprovalAnswer['answers'],
-  ) =>
-    call<{ ok: boolean }>('POST', `approvals/${encodeURIComponent(id)}`, {
-      answer,
-      ...(answers ? { answers } : {}),
-    }),
+  answerApproval: (id: string, body: CeoApprovalAnswer) =>
+    call<{ ok: boolean }>('POST', `approvals/${encodeURIComponent(id)}`, body),
+  /** Files of the chat's folder for an `@` mention, best match first. */
+  files: (query: string) =>
+    call<CeoFilesResponse>('GET', 'files', undefined, `q=${encodeURIComponent(query)}`),
   /** The office's project: an absolute folder, or null for the sandbox. */
   setFolder: (path: string | null) => call<CeoFolderResponse>('PUT', 'folder', { path }),
   folders: () => call<CeoFoldersResponse>('GET', 'folders'),

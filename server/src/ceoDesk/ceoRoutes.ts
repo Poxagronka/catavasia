@@ -15,6 +15,7 @@ import {
   type CeoApprovalAnswer,
   type CeoChatRenameRequest,
   type CeoChatsResponse,
+  type CeoFilesResponse,
   type CeoFolderRequest,
   type CeoFolderResponse,
   type CeoFoldersResponse,
@@ -23,12 +24,27 @@ import {
   type CeoStopResponse,
 } from '../../../core/src/ceoDesk.js';
 import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
-import { CEO_DESK_MESSAGE_BODY_LIMIT, TASK_PROMPT_MAX_CHARS } from '../constants.js';
+import {
+  CEO_DESK_MESSAGE_BODY_LIMIT,
+  CEO_MENTION_MAX_FILES,
+  CEO_MENTION_QUERY_MAX,
+  TASK_PROMPT_MAX_CHARS,
+} from '../constants.js';
+import type { PermissionAnswer } from '../orchestrator/engineAdapter.js';
 import { inspectRepo, startHistory } from '../taskBoard/gitWorktree.js';
 import { attachmentFile } from './attachments.js';
 import type { CeoDesk } from './ceoDesk.js';
+import { listFolderFiles, matchFiles } from './fileMentions.js';
 import { dialogCommand, openFolderDialog } from './folderDialog.js';
 import { checkWorkFolder, newProjectPath } from './workFolder.js';
+
+/** The wire answer of a card as the engine's answer (Approvals.answer checks it fits the card). */
+function approvalAnswer(body: CeoApprovalAnswer): PermissionAnswer {
+  if (body.answer === 'allow' && body.answers) return { answers: body.answers };
+  if (body.answer === 'allow' && body.mode) return { mode: body.mode };
+  if (body.answer === 'deny' && body.feedback !== undefined) return { keepPlanning: body.feedback };
+  return body.answer;
+}
 
 export function registerCeoRoutes(
   app: FastifyInstance,
@@ -178,20 +194,38 @@ export function registerCeoRoutes(
           properties: {
             answer: { type: 'string', enum: ['allow', 'always', 'deny'] },
             answers: { type: 'object', additionalProperties: { type: 'string' } },
+            mode: { type: 'string', enum: ['acceptEdits', 'ask'] },
+            feedback: { type: 'string', maxLength: TASK_PROMPT_MAX_CHARS },
           },
           required: ['answer'],
         },
       },
     },
     async (request, reply) =>
-      desk.answerApproval(
-        request.params.id,
-        request.body.answer === 'allow' && request.body.answers
-          ? { answers: request.body.answers }
-          : request.body.answer,
-      )
+      desk.answerApproval(request.params.id, approvalAnswer(request.body))
         ? { ok: true }
         : reply.code(404).send({ error: 'This question is no longer open' }),
+  );
+
+  // The `@` menu: files of the folder the chat's turns run in, never a path the caller names.
+  app.get<{ Querystring: { q?: string } }>(
+    `${CEO_API_PREFIX}/files`,
+    {
+      onRequest,
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: { q: { type: 'string', maxLength: CEO_MENTION_QUERY_MAX } },
+        },
+      },
+    },
+    async (request): Promise<CeoFilesResponse> => ({
+      files: matchFiles(
+        await listFolderFiles(desk.cwd),
+        request.query.q ?? '',
+        CEO_MENTION_MAX_FILES,
+      ),
+    }),
   );
 
   // ── The office's project (the Project button of the bottom bar) ──

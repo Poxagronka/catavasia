@@ -53,6 +53,25 @@ describe('approval cards', () => {
     expect(changes).toBe(2);
   });
 
+  it('shows ExitPlanMode as a plan card; a plan choice on another card is a plain answer', async () => {
+    const approvals = new Approvals();
+    const plan = approvals.ask(
+      LUNA,
+      ask({ toolName: 'ExitPlanMode', input: { plan: '# Plan\n1. Write', planFilePath: '/p.md' } }),
+    );
+    const card = approvals.list()[0];
+    expect(card).toMatchObject({ plan: '# Plan\n1. Write', detail: '', canAlwaysAllow: false });
+    approvals.answer(card.id, { mode: 'acceptEdits' });
+    expect(await plan).toEqual({ mode: 'acceptEdits' });
+
+    const bash = approvals.ask(LUNA, ask());
+    approvals.answer(approvals.list()[0].id, { mode: 'acceptEdits' });
+    expect(await bash).toBe('allow');
+    const write = approvals.ask(LUNA, ask({ toolName: 'Write' }));
+    approvals.answer(approvals.list()[0].id, { keepPlanning: 'no' });
+    expect(await write).toBe('deny');
+  });
+
   it('turns Always allow into Allow when the engine offered no rule', async () => {
     const approvals = new Approvals();
     const answer = approvals.ask(LUNA, ask({ canAlwaysAllow: false }));

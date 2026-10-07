@@ -16,7 +16,8 @@ import type {
   CanUseTool,
   McpServerConfig,
   Options,
-  PermissionMode as SdkPermissionMode,
+  PermissionResult,
+  PermissionUpdate,
 } from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -32,12 +33,14 @@ import {
   claudeUserMessage,
   errorText,
   openClaudeSession,
+  SDK_MODES,
   STDERR_TAIL_CHARS,
 } from './claudeSession.js';
 import type {
   CompactInfo,
   LiveSession,
   OfficeMcpEndpoint,
+  PermissionAnswer,
   SessionEngine,
   SessionRequest,
   TurnHandle,
@@ -94,15 +97,47 @@ function agentsMdText(cwd: string): string | undefined {
   return `Project instructions (AGENTS.md):\n\n${agents}`;
 }
 
-/** Our modes as Claude Code permission modes (Read only: `dontAsk` denies all but reads). */
-const SDK_MODES: Record<PermissionMode, SdkPermissionMode> = {
-  auto: 'auto',
-  ask: 'default',
-  bypass: 'bypassPermissions',
-  readOnly: 'dontAsk',
-};
 /** Read only also allows these (Claude Code's own read tools need no rule). */
 const READ_ONLY_TOOLS = ['WebFetch', 'WebSearch'];
+
+/**
+ * The SDK's answer to one permission question. An approved plan switches the
+ * mode with the allow itself (a `setMode` update, as the CLI's own plan
+ * dialog does), so no edit runs in the old mode.
+ */
+export function permissionResult(
+  answer: PermissionAnswer,
+  input: Record<string, unknown>,
+  suggestions: PermissionUpdate[] | undefined,
+  canAlwaysAllow: boolean,
+): PermissionResult {
+  if (answer === 'deny') return { behavior: 'deny', message: 'The user did not allow this.' };
+  if (typeof answer === 'object' && 'keepPlanning' in answer) {
+    const words = answer.keepPlanning.trim();
+    return {
+      behavior: 'deny',
+      message: `The user did not approve the plan. Keep planning${words ? `: ${words}` : '.'}`,
+    };
+  }
+  if (typeof answer === 'object' && 'mode' in answer) {
+    return {
+      behavior: 'allow',
+      updatedInput: input,
+      updatedPermissions: [
+        { type: 'setMode', mode: SDK_MODES[answer.mode], destination: 'session' },
+      ],
+    };
+  }
+  // AskUserQuestion takes the answers in its input (SDK AskUserQuestionInput.answers).
+  if (typeof answer === 'object') {
+    return { behavior: 'allow', updatedInput: { ...input, answers: answer.answers } };
+  }
+  return {
+    behavior: 'allow',
+    updatedInput: input,
+    ...(answer === 'always' && canAlwaysAllow ? { updatedPermissions: suggestions } : {}),
+  };
+}
 
 /**
  * The Agent SDK options of one turn: Claude Code's own system prompt with the
@@ -136,16 +171,7 @@ export function claudeTurnOptions(req: TurnSetup, executable: string): Options {
           folders: [req.cwd, ...(req.addDirs ?? [])],
         })
       : 'deny';
-    if (answer === 'deny') return { behavior: 'deny', message: 'The user did not allow this.' };
-    // AskUserQuestion takes the answers in its input (SDK AskUserQuestionInput.answers).
-    if (typeof answer === 'object') {
-      return { behavior: 'allow', updatedInput: { ...input, answers: answer.answers } };
-    }
-    return {
-      behavior: 'allow',
-      updatedInput: input,
-      ...(answer === 'always' && canAlwaysAllow ? { updatedPermissions: opts.suggestions } : {}),
-    };
+    return permissionResult(answer, input, opts.suggestions, canAlwaysAllow);
   };
   return {
     pathToClaudeCodeExecutable: executable,
@@ -161,7 +187,8 @@ export function claudeTurnOptions(req: TurnSetup, executable: string): Options {
     permissionMode: SDK_MODES[mode],
     ...(mode === 'bypass' ? { allowDangerouslySkipPermissions: true } : {}),
     ...(mode === 'readOnly' ? { allowedTools: [...READ_ONLY_TOOLS, ...ownTools] } : {}),
-    ...(mode === 'auto' || mode === 'ask' ? { canUseTool } : {}),
+    // Every mode that may ask keeps it: a mode switch then needs no new process.
+    ...(mode !== 'bypass' && mode !== 'readOnly' ? { canUseTool } : {}),
     ...(req.partialText ? { includePartialMessages: true } : {}),
   };
 }

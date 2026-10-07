@@ -172,6 +172,8 @@ export interface CeoApproval {
   expiresAt: number;
   /** Claude's AskUserQuestion: the card shows these questions, not Allow / Deny. */
   questions?: CeoQuestion[];
+  /** Claude's ExitPlanMode: the plan (markdown); the card offers the CLI's plan choices. */
+  plan?: string;
 }
 
 /** One question of Claude Code's AskUserQuestion tool (SDK `AskUserQuestionInput`). */
@@ -189,6 +191,15 @@ export interface CeoApprovalAnswer {
   answer: 'allow' | 'always' | 'deny';
   /** A question card's answers (with `allow`): question text -> answer, picks comma-separated. */
   answers?: Record<string, string>;
+  /** The plan card's Approve (with `allow`): the session goes on in this mode. */
+  mode?: 'acceptEdits' | 'ask';
+  /** The plan card's Keep planning (with `deny`): optional words for Claude. */
+  feedback?: string;
+}
+
+/** GET /api/ceo/files?q=: files of the chat's folder for an `@` mention, best match first. */
+export interface CeoFilesResponse {
+  files: string[];
 }
 
 /**

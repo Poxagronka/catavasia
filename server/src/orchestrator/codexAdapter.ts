@@ -70,7 +70,9 @@ export function tomlString(text: string): string {
  * Auto = `--approve-for-me` (on-request approvals that Codex's own reviewer
  * answers, workspace-write sandbox); Ask = workspace-write and never ask (a
  * background run has nobody to ask, so more is refused); Bypass = no sandbox,
- * no approvals; Read only = read-only sandbox.
+ * no approvals; Read only = read-only sandbox. Accept edits runs as Ask (it
+ * may change files, nothing more); Codex has no plan mode, so Plan runs as
+ * Read only.
  */
 export function codexModeArgs(mode: PermissionMode = DEFAULT_PERMISSION_MODE): string[] {
   const config = (pairs: Record<string, string>) =>
@@ -85,8 +87,10 @@ export function codexModeArgs(mode: PermissionMode = DEFAULT_PERMISSION_MODE): s
         approvals_reviewer: 'auto_review',
       });
     case 'ask':
+    case 'acceptEdits':
       return config({ sandbox_mode: 'workspace-write', approval_policy: 'never' });
     case 'readOnly':
+    case 'plan':
       return config({ sandbox_mode: 'read-only', approval_policy: 'never' });
   }
 }

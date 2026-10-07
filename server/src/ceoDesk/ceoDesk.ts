@@ -48,6 +48,7 @@ import {
   sessionSettings,
   takeTurnParts,
   type Turn,
+  turnCwd,
 } from './deskTurn.js';
 import { RECENT_FOLDERS_MAX, recentFolders } from './workFolder.js';
 
@@ -162,6 +163,11 @@ export class CeoDesk implements OfficeToolHandler {
 
   get folder(): string | null {
     return this.state.folder;
+  }
+
+  /** The folder the chat's next turn runs in (the `@` menu lists its files). */
+  get cwd(): string {
+    return turnCwd(this.state, this.store.chatDir(this.state.chatId));
   }
 
   /** Save the files of a message in this chat (attachments.ts checks the limits). */

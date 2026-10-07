@@ -66,6 +66,8 @@ export interface SessionRequest extends TurnSetup {
   onBusy: (busy: boolean) => void;
   /** Claude's guess of the user's next message (SDK `prompt_suggestion`, after a result). */
   onSuggestion?: (text: string) => void;
+  /** Claude Code itself changed the mode (an approved plan): the dock keeps it. */
+  onMode?: (mode: PermissionMode) => void;
 }
 
 /**
@@ -111,9 +113,20 @@ export interface PermissionAsk {
 
 /**
  * `always`: allow and keep the engine's suggested rule. `answers`: the user
- * answered AskUserQuestion (question text -> answer).
+ * answered AskUserQuestion (question text -> answer). `mode`: the user
+ * approved the plan (ExitPlanMode) and the session goes on in this mode.
+ * `keepPlanning`: the user refused the plan, with optional words for Claude.
  */
-export type PermissionAnswer = 'allow' | 'always' | 'deny' | { answers: Record<string, string> };
+export type PermissionAnswer =
+  | 'allow'
+  | 'always'
+  | 'deny'
+  | { answers: Record<string, string> }
+  | { mode: PlanApprovalMode }
+  | { keepPlanning: string };
+
+/** The modes the plan card can switch to (the CLI's two Approve choices). */
+export type PlanApprovalMode = Extract<PermissionMode, 'acceptEdits' | 'ask'>;
 
 export type ToolActivity =
   { toolId: string; toolName: string; status: string } | { toolId: string; done: true };

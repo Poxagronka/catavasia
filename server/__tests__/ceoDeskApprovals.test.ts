@@ -152,6 +152,49 @@ describe('CEO desk approvals', () => {
     expect(env.ceo.turns.map((t) => t.message).at(-1)).toBe('/compact');
   });
 
+  it('shows ExitPlanMode as a plan card; Approve and Keep planning go back through the route', async () => {
+    const got: PermissionAnswer[] = [];
+    env = await startDeskOffice(async ({ req }) => {
+      for (let n = 0; n < 2; n++) {
+        got.push(
+          await req.askPermission!({
+            toolName: 'ExitPlanMode',
+            input: { plan: '1. Write hello.txt' },
+            canAlwaysAllow: false,
+            signal: new AbortController().signal,
+          }),
+        );
+      }
+      return { text: 'planned' };
+    });
+    env.desk.send('plan it');
+    const { app } = env.server;
+    const answer = async (payload: object) => {
+      const card = await waitFor(() => env!.desk.snapshot().status.approvals?.[0]);
+      expect(card).toMatchObject({ plan: '1. Write hello.txt', action: 'start work on this plan' });
+      const url = `/api/ceo/approvals/${card.id}`;
+      const headers = { authorization: 'Bearer tok' };
+      return app.inject({ method: 'POST', url, headers, payload });
+    };
+    expect((await answer({ answer: 'allow', mode: 'bypass' })).statusCode).toBe(400);
+    expect((await answer({ answer: 'deny', feedback: 'Add tests' })).statusCode).toBe(200);
+    expect((await answer({ answer: 'allow', mode: 'acceptEdits' })).statusCode).toBe(200);
+    await deskIdle(env.desk);
+    expect(got).toEqual([{ keepPlanning: 'Add tests' }, { mode: 'acceptEdits' }]);
+  });
+
+  it("keeps the mode Claude Code switched to as the CEO's setting", async () => {
+    env = await startDeskOffice(({ req }) => {
+      req.onMode!('acceptEdits');
+      return { text: 'ok' };
+    });
+    // A model the fake CLI's catalog takes: the settings check runs on every save.
+    expect(env.office.ceo.update({ model: 'opus' })).toBeUndefined();
+    env.desk.send('go');
+    await deskIdle(env.desk);
+    expect(env.office.ceo.settings.permissionMode).toBe('acceptEdits');
+  });
+
   it('answers on a card without questions count as a plain Allow', async () => {
     env = await startDeskOffice(() => ({ text: 'ok' }));
     const luna = env.office.cats.list().find((c) => c.id === 'murka')!;

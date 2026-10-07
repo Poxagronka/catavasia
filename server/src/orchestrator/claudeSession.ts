@@ -12,6 +12,7 @@
 
 import type {
   Options,
+  PermissionMode as SdkPermissionMode,
   Query,
   SDKMessage,
   SDKUserMessage,
@@ -20,6 +21,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import type { PermissionMode } from '../../../core/src/messages.js';
 import { CLAUDE_SESSION_STATE_ENV, CLAUDE_TODO_TOOLS_ENV } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import { officeLimits } from '../usageLimits.js';
@@ -32,6 +34,21 @@ import type {
 } from './engineAdapter.js';
 
 export const STDERR_TAIL_CHARS = 2000;
+
+/** Our modes as Claude Code permission modes (Read only: `dontAsk` denies all but reads). */
+export const SDK_MODES: Record<PermissionMode, SdkPermissionMode> = {
+  auto: 'auto',
+  ask: 'default',
+  acceptEdits: 'acceptEdits',
+  plan: 'plan',
+  bypass: 'bypassPermissions',
+  readOnly: 'dontAsk',
+};
+
+/** Our mode of a Claude Code mode. */
+const OUR_MODES = Object.fromEntries(
+  Object.entries(SDK_MODES).map(([ours, sdk]) => [sdk, ours as PermissionMode]),
+) as Record<SdkPermissionMode, PermissionMode>;
 
 const IMAGE_MEDIA_TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -127,6 +144,7 @@ export function openClaudeSession(
   }
 
   let options = optionsFor(req);
+  let modeCalls = 0;
   let query: Query | undefined;
   let queryStarted: (q: Query) => void = () => {};
   const ready = new Promise<Query>((resolve) => (queryStarted = resolve));
@@ -161,6 +179,15 @@ export function openClaudeSession(
     officeLimits.observe(line);
     req.onLine?.(line);
     if (message.type === 'prompt_suggestion') req.onSuggestion?.(message.suggestion);
+    // The CLI changed its own mode (an approved plan switches it). A status
+    // while our own switch is on its way is that switch, not a new one.
+    if (message.type === 'system' && message.subtype === 'status' && message.permissionMode) {
+      const mode = message.permissionMode;
+      if (!modeCalls && mode !== options.permissionMode) {
+        options = { ...options, permissionMode: mode };
+        req.onMode?.(OUR_MODES[mode]);
+      }
+    }
     if (message.type === 'system' && message.subtype === 'session_state_changed') {
       stateEvents = true;
       setBusy(message.state !== 'idle' || unanswered.size > 0);
@@ -237,7 +264,8 @@ export function openClaudeSession(
       if (next.model !== was.model) control('model', (q) => q.setModel(next.model));
       if (next.permissionMode && next.permissionMode !== was.permissionMode) {
         const mode = next.permissionMode;
-        control('mode', (q) => q.setPermissionMode(mode));
+        modeCalls++;
+        control('mode', (q) => q.setPermissionMode(mode).finally(() => modeCalls--));
       }
       return true;
     },

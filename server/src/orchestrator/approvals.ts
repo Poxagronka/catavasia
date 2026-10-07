@@ -27,6 +27,7 @@ const ACTIONS: Record<string, string> = {
   Agent: 'start a helper',
   Task: 'start a helper',
   AskUserQuestion: 'ask you a question',
+  ExitPlanMode: 'start work on this plan',
 };
 
 /** The questions of an AskUserQuestion call, or undefined for any other tool. */
@@ -81,14 +82,19 @@ export class Approvals {
       timer.unref();
       ask.signal.addEventListener('abort', onAbort, { once: true });
       const questions = questionsOf(ask.toolName, ask.input);
+      const plan =
+        ask.toolName === 'ExitPlanMode' && typeof ask.input.plan === 'string'
+          ? ask.input.plan
+          : undefined;
       const approval: CeoApproval = {
         id,
         catId: who.catId,
         who: who.name,
         ...describeAction(ask.toolName, ask.input, ask.folders),
-        canAlwaysAllow: ask.canAlwaysAllow && !questions,
+        canAlwaysAllow: ask.canAlwaysAllow && !questions && plan === undefined,
         expiresAt: Date.now() + this.timeoutMs,
         ...(questions ? { questions, detail: '' } : {}),
+        ...(plan !== undefined ? { plan, detail: '' } : {}),
       };
       this.open.set(id, { approval, finish });
       this.events.emit('change');
@@ -99,11 +105,16 @@ export class Approvals {
   answer(id: string, answer: PermissionAnswer): boolean {
     const open = this.open.get(id);
     if (!open) return false;
-    // No rule to keep, or answers to a card without questions: a plain Allow.
+    // No rule to keep, answers to a card without questions, or a plan choice
+    // on a card without a plan: a plain Allow or Deny.
+    const card = open.approval;
     const plain =
-      (answer === 'always' && !open.approval.canAlwaysAllow) ||
-      (typeof answer === 'object' && !open.approval.questions);
-    open.finish(plain ? 'allow' : answer);
+      (answer === 'always' && !card.canAlwaysAllow) ||
+      (typeof answer === 'object' && 'answers' in answer && !card.questions) ||
+      (typeof answer === 'object' && 'mode' in answer && card.plan === undefined);
+    const refused =
+      typeof answer === 'object' && 'keepPlanning' in answer && card.plan === undefined;
+    open.finish(refused ? 'deny' : plain ? 'allow' : answer);
     return true;
   }
 
