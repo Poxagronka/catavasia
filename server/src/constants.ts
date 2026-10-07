@@ -227,6 +227,8 @@ export const CEO_DESK_CARD_THROTTLE_MS = 1000;
  * never waits forever (below the CEO turn timeout, CAT_CEO_TIMEOUT_MS).
  */
 export const APPROVAL_TIMEOUT_MS = 5 * 60_000;
+/** An ended CEO turn waits this long for Claude's prompt suggestion, then its process is killed. */
+export const CEO_SUGGESTION_WAIT_MS = 60_000;
 /** Body limit of POST /api/ceo/messages: 25 MB of files as base64, plus the text. */
 export const CEO_DESK_MESSAGE_BODY_LIMIT = 40 * 1024 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */

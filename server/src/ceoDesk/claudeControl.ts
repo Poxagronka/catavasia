@@ -1,8 +1,8 @@
 /**
  * Claude Code's own slash commands and MCP servers ("connectors") for the CEO
  * dock. Reads go through a short Agent SDK session that never sends a message,
- * so no model turn runs: initialize answers the commands, mcpServerStatus()
- * the servers. Checked on CLI 2.1.292 with a temp CLAUDE_CONFIG_DIR:
+ * so no model turn runs: initialize answers the commands (and the output
+ * styles, the choices of /output-style), mcpServerStatus() the servers. Checked on CLI 2.1.292 with a temp CLAUDE_CONFIG_DIR:
  *
  * - toggleMcpServer() persists in `projects[<folder>].disabledMcpServers` of
  *   the Claude config; a git worktree of the folder shares it, so the cats'
@@ -53,6 +53,15 @@ export function addArgs(req: CeoConnectorAddRequest): string[] {
     : [...head, req.name, '--', ...splitCommand(target)];
 }
 
+/**
+ * The fixed values of an argument hint: "[red|blue]" or "<on|off>" -> the
+ * words; a free hint ("<model>", "key=value") has none.
+ */
+function hintChoices(hint: string): string[] | undefined {
+  const words = /^[[<]([\w-]+(?:\|[\w-]+)+)[\]>]$/.exec(hint.trim());
+  return words?.[1].split('|');
+}
+
 /** The SDK's status rows as the dock shows them. */
 export function toConnectors(statuses: McpServerStatus[]): Connector[] {
   return statuses.map((s) => {
@@ -92,18 +101,25 @@ export class ClaudeControl {
   commands(cwd: string): Promise<DeskCommand[]> {
     const hit = this.commandCache.get(cwd);
     if (hit && this.now() - hit.at < COMMANDS_TTL_MS) return hit.list;
-    const list = this.session(cwd, (q) => q.supportedCommands()).then((all) =>
+    const list = this.session(cwd, (q) => q.initializationResult()).then((init) =>
       // `__name`: Claude Code's internal commands. "(removed) ...": a dead
       // command the CLI still lists (2.1.292: /agents).
-      all
+      init.commands
         .filter((c) => !c.name.startsWith('_') && !c.description.startsWith('(removed)'))
-        .map((c) => ({
-          name: c.name,
-          description: c.description,
-          argumentHint: c.argumentHint ?? '',
-          ...(c.aliases?.length ? { aliases: c.aliases } : {}),
-          ...(c.builtin ? { builtin: true } : {}),
-        })),
+        .map((c) => {
+          const choices =
+            c.name === 'output-style'
+              ? init.available_output_styles
+              : hintChoices(c.argumentHint ?? '');
+          return {
+            name: c.name,
+            description: c.description,
+            argumentHint: c.argumentHint ?? '',
+            ...(c.aliases?.length ? { aliases: c.aliases } : {}),
+            ...(c.builtin ? { builtin: true } : {}),
+            ...(choices?.length ? { choices } : {}),
+          };
+        }),
     );
     this.commandCache.set(cwd, { at: this.now(), list });
     list.catch(() => this.commandCache.delete(cwd));

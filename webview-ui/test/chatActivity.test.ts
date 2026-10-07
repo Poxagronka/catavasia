@@ -11,8 +11,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'vitest';
 
 import type { CatSessionEntry } from '../../core/src/catSession.js';
-import { activityLine, activitySummary, duration } from '../src/catTerminal/activityWords.js';
+import {
+  activityLine,
+  activitySummary,
+  duration,
+  stepIndex,
+} from '../src/catTerminal/activityWords.js';
 import { applyFrame, EMPTY_CONSOLE, toRows } from '../src/catTerminal/consoleState.js';
+import { ImageLightbox } from '../src/catTerminal/ImageLightbox.js';
 import { ToolRow } from '../src/catTerminal/ToolActivity.js';
 import { contextText, percent, resetText } from '../src/ceoDesk/dockState.js';
 
@@ -112,6 +118,47 @@ test('a tool run shows its summary, its calls, and the pictures it returned', ()
   assert.match(html, /did not work/);
   assert.match(html, /data-testid="tool-thumb"[^>]*|<img[^>]*tool-thumb/);
   assert.match(html, /\/api\/ceo\/attachments\/c-1\/x\.png/);
+});
+
+test("the lightbox steps through one call's pictures, round from the last to the first", () => {
+  assert.equal(stepIndex(0, 3, 1), 1);
+  assert.equal(stepIndex(2, 3, 1), 0);
+  assert.equal(stepIndex(0, 3, -1), 2);
+  assert.equal(stepIndex(1, 3, -1), 0);
+  const box = (onStep?: (step: 1 | -1) => void) =>
+    renderToStaticMarkup(
+      createElement(ImageLightbox, {
+        src: 'a.png',
+        alt: 'a',
+        onClose() {},
+        onStep,
+        counter: '1 / 3',
+      }),
+    );
+  assert.match(
+    box(() => {}),
+    /image-lightbox-prev[^]*image-lightbox-next/,
+  );
+  assert.match(
+    box(() => {}),
+    /1 \/ 3/,
+  );
+  assert.doesNotMatch(box(), /image-lightbox-prev|image-lightbox-next/);
+});
+
+test('the closed run keeps the pictures of each call in their own group', () => {
+  const pic = (n: number) => ({ name: `p${n}`, size: 1, image: true, url: `/x/${n}.png` });
+  const html = renderToStaticMarkup(
+    createElement(ToolRow, {
+      tools: [
+        tool('Read', 'a.png', { images: [pic(1), pic(2)] }),
+        tool('Read', 'b.png', { images: [pic(3)] }),
+      ] as never,
+    }),
+  );
+  // Two groups under the closed line, and the same two inside the calls of the open list.
+  assert.equal(html.match(/data-testid="tool-images"/g)?.length, 4);
+  assert.equal(html.match(/data-testid="tool-thumb"/g)?.length, 6);
 });
 
 test('the context ring and the limits in plain words', () => {

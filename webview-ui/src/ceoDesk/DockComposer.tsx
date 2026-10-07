@@ -11,6 +11,7 @@ import {
 import type { CeoAttachmentUpload, DeskCommand } from '../../../core/src/ceoDesk.js';
 import { AttachmentStrip } from './AttachmentStrip.js';
 import { attachError, type DraftAttachment } from './attachState.js';
+import { shownSuggestion } from './dockState.js';
 import { prepareAttachment, toUploads } from './prepareAttachment.js';
 import { catchCommand } from './slashCommands.js';
 import { SlashMenu } from './SlashMenu.js';
@@ -35,6 +36,8 @@ interface DockComposerProps {
   settings?: ReactNode;
   /** What "/" offers (Claude Code's commands); none: no menu. */
   commands?: DeskCommand[];
+  /** Claude's guess of the next message: ghost text in the empty box, Tab or a click takes it. */
+  suggestion?: string;
 }
 
 /** A quiet return arrow (the Claude app send glyph). */
@@ -82,6 +85,7 @@ export function DockComposer({
   mode,
   settings,
   commands = [],
+  suggestion,
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
@@ -93,6 +97,7 @@ export function DockComposer({
   filesRef.current = files;
   // Send is off, but a command the dock answers itself (/help, /model...) still works.
   const stopped = (text: string) => !!blocked && (files.length > 0 || !catchCommand(text));
+  const ghost = shownSuggestion(draft, files.length, suggestion);
   const canSend =
     !stopped(draft) && !sending && !preparing && (draft.trim() !== '' || files.length > 0);
 
@@ -157,6 +162,11 @@ export function DockComposer({
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (slash.onKeyDown(e)) return;
+    if (e.key === 'Tab' && !e.shiftKey && ghost) {
+      e.preventDefault();
+      onDraft(ghost);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       void submit();
@@ -211,7 +221,7 @@ export function DockComposer({
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           rows={2}
-          placeholder="Ask the CEO anything. Type / for commands."
+          placeholder={ghost ?? 'Ask the CEO anything. Type / for commands.'}
           className="flex-1 min-w-0 resize-none bg-transparent border-0 outline-none px-8 py-6 prose-body"
           data-testid="dock-input"
         />
@@ -254,7 +264,21 @@ export function DockComposer({
           <PlusIcon />
         </button>
         {mode}
-        <span className="flex-1 truncate">{preparing ? 'Preparing files...' : ''}</span>
+        <span className="flex-1 truncate">
+          {preparing
+            ? 'Preparing files...'
+            : ghost && (
+                <button
+                  type="button"
+                  className="quiet-btn"
+                  onClick={() => onDraft(ghost)}
+                  title={ghost}
+                  data-testid="dock-suggestion"
+                >
+                  Tab: use the suggestion
+                </button>
+              )}
+        </span>
         {settings}
       </div>
     </div>
