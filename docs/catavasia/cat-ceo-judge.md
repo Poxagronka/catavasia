@@ -22,14 +22,14 @@ Decisions made in this spec:
 | D3  | "Always on" = the Cat CEO character and its review queue are always present. Each review is a **fresh** `claude -p` process with `--no-session-persistence`. | The context policy keeps one session per unit of work ([context-policy.md](context-policy.md) §3). The RAM plan forbids resident processes (ROADMAP, Resource budget item 1). Memory between reviews is a bounded, server-built history block (§5.4), not chat history. |
 | D4  | The judge gets no tools (`--tools ""`) and no MCP. The server puts every input into one message.                                                             | Deterministic input, no side effects, smaller prefix, nothing to escape.                                                                                                                                                                                                |
 | D5  | Output is JSON validated by `--json-schema`. Prompt changes are structured item edits, never free rewrites.                                                  | The server can validate every edit before it touches a file.                                                                                                                                                                                                            |
-| D6  | Model `opus` (resolves to `claude-opus-5-5` on this machine), effort `high`, `--max-budget-usd 1` per review. The user can change model and effort.          | Judging needs the strongest model. The budget flag is a hard stop.                                                                                                                                                                                                      |
+| D6  | Model `opus` (resolves to `claude-opus-5-5` on this machine), effort `medium`, `--max-budget-usd 1` per review. The user can change model and effort.        | Judging needs the strongest model. The budget flag is a hard stop.                                                                                                                                                                                                      |
 | D7  | Rate limit: max 1 commit per cat per review, max 3 item changes per commit, max 2 Cat CEO commits per cat per rolling 24 h.                                  | An edit needs evidence from new tasks before the next one.                                                                                                                                                                                                              |
 | D8  | Regression guard: auto-revert a Cat CEO commit when the cat's mean score drops by 15 points or more over its next 3 reviewed assignments. Flag at 8–14.      | Edits must earn their place. User commits are never auto-reverted.                                                                                                                                                                                                      |
 | D9  | The review takes one slot of the global turn cap under cat id `cat-ceo`. Reviews run one at a time, FIFO, queue cap 10.                                      | Same RAM rule as the cats.                                                                                                                                                                                                                                              |
 
 ## 2. Place in the office
 
-- The Cat CEO is not a node of the cat tree. `catTree.ts` rules (one boss, no cycles) do not change. It is stored as a block `catCeo` in `cats.json`: `{ enabled, name, appearance, model, effort, maxEditsPerCatPerDay }`. Default: enabled, name "Cat CEO", effort `high`, 2 edits per day.
+- The Cat CEO is not a node of the cat tree. `catTree.ts` rules (one boss, no cycles) do not change. It is stored as a block `catCeo` in `cats.json`: `{ enabled, name, appearance, model, effort, maxEditsPerCatPerDay }`. Default: enabled, name "Cat CEO", model `opus`, effort `medium`, 2 edits per day.
 - It may review every cat of the tree, the boss included. It never edits its own file `prompts/cat-ceo.md`; only the user edits that file.
 - The Hierarchy tab shows it pinned above the boss, not draggable. The task form "Who" field does not list it.
 
@@ -60,7 +60,7 @@ sequenceDiagram
 
 ```text
 claude -p --output-format json --json-schema '<schema of §6>' \
-  --model opus --effort high --tools "" --strict-mcp-config --safe-mode \
+  --model opus --effort medium --tools "" --strict-mcp-config --safe-mode \
   --no-session-persistence --max-budget-usd 1 \
   --append-system-prompt-file <stateDir>/cat-ceo/system.md
 ```

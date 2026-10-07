@@ -164,7 +164,11 @@ export function migrateLocalCats(
   } catch {
     return false;
   }
-  if (!local.length || JSON.stringify(local) === JSON.stringify(localSeed().cats)) return false;
+  const seed = localSeed().cats;
+  // The seed before the lead's default effort moved from high to medium is a seed too.
+  const oldSeed = seed.map((c) => (c.parentId === null ? { ...c, effort: 'high' } : c));
+  const isSeed = [seed, oldSeed].some((s) => JSON.stringify(local) === JSON.stringify(s));
+  if (!local.length || isSeed) return false;
   store.setItem(MIGRATED_KEY, new Date().toISOString());
 
   const byId = new Map(local.map((c) => [c.id, c]));
