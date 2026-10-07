@@ -169,10 +169,13 @@ export class CeoDesk implements OfficeToolHandler {
     this.log.add({ kind: 'user', text, ...attachments });
     // A text typed while the CEO's question card waits is the answer to it
     // (the card closes; the waiting turn gets the text as every answer).
+    // A slash command ("/review", not a path like "/Users/me") and a message
+    // with files still queue: the tool takes text answers only.
     const asked = this.opts.office.approvals
       .list()
       .find((a) => a.catId === CAT_CEO_ID && a.questions);
-    if (asked?.questions && !files?.attachments.length && !text.startsWith('/')) {
+    const command = /^\/[\w-]+(\s|$)/.test(text);
+    if (asked?.questions && !files?.attachments.length && !command) {
       const answers = Object.fromEntries(asked.questions.map((q) => [q.question, text]));
       this.opts.office.approvals.answer(asked.id, { answers });
       return this.state.pending.length;
