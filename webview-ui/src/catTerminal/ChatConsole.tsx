@@ -218,7 +218,7 @@ export function ConsoleRowView({
   job?: JobCardActions;
   onLogin?: () => void;
 }) {
-  if (row.kind === 'tools') return <ToolRow tools={row.tools} />;
+  if (row.kind === 'tools') return <ToolRow tools={row.tools} subs={row.subs} />;
   if (row.kind === 'action') return <ActionRow tool={row.tool} />;
   return (
     <MessageRow

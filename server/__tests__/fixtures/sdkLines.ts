@@ -98,3 +98,30 @@ export const textDelta = (t: string, parent: string | null = null) =>
     { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: t } },
     parent,
   );
+
+/**
+ * A helper's (sub-agent's) message: its parent is the Task or Agent call. With
+ * `forwardSubagentText` its text comes too (CLI 2.1.293, a background Agent).
+ */
+export const subToolUse = (
+  parent: string,
+  id: string,
+  name: string,
+  input: Record<string, unknown>,
+) =>
+  assistant(
+    { type: 'tool_use', id, name, input, caller: { type: 'direct' } },
+    { parent_tool_use_id: parent },
+  );
+
+export const subText = (parent: string, t: string) =>
+  assistant({ type: 'text', text: t }, { parent_tool_use_id: parent });
+
+/** A system message of the SDK (sdk.d.ts 0.3.292): `subtype` plus its own fields. */
+export const system = (subtype: string, fields: Record<string, unknown> = {}) =>
+  line({ type: 'system', subtype, uuid: `u-${subtype}`, ...fields });
+
+/** The live background tasks: CLI 2.1.293 sends the whole list on each change. */
+export const backgroundTasks = (
+  tasks: Array<{ task_id: string; task_type: string; description: string; ambient?: boolean }>,
+) => system('background_tasks_changed', { tasks });

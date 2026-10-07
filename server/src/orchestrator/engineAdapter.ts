@@ -80,6 +80,8 @@ export interface LiveSession {
    * the ids of sent messages that did not start yet: they would still run.
    */
   interrupt(): Promise<string[]>;
+  /** Stop one background task (a command or a helper) by its task id; the turn goes on. */
+  stopTask(taskId: string): Promise<void>;
   /** Apply a model or mode change to the running process. False: it needs a new process. */
   update(change: Pick<TurnSetup, 'model' | 'effort' | 'permissionMode'>): boolean;
   /** End the input and the process; resolves when the process is gone. */

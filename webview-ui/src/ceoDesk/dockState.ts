@@ -15,6 +15,7 @@ import type {
   CatSessionFrame,
   ContextUse,
   LimitWindow,
+  TodoItem,
 } from '../../../core/src/catSession.js';
 import type { JobCard } from '../../../core/src/ceoDesk.js';
 import { applyFrame, type CatConsoleState, EMPTY_CONSOLE } from '../catTerminal/consoleState.js';
@@ -165,6 +166,19 @@ export function queuedRows(chat: CatConsoleState): Set<CatSessionEntry> {
     }
   }
   return out;
+}
+
+/**
+ * The CEO's newest to-do list, pinned above the box while an item is open
+ * (the CLI also drops the list once every item is done); null: nothing to pin.
+ */
+export function pinnedTodos(entries: CatSessionEntry[]): TodoItem[] | null {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    if (e.kind !== 'tool' || !e.todos) continue;
+    return e.todos.some((t) => t.status !== 'completed') ? e.todos : null;
+  }
+  return null;
 }
 
 /** Claude's suggested next message shows (and Tab takes it) only in an empty box. */

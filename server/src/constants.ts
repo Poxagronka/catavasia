@@ -230,6 +230,12 @@ export const APPROVAL_TIMEOUT_MS = 5 * 60_000;
  * busy state from it (checked with CLI 2.1.293: absent without the flag).
  */
 export const CLAUDE_SESSION_STATE_ENV = 'CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS';
+/**
+ * The env flag that gives the CEO session Claude Code's to-do tools (TaskCreate,
+ * TaskUpdate): CLI 2.1.293 leaves them out of an SDK session for current models.
+ * The dock shows the list as a checklist.
+ */
+export const CLAUDE_TODO_TOOLS_ENV = 'CLAUDE_CODE_ENABLE_TODO_TOOLS';
 /** Body limit of POST /api/ceo/messages: 25 MB of files as base64, plus the text. */
 export const CEO_DESK_MESSAGE_BODY_LIMIT = 40 * 1024 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */

@@ -280,6 +280,43 @@ test.describe('Standalone / CEO dock', () => {
     await expect(page.getByTestId('dock-effort')).toHaveText('Low');
   });
 
+  test("a helper's calls nest under it; the to-do list and a background task with its Stop @area:standalone", async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    await input.fill('show helpers');
+    await input.press('Enter');
+
+    const log = page.getByTestId('dock-log');
+    // The helper's own command is not a call of the CEO: it waits, closed, under the helper.
+    const summary = log.getByTestId('tool-summary').first();
+    await expect(summary).toHaveText(/Ran a helper, updated the to-do list/, {
+      timeout: TURN_TIMEOUT_MS,
+    });
+    await summary.click();
+    await log.getByTestId('activity-item').first().locator('summary').first().click();
+    const calls = log.getByTestId('helper-calls');
+    await expect(calls.getByTestId('tool-summary')).toHaveText(/Ran a command/);
+    await expect(
+      log.getByTestId('tool-result').filter({ hasText: 'Found README.md.' }),
+    ).toBeVisible();
+
+    // The to-do list is pinned above the box: the open item in its own words.
+    const todos = page.getByTestId('dock-todo');
+    await expect(todos).toHaveCount(2);
+    await expect(todos.nth(0)).toHaveText(/Reading the files/);
+    await expect(todos.nth(0)).toHaveAttribute('data-status', 'in_progress');
+    await expect(todos.nth(1)).toHaveAttribute('data-status', 'pending');
+
+    // The background command has its own Stop: the list empties, the chat stays.
+    await expect(page.getByTestId('dock-task')).toHaveText(/Command:\s*Sleep a minute/);
+    await page.getByTestId('dock-task-stop').click();
+    await expect(page.getByTestId('dock-tasks')).toBeHidden();
+    await expect(log.getByText('Mock CEO: show helpers')).toBeVisible();
+  });
+
   test('slash commands: the "/" menu, dock cards and pickers, and connectors @area:standalone', async ({
     page,
     standalone,

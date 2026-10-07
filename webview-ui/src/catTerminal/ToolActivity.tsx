@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { CeoAttachment } from '../../../core/src/ceoDesk.js';
 import { attachmentHref } from '../sessionToken.js';
 import { type ActivityEntry, activityLine, activitySummary, stepIndex } from './activityWords.js';
+import type { SubCalls } from './consoleState.js';
 import { ImageLightbox } from './ImageLightbox.js';
 
 /** The pictures of one tool call and the one the lightbox shows. */
@@ -37,9 +38,21 @@ function Thumbs({ images, onOpen }: { images: CeoAttachment[]; onOpen: OpenPictu
   );
 }
 
-/** One call: its plain line; it opens to the command or file and a short result. */
-function ActivityItem({ entry, onOpen }: { entry: ActivityEntry; onOpen: OpenPicture }) {
+/**
+ * One call: its plain line; it opens to the command or file and a short result.
+ * A helper also opens to its own calls (a closed row) above its answer.
+ */
+function ActivityItem({
+  entry,
+  onOpen,
+  subs,
+}: {
+  entry: ActivityEntry;
+  onOpen: OpenPicture;
+  subs?: SubCalls;
+}) {
   const { verb, target } = activityLine(entry);
+  const calls = entry.at !== undefined ? subs?.get(entry.at) : undefined;
   const line = (
     <>
       {verb}
@@ -51,7 +64,7 @@ function ActivityItem({ entry, onOpen }: { entry: ActivityEntry; onOpen: OpenPic
   );
   if (
     entry.kind === 'thought' ||
-    (!entry.about && !entry.input && !entry.result && !entry.images?.length)
+    (!entry.about && !entry.input && !entry.result && !entry.images?.length && !calls)
   ) {
     return (
       <div className="break-words" data-testid="activity-item">
@@ -67,6 +80,11 @@ function ActivityItem({ entry, onOpen }: { entry: ActivityEntry; onOpen: OpenPic
           <pre className="tool-detail pixel-scrollbar">{entry.text}</pre>
         )}
         {entry.input && <pre className="tool-detail pixel-scrollbar">{entry.input}</pre>}
+        {calls && (
+          <div data-testid="helper-calls">
+            <ToolRow tools={calls} />
+          </div>
+        )}
         {entry.result && (
           <pre
             className={`tool-detail pixel-scrollbar ${entry.isError ? 'text-status-error' : ''}`}
@@ -86,7 +104,7 @@ function ActivityItem({ entry, onOpen }: { entry: ActivityEntry; onOpen: OpenPic
  * files, ran 2 commands >") that opens to one line per call. Pictures the
  * tools returned also show under the closed line.
  */
-export function ToolRow({ tools }: { tools: ActivityEntry[] }) {
+export function ToolRow({ tools, subs }: { tools: ActivityEntry[]; subs?: SubCalls }) {
   const [open, setOpen] = useState(false);
   const [gallery, setGallery] = useState<Gallery | null>(null);
   const openPicture = (images: CeoAttachment[], index: number) => setGallery({ images, index });
@@ -128,7 +146,7 @@ export function ToolRow({ tools }: { tools: ActivityEntry[] }) {
           </summary>
           <div className="flex flex-col gap-4 mt-4 pl-8 border-l-2 border-border">
             {tools.map((t, n) => (
-              <ActivityItem key={n} entry={t} onOpen={openPicture} />
+              <ActivityItem key={n} entry={t} onOpen={openPicture} subs={subs} />
             ))}
           </div>
         </details>

@@ -402,6 +402,7 @@ describe('slash commands in the CEO chat', () => {
       context: (use) => contexts.push(use),
       draft: () => {},
       folders: [],
+      status: () => {},
     });
     stream.line(
       JSON.stringify({

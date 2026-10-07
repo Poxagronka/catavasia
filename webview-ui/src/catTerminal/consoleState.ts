@@ -86,13 +86,25 @@ export type ConsoleRow =
       replyEnd?: boolean;
       lastReply?: boolean;
     }
-  | { kind: 'tools'; tools: ActivityEntry[] }
+  /** `subs`: the calls of each helper's sub-agent, by the helper row's `at`. */
+  | { kind: 'tools'; tools: ActivityEntry[]; subs?: SubCalls }
   | { kind: 'action'; tool: ToolEntry };
 
-/** Fold consecutive tool calls and thoughts into one collapsible row; mark where each reply ends. */
+/** A helper's own calls (CEO desk), by the `at` of the helper's row. */
+export type SubCalls = Map<number, ToolEntry[]>;
+
+/**
+ * Fold consecutive tool calls and thoughts into one collapsible row; mark where
+ * each reply ends. A helper's calls (`parent`) leave the flow: they nest under it.
+ */
 export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
   const rows: ConsoleRow[] = [];
+  const subs: SubCalls = new Map();
   for (const entry of entries) {
+    if (entry.kind === 'tool' && entry.parent !== undefined) {
+      subs.set(entry.parent, [...(subs.get(entry.parent) ?? []), entry]);
+      continue;
+    }
     const last = rows[rows.length - 1];
     if (entry.kind !== 'tool' && entry.kind !== 'thought') rows.push({ kind: 'message', entry });
     else if (entry.kind === 'tool' && entry.name.startsWith(DESK_TOOL_PREFIX))
@@ -100,6 +112,7 @@ export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
     else if (last?.kind === 'tools') last.tools.push(entry);
     else rows.push({ kind: 'tools', tools: [entry] });
   }
+  if (subs.size) for (const row of rows) if (row.kind === 'tools') row.subs = subs;
   // Backward: a text ends its reply unless more text comes before the next other message.
   let nextIsText = false;
   let seenReply = false;

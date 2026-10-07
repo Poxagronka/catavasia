@@ -23,7 +23,9 @@ export type CatSessionEntry = { at?: number } &
      * A tool call. `text`: its command, file or address in short. CEO desk only:
      * `about` (what a command or helper is for, in the model's words), `input`
      * (when it says more than `text`), `result`, `isError` and the `images` it
-     * returned, all cut to a few KB.
+     * returned, all cut to a few KB. `parent`: the `at` of the helper (Task or
+     * Agent) row whose sub-agent made this call. `todos`: the to-do list after
+     * this call (TodoWrite, TaskCreate, TaskUpdate).
      */
     | {
         kind: 'tool';
@@ -34,6 +36,8 @@ export type CatSessionEntry = { at?: number } &
         result?: string;
         isError?: boolean;
         images?: CeoAttachment[];
+        parent?: number;
+        todos?: TodoItem[];
       }
     /** The CEO thought before it acted (the thought itself is not shown by Claude Code). */
     | { kind: 'thought'; ms: number }
@@ -49,6 +53,24 @@ export type CatSessionEntry = { at?: number } &
      */
     | { kind: 'job'; text: string; job: JobCard }
   );
+
+/** One item of Claude's to-do list (CEO desk), as the CLI shows it. */
+export interface TodoItem {
+  /** TaskCreate's id: TaskUpdate names the item by it. */
+  id?: string;
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  /** The item while in progress, in the present continuous ("Running tests"). */
+  activeForm?: string;
+}
+
+/** A background task of the CEO session (a command or a helper), as Claude Code reports it. */
+export interface BackgroundTask {
+  id: string;
+  /** Claude Code's task type: `local_bash`, `local_agent`, `mcp_task`... */
+  type: string;
+  description: string;
+}
 
 /** Whether a cat can hand its session to an interactive terminal right now. */
 export interface CatSessionStatus {
@@ -76,6 +98,10 @@ export interface CatSessionStatus {
   limits?: UsageLimits;
   /** CEO desk: Claude's guess of the user's next message (Tab puts it in the box). */
   suggestion?: string;
+  /** CEO desk: the session's running background tasks; each has its own Stop. */
+  tasks?: BackgroundTask[];
+  /** CEO desk: a short passing state ("Retrying (2)…"); it goes when Claude writes again. */
+  notice?: string;
 }
 
 /** Tokens of the last request (input + cache writes + cache reads) of the window. */

@@ -233,6 +233,13 @@ export class CeoDesk implements OfficeToolHandler {
     return queuedDraft([...waiting, ...held]);
   }
 
+  /** Stop one background task of the session (its own Stop in the dock). False: no session. */
+  async stopTask(taskId: string): Promise<boolean> {
+    if (!this.turn) return false;
+    await this.turn.session.stopTask(taskId);
+    return true;
+  }
+
   /** Drop what waits and the suggestion; say "Stopped." when a turn ran or parts waited. */
   private halt(): void {
     const had = !!this.turn?.busy || this.state.pending.length > 0;
@@ -391,6 +398,8 @@ export class CeoDesk implements OfficeToolHandler {
       statusChanged: () => this.statusChanged(),
       emit: (frame) => this.emit(frame),
     });
+    // A resumed session goes on with the chat's to-do list (TaskUpdate names its items).
+    for (const row of this.log.rows) if (row.kind === 'tool' && row.todos) stream.todos = row.todos;
     const persona = currentPersona(office);
     const live = () => this.turn === turn && !this.disposed;
     const session = openDeskSession({
@@ -401,7 +410,7 @@ export class CeoDesk implements OfficeToolHandler {
       mcpUrl: this.mcpUrl,
       persona,
       onLine: (line) => {
-        if (live() && !turn.stopped) stream.line(line);
+        if (live()) stream.line(line, turn.stopped);
       },
       onResult: (outcome) => {
         if (live()) this.turnResult(turn, outcome);
@@ -540,6 +549,8 @@ export class CeoDesk implements OfficeToolHandler {
       approvals: this.opts.office.approvals.list(),
       ...(this.suggestion ? { suggestion: this.suggestion } : {}),
       ...(this.state.context ? { context: this.state.context } : {}),
+      ...(this.turn?.stream.tasks.length ? { tasks: this.turn.stream.tasks } : {}),
+      ...(this.turn?.stream.notice ? { notice: this.turn.stream.notice } : {}),
       limits: officeLimits.get(),
     };
   }

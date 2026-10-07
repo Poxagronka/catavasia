@@ -20,7 +20,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { CLAUDE_SESSION_STATE_ENV } from '../constants.js';
+import { CLAUDE_SESSION_STATE_ENV, CLAUDE_TODO_TOOLS_ENV } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import { officeLimits } from '../usageLimits.js';
 import type {
@@ -181,8 +181,13 @@ export function openClaudeSession(
       prompt: input(),
       options: {
         ...options,
-        env: { ...options.env, [CLAUDE_SESSION_STATE_ENV]: '1' },
+        env: { ...options.env, [CLAUDE_SESSION_STATE_ENV]: '1', [CLAUDE_TODO_TOOLS_ENV]: '1' },
         promptSuggestions: !!req.onSuggestion,
+        // The dock stops each background task itself: Stop ends the turn only.
+        perTaskStopAffordance: true,
+        // A helper's text (its answer) and failed hooks show in the dock.
+        forwardSubagentText: true,
+        includeHookEvents: true,
         abortController: abort,
         stderr: (data) => {
           stderr = (stderr + data).slice(-STDERR_TAIL_CHARS);
@@ -220,6 +225,9 @@ export function openClaudeSession(
       for (const id of dropped) unanswered.delete(id);
       const receipt = await query?.interrupt();
       return [...dropped, ...(receipt?.still_queued ?? [])];
+    },
+    async stopTask(taskId) {
+      await query?.stopTask(taskId);
     },
     update(change) {
       const next = optionsFor({ ...req, ...change });
