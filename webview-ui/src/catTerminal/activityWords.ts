@@ -144,3 +144,8 @@ export function activityLine(entry: ActivityEntry): { verb: string; target: stri
   const { verb } = kindOf(entry.name);
   return entry.text ? { verb, target: entry.text } : { verb: verb.replace(/:$/, ''), target: '' };
 }
+
+/** The picture `step` places away in a gallery of `count`, round from the last to the first. */
+export function stepIndex(index: number, count: number, step: number): number {
+  return (((index + step) % count) + count) % count;
+}

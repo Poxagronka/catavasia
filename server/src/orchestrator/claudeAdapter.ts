@@ -189,6 +189,7 @@ export function claudeTurnOptions(req: TurnRequest, executable: string): Options
     ...(mode === 'readOnly' ? { allowedTools: [...READ_ONLY_TOOLS, ...ownTools] } : {}),
     ...(mode === 'auto' || mode === 'ask' ? { canUseTool } : {}),
     ...(req.partialText ? { includePartialMessages: true } : {}),
+    ...(req.onSuggestion ? { promptSuggestions: true } : {}),
   };
 }
 
@@ -302,6 +303,8 @@ export class ClaudeAdapter implements EngineAdapter {
     let result: StreamResult | undefined;
     let sessionStarted = false;
     let stderr = '';
+    let resulted = () => {};
+    const resultSeen = new Promise<undefined>((resolve) => (resulted = () => resolve(undefined)));
     const onMessage = (line: string): void => {
       if (line.includes('"session_id"')) sessionStarted = true;
       officeLimits.observe(line);
@@ -309,7 +312,10 @@ export class ClaudeAdapter implements EngineAdapter {
       const compact = parseCompactBoundary(line);
       if (compact) req.onCompact?.(compact);
       const parsed = parseStreamLine(line);
-      if (parsed.result) result = parsed.result;
+      if (parsed.result) {
+        result = parsed.result;
+        if (req.onSuggestion) resulted();
+      }
       for (const entry of parsed.log) req.onLog?.(entry);
     };
     const failure = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -333,13 +339,17 @@ export class ClaudeAdapter implements EngineAdapter {
         },
       });
       try {
-        for await (const message of turn) onMessage(JSON.stringify(message));
+        for await (const message of turn) {
+          if (message.type === 'prompt_suggestion') req.onSuggestion?.(message.suggestion);
+          onMessage(JSON.stringify(message));
+        }
       } catch (err) {
         return stderr.trim() ? `${failure(err)}: ${stderr.trim()}` : failure(err);
       }
       return undefined;
     };
-    const done = run()
+    // A turn that waits for the suggestion ends at its result.
+    const done = Promise.race([run(), resultSeen])
       .catch(failure)
       .then((failed): TurnOutcome => {
         const ok = !failed && result !== undefined && !result.isError;

@@ -12,11 +12,14 @@ import { test } from 'vitest';
 
 import type { DeskCommand } from '../../core/src/ceoDesk.js';
 import { MessageRow } from '../src/catTerminal/ChatConsole.js';
+import { ChoiceCard } from '../src/ceoDesk/ChoiceCard.js';
 import { ConnectorsCard } from '../src/ceoDesk/ConnectorsCard.js';
 import { DockComposer } from '../src/ceoDesk/DockComposer.js';
+import { shownSuggestion } from '../src/ceoDesk/dockState.js';
 import { HelpCard } from '../src/ceoDesk/HelpCard.js';
 import {
   catchCommand,
+  choiceCommand,
   matchCommands,
   slashQuery,
   withDockCommands,
@@ -184,4 +187,47 @@ test('Send works for a command the dock answers while Claude Code is not ready',
     assert.doesNotMatch(send(composer(caught)), /disabled/, caught);
   assert.match(send(composer('weather in Rhodes')), /disabled/);
   assert.match(send(composer('/compact')), /disabled/);
+});
+
+test('a bare command with choices opens its picker; with a value it goes to Claude', () => {
+  const style: DeskCommand = {
+    name: 'output-style',
+    description: 'List output styles or switch to one',
+    argumentHint: '[style]',
+    builtin: true,
+    choices: ['default', 'Explanatory', 'Learning'],
+  };
+  const list = [...CLI, style];
+  assert.equal(choiceCommand(list, ' /output-style '), style);
+  assert.equal(choiceCommand(list, '/Output-Style'), style);
+  assert.equal(choiceCommand(list, '/output-style Learning'), null);
+  assert.equal(choiceCommand(list, '/tidy-notes'), null);
+  assert.equal(choiceCommand(list, 'output-style'), null);
+  const sent: string[] = [];
+  const html = renderToStaticMarkup(
+    createElement(ChoiceCard, { command: style, onPick: (t) => sent.push(t), onClose() {} }),
+  );
+  assert.match(html, /\/output-style/);
+  for (const c of style.choices!) assert.match(html, new RegExp(`data-testid="choice-${c}"`));
+});
+
+test("Claude's suggested next message: ghost text and a Tab chip only in an empty box", () => {
+  assert.equal(shownSuggestion('', 0, 'Now add tests'), 'Now add tests');
+  assert.equal(shownSuggestion('my own words', 0, 'Now add tests'), undefined);
+  assert.equal(shownSuggestion('', 1, 'Now add tests'), undefined);
+  assert.equal(shownSuggestion('', 0, '  '), undefined);
+  assert.equal(shownSuggestion('', 0, undefined), undefined);
+  const composer = (draft: string) =>
+    renderToStaticMarkup(
+      createElement(DockComposer, {
+        draft,
+        onDraft: () => {},
+        onSend: async () => {},
+        blocked: null,
+        suggestion: 'Now add tests',
+      }),
+    );
+  assert.match(composer(''), /placeholder="Now add tests"/);
+  assert.match(composer(''), /data-testid="dock-suggestion"/);
+  assert.doesNotMatch(composer('hi'), /Now add tests|dock-suggestion/);
 });

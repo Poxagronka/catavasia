@@ -4,13 +4,14 @@ import type { DeskCommand } from '../../../core/src/ceoDesk.js';
 import { catCeo } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
-import { catchCommand, withDockCommands } from './slashCommands.js';
+import { catchCommand, choiceCommand, withDockCommands } from './slashCommands.js';
 
 /** A full model name the CLI takes ("claude-opus-5-5"). */
 const FULL_MODEL = /^claude-[a-z0-9][a-z0-9.-]*$/;
 
 type Opens = 'mode' | 'model' | 'effort' | 'usage';
-export type DockCard = 'help' | 'connectors';
+/** A card in the chat: /help, /mcp, or the choices of a command (/output-style). */
+export type DockCard = 'help' | 'connectors' | DeskCommand;
 
 /**
  * Slash commands of the CEO dock: the list for the "/" menu (read again when
@@ -38,7 +39,11 @@ export function useDockCommands(enabled: boolean, folder: string | null | undefi
 
   const run = (text: string): boolean => {
     const action = catchCommand(text);
-    if (!action) return false;
+    if (!action) {
+      const picks = choiceCommand(commands, text);
+      if (picks) setCard(picks);
+      return !!picks;
+    }
     const options = catsApi.engineOptions('claude');
     switch (action.kind) {
       case 'model':

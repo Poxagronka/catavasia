@@ -167,6 +167,15 @@ export function queuedRows(chat: CatConsoleState): Set<CatSessionEntry> {
   return out;
 }
 
+/** Claude's suggested next message shows (and Tab takes it) only in an empty box. */
+export function shownSuggestion(
+  draft: string,
+  files: number,
+  suggestion: string | undefined,
+): string | undefined {
+  return draft === '' && files === 0 && suggestion?.trim() ? suggestion : undefined;
+}
+
 /** A turn ended with an answer: the dock plays the "done" sound. */
 export function answered(before: CatConsoleState, after: CatConsoleState): boolean {
   return (
