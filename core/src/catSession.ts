@@ -100,7 +100,9 @@ export type CatSessionFrame =
   /** CEO desk: the new state of a job card (replace the `job` entry with this jobId). */
   | { type: 'job'; text: string; job: JobCard }
   /** CEO desk: a row changed (a tool's result came): replace the entry with the same `at`. */
-  | { type: 'update'; entry: CatSessionEntry };
+  | { type: 'update'; entry: CatSessionEntry }
+  /** CEO desk: the reply so far, as Claude writes it (its text row replaces it). */
+  | { type: 'draft'; text: string };
 
 /** Client -> server frames on `/api/cat-sessions/:catId/terminal`. */
 export type WheelClientFrame =

@@ -53,6 +53,17 @@
   --color-code-text: #f28fa0;
   --color-link: #6cb0ff;
   --color-text-soft: rgba(255, 255, 255, 0.72);
+  /* Code block syntax colors (dark, close to the Claude app; .hljs-* rules below). */
+  --color-code-keyword: #c792ea;
+  --color-code-string: #a8d48a;
+  --color-code-number: #f2a66b;
+  --color-code-comment: #7f8496;
+  --color-code-function: #6cb0ff;
+  --color-code-type: #e8c87a;
+  --color-code-attr: #f28fa0;
+  --color-code-builtin: #5cc8d6;
+  --color-code-added: #89d185;
+  --color-code-removed: #f07178;
   --measure-body: 680px;
 
   /* Non-utility values */
@@ -221,6 +232,44 @@
     border-radius: 8px;
     padding: 8px;
     overflow-x: auto;
+  }
+  /* Syntax colors of a code block with a language (rehype-highlight classes). */
+  .markdown :where(.hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-meta .hljs-keyword) {
+    color: var(--color-code-keyword);
+  }
+  .markdown :where(.hljs-string, .hljs-regexp, .hljs-template-tag, .hljs-symbol) {
+    color: var(--color-code-string);
+  }
+  .markdown :where(.hljs-number, .hljs-literal, .hljs-variable.constant_) {
+    color: var(--color-code-number);
+  }
+  .markdown :where(.hljs-comment, .hljs-quote, .hljs-meta) {
+    color: var(--color-code-comment);
+    font-style: italic;
+  }
+  .markdown :where(.hljs-title, .hljs-title.function_, .hljs-section) {
+    color: var(--color-code-function);
+  }
+  .markdown :where(.hljs-type, .hljs-title.class_, .hljs-selector-class, .hljs-name) {
+    color: var(--color-code-type);
+  }
+  .markdown :where(.hljs-attr, .hljs-attribute, .hljs-property, .hljs-selector-id) {
+    color: var(--color-code-attr);
+  }
+  .markdown :where(.hljs-built_in, .hljs-variable.language_, .hljs-params .hljs-built_in) {
+    color: var(--color-code-builtin);
+  }
+  .markdown :where(.hljs-addition) {
+    color: var(--color-code-added);
+  }
+  .markdown :where(.hljs-deletion) {
+    color: var(--color-code-removed);
+  }
+  .markdown :where(.hljs-emphasis) {
+    font-style: italic;
+  }
+  .markdown :where(.hljs-strong) {
+    font-weight: 600;
   }
   /* A code block and its Copy button (Markdown.tsx CodeBlock). */
   .markdown-code {

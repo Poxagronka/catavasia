@@ -67,6 +67,10 @@ describe('claudeTurnOptions', () => {
     expect(claudeTurnOptions(req({ ...files(), resume: true }), 'c')).toMatchObject({
       resume: 'sid',
     });
+    // Only a turn that shows its text live (the CEO) asks for partial messages.
+    expect(opts.includePartialMessages).toBeUndefined();
+    const live = claudeTurnOptions(req({ ...files(), partialText: true }), 'c');
+    expect(live.includePartialMessages).toBe(true);
   });
 
   it('maps each mode; Auto on a model without it runs as Bypass', () => {

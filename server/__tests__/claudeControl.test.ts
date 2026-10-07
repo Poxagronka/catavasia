@@ -373,6 +373,7 @@ describe('slash commands in the CEO chat', () => {
       update: () => {},
       saveImages: () => [],
       context: (use) => contexts.push(use),
+      draft: () => {},
       folders: [],
     });
     stream.line(

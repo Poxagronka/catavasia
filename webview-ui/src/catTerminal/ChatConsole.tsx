@@ -32,8 +32,33 @@ function useNow(on: boolean): number {
   return now;
 }
 
-/** Under a reply: copy it, and when it came ("2 min ago"). Shown on hover, always on the last reply. */
-function ReplyActions({ text, at, last }: { text: string; at?: number; last?: boolean }) {
+/** A circular arrow, drawn on a pixel grid. */
+function RetryIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" shapeRendering="crispEdges" aria-hidden>
+      <path
+        d="M4 1h6v2H4z M2 3h2v2H2z M1 5h2v4H1z M2 9h2v2H2z M4 11h6v2H4z M10 9h2v2h-2z M11 7h2v2h-2z M10 1h3v4h-2V3h-1z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Under a reply: copy it, and when it came ("2 min ago"). Shown on hover,
+ * always on the last reply; `onRetry` (the last reply only) asks again.
+ */
+function ReplyActions({
+  text,
+  at,
+  last,
+  onRetry,
+}: {
+  text: string;
+  at?: number;
+  last?: boolean;
+  onRetry?: () => void;
+}) {
   const now = useNow(at !== undefined);
   return (
     <div
@@ -41,6 +66,18 @@ function ReplyActions({ text, at, last }: { text: string; at?: number; last?: bo
       data-testid="reply-actions"
     >
       <CopyButton text={() => text} title="Copy the reply" testId="reply-copy" />
+      {last && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          title="Ask again: send your last message once more"
+          aria-label="Ask again"
+          className="flex items-center bg-transparent border-0 p-4 min-w-24 min-h-24 cursor-pointer text-text-muted hover:text-text"
+          data-testid="reply-retry"
+        >
+          <RetryIcon />
+        </button>
+      )}
       {at !== undefined && (
         <span
           className="prose-body prose-small text-text-muted"
@@ -121,6 +158,7 @@ export function MessageRow({
   onOpenPromptHistory,
   job,
   onLogin,
+  onRetry,
 }: {
   entry: Exclude<CatSessionEntry, ActivityEntry>;
   /** The last text of a reply: copy and time show under it (on hover). */
@@ -132,6 +170,8 @@ export function MessageRow({
   job?: JobCardActions;
   /** Opens the engine login: an auth error row offers it (CEO desk). */
   onLogin?: () => void;
+  /** Sends the last user message again (CEO desk): a Retry icon under the newest reply. */
+  onRetry?: () => void;
 }) {
   if (entry.kind === 'job') {
     if (job) return <JobCard job={entry.job} actions={job} />;
@@ -198,7 +238,9 @@ export function MessageRow({
       data-testid="reply"
     >
       <Markdown text={entry.text} />
-      {replyEnd && <ReplyActions text={entry.text} at={entry.at} last={lastReply} />}
+      {replyEnd && (
+        <ReplyActions text={entry.text} at={entry.at} last={lastReply} onRetry={onRetry} />
+      )}
     </div>
   );
 }
@@ -209,11 +251,13 @@ export function ConsoleRowView({
   onOpenPromptHistory,
   job,
   onLogin,
+  onRetry,
 }: {
   row: ConsoleRow;
   onOpenPromptHistory?: (catId: string) => void;
   job?: JobCardActions;
   onLogin?: () => void;
+  onRetry?: () => void;
 }) {
   if (row.kind === 'tools') return <ToolRow tools={row.tools} />;
   if (row.kind === 'action') return <ActionRow tool={row.tool} />;
@@ -225,6 +269,7 @@ export function ConsoleRowView({
       onOpenPromptHistory={onOpenPromptHistory}
       job={job}
       onLogin={onLogin}
+      onRetry={onRetry}
     />
   );
 }
