@@ -116,12 +116,18 @@ export class SpotReservations {
    * Reserve all `keys` for `holder`, or none. On a held key: 'taken', or a
    * contest rolled into 'fight' / 'repick'.
    */
-  claim(keys: readonly string[], holder: number, tag: SpotTag = 'spot'): ClaimResult {
+  claim(
+    keys: readonly string[],
+    holder: number,
+    tag: SpotTag = 'spot',
+    /** Personality multiplier of the fight chance against this rival. */
+    fightMul: (rival: number) => number = () => 1,
+  ): ClaimResult {
     for (const key of keys) {
       const r = this.byKey.get(key);
       if (!r || r.holder === holder) continue;
       if (!this.isContestable(key, holder)) return { ok: false, outcome: 'taken', rival: r.holder };
-      if (this.rng() < this.fightChance) {
+      if (this.rng() < Math.min(1, this.fightChance * fightMul(r.holder))) {
         const winner = this.rng() < 0.5 ? holder : r.holder;
         return { ok: false, outcome: 'fight', rival: r.holder, winner };
       }

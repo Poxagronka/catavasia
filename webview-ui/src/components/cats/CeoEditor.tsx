@@ -8,6 +8,7 @@ import { Select } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
 import { FIELD } from './fields.js';
 import { PermissionModeField } from './PermissionModeField.js';
+import { PersonalityField } from './PersonalityField.js';
 import { PromptHistory } from './PromptHistory.js';
 
 /** A text field that saves on blur (each save of the Role is a commit). */
@@ -117,6 +118,11 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
           onBlur={role.onBlur}
         />
       </label>
+      <PersonalityField
+        value={settings.personality}
+        required
+        onChange={(personality) => personality && set({ personality })}
+      />
       <AppearanceEditor
         value={settings.appearance}
         onChange={(appearance) => set({ appearance })}

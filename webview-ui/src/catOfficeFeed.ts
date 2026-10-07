@@ -64,6 +64,7 @@ export class CatOfficeFeed {
             name: c.name,
             appearance: c.appearance as Appearance,
             working: c.working,
+            ...(c.personality ? { personality: c.personality } : {}),
             ...(c.catId === CAT_CEO_ID ? { ceo: true } : {}),
             ...(c.lead ? { lead: true } : {}),
           })),

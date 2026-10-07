@@ -62,6 +62,7 @@ export class PetActors {
    * so the actor reads as working (no scene may start with it).
    */
   mirrorPet(pet: Pet, a: Character, busy: boolean): void {
+    a.personality = pet.personality;
     a.x = pet.x;
     a.y = pet.y;
     a.tileCol = pet.tileCol;

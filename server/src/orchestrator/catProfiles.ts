@@ -12,7 +12,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import type { CatAppearance, CatEngine, CatProfile } from '../../../core/src/messages.js';
+import { isCatPersonality } from '../../../core/src/catPersonality.js';
+import type {
+  CatAppearance,
+  CatEngine,
+  CatPersonality,
+  CatProfile,
+} from '../../../core/src/messages.js';
 import { DEFAULT_PERMISSION_MODE, PERMISSION_MODES } from '../../../core/src/permissionModes.js';
 import { CAT_NAME_MAX_CHARS, CAT_SYSTEM_PROMPT_MAX_CHARS } from '../constants.js';
 import { bossOf, isInSubtree, normalizeHierarchy } from './catTree.js';
@@ -160,6 +166,8 @@ export function validateCat(raw: unknown, catalog?: EngineCatalog): Result<CatPr
         rec.parentId === null || rec.parentId === undefined ? null : id(rec.parentId, 'parentId'),
     };
     if (rec.isDefault === true) cat.isDefault = true;
+    // An unknown personality is dropped like an unknown field: the cat keeps the default behaviour.
+    if (isCatPersonality(rec.personality)) cat.personality = rec.personality;
     if (cat.parentId === cat.id) throw new ProfileError('a cat cannot report to itself');
     if (catalog) {
       const choices = catalog[engine];
@@ -186,10 +194,16 @@ const WORKER_PROMPT =
 
 /** Seeded when cats.json is missing: one Opus boss and three Sonnet workers, all effort medium. */
 export function defaultTeam(): CatProfile[] {
-  const worker = (catId: string, name: string, breed: string): CatProfile => ({
+  const worker = (
+    catId: string,
+    name: string,
+    breed: string,
+    personality: CatPersonality,
+  ): CatProfile => ({
     id: catId,
     name,
     appearance: { breed },
+    personality,
     role: 'Developer',
     systemPrompt: WORKER_PROMPT,
     engine: 'claude',
@@ -212,11 +226,12 @@ export function defaultTeam(): CatProfile[] {
       effort: 'medium',
       parentId: null,
       isDefault: true,
+      personality: 'scrappy',
     },
     // The ids predate the English names: prompt files and branches are keyed by them.
-    worker('murka', 'Luna', 'smokey'),
-    worker('pushok', 'Milo', 'snow'),
-    worker('ryzhik', 'Pepper', 'nikolai'),
+    worker('murka', 'Luna', 'smokey', 'sleepy'),
+    worker('pushok', 'Milo', 'snow', 'playful'),
+    worker('ryzhik', 'Pepper', 'nikolai', 'pooper'),
   ];
 }
 
@@ -237,6 +252,8 @@ interface CatsFile {
   catCeo?: unknown;
   /** 2 once load() moved the old default effort (high) of the lead and the CEO to medium. */
   modelDefaults?: 2;
+  /** 1 once load() gave the default cats their personality preset (a later "None" sticks). */
+  personalities?: 1;
 }
 
 /**
@@ -442,9 +459,13 @@ export class CatStore {
     }
     const team = defaultTeam();
     let renamed = false;
+    const unseeded = parsed.personalities !== 1;
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e))).map((cat) => {
       if (migrate && cat.isDefault && cat.parentId === null && isOldDefault(cat.model, cat.effort))
         cat = { ...cat, effort: 'medium' };
+      const preset = team.find((d) => d.id === cat.id)?.personality;
+      if (unseeded && cat.isDefault && !cat.personality && preset)
+        cat = { ...cat, personality: preset };
       if (OLD_DEFAULT_NAMES[cat.id] !== cat.name) return cat;
       renamed = true;
       return { ...cat, name: team.find((d) => d.id === cat.id)!.name };
@@ -457,6 +478,7 @@ export class CatStore {
       parsed.cats.some((c) => (c as { permissionMode?: unknown })?.permissionMode === undefined);
     if (
       migrate ||
+      unseeded ||
       renamed ||
       unmoded ||
       parsed.cats.some((c) => (c as { systemPrompt?: unknown })?.systemPrompt !== undefined)
@@ -511,6 +533,7 @@ export class CatStore {
       cats,
       ...(this.ceoBlock === undefined ? {} : { catCeo: this.ceoBlock }),
       modelDefaults: 2,
+      personalities: 1,
     };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {

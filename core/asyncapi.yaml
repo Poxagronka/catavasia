@@ -1086,6 +1086,8 @@ components:
           description: |
             The team lead: the root of the cat tree (`parentId: null`). Absent
             for every other cat. The office seats it at the lead desk.
+        personality:
+          $ref: '#/components/schemas/CatPersonality'
 
     # ── Cat CEO (docs/catavasia/cat-ceo-judge.md) ─────────────────
 
@@ -1131,6 +1133,8 @@ components:
           type: string
         permissionMode:
           $ref: '#/components/schemas/PermissionMode'
+        personality:
+          $ref: '#/components/schemas/CatPersonality'
 
     ReviewStarted:
       description: The Cat CEO started the review of a finished team task.
@@ -1777,6 +1781,8 @@ components:
           type: string
         permissionMode:
           $ref: '#/components/schemas/PermissionMode'
+        personality:
+          $ref: '#/components/schemas/CatPersonality'
 
     GetPromptHistory:
       description: "Ask for the commits of a cat's prompt file (needs the server token). Answer: promptHistory."
@@ -2056,6 +2062,8 @@ components:
         isDefault:
           type: boolean
           description: Seeded by the app, not by the user.
+        personality:
+          $ref: '#/components/schemas/CatPersonality'
 
     PromptItem:
       type: object
@@ -2154,6 +2162,13 @@ components:
     CatEngine:
       type: string
       enum: [claude, codex]
+
+    CatPersonality:
+      description: |
+        Idle behaviour preset of an office cat (agent cat, Cat CEO or pet).
+        Absent = the default behaviour. Tuning lives in webview-ui/src/constants.ts.
+      type: string
+      enum: [scrappy, playful, pooper, sleepy, social, zoomie]
 
     PermissionMode:
       description: |

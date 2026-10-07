@@ -449,7 +449,8 @@ export function renderScene(
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = characterDrawOffsetY(ch);
     // Anchor at bottom-center of character — round to integer device pixels
-    const drawX = Math.round(offsetX + (ch.x + characterDrawOffsetX(ch)) * zoom - cached.width / 2);
+    const dx = characterDrawOffsetX(ch) + (ch.social?.dx ?? 0);
+    const drawX = Math.round(offsetX + (ch.x + dx) * zoom - cached.width / 2);
     const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height);
 
     // Sort characters by bottom of their tile (not center) so they render

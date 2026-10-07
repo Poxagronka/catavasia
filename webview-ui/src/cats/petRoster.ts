@@ -3,6 +3,7 @@
 // the live OfficeState first, so the game shows it at once; the caller then
 // saves the layout (see useEditorActions.commitPets).
 
+import type { CatPersonality } from '../../../core/src/messages.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { getPetCount, getPetName, isCatPet } from '../office/sprites/petSpriteData.js';
 import { BREED_PRESETS } from './catArt.js';
@@ -15,6 +16,7 @@ export interface PetRow {
   /** The manifest name of its sprite sheet ("Gitcat"). */
   kind: string;
   appearance?: Appearance;
+  personality?: CatPersonality;
 }
 
 /** Every pet in the office (cats and dogs), in layout order. */
@@ -25,6 +27,7 @@ export function petRows(os: OfficeState): PetRow[] {
     name: p.name,
     kind: getPetName(p.petType),
     appearance: p.appearance,
+    personality: p.personality,
   }));
 }
 

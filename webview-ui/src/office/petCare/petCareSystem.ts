@@ -47,6 +47,7 @@ import {
   ZOOMIES_DASHES_MAX,
   ZOOMIES_DASHES_MIN,
 } from '../../constants.js';
+import { personalityMul } from '../engine/personality.js';
 import { isPetPlayAnim, PET_PLAY_ANIMS, petWakeAt } from '../engine/petPlayAnims.js';
 import { furnitureKind } from '../layout/furnitureCatalog.js';
 import type { ActivitySpot, Pet, PetRest, PlacedFurniture } from '../types.js';
@@ -195,7 +196,8 @@ export class PetCareSystem {
     const fullBoxes = env.furniture.filter(
       (f) => isLitterBoxType(f.type) && this.world.isBoxFull(f.uid),
     ).length;
-    this.world.tick((dt * this.speed) / 3600, fullBoxes);
+    const bowel = new Map(cats.map((p) => [p.id, personalityMul(p.personality, 'bowel')]));
+    this.world.tick((dt * this.speed) / 3600, fullBoxes, (id) => bowel.get(id) ?? 1);
     this.dirty = this.dirty || cats.length > 0;
     for (const pet of cats) this.updatePet(pet, dt, env);
     for (const e of this.effects) {
@@ -486,7 +488,9 @@ export class PetCareSystem {
     const kind = s.goal === 'eat' ? 'eat' : 'drink';
     this.pose(pet, kind, ANIM_SEC[kind], () => {
       const ok =
-        kind === 'eat' ? this.world.eat(pet.id, bowl.uid) : this.world.drink(pet.id, bowl.uid);
+        kind === 'eat'
+          ? this.world.eat(pet.id, bowl.uid, personalityMul(pet.personality, 'bowel'))
+          : this.world.drink(pet.id, bowl.uid);
       if (ok) this.hearts(pet);
       this.touch();
     });
@@ -506,7 +510,7 @@ export class PetCareSystem {
       // A proud exit (a sparkle, happy hearts), and now and then the zoomies.
       this.sparkle(pet.tileCol, pet.tileRow - 1);
       this.hearts(pet);
-      if (Math.random() < LITTER_ZOOMIES_CHANCE) {
+      if (Math.random() < LITTER_ZOOMIES_CHANCE * personalityMul(pet.personality, 'zoomies')) {
         r.dashes =
           ZOOMIES_DASHES_MIN +
           Math.floor(Math.random() * (ZOOMIES_DASHES_MAX - ZOOMIES_DASHES_MIN + 1));
