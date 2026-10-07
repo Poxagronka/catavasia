@@ -114,7 +114,9 @@ export class Approvals {
       (typeof answer === 'object' && 'mode' in answer && card.plan === undefined);
     const refused =
       typeof answer === 'object' && 'keepPlanning' in answer && card.plan === undefined;
-    open.finish(refused ? 'deny' : plain ? 'allow' : answer);
+    // A plain Allow of a plan leaves Plan mode as the CLI's "ask for each edit" does.
+    const planAllow = card.plan !== undefined && (answer === 'allow' || answer === 'always');
+    open.finish(refused ? 'deny' : planAllow ? { mode: 'ask' } : plain ? 'allow' : answer);
     return true;
   }
 

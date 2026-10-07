@@ -239,6 +239,14 @@ describe('ClaudeAdapter.openSession', () => {
     expect(o.events().some((e) => e.control === 'set_permission_mode')).toBe(false);
   });
 
+  it('does not keep a mode change that is not a move out of or into Plan mode', async () => {
+    const modes: string[] = [];
+    const o = open({ permissionMode: 'ask', onMode: (mode) => modes.push(mode) });
+    session!.send('approve');
+    await idle(o, 1);
+    expect(modes).toEqual([]);
+  });
+
   it('ends with the error when the process dies', async () => {
     const o = open();
     session!.send('die now');

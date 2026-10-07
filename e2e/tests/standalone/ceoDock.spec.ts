@@ -333,11 +333,11 @@ test.describe('Standalone / CEO dock', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('dock-usage-menu')).toBeHidden();
 
-    // The permission mode label opens the CEO's mode menu: four rows, a check on the current one.
+    // The permission mode label opens the CEO's mode menu: six rows, a check on the current one.
     await expect(page.getByTestId('dock-mode')).toHaveText('Auto');
     await page.getByTestId('dock-mode').click();
     const modeMenu = page.getByTestId('dock-mode-menu');
-    await expect(modeMenu.getByRole('menuitemradio')).toHaveCount(4);
+    await expect(modeMenu.getByRole('menuitemradio')).toHaveCount(6);
     await expect(page.getByTestId('dock-mode-auto')).toHaveAttribute('aria-checked', 'true');
     await page.getByTestId('dock-mode-ask').click();
     await expect(modeMenu).toBeHidden();

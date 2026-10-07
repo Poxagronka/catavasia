@@ -72,15 +72,17 @@ describe('GET /api/ceo/files', () => {
     write(path.join(project, 'src/main.ts'));
     write(path.join(project, 'dist/bundle.js'));
     git(repo, 'add', 'app/.gitignore');
+    for (let n = 0; n < CEO_MENTION_MAX_FILES + 5; n++) write(path.join(project, `many/f${n}.ts`));
     env.desk.setFolder(project);
 
-    const files = (await get('')).json<{ files: string[] }>().files;
-    expect(files.sort()).toEqual(['.gitignore', 'src/main.ts']);
+    expect((await get('main')).json()).toEqual({ files: ['src/main.ts'] });
+    expect((await get('gitignore')).json()).toEqual({ files: ['.gitignore'] });
+    // .gitignore hides dist/.
+    expect((await get('bundle')).json()).toEqual({ files: [] });
     // A query is only a filter: `..` never reaches the repo above the folder.
     expect((await get('../secret')).json()).toEqual({ files: [] });
     expect((await get('secret')).json()).toEqual({ files: [] });
 
-    for (let n = 0; n < CEO_MENTION_MAX_FILES + 5; n++) write(path.join(project, `many/f${n}.ts`));
     expect((await get('many')).json<{ files: string[] }>().files).toHaveLength(
       CEO_MENTION_MAX_FILES,
     );

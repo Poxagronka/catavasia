@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
-import { nextMode } from '../../../core/src/permissionModes.js';
+import { DEFAULT_PERMISSION_MODE, nextMode } from '../../../core/src/permissionModes.js';
 import { catCeo, useCatCeo } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
 import { catSessionApi } from '../catTerminal/catSessionApi.js';
@@ -327,7 +327,10 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
             settings
               ? () =>
                   void catCeo.setSettings({
-                    permissionMode: nextMode(settings.permissionMode ?? 'auto', settings.model),
+                    permissionMode: nextMode(
+                      settings.permissionMode ?? DEFAULT_PERMISSION_MODE,
+                      settings.model,
+                    ),
                   })
               : undefined
           }

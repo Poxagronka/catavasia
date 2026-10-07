@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useState } from 'react';
 
+import { MENTION_FETCH_DEBOUNCE_MS } from '../constants.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
 
 /** The `@` mention typed right before the caret: where its `@` is and the text after it. */
@@ -35,26 +36,30 @@ export function useMentionMenu(
 ) {
   const mention = mentionQuery(draft, caret);
   const query = mention?.query ?? null;
-  const [files, setFiles] = useState<string[]>([]);
+  // The files of one query: a list for an older query never shows (Enter would insert it).
+  const [found, setFound] = useState<{ query: string; files: string[] }>({ query: '', files: [] });
   const [index, setIndex] = useState(0);
   const [closedFor, setClosedFor] = useState<string | null>(null);
   useEffect(() => {
     setIndex(0);
-    if (query === null) return setFiles([]);
+    if (query === null) return;
     let live = true;
-    ceoDeskApi.files(query).then(
-      (r) => live && setFiles(r.files),
-      () => live && setFiles([]),
-    );
+    const timer = setTimeout(() => {
+      ceoDeskApi.files(query).then(
+        (r) => live && setFound({ query, files: r.files }),
+        () => live && setFound({ query, files: [] }),
+      );
+    }, MENTION_FETCH_DEBOUNCE_MS);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [query]);
   // Esc closes the menu for this draft only.
   useEffect(() => {
     if (closedFor !== null && closedFor !== draft) setClosedFor(null);
   }, [draft, closedFor]);
-  const items = !mention || closedFor === draft ? [] : files;
+  const items = !mention || closedFor === draft || found.query !== query ? [] : found.files;
   const active = Math.min(index, items.length - 1);
 
   const pick = (file: string) => {

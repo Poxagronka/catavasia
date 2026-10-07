@@ -180,12 +180,15 @@ export function openClaudeSession(
     req.onLine?.(line);
     if (message.type === 'prompt_suggestion') req.onSuggestion?.(message.suggestion);
     // The CLI changed its own mode (an approved plan switches it). A status
-    // while our own switch is on its way is that switch, not a new one.
+    // while our own switch is on its way is that switch, not a new one. Only
+    // a move into or out of Plan mode is the user's choice to keep; any other
+    // change (a mode the account does not allow) is not saved.
     if (message.type === 'system' && message.subtype === 'status' && message.permissionMode) {
       const mode = message.permissionMode;
       if (!modeCalls && mode !== options.permissionMode) {
+        const planMove = mode === 'plan' || options.permissionMode === 'plan';
         options = { ...options, permissionMode: mode };
-        req.onMode?.(OUR_MODES[mode]);
+        if (planMove) req.onMode?.(OUR_MODES[mode]);
       }
     }
     if (message.type === 'system' && message.subtype === 'session_state_changed') {

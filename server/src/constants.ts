@@ -242,6 +242,8 @@ export const CEO_DESK_MESSAGE_BODY_LIMIT = 40 * 1024 * 1024;
 export const CEO_MENTION_MAX_FILES = 50;
 /** The longest `@` query the files route takes. */
 export const CEO_MENTION_QUERY_MAX = 200;
+/** The `@` menu keeps a folder's file list this long, so each typed letter only filters it. */
+export const CEO_MENTION_CACHE_MS = 5_000;
 /** stdout limit of `git ls-files` for the `@` menu (a big repo lists many files). */
 export const CEO_MENTION_GIT_MAX_BUFFER = 64 * 1024 * 1024;
 /** After a restart, this many newest finished one-cat board tasks get their idle cat back. */

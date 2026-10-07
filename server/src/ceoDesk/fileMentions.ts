@@ -9,10 +9,20 @@
 import { execFile } from 'child_process';
 import * as fs from 'fs';
 
-import { CEO_MENTION_GIT_MAX_BUFFER } from '../constants.js';
+import { CEO_MENTION_CACHE_MS, CEO_MENTION_GIT_MAX_BUFFER } from '../constants.js';
 
-/** Every file the `@` menu can offer in `cwd` (an empty list when the folder is gone). */
-export function listFolderFiles(cwd: string): Promise<string[]> {
+const cache = new Map<string, { at: number; files: Promise<string[]> }>();
+
+/** Every file the `@` menu can offer in `cwd` (an empty list when the folder is gone), cached briefly. */
+export function listFolderFiles(cwd: string, now = Date.now()): Promise<string[]> {
+  const hit = cache.get(cwd);
+  if (hit && now - hit.at < CEO_MENTION_CACHE_MS) return hit.files;
+  const files = readFolderFiles(cwd);
+  cache.set(cwd, { at: now, files });
+  return files;
+}
+
+function readFolderFiles(cwd: string): Promise<string[]> {
   return new Promise((resolve) => {
     execFile(
       'git',

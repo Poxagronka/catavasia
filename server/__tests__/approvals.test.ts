@@ -63,6 +63,10 @@ describe('approval cards', () => {
     expect(card).toMatchObject({ plan: '# Plan\n1. Write', detail: '', canAlwaysAllow: false });
     approvals.answer(card.id, { mode: 'acceptEdits' });
     expect(await plan).toEqual({ mode: 'acceptEdits' });
+    // A plain Allow of a plan leaves Plan mode (Approve, ask for each edit).
+    const plain = approvals.ask(LUNA, ask({ toolName: 'ExitPlanMode', input: { plan: 'x' } }));
+    approvals.answer(approvals.list()[0].id, 'allow');
+    expect(await plain).toEqual({ mode: 'ask' });
 
     const bash = approvals.ask(LUNA, ask());
     approvals.answer(approvals.list()[0].id, { mode: 'acceptEdits' });
