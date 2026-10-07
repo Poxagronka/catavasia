@@ -57,7 +57,12 @@ export function effectiveMode(
   return engine === 'claude' && picked === 'auto' && !autoSupported(model) ? 'bypass' : picked;
 }
 
+/** What a mode does on this engine, in one plain line. */
+export function modeHint(engine: CatEngine, mode: PermissionMode): string {
+  return HINTS[engine][mode];
+}
+
 /** The picker's line under the select. */
 export function permissionHint(engine: CatEngine, model: string, mode: PermissionMode): string {
-  return effectiveMode(engine, model, mode) !== mode ? AUTO_FALLBACK_HINT : HINTS[engine][mode];
+  return effectiveMode(engine, model, mode) !== mode ? AUTO_FALLBACK_HINT : modeHint(engine, mode);
 }

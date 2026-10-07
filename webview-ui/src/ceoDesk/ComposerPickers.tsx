@@ -1,37 +1,54 @@
-import { PERMISSION_MODE_LABELS, permissionHint } from '../../../core/src/permissionModes.js';
+import type { PermissionMode } from '../../../core/src/messages.js';
+import {
+  AUTO_FALLBACK_HINT,
+  autoSupported,
+  modeHint,
+  PERMISSION_MODE_LABELS,
+  PERMISSION_MODES,
+  permissionHint,
+} from '../../../core/src/permissionModes.js';
 import { catCeo, type CeoSettings } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
-import { PermissionModeField } from '../components/cats/PermissionModeField.js';
 import { ComposerMenu } from './ComposerMenu.js';
 import { settingLabel } from './dockState.js';
 
-/** A list of choices in a composer menu; the current one has a check mark. */
+/**
+ * A list of choices in a composer menu (the Claude app look): a name, an
+ * optional plain line under it, and a check mark on the current one.
+ */
 function Choices({
-  hint,
+  note,
   value,
   options,
   onPick,
   testId,
 }: {
-  hint: string;
+  note?: string;
   value: string;
-  options: string[];
+  options: { value: string; label: string; hint?: string }[];
   onPick(v: string): void;
   testId: string;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="prose-small text-text-muted px-6 pb-4">{hint}</span>
+    <div className="composer-list prose-body" role="menu">
+      {note && <span className="composer-note">{note}</span>}
       {options.map((o) => (
         <button
-          key={o}
+          key={o.value}
           type="button"
-          className={`composer-choice ${o === value ? 'is-current' : ''}`}
-          onClick={() => onPick(o)}
-          data-testid={`${testId}-${o}`}
+          role="menuitemradio"
+          aria-checked={o.value === value}
+          className="composer-choice"
+          onClick={() => onPick(o.value)}
+          data-testid={`${testId}-${o.value}`}
         >
-          <span className="flex-1 text-left">{settingLabel(o)}</span>
-          {o === value && <span aria-hidden>✓</span>}
+          <span className="flex-1 flex flex-col text-left">
+            <span className="composer-choice-label">{o.label}</span>
+            {o.hint && <span className="composer-choice-hint">{o.hint}</span>}
+          </span>
+          <span className="composer-check" aria-hidden>
+            {o.value === value ? '✓' : ''}
+          </span>
         </button>
       ))}
     </div>
@@ -50,12 +67,20 @@ export function ModePicker({ settings, openKey }: { settings: CeoSettings; openK
       testId="dock-mode"
       openKey={openKey}
     >
-      {() => (
-        <PermissionModeField
-          engine="claude"
-          model={settings.model}
+      {(close) => (
+        <Choices
+          note={autoSupported(settings.model) ? undefined : AUTO_FALLBACK_HINT}
           value={mode}
-          onChange={(permissionMode) => set({ permissionMode })}
+          options={PERMISSION_MODES.map((m) => ({
+            value: m,
+            label: PERMISSION_MODE_LABELS[m],
+            hint: modeHint('claude', m),
+          }))}
+          onPick={(m) => {
+            set({ permissionMode: m as PermissionMode });
+            close();
+          }}
+          testId="dock-mode"
         />
       )}
     </ComposerMenu>
@@ -86,9 +111,9 @@ export function ModelPickers({
       >
         {(close) => (
           <Choices
-            hint="The model the CEO thinks with. Bigger models are smarter and slower."
+            note="The model the CEO thinks with. Bigger models are smarter and slower."
             value={settings.model}
-            options={models}
+            options={models.map((m) => ({ value: m, label: settingLabel(m) }))}
             onPick={(model) => {
               set({ model });
               close();
@@ -107,9 +132,9 @@ export function ModelPickers({
         >
           {(close) => (
             <Choices
-              hint="How long the CEO thinks before it answers. More effort is slower and more careful."
+              note="How long the CEO thinks before it answers. More effort is slower and more careful."
               value={settings.effort}
-              options={options.efforts}
+              options={options.efforts.map((e) => ({ value: e, label: settingLabel(e) }))}
               onPick={(effort) => {
                 set({ effort });
                 close();
