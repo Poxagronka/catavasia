@@ -59,6 +59,42 @@ describe('claudeTurnArgs', () => {
   });
 });
 
+describe('claudeTurnArgs project context', () => {
+  const project = (files: Record<string, string>) => {
+    const dir = makeTmp();
+    for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
+    return dir;
+  };
+  const appended = (args: string[]) => {
+    const at = args.indexOf('--append-system-prompt');
+    return at < 0 ? undefined : args[at + 1];
+  };
+
+  it('appends AGENTS.md when the project CLAUDE.md does not import it', () => {
+    const cwd = project({ 'CLAUDE.md': 'Use tabs.', 'AGENTS.md': 'Say PINEAPPLE.' });
+    expect(appended(claudeTurnArgs(req({ cwd })))).toContain('Say PINEAPPLE.');
+  });
+
+  it('leaves AGENTS.md to Claude Code when there is no CLAUDE.md or it imports AGENTS.md', () => {
+    expect(appended(claudeTurnArgs(req({ cwd: project({ 'AGENTS.md': 'x' }) })))).toBeUndefined();
+    const cwd = project({ 'CLAUDE.md': '@AGENTS.md', 'AGENTS.md': 'x' });
+    expect(appended(claudeTurnArgs(req({ cwd })))).toBeUndefined();
+  });
+
+  it('adds the project .mcp.json to a strict turn', () => {
+    const cwd = project({ '.mcp.json': '{"mcpServers":{}}' });
+    const args = claudeTurnArgs(req({ cwd }));
+    const at = args.indexOf('--mcp-config');
+    expect(args.slice(at, at + 3)).toEqual([
+      '--mcp-config',
+      '/m.json',
+      path.join(cwd, '.mcp.json'),
+    ]);
+    // Without --strict-mcp-config Claude Code loads it itself.
+    expect(claudeTurnArgs(req({ cwd, userMcp: true }))).not.toContain(path.join(cwd, '.mcp.json'));
+  });
+});
+
 describe('claudeUserMessage', () => {
   it('is plain text without images', () => {
     expect(JSON.parse(claudeUserMessage('hi'))).toEqual({

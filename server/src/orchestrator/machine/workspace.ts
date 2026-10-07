@@ -36,7 +36,7 @@ export async function prepareWorkspace(
   // A restart can cut the step off after git made the worktree or the branch.
   if (!fs.existsSync(worktreePath)) {
     await createWorktree(repo, worktreePath, branch).catch(() =>
-      reopenWorktree(repo.root, worktreePath, branch),
+      reopenWorktree(repo.root, worktreePath, branch, repo.subdir),
     );
   }
   return {

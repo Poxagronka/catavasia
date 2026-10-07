@@ -173,7 +173,10 @@ describe('desk tools', () => {
       isError: true,
       text: expect.stringContaining('3 jobs already run'),
     });
-    const jobs = env!.tasks.chatJobs(path.basename(env!.ceo.turns[0].cwd));
+    // With a project folder the CEO's cwd is the folder; desk.json names the chat.
+    const desk = path.join(env!.stateDir, 'cat-ceo', 'desk.json');
+    const { chatId } = JSON.parse(fs.readFileSync(desk, 'utf-8')) as { chatId: string };
+    const jobs = env!.tasks.chatJobs(chatId);
     expect(jobs).toHaveLength(3);
     const one = jobs.find((j) => j.prompt === 'one')!;
     await waitFor(() => (env!.office.liveMember('boss') ? true : undefined));

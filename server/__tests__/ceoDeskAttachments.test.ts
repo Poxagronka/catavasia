@@ -186,12 +186,17 @@ describe('desk messages with attachments', () => {
 
   it('gives the turn the folder, no edit tools, a budget and the user MCP servers', async () => {
     env = await startDeskOffice(() => ({ text: 'ok' }));
-    env.desk.send('hi');
-    await deskIdle(env.desk);
+    const turn = async (text: string) => {
+      env!.desk.send(text);
+      await deskIdle(env!.desk);
+    };
+    await turn('hi');
     env.desk.setFolder(env.tmp);
-    env.desk.send('again');
-    await deskIdle(env.desk);
-    const [first, second] = env.ceo.turns;
+    await turn('again');
+    await turn('more');
+    env.desk.setFolder(null);
+    await turn('sandbox');
+    const [first, second, third, fourth] = env.ceo.turns;
     expect(first.userMcp).toBe(true);
     expect(first.images).toEqual([]);
     expect(first.extraArgs).toEqual([
@@ -200,7 +205,16 @@ describe('desk messages with attachments', () => {
       '--max-budget-usd',
       '5',
     ]);
-    expect(second.extraArgs?.slice(0, 2)).toEqual(['--add-dir', env.tmp]);
+    // The project is the cwd (its CLAUDE.md, settings, MCP and skills load);
+    // the chat folder stays readable for attachments.
+    expect(second.cwd).toBe(env.tmp);
+    expect(second.extraArgs?.slice(0, 2)).toEqual(['--add-dir', first.cwd]);
+    // Sessions are keyed by cwd: a new folder starts a new session, the same one resumes it.
+    expect(second).toMatchObject({ resume: false });
+    expect(second.sessionId).not.toBe(first.sessionId);
+    expect(third).toMatchObject({ resume: true, sessionId: second.sessionId, cwd: env.tmp });
+    expect(fourth).toMatchObject({ resume: false, cwd: first.cwd });
+    expect(fourth.sessionId).not.toBe(third.sessionId);
   });
 
   it('marks an auth error row so the chat offers Log in', async () => {

@@ -4,8 +4,8 @@
  * - desk.json: the live chat (session, MCP token, cost, live jobs) and the
  *   office's project folder with the recent projects (a New chat keeps both).
  * - chats/<chatId>.json: the history of a chat (version 2, newest rows kept).
- * - chats/<chatId>/: the chat's cwd (stable, so `claude --resume` finds the
- *   session) and its sandbox `work/`.
+ * - chats/<chatId>/: the chat's attachments, its sandbox `work/`, and the
+ *   CEO's cwd when the office has no project folder (else the folder is).
  *
  * Version 1 is the judge chat's chat.json (rows only). The first desk chat
  * starts with those rows under a divider: the CEO session does not know them.
@@ -34,6 +34,8 @@ export interface DeskState {
   sessionId: string;
   /** The session exists: the next turn resumes it. */
   started: boolean;
+  /** The cwd of the session (older states: the chat folder). Claude keys sessions by cwd. */
+  sessionCwd?: string;
   /** The office's project folder (the Project button sets it), or null for the sandbox. */
   folder: string | null;
   /** Projects picked before, newest first. */
@@ -119,14 +121,14 @@ export class DeskStore {
     chatId: string,
     persona: string,
     mcpConfig: string,
-  ): { cwd: string; systemPromptFile: string; mcpConfigFile: string } {
-    const cwd = this.chatDir(chatId);
+  ): { chatDir: string; systemPromptFile: string; mcpConfigFile: string } {
+    const chatDir = this.chatDir(chatId);
     const systemPromptFile = path.join(this.dir, 'desk-persona.md');
     const mcpConfigFile = path.join(this.dir, 'desk-mcp.json');
-    fs.mkdirSync(cwd, { recursive: true });
+    fs.mkdirSync(chatDir, { recursive: true });
     fs.writeFileSync(systemPromptFile, persona);
     fs.writeFileSync(mcpConfigFile, mcpConfig, { mode: 0o600 });
-    return { cwd, systemPromptFile, mcpConfigFile };
+    return { chatDir, systemPromptFile, mcpConfigFile };
   }
 
   readHistory(chatId: string): DeskRow[] {
