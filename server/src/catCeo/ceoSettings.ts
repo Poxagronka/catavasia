@@ -24,7 +24,7 @@ export const CEO_DEFAULTS: CeoSettings = {
   name: 'Cat CEO',
   appearance: { breed: 'tux', pattern: 'tuxedo', collar: CAT_CEO_COLLAR },
   model: 'opus',
-  effort: 'high',
+  effort: 'medium',
   maxEditsPerCatPerDay: CAT_CEO_EDITS_PER_DAY_DEFAULT,
   tidyUserItems: false,
 };

@@ -173,7 +173,7 @@ const WORKER_PROMPT =
   'You are a careful developer cat. Do exactly the goal your lead gives you, in your own worktree. ' +
   'Keep changes small and tested. When done, call the office tool report with what you changed.';
 
-/** Seeded when cats.json is missing: one Opus boss and three Sonnet workers. */
+/** Seeded when cats.json is missing: one Opus boss and three Sonnet workers, all effort medium. */
 export function defaultTeam(): CatProfile[] {
   const worker = (catId: string, name: string, breed: string): CatProfile => ({
     id: catId,
@@ -198,7 +198,7 @@ export function defaultTeam(): CatProfile[] {
         'so that no two workers edit the same file. Check the merged result before you report.',
       engine: 'claude',
       model: 'opus',
-      effort: 'high',
+      effort: 'medium',
       parentId: null,
       isDefault: true,
     },
@@ -224,7 +224,15 @@ interface CatsFile {
   cats: CatProfile[];
   /** The Cat CEO settings (server/src/catCeo/ceoSettings.ts reads them). */
   catCeo?: unknown;
+  /** 2 once load() moved the old default effort (high) of the lead and the CEO to medium. */
+  modelDefaults?: 2;
 }
+
+/**
+ * One-time move to the new default effort: an untouched default lead (isDefault
+ * root) or CEO block that still holds the old default opus/high gets opus/medium.
+ */
+const isOldDefault = (m: unknown, e: unknown) => m === 'opus' && e === 'high';
 
 /**
  * cats.json: every mutation validates, keeps the tree rules, and writes atomically.
@@ -410,10 +418,17 @@ export class CatStore {
       }
       return out;
     };
-    this.ceoBlock = parsed.catCeo;
+    const migrate = parsed.modelDefaults !== 2;
+    const ceo = parsed.catCeo as { model?: unknown; effort?: unknown } | undefined;
+    this.ceoBlock =
+      migrate && ceo && isOldDefault(ceo.model, ceo.effort)
+        ? { ...ceo, effort: 'medium' }
+        : parsed.catCeo;
     const team = defaultTeam();
     let renamed = false;
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e))).map((cat) => {
+      if (migrate && cat.isDefault && cat.parentId === null && isOldDefault(cat.model, cat.effort))
+        cat = { ...cat, effort: 'medium' };
       if (OLD_DEFAULT_NAMES[cat.id] !== cat.name) return cat;
       renamed = true;
       return { ...cat, name: team.find((d) => d.id === cat.id)!.name };
@@ -421,6 +436,7 @@ export class CatStore {
     this.syncPrompts();
     // The prompt text moved to the prompt files: cats.json drops it.
     if (
+      migrate ||
       renamed ||
       parsed.cats.some((c) => (c as { systemPrompt?: unknown })?.systemPrompt !== undefined)
     ) {
@@ -473,6 +489,7 @@ export class CatStore {
       version: 1,
       cats,
       ...(this.ceoBlock === undefined ? {} : { catCeo: this.ceoBlock }),
+      modelDefaults: 2,
     };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {
