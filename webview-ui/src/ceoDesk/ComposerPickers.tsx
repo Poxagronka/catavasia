@@ -9,51 +9,9 @@ import {
 } from '../../../core/src/permissionModes.js';
 import { catCeo, type CeoSettings } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
+import { Choices } from './ChoiceCard.js';
 import { ComposerMenu } from './ComposerMenu.js';
 import { settingLabel } from './dockState.js';
-
-/**
- * A list of choices in a composer menu (the Claude app look): a name, an
- * optional plain line under it, and a check mark on the current one.
- */
-function Choices({
-  note,
-  value,
-  options,
-  onPick,
-  testId,
-}: {
-  note?: string;
-  value: string;
-  options: { value: string; label: string; hint?: string }[];
-  onPick(v: string): void;
-  testId: string;
-}) {
-  return (
-    <div className="composer-list prose-body" role="menu">
-      {note && <span className="composer-note">{note}</span>}
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="menuitemradio"
-          aria-checked={o.value === value}
-          className="composer-choice"
-          onClick={() => onPick(o.value)}
-          data-testid={`${testId}-${o.value}`}
-        >
-          <span className="flex-1 flex flex-col text-left">
-            <span className="composer-choice-label">{o.label}</span>
-            {o.hint && <span className="composer-choice-hint">{o.hint}</span>}
-          </span>
-          <span className="composer-check" aria-hidden>
-            {o.value === value ? '✓' : ''}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 const set = (patch: Partial<CeoSettings>) => catCeo.setSettings(patch);
 

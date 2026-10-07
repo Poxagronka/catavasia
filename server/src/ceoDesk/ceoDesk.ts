@@ -22,6 +22,7 @@ import { CAT_CEO_DIR, CAT_CEO_ID, CAT_CEO_TIMEOUT_MS } from '../constants.js';
 import type {
   EngineAdapter,
   PermissionAnswer,
+  TurnHandle,
   TurnOutcome,
 } from '../orchestrator/engineAdapter.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
@@ -62,6 +63,10 @@ export class CeoDesk implements OfficeToolHandler {
   private state: DeskState;
   private log: DeskLog;
   private turn: Turn | undefined;
+  /** The ended turn whose stream still waits for Claude's suggestion. */
+  private lingering: TurnHandle | undefined;
+  /** Claude's guess of the user's next message; a new message or turn drops it. */
+  private suggestion: string | undefined;
   private reworkCount = 0;
   private mcpUrl = '';
   private disposed = false;
@@ -125,6 +130,7 @@ export class CeoDesk implements OfficeToolHandler {
     // turnRunning stays true on disk: the next start tells the user.
     if (this.turn) clearTimeout(this.turn.timer);
     this.killTurn();
+    this.lingering?.kill();
   }
 
   // ── Chat (officeCatSource.ts and ceoRoutes.ts) ──
@@ -153,8 +159,19 @@ export class CeoDesk implements OfficeToolHandler {
 
   /** A user message. Returns how many messages and notices wait for the next turn. */
   send(text: string, files?: SavedAttachments): number {
+    this.suggestion = undefined;
     const attachments = files?.attachments.length ? { attachments: files.attachments } : {};
     this.log.add({ kind: 'user', text, ...attachments });
+    // A text typed while the CEO's question card waits is the answer to it
+    // (the card closes; the waiting turn gets the text as every answer).
+    const asked = this.opts.office.approvals
+      .list()
+      .find((a) => a.catId === CAT_CEO_ID && a.questions);
+    if (asked?.questions && !files?.attachments.length) {
+      const answers = Object.fromEntries(asked.questions.map((q) => [q.question, text]));
+      this.opts.office.approvals.answer(asked.id, { answers });
+      return this.state.pending.length;
+    }
     this.state.title ||= messageTitle(text, files?.attachments);
     this.state.pending.push({
       kind: 'user',
@@ -176,6 +193,7 @@ export class CeoDesk implements OfficeToolHandler {
     const queued = queuedDraft(this.state.pending);
     const had = !!this.turn || this.state.pending.length > 0;
     this.state.pending = [];
+    this.suggestion = undefined;
     this.store.save(this.state);
     this.killTurn();
     if (had) this.log.add({ kind: 'text', text: 'Stopped.' });
@@ -292,6 +310,8 @@ export class CeoDesk implements OfficeToolHandler {
       this.statusChanged();
       return;
     }
+    this.lingering?.kill();
+    this.suggestion = undefined;
     const parts = takeTurnParts(this.state.pending);
     if (parts.some((p) => p.kind === 'user')) this.reworkCount = 0;
     const request = parts
@@ -314,6 +334,12 @@ export class CeoDesk implements OfficeToolHandler {
       onLine: (line) => {
         if (!turn.stopped && turn.chatId === this.state.chatId) stream.line(line);
       },
+      onSuggestion: (text) => {
+        if (turn.stopped || turn.chatId !== this.state.chatId || this.turn) return;
+        if (this.state.pending.length) return;
+        this.suggestion = text;
+        this.statusChanged();
+      },
     });
     const turn: Turn = {
       chatId: this.state.chatId,
@@ -335,6 +361,7 @@ export class CeoDesk implements OfficeToolHandler {
     clearTimeout(turn.timer);
     if (this.disposed) return;
     if (this.turn === turn) this.turn = undefined;
+    this.lingering = turn.handle;
     this.opts.office.residents.setWorking(CAT_CEO_ID, false);
     // A New chat during the turn: the old chat's state is archived as it was.
     if (turn.chatId === this.state.chatId) {
@@ -382,6 +409,7 @@ export class CeoDesk implements OfficeToolHandler {
       chat: { id: this.state.chatId, title: this.state.title ?? '' },
       costUsd: this.state.costUsd,
       approvals: this.opts.office.approvals.list(),
+      ...(this.suggestion ? { suggestion: this.suggestion } : {}),
       ...(this.state.context ? { context: this.state.context } : {}),
       limits: officeLimits.get(),
     };

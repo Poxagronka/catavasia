@@ -37,6 +37,8 @@ export interface DeskTurnInput {
   parts: DeskState['pending'];
   /** Every stream line of the turn (deskStream.ts makes the rows). */
   onLine: (line: string) => void;
+  /** Claude's guess of the user's next message, after the turn's result. */
+  onSuggestion: (text: string) => void;
 }
 
 type DeskPart = DeskState['pending'][number];
@@ -62,7 +64,7 @@ export function takeTurnParts(pending: DeskPart[]): DeskPart[] {
  * an approval card in the dock.
  */
 export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
-  const { adapter, office, store, state, mcpUrl, parts, onLine } = input;
+  const { adapter, office, store, state, mcpUrl, parts, onLine, onSuggestion } = input;
   // A slash command goes as typed: Claude Code runs it like in the terminal.
   const message = isSlashCommand(parts[0])
     ? parts[0].text
@@ -100,6 +102,7 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     partialText: true,
     askPermission: (ask) => office.approvals.ask({ catId: CAT_CEO_ID, name: settings.name }, ask),
     onLine,
+    onSuggestion,
   });
 }
 

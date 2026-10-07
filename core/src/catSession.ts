@@ -74,6 +74,8 @@ export interface CatSessionStatus {
   chat?: { id: string; title: string };
   /** CEO desk: the Claude subscription's limits as the newest turn saw them. */
   limits?: UsageLimits;
+  /** CEO desk: Claude's guess of the user's next message (Tab puts it in the box). */
+  suggestion?: string;
 }
 
 /** Tokens of the last request (input + cache writes + cache reads) of the window. */

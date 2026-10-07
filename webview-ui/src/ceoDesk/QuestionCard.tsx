@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import type { CeoApproval, CeoQuestion } from '../../../core/src/ceoDesk.js';
+import { Button } from '../components/ui/Button.js';
 import { deadline, questionAnswers, type QuestionPick, togglePick } from './approvalState.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
 
@@ -91,15 +92,15 @@ export function QuestionCard({
         </div>
       ))}
       <div className="flex gap-6 items-center">
-        <button
-          type="button"
-          className="quiet-btn text-text!"
+        <Button
+          size="sm"
+          variant={busy || !answers ? 'disabled' : 'accent'}
           disabled={busy || !answers}
           onClick={() => void send(false)}
           data-testid="question-send"
         >
           Send answer
-        </button>
+        </Button>
         <button
           type="button"
           className="quiet-btn"

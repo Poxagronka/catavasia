@@ -51,6 +51,12 @@ export interface TurnRequest {
   onActivity?: (activity: ToolActivity) => void;
   /** The engine compacted the conversation (Claude: `system/compact_boundary`). */
   onCompact?: (info: CompactInfo) => void;
+  /**
+   * Claude's guess of the user's next message (SDK `prompt_suggestion`). It
+   * comes after the result, so with this set `done` resolves at the result and
+   * the stream runs on for the guess (`kill` ends it).
+   */
+  onSuggestion?: (text: string) => void;
 }
 
 /** One action the engine wants the user to allow. */

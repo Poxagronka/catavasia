@@ -14,6 +14,7 @@ import { playDoneSound } from '../notificationSound.js';
 import { sessionToken } from '../sessionToken.js';
 import { ApprovalCard } from './ApprovalCard.js';
 import { CEO_DESK_SESSION, ceoDeskApi } from './ceoDeskApi.js';
+import { ChoiceCard } from './ChoiceCard.js';
 import { ModelPickers, ModePicker } from './ComposerPickers.js';
 import { ConnectorsCard } from './ConnectorsCard.js';
 import { DockComposer } from './DockComposer.js';
@@ -276,6 +277,16 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           />
         )}
         {slash.card === 'connectors' && <ConnectorsCard onClose={() => slash.setCard(null)} />}
+        {typeof slash.card === 'object' && slash.card && (
+          <ChoiceCard
+            command={slash.card}
+            onPick={(text) => {
+              slash.setCard(null);
+              void send(text).catch(() => {});
+            }}
+            onClose={() => slash.setCard(null)}
+          />
+        )}
       </div>
       {privileged && !gone && (
         <DockComposer
@@ -283,6 +294,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           onDraft={setDraft}
           onSend={send}
           commands={slash.commands}
+          suggestion={chat.status.suggestion}
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}
