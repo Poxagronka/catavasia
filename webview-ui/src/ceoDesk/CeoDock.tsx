@@ -202,6 +202,8 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         appearance={settings?.appearance}
         pill={statusPill(chat)}
         folder={chat.status.folder ?? null}
+        chat={chat.status.chat}
+        busy={chat.status.busy}
         costUsd={showMoney ? chat.status.costUsd : undefined}
         privileged={privileged && !gone}
         stoppable={chat.status.busy || (chat.status.queued ?? 0) > 0}

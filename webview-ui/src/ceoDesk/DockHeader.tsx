@@ -1,5 +1,6 @@
 import type { Appearance } from '../cats/catsApi.js';
 import { CatSprite } from '../components/cats/CatSprite.js';
+import { ChatHistoryMenu } from './ChatHistoryMenu.js';
 import { projectName, type StatusPill } from './dockState.js';
 
 const PILL_CLASS: Record<StatusPill['tone'], string> = {
@@ -23,6 +24,10 @@ interface DockHeaderProps {
   appearance?: Appearance;
   pill: StatusPill;
   folder: string | null;
+  /** The open chat: its title opens the chat history. */
+  chat?: { id: string; title: string };
+  /** The CEO is answering (opening another chat asks first). */
+  busy: boolean;
   costUsd?: number;
   /** The page has the server token. */
   privileged: boolean;
@@ -52,17 +57,26 @@ function ChevronIcon() {
 
 /**
  * Two rows on the dock grid (16px sides, 28px controls, 8px gaps): the face,
- * name, status and collapse; then the project line and the chat actions.
+ * name, status, project and collapse; then the chat title (it opens the chat
+ * history) and the chat actions.
  */
 export function DockHeader(props: DockHeaderProps) {
   const { pill, privileged } = props;
   return (
-    <div className="flex flex-col gap-8 px-16 py-12 border-b-2 border-border">
+    <div className="relative flex flex-col gap-8 px-16 py-12 border-b-2 border-border">
       <div className="flex items-center gap-8 min-w-0">
         <CeoFace appearance={props.appearance} />
         <span className="text-accent-bright text-lg truncate">{props.name}</span>
         <span className={`dock-label shrink-0 ${PILL_CLASS[pill.tone]}`} data-testid="dock-status">
           {pill.label}
+        </span>
+        {/* Read only: the Project button of the bottom bar picks it. */}
+        <span
+          className="dock-label truncate min-w-0 ml-8"
+          title={props.folder ?? 'No project folder: the cats work in a sandbox'}
+          data-testid="dock-project"
+        >
+          Project: {projectName(props.folder)}
         </span>
         <span className="flex-1" />
         <button
@@ -77,14 +91,7 @@ export function DockHeader(props: DockHeaderProps) {
         </button>
       </div>
       <div className="flex items-center gap-8 min-w-0 h-28">
-        {/* Read only: the Project button of the bottom bar picks it. */}
-        <span
-          className="dock-label truncate min-w-0"
-          title={props.folder ?? 'No project folder: the cats work in a sandbox'}
-          data-testid="dock-project"
-        >
-          Project: {projectName(props.folder)}
-        </span>
+        {privileged && <ChatHistoryMenu chat={props.chat} busy={props.busy} />}
         {props.costUsd !== undefined && (
           <span className="dock-label shrink-0" title="What this chat has cost">
             ${props.costUsd.toFixed(2)}
