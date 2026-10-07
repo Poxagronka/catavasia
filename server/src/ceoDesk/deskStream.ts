@@ -19,6 +19,8 @@ const DESK_TOOL_PREFIX = `mcp__${DESK_MCP_NAME}__`;
 /** Caps of what a tool row keeps (the history file and the socket frame stay small). */
 export const TOOL_INPUT_MAX_CHARS = 4000;
 export const TOOL_RESULT_MAX_CHARS = 4000;
+/** The live reply goes to the dock at most this often (each frame re-renders its Markdown). */
+export const DRAFT_EVERY_MS = 50;
 
 export interface ToolImage {
   mediaType: string;
@@ -35,6 +37,8 @@ export interface DeskStreamHost {
   saveImages(images: ToolImage[]): CeoAttachment[];
   /** The context window use changed. */
   context(use: ContextUse): void;
+  /** The reply so far, as Claude writes it (partial messages). */
+  draft(text: string): void;
   /** Folders whose paths show relative (the project folder first). */
   folders: string[];
 }
@@ -59,6 +63,9 @@ export class DeskStream {
   held: string | undefined;
   private readonly tools = new Map<string, ToolRow>();
   private model: string | undefined;
+  /** The text block Claude is writing now (its deltas so far) and when it last went out. */
+  private draft = '';
+  private draftAt = 0;
   private window: number;
   private used = 0;
 
@@ -83,6 +90,7 @@ export class DeskStream {
     if (rec.type === 'result') return this.result(rec);
     if (rec.type === 'system' && rec.subtype === 'compact_boundary') return this.compacted(rec);
     if (rec.parent_tool_use_id) return;
+    if (rec.type === 'stream_event') return this.partial(rec.event as Block | undefined);
     const message = rec.message as { content?: unknown; usage?: Record<string, unknown> };
     if (!Array.isArray(message?.content)) return;
     for (const block of message.content as Block[]) {
@@ -102,6 +110,26 @@ export class DeskStream {
     this.host.context({ used: after, window: this.window });
   }
 
+  /**
+   * A partial message: a new text block puts the text before it in its row;
+   * each text delta grows the draft the dock shows.
+   */
+  private partial(event: Block | undefined): void {
+    const block = event?.content_block as Block | undefined;
+    if (event?.type === 'content_block_start' && block?.type === 'text') {
+      this.flush();
+      this.draft = '';
+      return;
+    }
+    const delta = event?.delta as Block | undefined;
+    if (event?.type !== 'content_block_delta' || delta?.type !== 'text_delta') return;
+    this.draft += typeof delta.text === 'string' ? delta.text : '';
+    const now = Date.now();
+    if (now - this.draftAt < DRAFT_EVERY_MS || !this.draft.trim()) return;
+    this.draftAt = now;
+    this.host.draft(this.draft.trim());
+  }
+
   /** The text before an action explains it: it goes before the action's row. */
   private flush(): void {
     if (this.held !== undefined) this.host.add({ kind: 'text', text: this.held });
@@ -116,6 +144,9 @@ export class DeskStream {
     if (block.type === 'text' && typeof block.text === 'string' && block.text.trim()) {
       this.flush();
       this.held = block.text.trim();
+      // The finished block: the deltas the throttle held back show too.
+      if (this.draft) this.host.draft(this.held);
+      this.draft = '';
     } else if (block.type === 'thinking' && typeof rec.thinking_duration_ms === 'number') {
       this.flush();
       this.host.add({ kind: 'thought', ms: rec.thinking_duration_ms });

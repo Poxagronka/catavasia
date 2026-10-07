@@ -510,7 +510,8 @@ function idFlag(argv, name) {
  * the result. The answer echoes the user's words, plus a markdown list and a
  * code block. "ask: <command>" first asks can_use_tool for a Bash call and
  * says the answer. "question: <text>" asks it for AskUserQuestion and says
- * the answers the tool got.
+ * the answers the tool got. "stream: <text>" with --include-partial-messages
+ * first sends the text as deltas, with a pause halfway, and a TypeScript block.
  */
 async function headlessTurn(argv) {
   const out = (record) => process.stdout.write(`${JSON.stringify(record)}\n`);
@@ -603,8 +604,7 @@ async function headlessTurn(argv) {
     '- first point',
     '- second point',
     '',
-    fence,
-    'echo mock',
+    ...(said.startsWith('stream:') ? [`${fence}ts`, 'const mock = 1;'] : [fence, 'echo mock']),
     fence,
   ].join('\n');
   const say = (record) =>
@@ -623,6 +623,16 @@ async function headlessTurn(argv) {
     return;
   }
   if (said === 'show tools') toolActivity(say, process.cwd());
+  if (said.startsWith('stream:') && argv.includes('--include-partial-messages')) {
+    const event = (e) => say({ type: 'stream_event', event: e, parent_tool_use_id: null });
+    const delta = (part) =>
+      event({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: part } });
+    event({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+    const half = text.indexOf('- first');
+    delta(text.slice(0, half));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    delta(text.slice(half));
+  }
   say({
     type: 'assistant',
     message: { content: [{ type: 'text', text }], usage: MOCK_USAGE },

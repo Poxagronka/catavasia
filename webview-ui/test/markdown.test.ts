@@ -111,7 +111,9 @@ describe('Markdown', () => {
 
   it('renders a fenced code block with its language and keeps raw HTML as text', () => {
     const out = html('```ts\nconst a = 1;\n```\n\n<b>bold?</b> <script>x()</script>');
-    expect(out).toContain('<pre><code class="language-ts">const a = 1;\n</code></pre>');
+    expect(out).toContain(
+      '<pre><code class="hljs language-ts"><span class="hljs-keyword">const</span>',
+    );
     expect(out).not.toContain('<b>');
     expect(out).not.toContain('<script>');
   });
@@ -136,5 +138,26 @@ describe('Markdown', () => {
     expect(out).toContain('<code>npm ci</code>');
     expect(out.match(/data-testid="code-copy"/g)).toHaveLength(1);
     expect(out).toMatch(/<div class="markdown-code"><pre><code>npm ci\n<\/code><\/pre><button/);
+  });
+
+  it('colors the code of a named language (ts, py, bash, json); a block without one stays plain', () => {
+    const block = (lang: string, code: string) => html(`\`\`\`${lang}\n${code}\n\`\`\``);
+    expect(block('ts', 'const n: number = 1;')).toContain(
+      '<span class="hljs-keyword">const</span>',
+    );
+    expect(block('py', 'def f():\n    return "x"')).toContain(
+      '<span class="hljs-string">&quot;x&quot;</span>',
+    );
+    expect(block('bash', 'echo $HOME')).toContain('<span class="hljs-built_in">echo</span>');
+    expect(block('json', '{"a": true}')).toContain('<span class="hljs-attr">&quot;a&quot;</span>');
+    expect(block('', 'const x = 1')).not.toContain('hljs');
+    // An unknown language renders as plain code, never an error.
+    expect(block('nosuchlang', 'x')).toContain('<code class="hljs language-nosuchlang">x\n</code>');
+  });
+
+  it('half-written text (a live reply) still renders: an open code fence, a table without rows', () => {
+    expect(html('Here:\n\n```ts\nconst a = ')).toContain('<span class="hljs-keyword">const</span>');
+    const table = html('| Day | Rain |\n|---|');
+    expect(table).toContain('Day');
   });
 });

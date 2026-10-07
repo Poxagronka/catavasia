@@ -1,5 +1,6 @@
 import { type ReactNode, useRef } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
 
 import { CopyButton } from '../ui/CopyButton.js';
@@ -7,7 +8,9 @@ import { CopyButton } from '../ui/CopyButton.js';
 /**
  * GitHub-flavored markdown for task results and chats: tables, headings,
  * lists (nested, task lists), blockquotes, code, strikethrough, links and
- * autolinks; a code block has a copy button. Raw HTML in the source stays text (no rehype-raw), so agent
+ * autolinks; a code block has a copy button, and syntax colors when it names
+ * its language (rehype-highlight: the highlight.js common set, no guessing;
+ * colors in index.css). Raw HTML in the source stays text (no rehype-raw), so agent
  * output can never inject markup. Links open in a new tab and only for
  * http(s) and mailto URLs. Any other scheme renders as plain text.
  * Element styles live in `.markdown` in index.css.
@@ -81,7 +84,11 @@ const components: Components = {
 export function Markdown({ text, className = '' }: { text: string; className?: string }) {
   return (
     <div className={`markdown prose-body flex flex-col gap-8 break-words min-w-0 ${className}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={components}
+      >
         {text}
       </ReactMarkdown>
     </div>

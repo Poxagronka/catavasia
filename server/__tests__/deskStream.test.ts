@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CatSessionEntry, ContextUse } from '../../core/src/catSession.js';
 import type { DeskRow } from '../src/ceoDesk/deskStore.js';
@@ -10,6 +10,8 @@ import {
   RED_PNG,
   result,
   text,
+  textDelta,
+  textStart,
   thinking,
   toolResult,
   toolUse,
@@ -21,6 +23,7 @@ function harness(last?: ContextUse) {
   const rows: DeskRow[] = [];
   const contexts: ContextUse[] = [];
   const saved: ToolImage[][] = [];
+  const drafts: string[] = [];
   let at = 0;
   const stream = new DeskStream(
     {
@@ -42,11 +45,12 @@ function harness(last?: ContextUse) {
         }));
       },
       context: (use) => contexts.push(use),
+      draft: (t) => drafts.push(t),
       folders: [PROJECT],
     },
     last,
   );
-  return { stream, rows, contexts, saved };
+  return { stream, rows, contexts, saved, drafts };
 }
 
 describe('desk stream rows', () => {
@@ -107,6 +111,43 @@ describe('desk stream rows', () => {
     expect(contexts.at(-1)).toEqual({ used: 20909, window: 150000 });
     stream.line(result(1000000, 'claude-opus-x'));
     expect(contexts.at(-1)).toEqual({ used: 20909, window: 200000 });
+  });
+});
+
+describe('live reply text', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('sends the growing text at most every 50 ms, then the whole block', () => {
+    vi.useFakeTimers({ now: 1000 });
+    const { stream, rows, drafts } = harness();
+    stream.line(textStart());
+    stream.line(textDelta('Hel'));
+    stream.line(textDelta('lo'));
+    vi.advanceTimersByTime(60);
+    stream.line(textDelta(' wor'));
+    expect(drafts).toEqual(['Hel', 'Hello wor']);
+    // The finished block carries the whole text, even the deltas the throttle held back.
+    stream.line(text('Hello world.'));
+    expect(drafts.at(-1)).toBe('Hello world.');
+    expect(rows).toEqual([]);
+    expect(stream.held).toBe('Hello world.');
+  });
+
+  it('a new text block puts the previous text in its row first; helpers stream nothing', () => {
+    const { stream, rows, drafts } = harness();
+    stream.line(textStart());
+    stream.line(textDelta('One.'));
+    stream.line(text('One.'));
+    stream.line(textStart());
+    expect(rows).toMatchObject([{ kind: 'text', text: 'One.' }]);
+    stream.line(textDelta('from a helper', 'toolu_parent'));
+    expect(drafts).toEqual(['One.', 'One.']);
+  });
+
+  it('without partial messages the reply only waits (no draft)', () => {
+    const { stream, drafts } = harness();
+    stream.line(text('Red.'));
+    expect(drafts).toEqual([]);
   });
 });
 

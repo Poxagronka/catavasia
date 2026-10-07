@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
 import { useCatCeo } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
 import { catSessionApi } from '../catTerminal/catSessionApi.js';
@@ -126,7 +127,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [chat.entries, chat.status.busy, collapsed, slash.card]);
+  }, [chat.entries, chat.draft, chat.status.busy, collapsed, slash.card]);
 
   // A question of a cat or the CEO opens the dock and shows its card.
   const approvals = chat.status.approvals ?? [];
@@ -166,6 +167,16 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
 
   const problem = engineProblem('claude', catsApi.engineOptions('claude'));
   const queued = queuedRows(chat);
+  const send = async (text: string, attachments: CeoAttachmentUpload[] = []) => {
+    if (!attachments.length && slash.run(text)) return;
+    await ceoDeskApi.send(text, attachments);
+  };
+  // Retry asks the last question again; a message with files is not offered (they went once).
+  const lastAsk = [...chat.entries].reverse().find((e) => e.kind === 'user');
+  const retry =
+    !chat.status.busy && lastAsk?.kind === 'user' && lastAsk.text && !lastAsk.attachments?.length
+      ? () => void send(lastAsk.text)
+      : undefined;
   const jobActions: JobCardActions = {
     canControl: privileged,
     onDetails: onOpenTask,
@@ -239,13 +250,21 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
               job={jobActions}
               onOpenPromptHistory={onOpenPromptHistory}
               onLogin={() => engineUi.openLogin('claude')}
+              onRetry={retry}
             />
           ),
         )}
-        {chat.status.busy && (
-          <span className="self-start text-status-active text-sm pixel-pulse">
-            {chat.status.busyText ?? `${name} is thinking...`}
-          </span>
+        {/* The reply as Claude writes it; "thinking" until its first words. */}
+        {chat.draft ? (
+          <div className="contents" data-testid="dock-draft">
+            <MessageRow entry={{ kind: 'text', text: chat.draft }} />
+          </div>
+        ) : (
+          chat.status.busy && (
+            <span className="self-start text-status-active text-sm pixel-pulse">
+              {chat.status.busyText ?? `${name} is thinking...`}
+            </span>
+          )
         )}
         {approvals.map((a) =>
           a.questions ? (
@@ -267,10 +286,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         <DockComposer
           draft={draft}
           onDraft={setDraft}
-          onSend={async (text, attachments) => {
-            if (!attachments.length && slash.run(text)) return;
-            await ceoDeskApi.send(text, attachments);
-          }}
+          onSend={send}
           commands={slash.commands}
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}

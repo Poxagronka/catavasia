@@ -19,6 +19,8 @@ export interface CatConsoleState {
   status: CatSessionStatus;
   /** False until the first snapshot arrives. */
   loaded: boolean;
+  /** CEO desk: the reply so far, while Claude writes it. */
+  draft?: string;
 }
 
 export const EMPTY_CONSOLE: CatConsoleState = {
@@ -33,13 +35,19 @@ export function applyFrame(state: CatConsoleState, frame: CatSessionFrame): CatC
   if (frame.type === 'snapshot') {
     return { title: frame.title, entries: frame.entries, status: frame.status, loaded: true };
   }
-  if (frame.type === 'entries') return { ...state, entries: [...state.entries, ...frame.entries] };
+  if (frame.type === 'draft') return { ...state, draft: frame.text };
+  if (frame.type === 'entries') {
+    const entries = [...state.entries, ...frame.entries];
+    // The written text arrived as its row: it replaces the draft.
+    const written = frame.entries.some((e) => e.kind === 'text');
+    return { ...state, entries, ...(written ? { draft: undefined } : {}) };
+  }
   if (frame.type === 'job') return { ...state, entries: upsertJob(state.entries, frame) };
   if (frame.type === 'update') {
     const { entry } = frame;
     return { ...state, entries: state.entries.map((e) => (e.at === entry.at ? entry : e)) };
   }
-  return { ...state, status: frame.status };
+  return { ...state, status: frame.status, ...(frame.status.busy ? {} : { draft: undefined }) };
 }
 
 type JobEntry = Extract<CatSessionEntry, { kind: 'job' }>;
