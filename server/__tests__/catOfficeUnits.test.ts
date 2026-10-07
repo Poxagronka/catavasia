@@ -56,11 +56,10 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('claude turn process', () => {
-  it('sets the 200K auto-compact window in the child env', () => {
-    expect(claudeTurnEnv('/w')).toMatchObject({
-      PWD: '/w',
-      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000',
-    });
+  it('leaves the auto-compact window to Claude Code', () => {
+    const env = claudeTurnEnv('/w');
+    expect(env.PWD).toBe('/w');
+    expect(env).not.toHaveProperty('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
   });
 
   it('reads a compact_boundary line (CLI 2.1.290 shape)', () => {

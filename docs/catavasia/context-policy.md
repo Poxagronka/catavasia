@@ -9,7 +9,7 @@ Related: [task-state-machine.md](task-state-machine.md) (`JoinMember` effect), [
 - **A new session per cat per task.** This is a clear by construction. Phase 1 already does it. v2 keeps it and writes it down as a rule.
 - **No `/compact` between tasks** and no session that lives across tasks. Cross-task memory lives in the cat's prompt file (`Rules`, `Lessons`), not in chat history.
 - **The role never burns.** It is in the system prompt on every request. The system prompt survives compaction (docs + probe below).
-- **Auto-compact only inside very long tasks**, at a 200K window per cat turn (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`).
+- **Auto-compact is Claude Code's own default.** The office does not set `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (owner rule 2026-10-07: plain Claude Code, no extra limits).
 - **One prompt file per cat**: `~/.pixel-agents/prompts/<catId>.md` with a locked `Role & conduct` section (user only) and `Rules` + `Lessons` sections (Cat CEO may edit). The server composes it into the per-task persona file at join time.
 - **Prompt edits apply from the cat's next session.** The CLI records the system prompt once per session (snapshot on, the default). We do not turn the snapshot off.
 
@@ -59,10 +59,10 @@ Decision: new session per cat per task. `/clear` is not needed as a command: a n
 
 ## 4. Compaction inside a task
 
-- Each cat turn sets env `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` (F11). Reason: every tool call re-sends the prefix. At 900K context one Opus 5.5 request costs 900K × $0.20/MTok = $0.18 in cache reads alone; at 200K it costs $0.04. A turn with 40 tool calls: about $7.20 against $1.60.
+- A cat turn and a CEO turn do not set `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (F11), so Claude Code compacts at its own default (F12): about 967K on a native-1M model. Superseded (owner rule 2026-10-07): a 200K window to save cache reads. The cost trade-off was: at 900K context one Opus 5.5 request costs $0.18 in cache reads, at 200K it costs $0.04.
 - The role survives (F6, F8). CLAUDE.md is re-injected (F6).
 - The office does not send `/compact` itself. A task that compacts is a signal: the stream shows `compact_boundary` with `trigger: "auto"`; the interpreter logs it as `CompactHappened{catId, preTokens, postTokens}` and the Cat CEO sees it in its digest.
-- The constant lives in `server/src/constants.ts` as `CAT_AUTO_COMPACT_WINDOW = 200_000`. Settings do not expose it.
+- The CEO context ring uses the window that the turn result reports (`modelUsage[model].contextWindow`, 1,000,000 for `claude-opus-5-5`, checked with a real SDK turn 2026-10-07). Before the first result of a chat it assumes `DEFAULT_MAX_CONTEXT_TOKENS` (200K).
 
 ## 5. Per-cat prompt file
 
