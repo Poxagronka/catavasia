@@ -1,9 +1,0 @@
-{"type":"thread.started","thread_id":"01a11246-f623-7a71-a3f3-f9e65c4c9372"}
-{"type":"turn.started"}
-{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll read the README, then create the one-line file and report the result."}}
-{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc \"cat README.md && printf '\\\\n--- creating hello.txt ---\\\\n' && printf 'meow\\\\n' > hello.txt\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
-{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc \"cat README.md && printf '\\\\n--- creating hello.txt ---\\\\n' && printf 'meow\\\\n' > hello.txt\"","aggregated_output":"# demo\n\n--- creating hello.txt ---\n","exit_code":0,"status":"completed"}}
-{"type":"item.started","item":{"id":"item_2","type":"mcp_tool_call","server":"office","tool":"report","arguments":{"result":"Read README.md (# demo) and created hello.txt with the single line `meow`."},"result":null,"error":null,"status":"in_progress"}}
-{"type":"item.completed","item":{"id":"item_2","type":"mcp_tool_call","server":"office","tool":"report","arguments":{"result":"Read README.md (# demo) and created hello.txt with the single line `meow`."},"result":{"content":[{"type":"text","text":"The office gives your result to the user. End your turn now."}],"structured_content":null},"error":null,"status":"completed"}}
-{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Read README.md and created `hello.txt` containing `meow`."}}
-{"type":"turn.completed","usage":{"input_tokens":91346,"cached_input_tokens":67584,"cache_write_input_tokens":0,"output_tokens":194,"reasoning_output_tokens":0}}

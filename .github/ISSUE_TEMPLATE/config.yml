@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: "Install help and troubleshooting"
-    url: "https://github.com/Poxagronka/catavasia/blob/main/docs/catavasia/INSTALL.md#troubleshooting"
-    about: "Read the install guide first. Most start problems have a fix there."
-  - name: "Bug in upstream Pixel Agents (not the cat fork)"
-    url: "https://github.com/pixel-agents-hq/pixel-agents/issues"
-    about: "The VS Code Marketplace extension and the `pixel-agents` npm package belong to the upstream project."
