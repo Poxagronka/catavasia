@@ -354,8 +354,6 @@ export const SOCIAL_GREET_RUB_SEC = 0.9;
 export const SOCIAL_GREET_RUB_CHANCE = 0.5;
 /** The listener's happy tail flick: seconds per frame. */
 export const SOCIAL_FLICK_FRAME_SEC = 0.35;
-/** The arched-back hiss bobs at this pace before a fight. */
-export const SOCIAL_HISS_FRAME_SEC = 0.25;
 /** Mouth open / closed toggle while a cat talks. */
 export const SOCIAL_TALK_MOUTH_SEC = 0.18;
 /** Chase play: total length, walk-speed multiplier, re-path interval, chase radius. */
@@ -372,8 +370,30 @@ export const SOCIAL_TAG_COOLDOWN_SEC = 1.2;
 /** Toy joint play: total length and seconds per turn. */
 export const SOCIAL_TOY_DURATION_SEC = 10;
 export const SOCIAL_TOY_TURN_SEC = 2;
-/** Fight: puff-up stare, dust cloud, then fleeing with the anger mark. */
-export const SOCIAL_FIGHT_PUFF_SEC = 1.2;
+/** Fight standoff: seconds per intro frame (socStandoffIn1..3); the exit plays them reversed. */
+export const SOCIAL_STANDOFF_IN_FRAME_SEC = [0.1, 0.1, 0.12] as const;
+/** The full puff is held this long before the first sway. */
+export const SOCIAL_STANDOFF_PEAK_HOLD_SEC = 0.5;
+/** Seconds per sway frame (weight forward / back); the rival sways in anti-phase. */
+export const SOCIAL_STANDOFF_SWAY_FRAME_SEC = 0.4;
+/** Seconds of swaying before the roll: fight or back down. */
+export const SOCIAL_STANDOFF_MIN_SEC = 3;
+export const SOCIAL_STANDOFF_MAX_SEC = 6;
+/** Chance the standoff ends in a fight, times the pair's `fight` multiplier, clamped. */
+export const SOCIAL_STANDOFF_FIGHT_CHANCE = 0.4;
+export const SOCIAL_STANDOFF_FIGHT_MIN = 0.05;
+export const SOCIAL_STANDOFF_FIGHT_MAX = 0.95;
+/** A cat crab-steps this many px sideways every N sway loops (render offset, stays on its tile). */
+export const SOCIAL_STANDOFF_CRAB_EVERY_LOOPS = 3;
+export const SOCIAL_STANDOFF_CRAB_PX = 1;
+/** Tiles around the pair searched for the head-to-tail standoff spots. */
+export const SOCIAL_STANDOFF_SEARCH_TILES = 2;
+/** Back down: the winner holds its puff this long; the loser walks off 2-4 tiles, slower. */
+export const SOCIAL_STANDOFF_WINNER_HOLD_SEC = 1;
+export const SOCIAL_BACKDOWN_MIN_TILES = 2;
+export const SOCIAL_BACKDOWN_MAX_TILES = 4;
+export const SOCIAL_BACKDOWN_SPEED_MUL = 0.7;
+/** Fight: dust cloud, then fleeing with the anger mark. */
 export const SOCIAL_FIGHT_CLOUD_SEC = 2.5;
 export const SOCIAL_FIGHT_FLEE_SEC = 4;
 export const SOCIAL_FIGHT_ANGER_SEC = 2;
@@ -381,8 +401,7 @@ export const SOCIAL_FLEE_SPEED_MUL = 1.9;
 export const SOCIAL_FLEE_MIN_TILES = 4;
 /** Seconds a pair that fought avoids each other (no talk / play / fight). */
 export const SOCIAL_FIGHT_AVOID_SEC = 120;
-/** Frame durations for the angry bristle, the anger mark and the dust cloud. */
-export const SOCIAL_ANGRY_FRAME_SEC = 0.15;
+/** Frame durations for the anger mark and the dust cloud. */
 export const SOCIAL_ANGER_FRAME_SEC = 0.25;
 export const SOCIAL_CLOUD_FRAME_SEC = 0.1;
 /** Wander pause given back to a cat when its scene ends. */
@@ -718,7 +737,7 @@ export const LITTER_FX_COLORS = {
 
 /** Knobs a personality preset scales. Every value is a multiplier of the base tuning. */
 export type PersonalityKnob =
-  | 'fight' // SOCIAL_FIGHT_CHANCE in a social roll
+  | 'fight' // SOCIAL_FIGHT_CHANCE in a social roll, SOCIAL_STANDOFF_FIGHT_CHANCE after a standoff
   | 'spotFight' // SPOT_CONTEST_FIGHT_CHANCE (capped at 1)
   | 'encounter' // SOCIAL_ENCOUNTER_CHANCE and ACTIVITY_SOCIAL_CHANCE
   | 'greetRub' // SOCIAL_GREET_RUB_CHANCE

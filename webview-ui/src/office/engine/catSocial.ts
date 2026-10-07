@@ -1,6 +1,7 @@
 /**
  * Cat social layer: idle cats meet, talk in pictogram bubbles, play chase,
- * and, rarely, fight in a dust cloud.
+ * and, rarely, square off side-on: the standoff ends in a dust-cloud fight
+ * or one cat backs down.
  *
  * ── Integration API (for an idle-activity registry) ─────────────────────
  *
@@ -17,13 +18,15 @@
  *     commands, an activity that must start now). The cat leaves its scene
  *     with its new path; the partner resumes idling.
  *
- *   social.trySocialEncounter(a, b, { activity?, location?, kind?, radius? }): SocialKind | null
+ *   social.trySocialEncounter(a, b, { activity?, location?, kind?, radius?, loser? }): SocialKind | null
  *     Call when two cats share an activity spot (both at coffee, both in the
  *     lounge / playroom). With `activity` set the cats keep their spots (no
- *     walking up, no chase) and may be mid-activity (ACTIVITY state).
+ *     walking up, no chase) and may be mid-activity (ACTIVITY state). A
+ *     fight still walks both cats to its head-to-tail standoff spots.
  *     `location` anchors the dust cloud. `kind` forces talk / play / fight;
  *     otherwise fight is ~1/15 and play is SOCIAL_PLAY_CHANCE. `radius`
- *     overrides the distance limit (a spot contest). Returns null when
+ *     overrides the distance limit (a spot contest). `loser`: the cat that
+ *     backs down when a fight's standoff ends without a fight. Returns null when
  *     cooldowns, distance or eligibility say no.
  *
  *   social.startJointPlay(a, b, play, radius?): boolean
@@ -79,6 +82,8 @@ export interface SocialContext {
   kind?: SocialKind;
   /** Max distance in tiles, instead of the default for the scene type. */
   radius?: number;
+  /** Fight: the cat that backs down if the standoff ends without a fight (a lost spot contest). */
+  loser?: number;
 }
 
 export type JointPlay =
@@ -222,6 +227,7 @@ export class CatSocial {
       stationary,
       ctx.location,
       kind === 'play' ? { kind: 'chase' } : undefined,
+      ctx.loser,
     );
     return kind;
   }
@@ -307,6 +313,7 @@ export class CatSocial {
     stationary: boolean,
     location: Tile | undefined,
     play: JointPlay | undefined,
+    loserId?: number,
   ): void {
     const span = SOCIAL_TALK_EXCHANGES_MAX - SOCIAL_TALK_EXCHANGES_MIN + 1;
     const scene: Scene = {
@@ -325,6 +332,7 @@ export class CatSocial {
       icon: null,
       lastIcon: null,
       tagT: 0,
+      loserId,
     };
     for (const ch of [a, b]) {
       stopAfterStep(ch);

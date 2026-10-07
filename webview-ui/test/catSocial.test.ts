@@ -3,7 +3,8 @@
  *
  * Covers encounter selection (proximity, both idle, cooldowns, pair
  * avoidance after a fight), the fight roll under a seeded RNG, interrupt on
- * work, bubble priority, and full talk / chase / fight scenes on an open map.
+ * work, bubble priority, full talk / chase / fight scenes on an open map, and
+ * how a fight's standoff ends (fight or back down) by personality.
  */
 import assert from 'node:assert/strict';
 
@@ -14,6 +15,7 @@ import {
   SOCIAL_FIGHT_AVOID_SEC,
   SOCIAL_FIGHT_CHANCE,
   SOCIAL_PAIR_COOLDOWN_SEC,
+  SOCIAL_STANDOFF_FIGHT_CHANCE,
 } from '../src/constants.js';
 import {
   canSocialize,
@@ -23,6 +25,7 @@ import {
 } from '../src/office/engine/catSocial.js';
 import { createCharacter } from '../src/office/engine/characters.js';
 import { meetTile, mulberry32, type SocialWorld } from '../src/office/engine/socialMoves.js';
+import { standoffFightChance } from '../src/office/engine/socialScenes.js';
 import type { Character, TileType as TileTypeVal } from '../src/office/types.js';
 import { CharacterState, Direction, TILE_SIZE, TileType } from '../src/office/types.js';
 
@@ -135,13 +138,17 @@ test('cooldowns: per cat and per pair after a scene', () => {
 
 test('a pair that fought avoids each other for SOCIAL_FIGHT_AVOID_SEC', () => {
   const world = openWorld();
-  const social = new CatSocial({ rng: mulberry32(7) });
-  const a = idleCat(1, 6, 5);
-  const b = idleCat(2, 7, 5);
+  // Low rolls while the fight runs (its standoff ends in the cloud), then no new encounters.
+  let fighting = true;
+  const social = new CatSocial({ rng: () => (fighting ? 0.01 : 0.99) });
+  // Already head to tail: no walk needed (this test runs no character FSM).
+  const a = idleCat(1, 6, 4);
+  const b = idleCat(2, 6, 5);
   const chars = office(a, b);
   assert.equal(social.trySocialEncounter(a, b, { kind: 'fight' }), 'fight');
   run(social, chars, world, 12);
   assert.equal(social.isInScene(1), false, 'fight finished');
+  fighting = false;
   run(social, chars, world, SOCIAL_PAIR_COOLDOWN_SEC + 1);
   assert.equal(social.isPairReady(1, 2), false, 'still avoiding after a normal pair cooldown');
   assert.equal(social.isPairReady(1, 3), true, 'other cats are fine');
@@ -196,15 +203,15 @@ test('interrupt: a cat that gets work leaves at once and the partner resumes idl
   const world = openWorld();
   const ended: Array<[number, string]> = [];
   const social = new CatSocial({
-    rng: mulberry32(1),
+    rng: () => 0.01, // the shortest standoff, and it ends in a fight
     onSceneEnd: (id, _k, r) => ended.push([id, r]),
   });
   const a = idleCat(1, 4, 4);
-  const b = idleCat(2, 5, 4);
+  const b = idleCat(2, 4, 5);
   const chars = office(a, b);
   social.trySocialEncounter(a, b, { kind: 'fight' });
-  run(social, chars, world, 1.5); // past the puff: both hidden in the cloud
-  assert.equal(a.social?.pose, 'hidden');
+  for (let t = 0; t < 10 && a.social?.pose !== 'hidden'; t += DT) social.update(DT, chars, world);
+  assert.equal(a.social?.pose, 'hidden', 'past the standoff: both hidden in the cloud');
   a.isActive = true;
   social.update(DT, chars, world);
   assert.equal(social.isInScene(1), false);
@@ -328,4 +335,60 @@ test('meetTile: a cat directly above its partner moves beside it (sprites would 
   assert.ok(spot && spot.row === 5 && Math.abs(spot.col - 6) === 1, JSON.stringify(spot));
   const beside = idleCat(3, 7, 5);
   assert.equal(meetTile(beside, host, world, new Set()), null, 'already side by side');
+});
+
+/** How a fight's standoff ends for a head-to-tail pair: 'unpuff' (fight) or 'backDown'. */
+function standoffOutcome(
+  rng: () => number,
+  pa?: Character['personality'],
+  pb?: Character['personality'],
+): string {
+  const social = new CatSocial({ rng });
+  const a = idleCat(1, 6, 4);
+  const b = idleCat(2, 6, 5);
+  a.personality = pa;
+  b.personality = pb;
+  const chars = office(a, b);
+  social.trySocialEncounter(a, b, { kind: 'fight' });
+  for (let t = 0; t < 15; t += DT) {
+    social.update(DT, chars, world0);
+    const phase = social.sceneInfo(1)?.phase;
+    if (phase === 'unpuff' || phase === 'backDown') return phase;
+  }
+  return 'none';
+}
+const world0 = openWorld();
+
+test('standoff: the fight share follows the personalities (scrappy > default > social)', () => {
+  const rate = (pa?: Character['personality'], pb?: Character['personality']) => {
+    const rng = mulberry32(17);
+    const n = 150;
+    let fights = 0;
+    for (let i = 0; i < n; i++) if (standoffOutcome(rng, pa, pb) === 'unpuff') fights++;
+    return fights / n;
+  };
+  const scrappy = rate('scrappy', 'scrappy');
+  const plain = rate();
+  const social = rate('social', 'social');
+  assert.ok(scrappy > plain && plain > social, `${scrappy} > ${plain} > ${social}`);
+  assert.ok(scrappy > 0.85 && social < 0.25, `scrappy ${scrappy}, social ${social}`);
+  assert.equal(
+    standoffFightChance(idleCat(1, 0, 0), idleCat(2, 0, 0)),
+    SOCIAL_STANDOFF_FIGHT_CHANCE,
+  );
+});
+
+test('standoff back down: the less scrappy cat backs down', () => {
+  const social = new CatSocial({ rng: () => 0.99 }); // no fight
+  const a = idleCat(1, 6, 4);
+  const b = idleCat(2, 6, 5);
+  a.personality = 'scrappy';
+  const chars = office(a, b);
+  social.trySocialEncounter(a, b, { kind: 'fight' });
+  for (let t = 0; t < 15 && social.sceneInfo(1)?.phase !== 'backDown'; t += DT)
+    social.update(DT, chars, world0);
+  run(social, chars, world0, 0.5);
+  assert.ok(b.path.length >= 2, 'the default cat walks off');
+  assert.equal(a.path.length, 0, 'the scrappy cat holds its ground');
+  assert.equal(a.social?.pose, 'standoff', 'the winner still holds its puff');
 });

@@ -1,5 +1,5 @@
 // Social poses drawn as activity frames: a nose boop, a head rub, the
-// arched-back hiss before a fight, and a happy tail flick while listening.
+// side-on standoff before a fight, and a happy tail flick while listening.
 // Side poses face right (left is mirrored); boop, rub and flick have front
 // and back versions too, so two cats facing each other up / down use them.
 
@@ -74,7 +74,7 @@ function flick(fr, dir, cat, f) {
 
 /**
  * Halloween-cat arch from (0, y): fur on end along a high round back, the
- * belly tucked up between stiff legs.
+ * belly tucked up between stiff legs. Row 0 is the spine ridge.
  */
 const ARCH = [
   '...F.F.F....',
@@ -86,38 +86,55 @@ const ARCH = [
   'fFFFF..FFFFF',
   'fFF......FFF',
 ];
+/** The arch before the fur rises: a smooth back (no ridge). */
+const ARCH_SMOOTH = ['....FFF.....', ...ARCH.slice(1)];
 
-/** The bottle-brush tail: a thick column with tufts sticking out both sides. */
-function brushTail(fr, y) {
+/**
+ * The tail. 0: lifted, normal thickness; 1: half puffed, a jagged edge;
+ * 2: the full bottle-brush, tufts sticking out both sides. `flick`: tip px.
+ */
+function standoffTail(fr, cat, x, y, puff, flick) {
   const pts = [
-    [1, y + 3],
-    [0, y - 2],
-    [1, y - 7],
+    [x + 2, y + 3],
+    [x + 1, y - 2],
+    [x + 1 + flick, y - 7],
   ];
-  fr.stroke(pts, 3, 'tail', Z.tailBack, { tip: 2, tipLabel: 'tailTip' });
-  for (let ty = y - 6; ty <= y + 2; ty += 3) {
-    fr.set(ty % 2 ? -1 : 3, ty, { label: 'fur', part: 'tail', lx: 0, ly: ty, z: Z.tailBack });
-    fr.set(3, ty + 1, { label: 'fur', part: 'tail', lx: 0, ly: ty + 1, z: Z.tailBack });
+  if (puff === 0) {
+    tail(fr, cat, pts, false);
+    return;
+  }
+  const thick = puff + 1;
+  fr.stroke(pts, thick, 'tail', Z.tailBack, { tip: 2, tipLabel: 'tailTip' });
+  // Tufts alternate left / right: a jagged, bristling outline.
+  const step = puff === 1 ? 3 : 2;
+  for (let ty = y - 7; ty <= y + 1; ty += step) {
+    const left = (ty - y) % (2 * step) === 0;
+    const tx = (left ? x : x + 1 + thick) + (ty < y - 4 ? flick : 0);
+    fr.set(tx, ty, { label: 'fur', part: 'tail', lx: 0, ly: ty, z: Z.tailBack });
   }
 }
 
 /**
- * Arched back, fur on end, ears flat, mouth wide open, hissing. `up`: the
- * body bobs 1 px higher and the "hss" lines in front of the mouth shake.
+ * Side-on standoff (facing right): back arched, legs stiff on tiptoe, feet
+ * close together under the arch. `arch`: px the body rises (tiptoe);
+ * `puff`: 0 smooth / 1 ridge + half brush / 2 full brush + neck ruff;
+ * `lean`: px the body shifts forward (+) or back (-) over planted feet.
  */
-function hiss(fr, cat, up) {
-  const y = 8 - up;
-  fr.stamp(ARCH, 0, y, 'torso', Z.torso);
-  // Stiff legs, splayed a little: far ones in the shade colour.
+function standoff(fr, cat, { arch, puff, lean = 0, flatEars, mouth, flick = 0 }) {
+  const y = 10 - arch;
+  const x = lean;
+  fr.stamp(puff === 0 ? ARCH_SMOOTH : ARCH, x, y, 'torso', Z.torso);
+  if (puff === 1) fr.set(x + 5, y, { label: 'fur', part: 'torso', lx: 5, ly: 0, z: Z.torso });
+  // Stiff legs from under the arch to feet drawn in toward each other.
   for (const [x0, x1, part, z] of [
-    [1, 0, 'legB', Z.leg - 0.5],
+    [1, 2, 'legB', Z.leg - 0.5],
     [2, 3, 'legB', Z.leg],
-    [9, 10, 'legF', Z.leg - 0.5],
-    [11, 12, 'legF', Z.leg],
+    [9, 8, 'legF', Z.leg - 0.5],
+    [10, 9, 'legF', Z.leg],
   ]) {
     fr.stroke(
       [
-        [x0, y + 7],
+        [x0 + x, y + 7],
         [x1, 29],
       ],
       2,
@@ -126,27 +143,42 @@ function hiss(fr, cat, up) {
       { tip: 1, label: z < Z.leg ? 'shade' : 'fur' },
     );
   }
-  brushTail(fr, y);
-  // The head is held forward at shoulder height, below the top of the arch.
+  standoffTail(fr, cat, x, y, puff, flick);
   const hy = y + 7;
-  drawHead(fr, 'right', 2, hy, cat, { eyes: 'wide', mouth: 'yawn', flatEars: true });
-  // "hss": a short zigzag of breath in front of the open mouth. The head
-  // sits 2 px back from the frame edge, so two cats face to face keep a gap.
-  const dx = up ? 1 : 0;
-  for (const [x, yy] of [
-    [14 + dx, hy + 4],
-    [15 - dx, hy + 5],
-    [14 + dx, hy + 6],
-    [15 - dx, hy + 7],
-  ])
-    fr.addOverlay(x, yy, 'whisker');
+  drawHead(fr, 'right', 2 + x, hy, cat, { eyes: 'wide', mouth, flatEars });
+  if (puff === 2) {
+    // Neck ruff: fur standing out behind the head, over the shoulders.
+    for (const [rx, ry] of [
+      [1, hy - 1],
+      [0, hy + 1],
+      [1, hy + 3],
+    ])
+      fr.set(rx + x, ry, { label: 'fur', part: 'head', lx: 0, ly: ry, z: Z.head, rim: true });
+  }
 }
+
+const STANDOFF_IN = [
+  { arch: 0, puff: 0, flatEars: false },
+  { arch: 1, puff: 1, flatEars: true, mouth: 'open' },
+  { arch: 3, puff: 2, flatEars: true, mouth: 'open' },
+];
+const PEAK = STANDOFF_IN[2];
 
 export const SOCIAL_POSES = [
   { name: 'socBoop', draw: (fr, dir, cat) => lean(fr, dir, cat, false) },
   { name: 'socRub', draw: (fr, dir, cat) => lean(fr, dir, cat, true) },
   { name: 'socFlickA', draw: (fr, dir, cat) => flick(fr, dir, cat, 0) },
   { name: 'socFlickB', draw: (fr, dir, cat) => flick(fr, dir, cat, 2) },
-  { name: 'socHissA', draw: (fr, _d, cat) => hiss(fr, cat, 0) },
-  { name: 'socHissB', draw: (fr, _d, cat) => hiss(fr, cat, 1) },
+  ...STANDOFF_IN.map((o, i) => ({
+    name: `socStandoffIn${i + 1}`,
+    draw: (fr, _d, cat) => standoff(fr, cat, o),
+  })),
+  {
+    name: 'socStandoffSwayA',
+    draw: (fr, _d, cat) => standoff(fr, cat, { ...PEAK, lean: 1, mouth: 'yawn', flick: 1 }),
+  },
+  {
+    name: 'socStandoffSwayB',
+    draw: (fr, _d, cat) => standoff(fr, cat, { ...PEAK, lean: -1, flick: -1 }),
+  },
 ];

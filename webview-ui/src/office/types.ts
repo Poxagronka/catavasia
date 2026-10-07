@@ -351,13 +351,15 @@ export type SocialIcon = 'fish' | 'heart' | 'question' | 'exclaim' | 'meow' | 'm
 /** Per-frame render view of one cat in a social scene. */
 export interface CharacterSocialView {
   /**
-   * Sprite override: talking mouth, puffed-up fur, hidden inside the dust
-   * cloud, or an activity pose (engine/socialRender.ts SOCIAL_FRAMES): a nose
-   * boop, a head rub, the arched-back hiss, a happy tail flick.
+   * Sprite override: talking mouth, hidden inside the dust cloud, or an
+   * activity pose (engine/socialRender.ts SOCIAL_FRAMES): a nose boop, a head
+   * rub, the side-on standoff before a fight, a happy tail flick.
    */
-  pose: 'talk' | 'angry' | 'hidden' | 'boop' | 'rub' | 'hiss' | 'flick' | null;
+  pose: 'talk' | 'hidden' | 'boop' | 'rub' | 'standoff' | 'flick' | null;
   /** Animation frame index for the pose. */
   frame: number;
+  /** Px the pose is drawn off the cat's x (a standoff crab step). */
+  dx?: number;
   /** Pictogram bubble; drawn only while no permission / waiting bubble is up. */
   bubble: SocialIcon | null;
   /** Anger mark frame above the head, or null. Same priority rule as `bubble`. */

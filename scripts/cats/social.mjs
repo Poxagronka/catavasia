@@ -1,5 +1,4 @@
-// Social-scene art for the cat characters: per-breed angry (puffed-up) and
-// talking frames, plus the shared overlay sheet (see socialOverlays.mjs).
+// Social-scene art for the cat characters: per-breed talking frames, plus the shared overlay sheet (see socialOverlays.mjs).
 //
 // The per-breed frames are derived from the finished idle frame of
 // renderCatFrames(), so every breed (pattern, ears, tail, ruff) stays in style
@@ -17,14 +16,6 @@ import { OVERLAY_PALETTE, renderOverlays } from './socialOverlays.mjs';
 
 const DIRS = ['down', 'up', 'right'];
 const IDLE_FRAME = 1;
-const PUFF_PARTS = new Set(['torso', 'tail', 'head', 'armL', 'armR']);
-const PUFF_LABELS = new Set(['fur', 'shade', 'light', 'tailTip']);
-/** Rows above the feet: spikes never grow around the paws. */
-const PUFF_MAX_Y = FRAME_H - 5;
-
-const at = (g, x, y) => (x < 0 || y < 0 || x >= FRAME_W || y >= FRAME_H ? null : g[y][x]);
-const nbrs4 = (g, x, y) => [at(g, x + 1, y), at(g, x - 1, y), at(g, x, y + 1), at(g, x, y - 1)];
-
 /** Strip the outer outline and whisker overlay so the body can grow. */
 function bodyOnly(grid) {
   const whiskers = [];
@@ -49,41 +40,7 @@ function refinish(cells, whiskers) {
   return fr.finish();
 }
 
-/** Copy of a neighbour cell for a grown pixel, so coat patterns follow it. */
-function grownFrom(c) {
-  return { ...c, rim: false, z: (c.z ?? 0) - 0.1 };
-}
-
-/**
- * Puffed-up fur: a jagged 1-px layer of spikes on every furry edge (the
- * parity picks which pixels stick out, so two parities read as bristling),
- * and a fully bushed-out tail.
- */
-function puff(cells, parity) {
-  const out = cells.map((row) => row.slice());
-  for (let y = 0; y < FRAME_H; y++) {
-    for (let x = 0; x < FRAME_W; x++) {
-      if (cells[y][x] || y > PUFF_MAX_Y) continue;
-      const src = nbrs4(cells, x, y).find(
-        (n) => n && PUFF_PARTS.has(n.part) && PUFF_LABELS.has(n.label),
-      );
-      if (!src) continue;
-      if (src.part === 'tail' || (x + y + parity) % 2 === 0) out[y][x] = grownFrom(src);
-    }
-  }
-  return out;
-}
-
-/** Narrow the eyes: the top eye row becomes a lid line. */
-function angryEyes(cells) {
-  for (const row of cells)
-    for (const c of row) {
-      if (!c || c.part !== 'head' || c.ly !== 3) continue;
-      if (c.label === 'eye' || c.label === 'pupil') c.label = 'line';
-    }
-}
-
-/** Open mouth below the muzzle line ("talk" / "hiss"). */
+/** Open mouth below the muzzle line (talk). */
 function openMouth(cells, dir) {
   const mouth =
     dir === 'right'
@@ -100,19 +57,6 @@ function openMouth(cells, dir) {
     }
 }
 
-/** Shift every row up by one pixel (a small hop). */
-function hop(grid) {
-  return [...grid.slice(1), new Array(FRAME_W).fill(null)];
-}
-
-function angryFrame(idle, dir, parity) {
-  const { cells, whiskers } = bodyOnly(idle);
-  angryEyes(cells);
-  if (dir !== 'up') openMouth(cells, dir);
-  const grid = refinish(puff(cells, parity), whiskers);
-  return parity === 1 ? hop(grid) : grid;
-}
-
 function talkFrame(idle, dir) {
   if (dir === 'up') return idle;
   const { cells, whiskers } = bodyOnly(idle);
@@ -120,16 +64,13 @@ function talkFrame(idle, dir) {
   return refinish(cells, whiskers);
 }
 
-/** rows[dir] = { angry: [grid, grid], talk: [grid] } for one breed. */
+/** rows[dir] = { talk: [grid] } for one breed. */
 export function renderSocialCatFrames(breed) {
   const frames = renderCatFrames(breed);
   const out = {};
   DIRS.forEach((dir, d) => {
     const idle = frames[d][IDLE_FRAME];
-    out[dir] = {
-      angry: [angryFrame(idle, dir, 0), angryFrame(idle, dir, 1)],
-      talk: [talkFrame(idle, dir)],
-    };
+    out[dir] = { talk: [talkFrame(idle, dir)] };
   });
   return out;
 }
@@ -167,9 +108,8 @@ export function buildSocialSheet(breeds) {
   const cats = breeds.map((breed) => {
     const { palette, encode } = encoder();
     const social = renderSocialCatFrames(breed);
-    const poses = { angry: {}, talk: {} };
+    const poses = { talk: {} };
     for (const dir of DIRS) {
-      poses.angry[dir] = social[dir].angry.map((g) => encode(colorFrame(breed, g, dir)));
       poses.talk[dir] = social[dir].talk.map((g) => encode(colorFrame(breed, g, dir)));
     }
     return { name: breed.name, palette, ...poses };
