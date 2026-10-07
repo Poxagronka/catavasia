@@ -106,13 +106,21 @@ export function registerCeoRoutes(
       schema: {
         body: {
           type: 'object',
-          properties: { answer: { type: 'string', enum: ['allow', 'always', 'deny'] } },
+          properties: {
+            answer: { type: 'string', enum: ['allow', 'always', 'deny'] },
+            answers: { type: 'object', additionalProperties: { type: 'string' } },
+          },
           required: ['answer'],
         },
       },
     },
     async (request, reply) =>
-      desk.answerApproval(request.params.id, request.body.answer)
+      desk.answerApproval(
+        request.params.id,
+        request.body.answer === 'allow' && request.body.answers
+          ? { answers: request.body.answers }
+          : request.body.answer,
+      )
         ? { ok: true }
         : reply.code(404).send({ error: 'This question is no longer open' }),
   );

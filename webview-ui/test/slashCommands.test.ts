@@ -13,6 +13,7 @@ import { test } from 'vitest';
 import type { DeskCommand } from '../../core/src/ceoDesk.js';
 import { MessageRow } from '../src/catTerminal/ChatConsole.js';
 import { ConnectorsCard } from '../src/ceoDesk/ConnectorsCard.js';
+import { DockComposer } from '../src/ceoDesk/DockComposer.js';
 import { HelpCard } from '../src/ceoDesk/HelpCard.js';
 import {
   catchCommand,
@@ -138,4 +139,49 @@ test('a compact note is a quiet line', () => {
   );
   assert.match(html, /data-testid="chat-note"/);
   assert.match(html, /Summarised the chat/);
+});
+
+test('the menu rows look like the composer menus: name, then a muted one-line hint', () => {
+  const html = renderToStaticMarkup(createElement(Menu, { draft: '/mo' }));
+  assert.match(html, /class="slash-menu composer-list/);
+  assert.match(html, /<span class="composer-choice-label shrink-0">\/model<\/span>/);
+  assert.match(
+    html,
+    /class="composer-choice-hint[^"]*truncate[^"]*">&lt;model&gt; {2}Set the AI model/,
+  );
+});
+
+test('the Connectors card buttons are quiet body-font buttons', () => {
+  const html = renderToStaticMarkup(createElement(ConnectorsCard, { onClose: () => {} }));
+  assert.match(
+    html,
+    /<button type="button" class="quiet-btn"[^>]*data-testid="connectors-refresh"/,
+  );
+  assert.match(html, /<button type="button" class="quiet-btn"[^>]*data-testid="connector-add"/);
+});
+
+test('Send works for a command the dock answers while Claude Code is not ready', () => {
+  const composer = (draft: string) =>
+    renderToStaticMarkup(
+      createElement(DockComposer, {
+        draft,
+        onDraft: () => {},
+        onSend: async () => {},
+        blocked: 'Send is off until Claude Code is ready. Your draft stays.',
+      }),
+    );
+  const send = (html: string) => /<button[^>]*data-testid="dock-send"/.exec(html)![0];
+  for (const caught of [
+    '/help',
+    '/mcp',
+    '/model',
+    '/effort',
+    '/permissions',
+    '/context',
+    '/usage',
+    '/clear',
+  ])
+    assert.doesNotMatch(send(composer(caught)), /disabled/, caught);
+  assert.match(send(composer('weather in Rhodes')), /disabled/);
+  assert.match(send(composer('/compact')), /disabled/);
 });

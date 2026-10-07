@@ -509,7 +509,8 @@ function idFlag(argv, name) {
  * ends the process. Answers like the real CLI: init, one assistant message,
  * the result. The answer echoes the user's words, plus a markdown list and a
  * code block. "ask: <command>" first asks can_use_tool for a Bash call and
- * says the answer.
+ * says the answer. "question: <text>" asks it for AskUserQuestion and says
+ * the answers the tool got.
  */
 async function headlessTurn(argv) {
   const out = (record) => process.stdout.write(`${JSON.stringify(record)}\n`);
@@ -559,20 +560,39 @@ async function headlessTurn(argv) {
   const job = /^start job: (.+)$/.exec(said);
   const started = job ? await callDeskTool(argv, 'start_job', { task: job[1] }) : undefined;
   const ask = /^ask: (.+)$/.exec(said);
+  const question = /^question: (.+)$/.exec(said);
   let answer;
-  if (ask) {
+  if (ask || question) {
     const reply = new Promise((resolve) => (answered = resolve));
     out({
       type: 'control_request',
       request_id: 'mock-ask',
       request: {
         subtype: 'can_use_tool',
-        tool_name: 'Bash',
-        input: { command: ask[1] },
+        tool_name: ask ? 'Bash' : 'AskUserQuestion',
+        input: ask
+          ? { command: ask[1] }
+          : {
+              questions: [
+                {
+                  question: question[1],
+                  header: 'Color',
+                  options: [
+                    { label: 'Red', description: 'Warm and bright' },
+                    { label: 'Blue', description: 'Calm and cool' },
+                  ],
+                  multiSelect: false,
+                },
+              ],
+            },
         tool_use_id: 'mock-tool',
       },
     });
-    answer = (await reply).behavior;
+    const got = await reply;
+    answer =
+      got.updatedInput && got.updatedInput.answers
+        ? `${got.behavior} ${JSON.stringify(got.updatedInput.answers)}`
+        : got.behavior;
   }
   const text = [
     `Mock CEO: ${said.replace(/\[Attached [^\n]*\n?/g, '').trim()}`,

@@ -137,6 +137,28 @@ test.describe('Standalone / CEO dock', () => {
     });
   });
 
+  test('AskUserQuestion shows a question card; the picked option goes back as the answer @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    await input.fill('question: Which color?');
+    await input.press('Enter');
+
+    const card = page.getByTestId('question-card');
+    await expect(card).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await expect(card).toContainText('Which color?');
+    await expect(page.getByTestId('approval-card')).toHaveCount(0);
+    await expect(card.getByTestId('question-send')).toBeDisabled();
+    await card.getByTestId('question-option').filter({ hasText: 'Blue' }).click();
+    await card.getByTestId('question-send').click();
+    await expect(card).toBeHidden();
+    await expect(
+      page.getByTestId('dock-log').getByText('Permission answer: allow {"Which color?":"Blue"}'),
+    ).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+  });
+
   test('tool activity reads in plain words, with the picture; ring, limits and pickers @area:standalone', async ({
     page,
     standalone,

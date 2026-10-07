@@ -6,7 +6,6 @@ import {
   type Connector,
   CONNECTOR_NAME_PATTERN,
 } from '../../../core/src/ceoDesk.js';
-import { Button } from '../components/ui/Button.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
 
 const CLAUDE_AI_CONNECTORS = 'https://claude.ai/customize/connectors';
@@ -102,18 +101,17 @@ function AddForm({
         </label>
       )}
       <div className="flex gap-6">
-        <Button
-          size="sm"
-          variant={nameOk && target.trim() ? 'accent' : 'disabled'}
+        <button
+          className="quiet-btn"
           disabled={!nameOk || !target.trim()}
           type="submit"
           data-testid="connector-add-save"
         >
           Add
-        </Button>
-        <Button size="sm" variant="ghost" type="button" onClick={onCancel}>
+        </button>
+        <button className="quiet-btn" type="button" onClick={onCancel}>
           Cancel
-        </Button>
+        </button>
       </div>
     </form>
   );
@@ -158,15 +156,15 @@ export function ConnectorsCard({ onClose }: { onClose(): void }) {
     const status = STATUS[c.status];
     const working = busy?.name === c.name;
     const action = (label: string, text: string, call: () => Promise<CeoConnectorsResponse>) => (
-      <Button
-        size="sm"
-        variant={busy ? 'disabled' : 'ghost'}
+      <button
+        type="button"
+        className="quiet-btn"
         disabled={!!busy}
         onClick={() => void run(c.name, text, call)}
         data-testid={`connector-${label.toLowerCase().replace(/ /g, '-')}`}
       >
         {label}
-      </Button>
+      </button>
     );
     return (
       <div key={c.name} className="flex flex-col gap-2 py-4" data-testid="connector-row">
@@ -198,19 +196,19 @@ export function ConnectorsCard({ onClose }: { onClose(): void }) {
             <span className="prose-body prose-small text-text">
               Remove {c.name}? Every cat loses it.
             </span>
-            <Button
-              size="sm"
-              variant="accent"
+            <button
+              type="button"
+              className="quiet-btn is-danger"
               onClick={() =>
                 void run(c.name, 'Removing...', () => ceoDeskApi.removeConnector(c.name, c.source))
               }
               data-testid="connector-remove-yes"
             >
               Remove
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
+            </button>
+            <button type="button" className="quiet-btn" onClick={() => setConfirm(null)}>
               Cancel
-            </Button>
+            </button>
           </div>
         ) : (
           <div className="flex gap-4 flex-wrap">
@@ -226,15 +224,15 @@ export function ConnectorsCard({ onClose }: { onClose(): void }) {
                     ceoDeskApi.toggleConnector(c.name, false),
                   ))}
             {REMOVABLE.includes(c.source) && (
-              <Button
-                size="sm"
-                variant={busy ? 'disabled' : 'ghost'}
+              <button
+                type="button"
+                className="quiet-btn is-danger"
                 disabled={!!busy}
                 onClick={() => setConfirm(c.name)}
                 data-testid="connector-remove"
               >
                 Remove
-              </Button>
+              </button>
             )}
           </div>
         )}
@@ -250,18 +248,24 @@ export function ConnectorsCard({ onClose }: { onClose(): void }) {
       <div className="flex items-center gap-8">
         <span className="prose-body text-text">Connectors</span>
         <span className="flex-1" />
-        <Button
-          size="sm"
-          variant={busy ? 'disabled' : 'ghost'}
+        <button
+          type="button"
+          className="quiet-btn"
           disabled={!!busy}
           onClick={() => void run('', 'Checking connectors...', ceoDeskApi.connectors)}
           data-testid="connectors-refresh"
         >
           Refresh
-        </Button>
-        <Button size="icon" variant="ghost" onClick={onClose} title="Close" aria-label="Close">
+        </button>
+        <button
+          type="button"
+          className="quiet-btn"
+          onClick={onClose}
+          title="Close"
+          aria-label="Close"
+        >
           x
-        </Button>
+        </button>
       </div>
       <span className="prose-body prose-small text-text-muted">
         Tools Claude can use, like your mail or files. Changes apply to all cats.
@@ -297,15 +301,15 @@ export function ConnectorsCard({ onClose }: { onClose(): void }) {
         />
       ) : (
         <div className="flex items-center gap-8 flex-wrap">
-          <Button
-            size="sm"
-            variant={busy ? 'disabled' : 'default'}
+          <button
+            type="button"
+            className="quiet-btn"
             disabled={!!busy}
             onClick={() => setAdding(true)}
             data-testid="connector-add"
           >
             Add a connector
-          </Button>
+          </button>
           <a
             href={CLAUDE_AI_CONNECTORS}
             target="_blank"

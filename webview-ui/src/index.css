@@ -336,7 +336,8 @@
     outline: none;
   }
   .composer-choice:hover,
-  .composer-choice:focus-visible {
+  .composer-choice:focus-visible,
+  .composer-choice.is-current {
     background: var(--color-btn-bg);
   }
   .composer-choice-label {
@@ -355,6 +356,39 @@
     flex-shrink: 0;
     font-size: var(--text-body-small);
     color: var(--color-text-body);
+  }
+  /* The "/" menu above the message box: a composer menu in the flow. */
+  .slash-menu {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 6px;
+    background: var(--color-bg-dark);
+    border: 2px solid var(--color-border);
+    border-radius: 12px;
+  }
+  /* A quiet text button in the body font (Connectors card, dock header). */
+  .quiet-btn {
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.3;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-soft);
+    cursor: pointer;
+  }
+  .quiet-btn:hover:not(:disabled),
+  .quiet-btn:focus-visible {
+    background: var(--color-btn-bg);
+    color: var(--color-text);
+  }
+  .quiet-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .quiet-btn.is-danger:hover:not(:disabled) {
+    color: var(--color-status-error);
   }
   /* A limit bar in the context ring's menu. */
   .usage-bar {

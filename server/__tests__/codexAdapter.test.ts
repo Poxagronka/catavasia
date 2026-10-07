@@ -252,8 +252,10 @@ describe('codex adapter', () => {
     expect(outcome.error).toMatch(/no-such-model-x/);
   });
 
-  it('opens the session in a terminal with `codex resume`', () => {
-    expect(new CodexAdapter('codex').interactiveResumeCommand('t1')).toEqual({
+  it("opens the session in a terminal with `codex resume`, in the cat's permission mode", () => {
+    const wheel = (mode: PermissionMode) =>
+      new CodexAdapter('codex').interactiveResumeCommand('t1', mode);
+    expect(wheel('bypass')).toEqual({
       command: 'codex',
       args: [
         'resume',
@@ -263,6 +265,14 @@ describe('codex adapter', () => {
         'check_for_update_on_startup=false',
       ],
     });
+    expect(wheel('auto').args).toEqual([
+      'resume',
+      't1',
+      ...codexModeArgs('auto'),
+      '-c',
+      'check_for_update_on_startup=false',
+    ]);
+    expect(wheel('readOnly').args).toContain('sandbox_mode="read-only"');
   });
 });
 

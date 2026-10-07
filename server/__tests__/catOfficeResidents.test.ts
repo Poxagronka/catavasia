@@ -285,6 +285,8 @@ describe('cat console of profile cats', () => {
     expect(source.snapshot('1')!.status).toMatchObject({ busy: false, wheelHeld: false });
     const wheel = await source.beginWheel('1');
     expect(wheel.cwd).toBe(path.join(stateDir, 'worktrees', id));
+    // The cat's permission mode (none set: Auto), not a skip-permissions terminal.
+    expect(wheel.launch?.args).toEqual(['--resume', wheel.sessionId, '--permission-mode', 'auto']);
     expect(sessionLockHolder(wheel.sessionId)).toBe('wheel');
     expect(source.snapshot('1')!.status.wheelHeld).toBe(true);
     await expect(source.send('1', 'hi')).rejects.toBeInstanceOf(CatSessionError);

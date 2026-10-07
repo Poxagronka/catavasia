@@ -148,11 +148,25 @@ export interface CeoApproval {
   canAlwaysAllow: boolean;
   /** When an unanswered card counts as Deny (ms since epoch). */
   expiresAt: number;
+  /** Claude's AskUserQuestion: the card shows these questions, not Allow / Deny. */
+  questions?: CeoQuestion[];
+}
+
+/** One question of Claude Code's AskUserQuestion tool (SDK `AskUserQuestionInput`). */
+export interface CeoQuestion {
+  question: string;
+  /** A short tag ("Color"). */
+  header: string;
+  options: { label: string; description: string }[];
+  /** The user may pick more than one option. */
+  multiSelect: boolean;
 }
 
 /** POST /api/ceo/approvals/:id */
 export interface CeoApprovalAnswer {
   answer: 'allow' | 'always' | 'deny';
+  /** A question card's answers (with `allow`): question text -> answer, picks comma-separated. */
+  answers?: Record<string, string>;
 }
 
 /**

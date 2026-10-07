@@ -88,6 +88,38 @@ describe('claudeTurnOptions', () => {
     expect(mode('auto', 'claude-sonnet-4-6')).toMatchObject({ permissionMode: 'auto' });
   });
 
+  it("opens Take the wheel in the cat's permission mode (claude --help: --permission-mode)", () => {
+    const wheel = (mode: PermissionMode) =>
+      new ClaudeAdapter('claude').interactiveResumeCommand('sid', mode);
+    expect(wheel('auto')).toEqual({
+      command: 'claude',
+      args: ['--resume', 'sid', '--permission-mode', 'auto'],
+    });
+    expect(wheel('ask').args).toEqual(['--resume', 'sid', '--permission-mode', 'default']);
+    expect(wheel('bypass').args).toEqual(['--resume', 'sid', '--dangerously-skip-permissions']);
+    expect(wheel('readOnly').args).toEqual([
+      '--resume',
+      'sid',
+      '--permission-mode',
+      'dontAsk',
+      '--allowedTools',
+      'WebFetch,WebSearch',
+    ]);
+  });
+
+  it("puts the user's answers to AskUserQuestion into the tool input (SDK AskUserQuestionInput.answers)", async () => {
+    const opts = claudeTurnOptions(
+      req({ ...files(), askPermission: async () => ({ answers: { 'Which color?': 'Blue' } }) }),
+      'c',
+    );
+    const base = { signal: new AbortController().signal, toolUseID: 't', requestId: 'r' };
+    const input = { questions: [{ question: 'Which color?' }] };
+    expect(await opts.canUseTool!('AskUserQuestion', input, base)).toEqual({
+      behavior: 'allow',
+      updatedInput: { ...input, answers: { 'Which color?': 'Blue' } },
+    });
+  });
+
   it('asks the user through askPermission, never for the office tools', async () => {
     const asked: string[] = [];
     const opts = claudeTurnOptions(

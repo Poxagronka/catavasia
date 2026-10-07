@@ -155,7 +155,10 @@ export class CodexAdapter implements EngineAdapter {
     return JSON.stringify(endpoint);
   }
 
-  interactiveResumeCommand(sessionId: string): { command: string; args: string[] } {
+  interactiveResumeCommand(
+    sessionId: string,
+    mode: PermissionMode,
+  ): { command: string; args: string[] } {
     return {
       command: this.bin,
       // The TUI otherwise may open on an update prompt whose default (Enter)
@@ -163,7 +166,7 @@ export class CodexAdapter implements EngineAdapter {
       args: [
         'resume',
         sessionId,
-        '--dangerously-bypass-approvals-and-sandbox',
+        ...codexModeArgs(mode),
         '-c',
         'check_for_update_on_startup=false',
       ],

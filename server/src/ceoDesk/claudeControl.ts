@@ -93,9 +93,10 @@ export class ClaudeControl {
     const hit = this.commandCache.get(cwd);
     if (hit && this.now() - hit.at < COMMANDS_TTL_MS) return hit.list;
     const list = this.session(cwd, (q) => q.supportedCommands()).then((all) =>
-      // `__name`: Claude Code's internal commands.
+      // `__name`: Claude Code's internal commands. "(removed) ...": a dead
+      // command the CLI still lists (2.1.292: /agents).
       all
-        .filter((c) => !c.name.startsWith('_'))
+        .filter((c) => !c.name.startsWith('_') && !c.description.startsWith('(removed)'))
         .map((c) => ({
           name: c.name,
           description: c.description,
