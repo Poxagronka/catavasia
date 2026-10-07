@@ -18,7 +18,7 @@ export function AttachmentStrip({
             <img
               src={f.preview}
               alt={f.name}
-              className="w-56 h-56 object-cover border-2 border-border block"
+              className="w-56 h-56 object-cover border-2 border-border rounded-[8px] block"
               data-testid="dock-thumb"
             />
             <RemoveButton name={f.name} onClick={() => onRemove(f.id)} />

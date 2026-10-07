@@ -55,7 +55,7 @@ export function upsertJob(
 
 export type ToolEntry = Extract<CatSessionEntry, { kind: 'tool' }>;
 
-/** Tools of the CEO desk: their rows already read as sentences ("Started job a1b2 → Team (Oliver)"). */
+/** Tools of the CEO desk: their rows already read as sentences ("Gave the job to Oliver's team"). */
 export const DESK_TOOL_PREFIX = 'mcp__desk__';
 
 /**
@@ -63,8 +63,16 @@ export const DESK_TOOL_PREFIX = 'mcp__desk__';
  * or one desk action (a desk tool row, shown as is).
  */
 export type ConsoleRow =
-  /** `replyEnd`: the last text of a reply (no more text before the next message): its actions show. */
-  | { kind: 'message'; entry: Exclude<CatSessionEntry, ToolEntry>; replyEnd?: boolean }
+  /**
+   * `replyEnd`: the last text of a reply (no more text before the next message): its actions
+   * show on hover. `lastReply`: the newest reply end of the chat: its actions always show.
+   */
+  | {
+      kind: 'message';
+      entry: Exclude<CatSessionEntry, ToolEntry>;
+      replyEnd?: boolean;
+      lastReply?: boolean;
+    }
   | { kind: 'tools'; tools: ToolEntry[] }
   | { kind: 'action'; tool: ToolEntry };
 
@@ -80,10 +88,14 @@ export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
   }
   // Backward: a text ends its reply unless more text comes before the next other message.
   let nextIsText = false;
+  let seenReply = false;
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i];
     if (row.kind !== 'message') continue;
-    if (row.entry.kind === 'text' && !nextIsText) row.replyEnd = true;
+    if (row.entry.kind === 'text' && !nextIsText) {
+      row.replyEnd = true;
+      if (!seenReply) row.lastReply = seenReply = true;
+    }
     nextIsText = row.entry.kind === 'text';
   }
   return rows;

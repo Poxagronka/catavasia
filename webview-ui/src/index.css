@@ -52,6 +52,7 @@
   /* Chat prose (the Claude app look): inline code chips and links. */
   --color-code-text: #f28fa0;
   --color-link: #6cb0ff;
+  --color-text-soft: rgba(255, 255, 255, 0.72);
   --measure-body: 680px;
 
   /* Non-utility values */
@@ -98,6 +99,7 @@
   --color-status-success: var(--color-status-success);
   --color-status-error: var(--color-status-error);
   --color-link: var(--color-link);
+  --color-text-soft: var(--color-text-soft);
 
   /* Shadow */
   --shadow-pixel: var(--shadow-pixel);
@@ -209,12 +211,14 @@
   .markdown :where(:not(pre) > code) {
     background: var(--color-bg-dark);
     border: 1px solid var(--color-bg-thumb);
+    border-radius: 4px;
     color: var(--color-code-text);
     padding: 0 4px;
   }
   .markdown :where(pre) {
     background: var(--color-bg-dark);
     border: 2px solid var(--color-border);
+    border-radius: 8px;
     padding: 8px;
     overflow-x: auto;
   }
@@ -227,6 +231,23 @@
     top: 4px;
     right: 4px;
     background: var(--color-bg-dark);
+    border-radius: 6px;
+  }
+  /* The row under the composer: "+", model, effort in the body font (the Claude app look). */
+  .composer-meta,
+  .composer-meta * {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-soft);
+  }
+  /* Copy and time under a reply: shown on hover, always on the newest reply. */
+  .reply-actions {
+    opacity: 0;
+  }
+  .reply:hover .reply-actions,
+  .reply-actions:focus-within,
+  .reply-actions.is-last {
+    opacity: 1;
   }
   /* A folded run of tool calls: one grey line with a chevron that turns when open. */
   .tool-row > summary::-webkit-details-marker {

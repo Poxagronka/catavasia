@@ -222,7 +222,7 @@ describe('CEO desk jobs', () => {
     expect(rows[started]).toMatchObject({
       kind: 'tool',
       name: 'mcp__desk__start_job',
-      text: `Started job ${job.id} → Team (Oliver)`,
+      text: "Gave the job to Oliver's team",
     });
     // The card follows the row that started the job.
     expect(rows[started + 1]).toMatchObject({ kind: 'job', job: { jobId: job.id } });

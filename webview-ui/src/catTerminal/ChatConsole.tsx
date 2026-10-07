@@ -50,11 +50,14 @@ function useNow(on: boolean): number {
   return now;
 }
 
-/** Under a reply: copy it, and when it came ("2 min ago"). */
-function ReplyActions({ text, at }: { text: string; at?: number }) {
+/** Under a reply: copy it, and when it came ("2 min ago"). Shown on hover, always on the last reply. */
+function ReplyActions({ text, at, last }: { text: string; at?: number; last?: boolean }) {
   const now = useNow(at !== undefined);
   return (
-    <div className="flex items-center gap-8 text-text-muted -ml-2" data-testid="reply-actions">
+    <div
+      className={`reply-actions flex items-center gap-8 text-text-muted -ml-4 ${last ? 'is-last' : ''}`}
+      data-testid="reply-actions"
+    >
       <CopyButton text={() => text} title="Copy the reply" testId="reply-copy" />
       {at !== undefined && (
         <span
@@ -68,7 +71,7 @@ function ReplyActions({ text, at }: { text: string; at?: number }) {
   );
 }
 
-/** A desk tool row: one readable line ("Started job a1b2 → Team (Oliver)"). */
+/** A desk tool row: one readable line ("Gave the job to Oliver's team"). */
 function ActionRow({ tool }: { tool: ToolEntry }) {
   return (
     <div
@@ -113,7 +116,7 @@ function SentAttachments({ files }: { files: CeoAttachment[] }) {
             <img
               src={attachmentHref(f.url)}
               alt={f.name}
-              className="max-w-[160px] max-h-[120px] border-2 border-border hover:border-accent block"
+              className="max-w-[160px] max-h-[120px] border-2 border-border hover:border-accent rounded-[8px] block"
               data-testid="sent-thumb"
             />
           </button>
@@ -137,13 +140,16 @@ function SentAttachments({ files }: { files: CeoAttachment[] }) {
 export function MessageRow({
   entry,
   replyEnd,
+  lastReply,
   onOpenPromptHistory,
   job,
   onLogin,
 }: {
   entry: Exclude<CatSessionEntry, ToolEntry>;
-  /** The last text of a reply: copy and time show under it. */
+  /** The last text of a reply: copy and time show under it (on hover). */
   replyEnd?: boolean;
+  /** The newest reply of the chat: its copy and time always show. */
+  lastReply?: boolean;
   onOpenPromptHistory?: (catId: string) => void;
   /** Job card actions (CEO desk); without them a job row is its one-line text. */
   job?: JobCardActions;
@@ -175,7 +181,7 @@ export function MessageRow({
   }
   if (entry.kind === 'user') {
     const bubble = entry.text && (
-      <div className="self-end max-w-[85%] prose-measure bg-btn-bg border-2 border-border px-10 py-4 prose-body whitespace-pre-wrap break-words">
+      <div className="self-end max-w-[85%] prose-measure bg-btn-bg border-2 border-border rounded-[12px] px-12 py-6 prose-body whitespace-pre-wrap break-words">
         {entry.text}
       </div>
     );
@@ -203,9 +209,12 @@ export function MessageRow({
   }
   // A reply is plain prose, no box (the Claude app look).
   return (
-    <div className="self-stretch prose-measure flex flex-col gap-6 break-words" data-testid="reply">
+    <div
+      className="reply self-stretch prose-measure flex flex-col gap-6 break-words"
+      data-testid="reply"
+    >
       <Markdown text={entry.text} />
-      {replyEnd && <ReplyActions text={entry.text} at={entry.at} />}
+      {replyEnd && <ReplyActions text={entry.text} at={entry.at} last={lastReply} />}
     </div>
   );
 }
@@ -228,6 +237,7 @@ export function ConsoleRowView({
     <MessageRow
       entry={row.entry}
       replyEnd={row.replyEnd}
+      lastReply={row.lastReply}
       onOpenPromptHistory={onOpenPromptHistory}
       job={job}
       onLogin={onLogin}

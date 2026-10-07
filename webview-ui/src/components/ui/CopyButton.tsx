@@ -46,7 +46,7 @@ export function CopyButton({
       onClick={copy}
       title={copied ? 'Copied' : title}
       aria-label={title}
-      className={`flex items-center gap-4 bg-transparent border-0 p-2 cursor-pointer text-text-muted hover:text-text text-2xs ${className}`}
+      className={`flex items-center gap-4 bg-transparent border-0 p-4 min-w-24 min-h-24 cursor-pointer text-text-muted hover:text-text text-2xs ${className}`}
       data-testid={testId}
     >
       <CopyIcon />

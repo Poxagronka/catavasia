@@ -31,11 +31,17 @@ interface DockComposerProps {
   settings?: ReactNode;
 }
 
-/** An arrow up, drawn on a pixel grid. */
+/** A quiet return arrow (the Claude app send glyph). */
 function SendIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 14 14" shapeRendering="crispEdges" aria-hidden>
-      <path d="M6 1h2v2h2v2h2v2h-4v6H6V7H2V5h2V3h2z" fill="currentColor" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M13 3v5a2 2 0 0 1-2 2H3m0 0 3-3m-3 3 3 3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -169,7 +175,7 @@ export function DockComposer({
         </span>
       )}
       <AttachmentStrip files={files} onRemove={remove} />
-      <div className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent pr-4">
+      <div className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] pl-4 pr-6">
         <textarea
           value={draft}
           onChange={(e) => onDraft(e.target.value)}
@@ -186,17 +192,17 @@ export function DockComposer({
           onClick={() => void submit()}
           title={blocked ?? 'Send (Enter). Shift+Enter: new line'}
           aria-label="Send"
-          className={`shrink-0 w-28 h-28 mb-4 flex items-center justify-center border-2 ${
+          className={`shrink-0 w-28 h-28 mb-6 flex items-center justify-center rounded-[6px] border-0 bg-transparent ${
             canSend
-              ? 'bg-accent border-accent text-text hover:bg-accent-bright cursor-pointer'
-              : 'bg-transparent border-transparent text-text-muted cursor-default'
+              ? 'text-text hover:bg-btn-hover cursor-pointer'
+              : 'text-text-muted opacity-50 cursor-default'
           }`}
           data-testid="dock-send"
         >
           <SendIcon />
         </button>
       </div>
-      <div className="flex items-center gap-10 min-w-0 text-sm text-text-muted">
+      <div className="composer-meta flex items-center gap-12 min-w-0 px-4">
         <input
           ref={picker}
           type="file"
@@ -211,7 +217,7 @@ export function DockComposer({
         <Button
           variant="ghost"
           size="icon"
-          className="text-xl w-24! h-24!"
+          className="composer-meta text-[18px]! text-text-soft! hover:text-text! w-24! h-24! rounded-[6px]!"
           onClick={() => picker.current?.click()}
           title="Attach images or files"
           aria-label="Attach images or files"

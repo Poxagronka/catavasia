@@ -57,6 +57,15 @@ describe('toRows', () => {
       false,
       true,
     ]);
+    // Only the newest reply keeps its actions in view without a hover.
+    expect(rows.map((r) => r.kind === 'message' && r.lastReply === true)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+    ]);
   });
 });
 

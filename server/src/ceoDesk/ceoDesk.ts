@@ -203,7 +203,7 @@ export class CeoDesk implements OfficeToolHandler {
     return token === this.state.mcpToken;
   }
 
-  /** Runs the tool; on success the chat gets a readable row ("Started job a1b2 → Team (Oliver)"). */
+  /** Runs the tool; on success the chat gets a readable row ("Gave the job to Oliver's team"). */
   async callTool(
     _token: string,
     name: string,

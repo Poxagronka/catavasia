@@ -258,5 +258,7 @@ describe('status and queue', () => {
     expect(settingLabel('opus')).toBe('Opus');
     expect(settingLabel('medium')).toBe('Medium');
     expect(settingLabel('xhigh')).toBe('Extra high');
+    expect(settingLabel('claude-opus-5-5')).toBe('Opus 5.5');
+    expect(settingLabel('claude-sonnet-5-1-20260901')).toBe('Sonnet 5.1');
   });
 });

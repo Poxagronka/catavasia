@@ -211,8 +211,13 @@ export function projectName(folder: string | null | undefined): string {
   );
 }
 
-/** A model or effort value as a short label under the composer: "opus" -> "Opus". */
+/**
+ * A model or effort value as a short label under the composer: "opus" -> "Opus",
+ * a full model name with its version "claude-opus-5-5" -> "Opus 5.5".
+ */
 export function settingLabel(value: string): string {
   if (value === 'xhigh') return 'Extra high';
+  const full = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(value);
+  if (full) return `${settingLabel(full[1])} ${full[2]}.${full[3]}`;
   return value.charAt(0).toUpperCase() + value.slice(1);
 }

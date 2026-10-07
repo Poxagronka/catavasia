@@ -33,7 +33,7 @@ export function ImageLightbox({
       <img
         src={src}
         alt={alt}
-        className="max-w-full max-h-full object-contain border-2 border-border shadow-pixel"
+        className="max-w-full max-h-full object-contain border-2 border-border rounded-[8px]"
       />
       <button
         type="button"
