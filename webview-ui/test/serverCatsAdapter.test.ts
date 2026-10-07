@@ -166,7 +166,7 @@ describe('server cats adapter', () => {
     expect(again.sent).toEqual([]);
   });
 
-  it('imports nothing without the token, for an edited server team, or for the untouched seed', () => {
+  it('imports nothing without the token, for an edited server team, or for the untouched seed (old or new)', () => {
     const edited = JSON.stringify({ cats: [cat('lead', null)] });
     const a = setup({ privileged: false, store: memoryStore({ [STORAGE_KEY]: edited }) });
     a.load(defaults());
@@ -176,6 +176,12 @@ describe('server cats adapter', () => {
       store: memoryStore({ [STORAGE_KEY]: JSON.stringify(localSeed()) }),
     });
     c.load(defaults());
-    expect([a.sent, b.sent, c.sent]).toEqual([[], [], []]);
+    // The seed of an older build (lead effort high) is untouched too.
+    const oldSeed = localSeed().cats.map((x) =>
+      x.parentId === null ? { ...x, effort: 'high' } : x,
+    );
+    const d = setup({ store: memoryStore({ [STORAGE_KEY]: JSON.stringify({ cats: oldSeed }) }) });
+    d.load(defaults());
+    expect([a.sent, b.sent, c.sent, d.sent]).toEqual([[], [], [], []]);
   });
 });

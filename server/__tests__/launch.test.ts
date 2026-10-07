@@ -115,19 +115,38 @@ describe('openBrowser', () => {
   const url = 'http://127.0.0.1:3100/?token=abc';
 
   it('uses the platform opener', () => {
-    expect(openerCommand('darwin', url)).toEqual({ cmd: 'open', args: [url] });
-    expect(openerCommand('linux', url)).toEqual({ cmd: 'xdg-open', args: [url] });
-    expect(openerCommand('win32', url)).toEqual({ cmd: 'cmd', args: ['/c', 'start', '""', url] });
+    const page = '/home/me/.pixel-agents/open.html';
+    expect(openerCommand('darwin', page)).toEqual({ cmd: 'open', args: [page] });
+    expect(openerCommand('linux', page)).toEqual({ cmd: 'xdg-open', args: [page] });
+    expect(openerCommand('win32', 'C:\\a b\\open.html')).toEqual({
+      cmd: 'cmd',
+      args: ['/c', 'start', '""', '"C:\\a b\\open.html"'],
+    });
+  });
+
+  it('keeps the token out of the opener argv (other users can read it in ps)', () => {
+    const dir = tmpHome(false);
+    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+    const spawnFn = vi.fn((_cmd: string, _args: string[]) => child);
+    openBrowser(url, 'linux', spawnFn as never, dir);
+    const args = spawnFn.mock.calls[0][1];
+    expect(args.join(' ')).not.toContain('abc');
+    // The opener gets a private page that redirects to the tokened URL.
+    const page = path.join(dir, 'open.html');
+    expect(args).toEqual([page]);
+    expect(fs.readFileSync(page, 'utf-8')).toContain(url);
+    expect(fs.statSync(page).mode & 0o077).toBe(0);
   });
 
   it('prints the URL instead of throwing when the opener is missing', () => {
+    const dir = tmpHome(false);
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
     const spawnFn = vi.fn(() => child);
-    openBrowser(url, 'linux', spawnFn as never);
+    openBrowser(url, 'linux', spawnFn as never, dir);
     expect(spawnFn).toHaveBeenCalledWith(
       'xdg-open',
-      [url],
+      [path.join(dir, 'open.html')],
       expect.objectContaining({ detached: true }),
     );
     child.emit('error', new Error('ENOENT'));
@@ -135,7 +154,7 @@ describe('openBrowser', () => {
     const throwing = vi.fn(() => {
       throw new Error('spawn failed');
     });
-    expect(() => openBrowser(url, 'darwin', throwing as never)).not.toThrow();
+    expect(() => openBrowser(url, 'darwin', throwing as never, dir)).not.toThrow();
     log.mockRestore();
   });
 });
