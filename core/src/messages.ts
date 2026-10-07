@@ -250,6 +250,7 @@ export interface CatProfile {
   permissionMode?: PermissionMode;
   parentId: string | null;
   isDefault?: boolean;
+  personality?: CatPersonality;
 }
 
 export interface CatAppearance {
@@ -280,6 +281,8 @@ export interface PromptItem {
 export type CatEngine = 'claude' | 'codex';
 
 export type PermissionMode = 'auto' | 'ask' | 'bypass' | 'readOnly';
+
+export type CatPersonality = 'scrappy' | 'playful' | 'pooper' | 'sleepy' | 'social' | 'zoomie';
 
 export interface EngineOptions {
   engine: CatEngine;
@@ -384,6 +387,7 @@ export interface CatCharacter {
   appearance: CatAppearance;
   working: boolean;
   lead?: boolean;
+  personality?: CatPersonality;
 }
 
 export interface CatCeoSettings {
@@ -397,6 +401,7 @@ export interface CatCeoSettings {
   tidyUserItems: boolean;
   systemPrompt: string;
   permissionMode: PermissionMode;
+  personality?: CatPersonality;
 }
 
 export interface ReviewStarted {
@@ -859,6 +864,7 @@ export interface SetCatCeoSettings {
   tidyUserItems?: boolean;
   systemPrompt?: string;
   permissionMode?: PermissionMode;
+  personality?: CatPersonality;
 }
 
 export interface GetPromptHistory {

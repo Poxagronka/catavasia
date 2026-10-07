@@ -15,6 +15,7 @@ import { AppearanceEditor } from './AppearanceEditor.js';
 import { CatSprite } from './CatSprite.js';
 import { CeoEditor } from './CeoEditor.js';
 import { FIELD } from './fields.js';
+import { PersonalityField } from './PersonalityField.js';
 import { PetsTab } from './PetsTab.js';
 import { PromptHistory } from './PromptHistory.js';
 
@@ -208,6 +209,10 @@ function AgentEditor({
           {showHistory && <PromptHistory catId={cat.id} />}
         </div>
       )}
+      <PersonalityField
+        value={draft.personality}
+        onChange={(personality) => update({ ...draft, personality })}
+      />
       <AppearanceEditor
         value={draft.appearance}
         onChange={(appearance) => update({ ...draft, appearance })}

@@ -5,7 +5,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CatProfile } from '../../core/src/messages.js';
-import { CEO_DEFAULTS, readCeoSettings } from '../src/catCeo/ceoSettings.js';
+import { CEO_DEFAULTS, checkCeoPatch, readCeoSettings } from '../src/catCeo/ceoSettings.js';
 import { FLOW_LOG_RETENTION_MS } from '../src/constants.js';
 import {
   CAT_BREED_IDS,
@@ -114,6 +114,13 @@ describe('profile validation', () => {
     expect(asked.ok && asked.value.permissionMode).toBe('ask');
     const bad = validateCat({ ...profile(), permissionMode: 'yolo' }, CATALOG);
     expect(!bad.ok && bad.error).toContain('permissionMode must be one of');
+  });
+
+  it('keeps a known personality and drops an unknown one', () => {
+    const scrappy = validateCat(profile({ personality: 'scrappy' }), CATALOG);
+    expect(scrappy.ok && scrappy.value.personality).toBe('scrappy');
+    const bad = validateCat({ ...profile(), personality: 'grumpy' }, CATALOG);
+    expect(bad.ok && 'personality' in bad.value).toBe(false);
   });
 
   it.each([
@@ -284,6 +291,45 @@ describe('CatStore', () => {
     const again = new CatStore(file(), () => CATALOG, prompts());
     expect(again.get('murka')!.permissionMode).toBe('readOnly');
     expect(readCeoSettings(again.catCeo).permissionMode).toBe('ask');
+  });
+
+  it('gives default cats their personality once; a later "None" sticks', () => {
+    expect(defaultTeam().map((c) => [c.id, c.personality])).toEqual([
+      ['boss', 'scrappy'],
+      ['murka', 'sleepy'],
+      ['pushok', 'playful'],
+      ['ryzhik', 'pooper'],
+    ]);
+    // cats.json of a build before personalities: no field, no `personalities` flag.
+    const cats = defaultTeam().map(({ personality: _p, ...c }) => c);
+    const mine = { ...cats[1], id: 'mine', name: 'Mine', isDefault: false };
+    fs.writeFileSync(
+      file(),
+      JSON.stringify({ version: 1, cats: [...cats, mine], modelDefaults: 2 }),
+    );
+    const store = new CatStore(file(), () => CATALOG, prompts());
+    expect(store.list().map((c) => c.personality)).toEqual([
+      'scrappy',
+      'sleepy',
+      'playful',
+      'pooper',
+      undefined,
+    ]);
+    expect(JSON.parse(fs.readFileSync(file(), 'utf-8')).personalities).toBe(1);
+    const { personality: _cleared, ...luna } = store.get('murka')!;
+    expect(store.saveCat(luna).ok).toBe(true);
+    expect(new CatStore(file(), () => CATALOG, prompts()).get('murka')!.personality).toBe(
+      undefined,
+    );
+  });
+
+  it('gives the Cat CEO the social personality and refuses an unknown one', () => {
+    expect(readCeoSettings(undefined).personality).toBe('social');
+    expect(checkCeoPatch({ personality: 'zoomie' }, CEO_DEFAULTS)).toMatchObject({
+      ok: true,
+      value: { personality: 'zoomie' },
+    });
+    expect(checkCeoPatch({ personality: 'grumpy' }, CEO_DEFAULTS).ok).toBe(false);
   });
 
   it('keeps a copy of an unreadable file and starts from the default team', () => {

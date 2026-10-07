@@ -24,6 +24,7 @@ export type TileType = (typeof TileType)[keyof typeof TileType];
 
 /** Re-export ColorValue for consumers that import color types from office/types */
 export type { ColorValue } from '../components/ui/types.js';
+import type { CatPersonality } from '../../../core/src/messages.js';
 import type { Appearance } from '../cats/catsApi.js';
 import type { ColorValue } from '../components/ui/types.js';
 import type { CharacterSprites } from './sprites/spriteData.js';
@@ -294,6 +295,8 @@ export interface Character {
    *  focus. Rendered translucent. Teammates and sub-agents are never headless —
    *  clicking them reaches their lead's / parent's terminal. */
   isHeadless?: boolean;
+  /** Idle behaviour preset of a resident cat (absent: the default behaviour). */
+  personality?: CatPersonality;
   /** The first-run consent greeter. A MARKER, not a gate: the greeter lives in
    *  OfficeState.greeter, outside the agent map, so seat assignment, palette
    *  diversity, the FSM, hit-testing and seat persistence never see it — no
@@ -421,6 +424,8 @@ export interface Pet {
   customName?: string;
   /** Coat chosen in the Cats menu (cat pets only), else the template sheet as is. */
   appearance?: Appearance;
+  /** Idle behaviour preset from the Cats menu (persisted), else absent. */
+  personality?: CatPersonality;
   /** Zoomies: the pet dashes at a sprint (set by PetCareSystem, cleared on arrival). */
   sprint?: boolean;
   /** Seconds left of a grimace face over the head (an overflowing box, a floor poop). */
@@ -458,4 +463,6 @@ export interface PlacedPet {
   name?: string;
   /** Coat from the Cats menu (cat pets only). Absent = the template sheet unchanged. */
   appearance?: Appearance;
+  /** Idle behaviour preset from the Cats menu. Absent = the default behaviour. */
+  personality?: CatPersonality;
 }

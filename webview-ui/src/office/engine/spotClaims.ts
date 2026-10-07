@@ -21,6 +21,7 @@
 import { SPOT_CONTEST_FIGHT_RADIUS_TILES } from '../../constants.js';
 import type { ActivitySpot, Character } from '../types.js';
 import type { CatSocial } from './catSocial.js';
+import { pairMul } from './personality.js';
 import { isPetActorId } from './petActors.js';
 import { SpotReservations } from './spotReservations.js';
 
@@ -71,7 +72,13 @@ export class SpotClaims {
   }
 
   claim(selfId: number, keys: string[], resume: () => void): ClaimOutcome {
-    const res = this.spots.claim(keys, selfId);
+    const res = this.spots.claim(keys, selfId, 'spot', (rival) =>
+      pairMul(
+        this.host.actor(selfId)?.personality,
+        this.host.actor(rival)?.personality,
+        'spotFight',
+      ),
+    );
     if (res.ok) return 'ok';
     if (res.outcome !== 'fight') return 'repick';
     const self = this.host.actor(selfId);

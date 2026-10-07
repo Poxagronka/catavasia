@@ -1,3 +1,4 @@
+import type { CatPersonality } from '../../core/src/messages.js';
 import type { ColorValue } from './components/ui/types.js';
 
 // ── Grid & Layout ────────────────────────────────────────────
@@ -712,3 +713,55 @@ export const LITTER_FX_COLORS = {
   tongue: '#ff8fa8',
   speed: '#f4f4f8',
 } as const;
+
+// ── Cat personalities (office/engine/personality.ts reads them) ──
+
+/** Knobs a personality preset scales. Every value is a multiplier of the base tuning. */
+export type PersonalityKnob =
+  | 'fight' // SOCIAL_FIGHT_CHANCE in a social roll
+  | 'spotFight' // SPOT_CONTEST_FIGHT_CHANCE (capped at 1)
+  | 'encounter' // SOCIAL_ENCOUNTER_CHANCE and ACTIVITY_SOCIAL_CHANCE
+  | 'greetRub' // SOCIAL_GREET_RUB_CHANCE
+  | 'chasePlay' // SOCIAL_PLAY_CHANCE (a chase instead of a talk)
+  | 'play' // toy and playroom activity weights (agent cats and pets)
+  | 'tailChase' // the tailChase weight
+  | 'sleep' // sleep, bed, house, catBed, loaf, yawn weights; pet nap weights
+  | 'wander' // the wander weight
+  | 'litter' // litter box activity weights
+  | 'litterDue' // LITTER_DUE_SEC (0.25 = due 4x as often)
+  | 'zoomies' // LITTER_ZOOMIES_CHANCE
+  | 'petActivity' // PET_ACTIVITY_CHANCE
+  | 'bowel'; // PET_BOWEL_PER_HOUR and PET_BOWEL_PER_MEAL
+
+export const CAT_PERSONALITY_TUNING: Record<
+  CatPersonality,
+  Partial<Record<PersonalityKnob, number>>
+> = {
+  scrappy: { fight: 5, spotFight: 2 },
+  playful: { play: 3, tailChase: 3, chasePlay: 2, petActivity: 2 },
+  pooper: { litter: 6, litterDue: 0.25, bowel: 3 },
+  sleepy: { sleep: 3, wander: 0.5 },
+  social: { encounter: 2.5, fight: 0.3, greetRub: 1.8 },
+  zoomie: { wander: 3, zoomies: 2, sleep: 0.5 },
+};
+
+export const CAT_PERSONALITY_LABELS: Record<CatPersonality, string> = {
+  scrappy: 'Scrappy',
+  playful: 'Playful',
+  pooper: 'Pooper',
+  sleepy: 'Sleepy',
+  social: 'Social',
+  zoomie: 'Zoomie',
+};
+
+export const CAT_PERSONALITY_BLURBS: Record<CatPersonality, string> = {
+  scrappy: 'Picks fights with other cats and contests every spot.',
+  playful: 'Lives in the playroom: toys, tail chases and chase games.',
+  pooper: 'Visits the litter box far more often than the others.',
+  sleepy: 'Naps on every bed, sofa and loaf spot, and walks little.',
+  social: 'Meets every cat, rubs heads, and rarely fights.',
+  zoomie: 'Always on the move, with extra zoomies and short naps.',
+};
+
+/** Picker hint when a cat has no personality. */
+export const CAT_PERSONALITY_NONE_BLURB = 'The default office cat behaviour.';

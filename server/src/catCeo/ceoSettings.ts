@@ -3,7 +3,13 @@
  * the judge: its default Role & conduct and the judge rules of §5.3.
  */
 
-import type { CatAppearance, CatProfile, PermissionMode } from '../../../core/src/messages.js';
+import { isCatPersonality } from '../../../core/src/catPersonality.js';
+import type {
+  CatAppearance,
+  CatPersonality,
+  CatProfile,
+  PermissionMode,
+} from '../../../core/src/messages.js';
 import { DEFAULT_PERMISSION_MODE } from '../../../core/src/permissionModes.js';
 import { CAT_CEO_COLLAR, CAT_CEO_EDITS_PER_DAY_DEFAULT, CAT_CEO_ID } from '../constants.js';
 import { type EngineCatalog, validateCat } from '../orchestrator/catProfiles.js';
@@ -19,6 +25,8 @@ export interface CeoSettings {
   tidyUserItems: boolean;
   /** What the CEO's desk turns may do without asking. */
   permissionMode: PermissionMode;
+  /** Idle behaviour of the CEO's office cat. The CEO always has one (no "None"). */
+  personality: CatPersonality;
 }
 
 /** A tuxedo cat with a gold collar: the boss of the boss. */
@@ -31,6 +39,7 @@ export const CEO_DEFAULTS: CeoSettings = {
   maxEditsPerCatPerDay: CAT_CEO_EDITS_PER_DAY_DEFAULT,
   tidyUserItems: false,
   permissionMode: DEFAULT_PERMISSION_MODE,
+  personality: 'social',
 };
 
 export const CEO_DEFAULT_ROLE =
@@ -75,6 +84,7 @@ export function ceoProfile(s: CeoSettings, role = ''): CatProfile {
     model: s.model,
     effort: s.effort,
     permissionMode: s.permissionMode,
+    personality: s.personality,
     parentId: null,
   };
 }
@@ -108,6 +118,11 @@ export function checkCeoPatch(
       return { ok: false, error: 'maxEditsPerCatPerDay must be an integer 0-10' };
     }
     next.maxEditsPerCatPerDay = n;
+  }
+  if (patch.personality !== undefined) {
+    if (!isCatPersonality(patch.personality))
+      return { ok: false, error: `unknown personality "${String(patch.personality)}"` };
+    next.personality = patch.personality;
   }
   const profile = validateCat(
     {

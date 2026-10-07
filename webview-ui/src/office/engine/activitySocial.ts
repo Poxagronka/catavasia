@@ -21,6 +21,7 @@ import type { ActivitySpot, Character } from '../types.js';
 import { Direction } from '../types.js';
 import type { CatSocial } from './catSocial.js';
 import type { ActivitySpotSet } from './idleActivities.js';
+import { pairMul } from './personality.js';
 import type { Tile } from './socialMoves.js';
 import { tileDistance, tileOf } from './socialMoves.js';
 import type { SpotClaims } from './spotClaims.js';
@@ -64,7 +65,11 @@ export class ActivitySocial {
     if (this.timer > 0) return;
     this.timer = ACTIVITY_SOCIAL_CHECK_SEC;
     const pair = this.findPair(host);
-    if (pair && this.rng() < ACTIVITY_SOCIAL_CHANCE) this.encounter(pair[0], pair[1], host);
+    const chance = pair
+      ? ACTIVITY_SOCIAL_CHANCE *
+        pairMul(pair[0].actor.personality, pair[1].actor.personality, 'encounter')
+      : 0;
+    if (pair && this.rng() < chance) this.encounter(pair[0], pair[1], host);
   }
 
   /** Closest pair sharing coffee or the playroom, both free and rested. */

@@ -23,6 +23,7 @@ import type { PetActivityClaim, PetActivityProvider } from '../petCare/petCareTy
 import type { Needs } from '../petCare/petNeeds.js';
 import type { ActivitySpot, Pet, PlacedFurniture } from '../types.js';
 import type { ActivitySpotSet } from './idleActivities.js';
+import { personalityMul } from './personality.js';
 import { isPetPlayAnim, PET_PLAY_ANIMS, petPlaySec } from './petPlayAnims.js';
 import type { ClaimOutcome } from './spotClaims.js';
 import { spotKeys } from './spotClaims.js';
@@ -87,11 +88,13 @@ export class PetActivities implements PetActivityProvider {
 
   claimIdle(pet: Pet, needs: Readonly<Needs>): PetActivityClaim | null {
     const h = this.host;
-    if (h.rng() >= PET_ACTIVITY_CHANCE) return null;
+    const mood = pet.personality;
+    if (h.rng() >= PET_ACTIVITY_CHANCE * personalityMul(mood, 'petActivity')) return null;
     // A rested cat mostly plays; a drowsy one is likelier to nap.
-    const napWeight = needs.energy < 70 ? 1.5 : 0.4;
+    const napWeight = (needs.energy < 70 ? 1.5 : 0.4) * personalityMul(mood, 'sleep');
+    const toyWeight = personalityMul(mood, 'play');
     const options: Array<{ id: string; weight: number }> = [
-      ...PET_TOY_IDS.map((id) => ({ id, weight: 1 })),
+      ...PET_TOY_IDS.map((id) => ({ id, weight: toyWeight })),
       ...PET_NAP_IDS.map((id) => ({ id, weight: napWeight })),
       { id: SOFA_NAP_ID, weight: napWeight / 2 },
     ].filter((o) => this.freeSpots(pet, o.id).length > 0);

@@ -63,6 +63,7 @@ import {
 } from '../../constants.js';
 import type { Character } from '../types.js';
 import { CharacterState } from '../types.js';
+import { pairMul } from './personality.js';
 import type { SocialWorld, Tile } from './socialMoves.js';
 import { stopAfterStep, tileDistance, tileOf } from './socialMoves.js';
 import { type Scene, type SceneCast, type SocialKind, stepScene } from './socialScenes.js';
@@ -120,10 +121,18 @@ export function socialBubbleVisible(ch: { bubbleType: unknown }): boolean {
   return ch.bubbleType === null;
 }
 
-/** Roll the scene kind: fight first (rare), then play (only when free to move). */
-export function rollKind(rng: () => number, stationary: boolean): SocialKind {
-  if (rng() < SOCIAL_FIGHT_CHANCE) return 'fight';
-  if (!stationary && rng() < SOCIAL_PLAY_CHANCE) return 'play';
+/**
+ * Roll the scene kind: fight first (rare), then play (only when free to move).
+ * The multipliers come from the pair's personalities (personality.ts pairMul).
+ */
+export function rollKind(
+  rng: () => number,
+  stationary: boolean,
+  fightMul = 1,
+  playMul = 1,
+): SocialKind {
+  if (rng() < SOCIAL_FIGHT_CHANCE * fightMul) return 'fight';
+  if (!stationary && rng() < SOCIAL_PLAY_CHANCE * playMul) return 'play';
   return 'talk';
 }
 
@@ -197,7 +206,14 @@ export class CatSocial {
     const stationary = ctx.activity !== undefined;
     const radius = ctx.radius ?? (stationary ? SOCIAL_ACTIVITY_RADIUS_TILES : SOCIAL_RADIUS_TILES);
     if (!this.admits(a, b, radius, stationary)) return null;
-    let kind = ctx.kind ?? rollKind(this.rng, stationary);
+    let kind =
+      ctx.kind ??
+      rollKind(
+        this.rng,
+        stationary,
+        pairMul(a.personality, b.personality, 'fight'),
+        pairMul(a.personality, b.personality, 'chasePlay'),
+      );
     if (kind === 'play' && stationary) kind = 'talk';
     this.begin(
       a,
@@ -253,7 +269,10 @@ export class CatSocial {
     this.checkTimer = SOCIAL_CHECK_INTERVAL_SEC;
     this.pruneCooldowns();
     const pair = this.findEncounterPair(characters.values());
-    if (pair && this.rng() < SOCIAL_ENCOUNTER_CHANCE) this.trySocialEncounter(pair[0], pair[1]);
+    const chance = pair
+      ? SOCIAL_ENCOUNTER_CHANCE * pairMul(pair[0].personality, pair[1].personality, 'encounter')
+      : 0;
+    if (pair && this.rng() < chance) this.trySocialEncounter(pair[0], pair[1]);
   }
 
   /**

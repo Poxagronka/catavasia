@@ -37,6 +37,7 @@ import {
 import type { Character, CharacterSocialView, SocialIcon } from '../types.js';
 import { CharacterState, Direction, TILE_SIZE } from '../types.js';
 import type { JointPlay } from './catSocial.js';
+import { pairMul } from './personality.js';
 import type { SocialWorld, Tile } from './socialMoves.js';
 import {
   faceEachOther,
@@ -181,7 +182,8 @@ function begin(s: Scene, cast: SceneCast): StepResult {
   } else if (s.kind === 'talk') {
     enter(s, 'greet');
     s.turn = rng() < 0.5 ? 0 : 1;
-    s.rubber = rng() < SOCIAL_GREET_RUB_CHANCE ? (rng() < 0.5 ? 0 : 1) : -1;
+    const rub = SOCIAL_GREET_RUB_CHANCE * pairMul(a.personality, b.personality, 'greetRub');
+    s.rubber = rng() < rub ? (rng() < 0.5 ? 0 : 1) : -1;
   } else if (s.play?.kind === 'toy') {
     enter(s, 'toy');
     s.play.onTurn?.(a.id, s.play.toyId);
