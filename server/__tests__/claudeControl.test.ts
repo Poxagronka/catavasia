@@ -39,6 +39,12 @@ const COMMANDS = [
     builtin: true,
   },
   { name: '__remote-workflow', description: 'internal', argumentHint: '', builtin: true },
+  {
+    name: 'agents',
+    description: '(removed) Ask Claude to create/manage subagents, or edit .claude/agents/',
+    argumentHint: '',
+    builtin: true,
+  },
   { name: 'tidy-notes', description: 'Tidy my notes', argumentHint: '' },
 ];
 const STATUSES = [
@@ -196,7 +202,7 @@ describe('connector helpers', () => {
 });
 
 describe('ClaudeControl', () => {
-  it('lists the commands without internal ones, cached per folder', async () => {
+  it('lists the commands without internal and removed ones, cached per folder', async () => {
     const { fn, log } = fakeQuery([STATUSES]);
     const control = new ClaudeControl(process.execPath, fn);
     const list = await control.commands('/a');

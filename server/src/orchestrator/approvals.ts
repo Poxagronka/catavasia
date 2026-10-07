@@ -7,7 +7,7 @@
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 
-import type { CeoApproval } from '../../../core/src/ceoDesk.js';
+import type { CeoApproval, CeoQuestion } from '../../../core/src/ceoDesk.js';
 import { APPROVAL_TIMEOUT_MS } from '../constants.js';
 import { relativePaths, summarizeInput } from '../taskBoard/streamJson.js';
 import type { PermissionAnswer, PermissionAsk } from './engineAdapter.js';
@@ -26,7 +26,19 @@ const ACTIONS: Record<string, string> = {
   WebSearch: 'search the web',
   Agent: 'start a helper',
   Task: 'start a helper',
+  AskUserQuestion: 'ask you a question',
 };
+
+/** The questions of an AskUserQuestion call, or undefined for any other tool. */
+function questionsOf(toolName: string, input: Record<string, unknown>): CeoQuestion[] | undefined {
+  if (toolName !== 'AskUserQuestion' || !Array.isArray(input.questions)) return undefined;
+  return (input.questions as CeoQuestion[]).map((q) => ({
+    question: q.question,
+    header: q.header,
+    options: q.options.map((o) => ({ label: o.label, description: o.description })),
+    multiSelect: !!q.multiSelect,
+  }));
+}
 
 /** What a tool call does, in plain words, and its command, file or address (relative to `folders`). */
 export function describeAction(
@@ -68,13 +80,15 @@ export class Approvals {
       const timer = setTimeout(onAbort, this.timeoutMs);
       timer.unref();
       ask.signal.addEventListener('abort', onAbort, { once: true });
+      const questions = questionsOf(ask.toolName, ask.input);
       const approval: CeoApproval = {
         id,
         catId: who.catId,
         who: who.name,
         ...describeAction(ask.toolName, ask.input, ask.folders),
-        canAlwaysAllow: ask.canAlwaysAllow,
+        canAlwaysAllow: ask.canAlwaysAllow && !questions,
         expiresAt: Date.now() + this.timeoutMs,
+        ...(questions ? { questions, detail: '' } : {}),
       };
       this.open.set(id, { approval, finish });
       this.events.emit('change');
@@ -85,7 +99,11 @@ export class Approvals {
   answer(id: string, answer: PermissionAnswer): boolean {
     const open = this.open.get(id);
     if (!open) return false;
-    open.finish(answer === 'always' && !open.approval.canAlwaysAllow ? 'allow' : answer);
+    // No rule to keep, or answers to a card without questions: a plain Allow.
+    const plain =
+      (answer === 'always' && !open.approval.canAlwaysAllow) ||
+      (typeof answer === 'object' && !open.approval.questions);
+    open.finish(plain ? 'allow' : answer);
     return true;
   }
 

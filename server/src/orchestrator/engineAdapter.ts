@@ -63,8 +63,11 @@ export interface PermissionAsk {
   folders?: string[];
 }
 
-/** `always`: allow and keep the engine's suggested rule. */
-export type PermissionAnswer = 'allow' | 'always' | 'deny';
+/**
+ * `always`: allow and keep the engine's suggested rule. `answers`: the user
+ * answered AskUserQuestion (question text -> answer).
+ */
+export type PermissionAnswer = 'allow' | 'always' | 'deny' | { answers: Record<string, string> };
 
 export type ToolActivity =
   { toolId: string; toolName: string; status: string } | { toolId: string; done: true };
@@ -112,6 +115,9 @@ export interface EngineAdapter {
   /** File content of the MCP config that attaches the office tools. */
   mcpConfig(endpoint: OfficeMcpEndpoint): string;
   spawnTurn(req: TurnRequest): TurnHandle;
-  /** Command that opens the session in a real terminal ("take the wheel"). */
-  interactiveResumeCommand(sessionId: string): { command: string; args: string[] };
+  /** Command that opens the session in a real terminal ("take the wheel"), in `mode`. */
+  interactiveResumeCommand(
+    sessionId: string,
+    mode: PermissionMode,
+  ): { command: string; args: string[] };
 }

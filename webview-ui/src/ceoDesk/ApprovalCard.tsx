@@ -2,14 +2,10 @@ import { useState } from 'react';
 
 import type { CeoApproval, CeoApprovalAnswer } from '../../../core/src/ceoDesk.js';
 import { Button } from '../components/ui/Button.js';
+import { deadline } from './approvalState.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
 
 type Answer = CeoApprovalAnswer['answer'];
-
-/** "14:32": when an unanswered card counts as No. */
-function deadline(expiresAt: number): string {
-  return new Date(expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 /**
  * One action of a cat or the CEO that waits for the user: who, what in plain

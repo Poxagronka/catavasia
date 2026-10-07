@@ -168,6 +168,10 @@ export function claudeTurnOptions(req: TurnRequest, executable: string): Options
         })
       : 'deny';
     if (answer === 'deny') return { behavior: 'deny', message: 'The user did not allow this.' };
+    // AskUserQuestion takes the answers in its input (SDK AskUserQuestionInput.answers).
+    if (typeof answer === 'object') {
+      return { behavior: 'allow', updatedInput: { ...input, answers: answer.answers } };
+    }
     return {
       behavior: 'allow',
       updatedInput: input,
@@ -278,8 +282,23 @@ export class ClaudeAdapter implements EngineAdapter {
     });
   }
 
-  interactiveResumeCommand(sessionId: string): { command: string; args: string[] } {
-    return { command: this.bin, args: ['--resume', sessionId, '--dangerously-skip-permissions'] };
+  /**
+   * The terminal in the cat's mode. `--permission-mode` takes the SDK names
+   * (`claude --help` 2.1.292 lists `manual` and still takes `default`).
+   */
+  interactiveResumeCommand(
+    sessionId: string,
+    mode: PermissionMode,
+  ): { command: string; args: string[] } {
+    const modeArgs =
+      mode === 'bypass'
+        ? ['--dangerously-skip-permissions']
+        : [
+            '--permission-mode',
+            SDK_MODES[mode],
+            ...(mode === 'readOnly' ? ['--allowedTools', READ_ONLY_TOOLS.join(',')] : []),
+          ];
+    return { command: this.bin, args: ['--resume', sessionId, ...modeArgs] };
   }
 
   spawnTurn(req: TurnRequest): TurnHandle {

@@ -51,6 +51,67 @@ describe('CEO desk approvals', () => {
     expect((await answer(auth, { answer: 'deny' })).statusCode).toBe(404);
   });
 
+  it('shows AskUserQuestion as a question card; the answers go back to the tool', async () => {
+    let got: PermissionAnswer | undefined;
+    const questions = [
+      {
+        question: 'Which color?',
+        header: 'Color',
+        options: [
+          { label: 'Red', description: 'warm', preview: 'x' },
+          { label: 'Blue', description: 'cool' },
+        ],
+        multiSelect: false,
+      },
+    ];
+    env = await startDeskOffice(async ({ req }) => {
+      got = await req.askPermission!({
+        toolName: 'AskUserQuestion',
+        input: { questions },
+        canAlwaysAllow: true,
+        signal: new AbortController().signal,
+      });
+      return { text: 'ok' };
+    });
+    env.desk.send('pick a color');
+    const card = await waitFor(() => env!.desk.snapshot().status.approvals?.[0]);
+    expect(card).toMatchObject({ action: 'ask you a question', detail: '', canAlwaysAllow: false });
+    expect(card.questions).toEqual([
+      {
+        question: 'Which color?',
+        header: 'Color',
+        options: [
+          { label: 'Red', description: 'warm' },
+          { label: 'Blue', description: 'cool' },
+        ],
+        multiSelect: false,
+      },
+    ]);
+    const res = await env.server.app.inject({
+      method: 'POST',
+      url: `/api/ceo/approvals/${card.id}`,
+      headers: { authorization: 'Bearer tok' },
+      payload: { answer: 'allow', answers: { 'Which color?': 'Blue, and a bit of green' } },
+    });
+    expect(res.statusCode).toBe(200);
+    await deskIdle(env.desk);
+    expect(got).toEqual({ answers: { 'Which color?': 'Blue, and a bit of green' } });
+  });
+
+  it('answers on a card without questions count as a plain Allow', async () => {
+    env = await startDeskOffice(() => ({ text: 'ok' }));
+    const luna = env.office.cats.list().find((c) => c.id === 'murka')!;
+    const answer = env.office.askPermission(luna, {
+      toolName: 'Bash',
+      input: { command: 'ls' },
+      canAlwaysAllow: false,
+      signal: new AbortController().signal,
+    });
+    const card = env.desk.snapshot().status.approvals![0];
+    expect(env.desk.answerApproval(card.id, { answers: { x: 'y' } })).toBe(true);
+    expect(await answer).toBe('allow');
+  });
+
   it("shows a cat's question in the CEO chat with the cat's name", async () => {
     env = await startDeskOffice(() => ({ text: 'ok' }));
     const luna = env.office.cats.list().find((c) => c.id === 'murka')!;

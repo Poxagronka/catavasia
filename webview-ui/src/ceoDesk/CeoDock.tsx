@@ -32,6 +32,7 @@ import {
 } from './dockState.js';
 import { HelpCard } from './HelpCard.js';
 import type { JobCardActions } from './JobCard.js';
+import { QuestionCard } from './QuestionCard.js';
 import { UsageRing } from './UsageRing.js';
 import { useDockCommands } from './useDockCommands.js';
 
@@ -246,9 +247,13 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
             {chat.status.busyText ?? `${name} is thinking...`}
           </span>
         )}
-        {approvals.map((a) => (
-          <ApprovalCard key={a.id} approval={a} />
-        ))}
+        {approvals.map((a) =>
+          a.questions ? (
+            <QuestionCard key={a.id} approval={a} questions={a.questions} />
+          ) : (
+            <ApprovalCard key={a.id} approval={a} />
+          ),
+        )}
         {slash.card === 'help' && (
           <HelpCard
             commands={slash.commands}

@@ -188,6 +188,7 @@ export function registerCatTerminalRoutes(
             let args: string[];
             if (engineLaunch) {
               ({ command, args } = engineLaunch);
+              env.PWD = cwd;
             } else {
               const launch = claudeProvider.buildLaunchCommand!(sessionId, cwd);
               args = launch.args.map((a) => (a === '--session-id' ? '--resume' : a));

@@ -53,8 +53,15 @@ export const ceoDeskApi = {
   stop: () => call<CeoStopResponse>('POST', 'stop'),
   newChat: () => call<{ chatId: string }>('POST', 'new'),
   /** The user's answer to an approval card (a cat or the CEO waits for it). */
-  answerApproval: (id: string, answer: CeoApprovalAnswer['answer']) =>
-    call<{ ok: boolean }>('POST', `approvals/${encodeURIComponent(id)}`, { answer }),
+  answerApproval: (
+    id: string,
+    answer: CeoApprovalAnswer['answer'],
+    answers?: CeoApprovalAnswer['answers'],
+  ) =>
+    call<{ ok: boolean }>('POST', `approvals/${encodeURIComponent(id)}`, {
+      answer,
+      ...(answers ? { answers } : {}),
+    }),
   /** The office's project: an absolute folder, or null for the sandbox. */
   setFolder: (path: string | null) => call<CeoFolderResponse>('PUT', 'folder', { path }),
   folders: () => call<CeoFoldersResponse>('GET', 'folders'),

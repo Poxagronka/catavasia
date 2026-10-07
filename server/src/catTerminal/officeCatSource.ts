@@ -22,6 +22,7 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
+import { effectiveMode } from '../../../core/src/permissionModes.js';
 import type { CeoDesk } from '../ceoDesk/ceoDesk.js';
 import { CAT_CEO_ID } from '../constants.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
@@ -125,16 +126,16 @@ export class OfficeCatSource implements CatSessionSource {
     if (!release) throw new CatSessionError(409, 'The session is in use');
     this.wheels.set(cat, release);
     this.office.consoles.statusChanged();
-    // Claude cats keep the route's default (the provider's launch command).
     const profile = this.office.cats.get(cat);
     // The raw adapter, not adapterFor(): a logged-out Codex cat still resumes with codex.
-    const adapter =
-      profile?.engine !== 'claude' &&
-      profile &&
-      this.office.opts.adapters.find((a) => a.engine === profile.engine);
+    const adapter = profile && this.office.opts.adapters.find((a) => a.engine === profile.engine);
+    // The terminal runs in the cat's permission mode, as its turns do.
+    const mode = profile && effectiveMode(profile.engine, profile.model, profile.permissionMode);
     return {
       ...member,
-      ...(adapter ? { launch: adapter.interactiveResumeCommand(member.sessionId) } : {}),
+      ...(adapter && mode
+        ? { launch: adapter.interactiveResumeCommand(member.sessionId, mode) }
+        : {}),
     };
   }
 

@@ -48,15 +48,15 @@ export function DockHeader(props: DockHeaderProps) {
         </span>
         <span className="flex-1" />
         {privileged && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
+            className="quiet-btn"
             onClick={props.onConnectors}
             title="Tools Claude can use, like your mail or files (also /mcp)"
             data-testid="dock-connectors"
           >
             Connectors
-          </Button>
+          </button>
         )}
         <Button
           variant="ghost"

@@ -58,6 +58,14 @@ test.describe('Standalone / engines', () => {
     await expect(page.getByTestId('dock-blocked')).toContainText(
       'Send is off until Claude Code is ready',
     );
+    // A command the dock answers itself still works.
+    await page.getByTestId('dock-input').fill('/help');
+    await expect(page.getByTestId('dock-send')).toBeEnabled();
+    await page.getByTestId('dock-input').press('Enter');
+    await expect(page.getByTestId('help-card')).toBeVisible();
+    await page.getByTestId('help-card').getByRole('button', { name: 'Close' }).click();
+    await page.getByTestId('dock-input').fill('weather in Rhodes tomorrow');
+    await expect(page.getByTestId('dock-send')).toBeDisabled();
 
     await banner.getByTestId('engine-login-claude').click();
     const panel = page.getByTestId('engine-login-panel');

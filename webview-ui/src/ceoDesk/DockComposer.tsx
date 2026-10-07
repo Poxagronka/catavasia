@@ -13,6 +13,7 @@ import { Button } from '../components/ui/Button.js';
 import { AttachmentStrip } from './AttachmentStrip.js';
 import { attachError, type DraftAttachment } from './attachState.js';
 import { prepareAttachment, toUploads } from './prepareAttachment.js';
+import { catchCommand } from './slashCommands.js';
 import { SlashMenu } from './SlashMenu.js';
 import { useSlashMenu } from './useSlashMenu.js';
 
@@ -82,7 +83,10 @@ export function DockComposer({
   const picker = useRef<HTMLInputElement>(null);
   const filesRef = useRef(files);
   filesRef.current = files;
-  const canSend = !blocked && !sending && !preparing && (draft.trim() !== '' || files.length > 0);
+  // Send is off, but a command the dock answers itself (/help, /model...) still works.
+  const stopped = (text: string) => !!blocked && (files.length > 0 || !catchCommand(text));
+  const canSend =
+    !stopped(draft) && !sending && !preparing && (draft.trim() !== '' || files.length > 0);
 
   // Thumbnails are object URLs: free them when the dock goes away.
   useEffect(
@@ -91,7 +95,7 @@ export function DockComposer({
   );
 
   const addFiles = async (list: FileList | File[]) => {
-    const picked = [...list];
+    const picked = Array.from(list);
     if (!picked.length) return;
     setError(null);
     setPreparing((n) => n + 1);
@@ -124,7 +128,7 @@ export function DockComposer({
   };
 
   const submit = async (text = draft) => {
-    if (blocked || sending || preparing || (!text.trim() && !files.length)) return;
+    if (stopped(text) || sending || preparing || (!text.trim() && !files.length)) return;
     setSending(true);
     setError(null);
     try {
@@ -204,7 +208,7 @@ export function DockComposer({
           type="button"
           disabled={!canSend}
           onClick={() => void submit()}
-          title={blocked ?? 'Send (Enter). Shift+Enter: new line'}
+          title={(stopped(draft) && blocked) || 'Send (Enter). Shift+Enter: new line'}
           aria-label="Send"
           className={`shrink-0 w-28 h-28 mb-6 flex items-center justify-center rounded-[6px] border-0 bg-transparent ${
             canSend
