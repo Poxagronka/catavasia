@@ -2,9 +2,13 @@
  * Claude Code engine adapter: one `claude -p` stream-json process per turn.
  *
  * The cat keeps the project settings (no --setting-sources), so it sees the
- * project CLAUDE.md and the user's hooks. Only the office MCP server is
- * attached (--strict-mcp-config), unless the turn asks for the user's own MCP
- * servers too (the CEO desk). Permissions are skipped, as for board tasks.
+ * project CLAUDE.md and the user's hooks. Only the office MCP server and the
+ * project's .mcp.json are attached (--strict-mcp-config), unless the turn asks
+ * for the user's own MCP servers too (the CEO desk). Permissions are skipped,
+ * as for board tasks.
+ *
+ * Claude Code reads AGENTS.md only when the folder has no CLAUDE.md (checked
+ * with 2.1.292). When CLAUDE.md does not import it, the turn appends it.
  */
 
 import { execFileSync, spawn } from 'child_process';
@@ -92,8 +96,24 @@ export function claudeUserMessage(text: string, images: string[] = []): string {
   return `${JSON.stringify({ type: 'user', message: { role: 'user', content } })}\n`;
 }
 
+/** AGENTS.md of `cwd` as an appended system prompt, when Claude Code would skip it. */
+function agentsMdArgs(cwd: string): string[] {
+  const read = (name: string) => {
+    try {
+      return fs.readFileSync(path.join(cwd, name), 'utf-8');
+    } catch {
+      return undefined;
+    }
+  };
+  const agents = read('AGENTS.md');
+  const claude = read('CLAUDE.md');
+  if (agents === undefined || claude === undefined || claude.includes('@AGENTS.md')) return [];
+  return ['--append-system-prompt', `Project instructions (AGENTS.md):\n\n${agents}`];
+}
+
 /** The `claude -p` arguments of one turn (stdin carries the message). */
 export function claudeTurnArgs(req: TurnRequest): string[] {
+  const projectMcp = path.join(req.cwd, '.mcp.json');
   return [
     '-p',
     '--input-format',
@@ -110,7 +130,10 @@ export function claudeTurnArgs(req: TurnRequest): string[] {
     ...(req.effort ? ['--effort', req.effort] : []),
     '--mcp-config',
     req.mcpConfigFile,
-    ...(req.userMcp ? [] : ['--strict-mcp-config']),
+    ...(req.userMcp
+      ? []
+      : [...(fs.existsSync(projectMcp) ? [projectMcp] : []), '--strict-mcp-config']),
+    ...agentsMdArgs(req.cwd),
     '--dangerously-skip-permissions',
     ...(req.extraArgs ?? []),
   ];

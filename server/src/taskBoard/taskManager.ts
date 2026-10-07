@@ -468,7 +468,8 @@ export class TaskManager {
     if (!release) throw new TaskBusyError('The session is in use');
     try {
       if (stored.worktreePath && stored.repoRoot && stored.branch) {
-        await reopenWorktree(stored.repoRoot, stored.worktreePath, stored.branch);
+        const subdir = (await inspectRepo(stored.cwd))?.subdir;
+        await reopenWorktree(stored.repoRoot, stored.worktreePath, stored.branch, subdir);
       }
     } catch (err) {
       release();

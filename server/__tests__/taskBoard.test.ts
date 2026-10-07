@@ -115,6 +115,42 @@ describe('gitWorktree', () => {
     expect(git(repo, 'log', '-1', '--format=%s', 'task/abc').trim()).toBe('task abc');
   });
 
+  it('carries untracked and ignored project settings into the worktree and never commits them', async () => {
+    const repo = makeRepo();
+    fs.writeFileSync(path.join(repo, '.gitignore'), '.claude/settings.local.json\n');
+    git(repo, 'add', '.gitignore');
+    git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'ignore');
+    const local = {
+      'CLAUDE.local.md': 'local rules\n',
+      '.mcp.json': '{"mcpServers":{}}\n',
+      '.claude/settings.local.json': '{}\n',
+      '.claude/skills/probe/SKILL.md': 'skill\n',
+    };
+    for (const [name, text] of Object.entries(local)) {
+      fs.mkdirSync(path.dirname(path.join(repo, name)), { recursive: true });
+      fs.writeFileSync(path.join(repo, name), text);
+    }
+    fs.mkdirSync(path.join(tmp, 'shared-skill'));
+    fs.writeFileSync(path.join(tmp, 'shared-skill', 'SKILL.md'), 'linked\n');
+    fs.symlinkSync(path.join(tmp, 'shared-skill'), path.join(repo, '.claude/skills/linked'));
+    const statusBefore = git(repo, 'status', '--porcelain');
+    const info = (await inspectRepo(repo))!;
+    const wt = path.join(tmp, 'wt');
+    await createWorktree(info, wt, 'task/ctx');
+    for (const [name, text] of Object.entries(local)) {
+      expect(fs.readFileSync(path.join(wt, name), 'utf-8')).toBe(text);
+    }
+    expect(fs.readFileSync(path.join(wt, '.claude/skills/linked/SKILL.md'), 'utf-8')).toBe(
+      'linked\n',
+    );
+    fs.writeFileSync(path.join(wt, 'new.txt'), 'meow\n');
+
+    const outcome = await finalizeWorktree(info.root, wt, info.head, 'task ctx');
+
+    expect(outcome.changedFiles).toEqual([{ status: 'A', path: 'new.txt' }]);
+    expect(git(repo, 'status', '--porcelain')).toBe(statusBefore);
+  });
+
   it('returns null for a folder outside any git repo', async () => {
     expect(await inspectRepo(tmp)).toBeNull();
   });

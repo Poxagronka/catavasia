@@ -1,7 +1,8 @@
 /**
  * The CEO desk (docs/catavasia/ROADMAP.md, "CEO desk replaces the task board"):
  * one live CEO conversation per office. Each user message is one turn of a
- * resumable Claude session in a stable cwd (cat-ceo/chats/<chatId>/). The CEO
+ * resumable Claude session, in the project folder (or cat-ceo/chats/<chatId>/
+ * without one; a new folder starts a new session). The CEO
  * answers itself or starts jobs (team tasks) with its desk tools; when a job
  * ends, a job notice with the full result becomes the CEO's next turn. One
  * turn at a time: messages and notices wait in `pending` (no TurnScheduler).
