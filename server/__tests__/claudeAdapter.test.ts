@@ -8,6 +8,7 @@ import {
   ClaudeAdapter,
   claudeTurnOptions,
   claudeUserMessage,
+  resolveExecutable,
 } from '../src/orchestrator/claudeAdapter.js';
 import type { PermissionAsk, TurnRequest } from '../src/orchestrator/engineAdapter.js';
 
@@ -270,5 +271,22 @@ async function turn(m) {
   it('says so when the CLI is not installed', async () => {
     const outcome = await new ClaudeAdapter('no-such-claude-bin').spawnTurn(req()).done;
     expect(outcome).toMatchObject({ ok: false, error: 'Claude Code CLI not found' });
+  });
+});
+
+describe('resolveExecutable', () => {
+  it('finds the CLI on PATH, with PATHEXT on Windows, and keeps a path as is', () => {
+    const dir = makeTmp();
+    fs.writeFileSync(path.join(dir, 'claude'), '', { mode: 0o755 });
+    fs.writeFileSync(path.join(dir, 'claude.EXE'), '', { mode: 0o755 });
+    fs.mkdirSync(path.join(dir, 'sub', 'claude'), { recursive: true });
+    const PATH = [path.join(dir, 'sub'), dir].join(path.delimiter);
+    expect(resolveExecutable('claude', { PATH }, 'darwin')).toBe(path.join(dir, 'claude'));
+    fs.rmSync(path.join(dir, 'claude'));
+    expect(resolveExecutable('claude', { PATH, PATHEXT: '.EXE' }, 'win32')).toBe(
+      path.join(dir, 'claude.EXE'),
+    );
+    expect(resolveExecutable('claude', { PATH }, 'darwin')).toBeUndefined();
+    expect(resolveExecutable('/opt/claude', {})).toBe('/opt/claude');
   });
 });

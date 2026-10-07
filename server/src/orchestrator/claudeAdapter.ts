@@ -185,16 +185,23 @@ export function claudeTurnOptions(req: TurnRequest, executable: string): Options
   };
 }
 
-/** The installed `claude` the SDK drives: a bare name is looked up on PATH. */
-export function resolveExecutable(bin: string, env = process.env): string | undefined {
-  if (bin.includes(path.sep)) return bin;
-  for (const dir of (env.PATH ?? '').split(path.delimiter)) {
-    const file = path.join(dir, bin);
-    try {
-      fs.accessSync(file, fs.constants.X_OK);
-      return file;
-    } catch {
-      /* next dir */
+/** The installed `claude` the SDK drives: a bare name is looked up on PATH (PATHEXT on Windows). */
+export function resolveExecutable(
+  bin: string,
+  env = process.env,
+  platform = process.platform,
+): string | undefined {
+  if (bin.includes('/') || bin.includes('\\')) return bin;
+  const exts = platform === 'win32' ? ['', ...(env.PATHEXT ?? '.EXE;.CMD').split(';')] : [''];
+  for (const dir of (env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
+    for (const ext of exts) {
+      const file = path.join(dir, bin + ext);
+      try {
+        fs.accessSync(file, fs.constants.X_OK);
+        if (fs.statSync(file).isFile()) return file;
+      } catch {
+        /* next candidate */
+      }
     }
   }
   return undefined;
