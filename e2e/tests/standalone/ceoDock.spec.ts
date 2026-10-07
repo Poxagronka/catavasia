@@ -136,4 +136,65 @@ test.describe('Standalone / CEO dock', () => {
       timeout: TURN_TIMEOUT_MS,
     });
   });
+
+  test('tool activity reads in plain words, with the picture; ring, limits and pickers @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    await input.fill('show tools');
+    await input.press('Enter');
+
+    const log = page.getByTestId('dock-log');
+    const summary = log.getByTestId('tool-summary');
+    await expect(summary).toHaveText(/Thought for 2s, looked at a file, ran a command/, {
+      timeout: TURN_TIMEOUT_MS,
+    });
+    // The picture the tool returned shows under the closed line, from the attachments route.
+    const thumb = log.locator('[data-testid="tool-thumb"]:visible');
+    await expect(thumb).toHaveCount(1);
+    await expect
+      .poll(() => thumb.evaluate((img) => (img as HTMLImageElement).naturalWidth))
+      .toBe(8);
+    await summary.click();
+    const items = log.getByTestId('activity-item');
+    await expect(items).toHaveCount(3);
+    // Paths show relative to the folder the CEO works in.
+    await expect(items.nth(1)).toHaveText(/^Looked at red\.png/);
+    await items.nth(2).locator('summary').click();
+    await expect(log.getByTestId('tool-result')).toContainText('README.md');
+    // Open: the picture moves into its call's row.
+    await items.nth(1).locator('summary').click();
+    await expect(thumb).toHaveCount(1);
+    await thumb.click();
+    await expect(page.getByTestId('image-lightbox')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // The context ring: 84K of 200K, and the subscription limits of the turn.
+    const ring = page.getByTestId('dock-usage');
+    await expect(ring).toHaveAttribute('title', 'Context: 42% used');
+    await ring.click();
+    await expect(page.getByTestId('usage-context')).toContainText('42% used');
+    await expect(page.getByTestId('usage-five-hour')).toContainText(/7% used · resets at/);
+    await expect(page.getByTestId('usage-weekly')).toContainText(/56% used · resets /);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('dock-usage-menu')).toBeHidden();
+
+    // The permission mode label opens the CEO's mode picker.
+    await expect(page.getByTestId('dock-mode')).toHaveText('Auto');
+    await page.getByTestId('dock-mode').click();
+    await expect(page.getByTestId('dock-mode-menu').getByTestId('permission-mode')).toBeVisible();
+    await page.getByTestId('dock-mode-menu').locator('select').selectOption('ask');
+    await expect(page.getByTestId('dock-mode')).toHaveText('Ask before actions');
+    await page.keyboard.press('Escape');
+
+    // Model and effort are pickers that change the CEO's settings.
+    await page.getByTestId('dock-model').click();
+    await page.getByTestId('dock-model-sonnet').click();
+    await expect(page.getByTestId('dock-model')).toHaveText('Sonnet');
+    await page.getByTestId('dock-effort').click();
+    await page.getByTestId('dock-effort-low').click();
+    await expect(page.getByTestId('dock-effort')).toHaveText('Low');
+  });
 });

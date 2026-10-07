@@ -27,7 +27,9 @@ interface DockComposerProps {
   restored?: File[];
   /** The restored files are in the box: the dock forgets them (no second add on a remount). */
   onRestored?(): void;
-  /** The right of the row under the box: the CEO's model and effort. */
+  /** The left of the row under the box, after "+": the CEO's permission mode. */
+  mode?: ReactNode;
+  /** The right of the row under the box: the CEO's model, effort and context ring. */
   settings?: ReactNode;
 }
 
@@ -64,6 +66,7 @@ export function DockComposer({
   notice,
   restored,
   onRestored,
+  mode,
   settings,
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
@@ -225,6 +228,7 @@ export function DockComposer({
         >
           +
         </Button>
+        {mode}
         <span className="flex-1 truncate">{preparing ? 'Preparing files...' : ''}</span>
         {settings}
       </div>

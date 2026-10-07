@@ -26,6 +26,7 @@ import { taskLogInput } from '../narrator/narrator.js';
 import { isAuthError } from '../orchestrator/engineStatus.js';
 import { claudeProvider } from '../providers/index.js';
 import { isProcessRunning } from '../server.js';
+import { officeLimits } from '../usageLimits.js';
 import {
   createWorktree,
   finalizeWorktree,
@@ -555,6 +556,7 @@ export class TaskManager {
   }
 
   private onStreamLine(run: RunningTask, line: string): void {
+    officeLimits.observe(line);
     const parsed = parseStreamLine(line);
     // "Not logged in" lines: the error row at the end says it once, with the fix.
     parsed.log = parsed.log.filter((e) => e.kind === 'tool' || !isAuthError(e.text));

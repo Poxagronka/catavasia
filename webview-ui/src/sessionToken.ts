@@ -53,3 +53,8 @@ const page = (globalThis as { window?: PageLocation & { localStorage: TokenStora
 export const sessionToken: string | null = page
   ? resolveSessionToken(page, () => page.localStorage)
   : null;
+
+/** A served attachment with the page token (the route needs it; an <img> sends no header). */
+export function attachmentHref(url: string): string {
+  return sessionToken ? `${url}?token=${encodeURIComponent(sessionToken)}` : url;
+}

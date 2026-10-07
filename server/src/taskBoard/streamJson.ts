@@ -49,12 +49,30 @@ export function summarizeInput(input: unknown): string {
     'path',
     'pattern',
     'url',
+    'query',
     'description',
     'prompt',
   ]) {
     if (typeof rec[key] === 'string') return clip(rec[key]);
   }
   return clip(JSON.stringify(input));
+}
+
+/**
+ * Paths under `folders` without the folder ("src/a.ts"), a folder itself by
+ * its name ("site"), the home folder as "~".
+ */
+export function relativePaths(text: string, folders: string[], home = process.env.HOME): string {
+  let out = text;
+  // The longest first: "/private/var/x" before "/var/x" (macOS temp folders).
+  for (const dir of folders.filter(Boolean).sort((a, b) => b.length - a.length)) {
+    const base = dir.replace(/[/\\]+$/, '');
+    out = out.split(`${base}/`).join('').split(`${base}\\`).join('');
+    const name = base.split(/[/\\]/).pop() || base;
+    const bare = new RegExp(`${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w.-])`, 'g');
+    out = out.replace(bare, name);
+  }
+  return home ? out.split(`${home.replace(/[/\\]+$/, '')}/`).join('~/') : out;
 }
 
 function num(value: unknown): number | undefined {

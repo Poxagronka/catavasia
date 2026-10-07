@@ -25,6 +25,8 @@ describe('approval cards', () => {
       action: 'create or replace a file',
       detail: '/p/a.txt',
     });
+    // Paths under the turn's folders show relative (no long temp paths on the card).
+    expect(describeAction('Edit', { file_path: '/p/src/a.ts' }, ['/p']).detail).toBe('src/a.ts');
     expect(describeAction('mcp__slack__send_message', { text: 'hi' }).action).toBe(
       'use send message (slack)',
     );

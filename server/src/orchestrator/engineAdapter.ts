@@ -39,6 +39,8 @@ export interface TurnRequest {
   askPermission?: (ask: PermissionAsk) => Promise<PermissionAnswer>;
   /** Activity-log lines as they stream. */
   onLog?: (entry: TaskLogEntry) => void;
+  /** Every raw stream line (Claude: each Agent SDK message as stream-json), before onLog. */
+  onLine?: (line: string) => void;
   /**
    * A tool started or ended, for an engine whose activity the office sees
    * only in this stream (Codex). Claude cats show tools from hooks and the
@@ -57,6 +59,8 @@ export interface PermissionAsk {
   canAlwaysAllow: boolean;
   /** The turn ended or was killed: the question is moot. */
   signal: AbortSignal;
+  /** The turn's folders: the card shows paths under them relative. */
+  folders?: string[];
 }
 
 /** `always`: allow and keep the engine's suggested rule. */

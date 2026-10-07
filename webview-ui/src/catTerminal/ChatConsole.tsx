@@ -7,7 +7,8 @@ import { JobCard, type JobCardActions } from '../ceoDesk/JobCard.js';
 import { Markdown } from '../components/taskBoard/Markdown.js';
 import { Button } from '../components/ui/Button.js';
 import { CopyButton } from '../components/ui/CopyButton.js';
-import { sessionToken } from '../sessionToken.js';
+import { attachmentHref, sessionToken } from '../sessionToken.js';
+import type { ActivityEntry } from './activityWords.js';
 import {
   type CatConsoleState,
   type ConsoleRow,
@@ -16,28 +17,9 @@ import {
   toRows,
 } from './consoleState.js';
 import { ImageLightbox } from './ImageLightbox.js';
+import { ToolRow } from './ToolActivity.js';
 
 const CLOCK_TICK_MS = 30_000;
-
-/** A run of tool calls: one grey line ("Used 3 tools >") that opens to the list. */
-function ToolRow({ tools }: { tools: ToolEntry[] }) {
-  const label = tools.length === 1 ? 'Used 1 tool' : `Used ${tools.length} tools`;
-  return (
-    <details className="tool-row self-start max-w-full prose-body prose-small text-text-muted">
-      <summary className="cursor-pointer hover:text-text list-none">
-        {label} <span className="tool-row-chevron">&gt;</span>
-      </summary>
-      <div className="prose-code flex flex-col gap-2 mt-4 pl-8 border-l-2 border-border">
-        {tools.map((t, n) => (
-          <div key={n} className="break-all">
-            <span className="text-text">{t.name} </span>
-            <span>{t.text}</span>
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
 
 /** The time now, re-read every half minute while `on` (the "2 min ago" labels). */
 function useNow(on: boolean): number {
@@ -82,11 +64,6 @@ function ActionRow({ tool }: { tool: ToolEntry }) {
       {tool.text}
     </div>
   );
-}
-
-/** A served attachment with the page token (the route needs it; an <img> sends no header). */
-function attachmentHref(url: string): string {
-  return sessionToken ? `${url}?token=${encodeURIComponent(sessionToken)}` : url;
 }
 
 /** The files of a sent message: thumbnails that open in the lightbox, chips that download the file. */
@@ -145,7 +122,7 @@ export function MessageRow({
   job,
   onLogin,
 }: {
-  entry: Exclude<CatSessionEntry, ToolEntry>;
+  entry: Exclude<CatSessionEntry, ActivityEntry>;
   /** The last text of a reply: copy and time show under it (on hover). */
   replyEnd?: boolean;
   /** The newest reply of the chat: its copy and time always show. */

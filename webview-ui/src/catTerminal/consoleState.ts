@@ -10,6 +10,7 @@ import type {
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
 import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
+import type { ActivityEntry, ToolEntry } from './activityWords.js';
 
 /** What the console renders: the frames folded into one view. */
 export interface CatConsoleState {
@@ -34,6 +35,10 @@ export function applyFrame(state: CatConsoleState, frame: CatSessionFrame): CatC
   }
   if (frame.type === 'entries') return { ...state, entries: [...state.entries, ...frame.entries] };
   if (frame.type === 'job') return { ...state, entries: upsertJob(state.entries, frame) };
+  if (frame.type === 'update') {
+    const { entry } = frame;
+    return { ...state, entries: state.entries.map((e) => (e.at === entry.at ? entry : e)) };
+  }
   return { ...state, status: frame.status };
 }
 
@@ -53,7 +58,7 @@ export function upsertJob(
   return next;
 }
 
-export type ToolEntry = Extract<CatSessionEntry, { kind: 'tool' }>;
+export type { ToolEntry };
 
 /** Tools of the CEO desk: their rows already read as sentences ("Gave the job to Oliver's team"). */
 export const DESK_TOOL_PREFIX = 'mcp__desk__';
@@ -69,20 +74,21 @@ export type ConsoleRow =
    */
   | {
       kind: 'message';
-      entry: Exclude<CatSessionEntry, ToolEntry>;
+      entry: Exclude<CatSessionEntry, ActivityEntry>;
       replyEnd?: boolean;
       lastReply?: boolean;
     }
-  | { kind: 'tools'; tools: ToolEntry[] }
+  | { kind: 'tools'; tools: ActivityEntry[] }
   | { kind: 'action'; tool: ToolEntry };
 
-/** Fold consecutive tool calls into one collapsible row; mark where each reply ends. */
+/** Fold consecutive tool calls and thoughts into one collapsible row; mark where each reply ends. */
 export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
   const rows: ConsoleRow[] = [];
   for (const entry of entries) {
     const last = rows[rows.length - 1];
-    if (entry.kind !== 'tool') rows.push({ kind: 'message', entry });
-    else if (entry.name.startsWith(DESK_TOOL_PREFIX)) rows.push({ kind: 'action', tool: entry });
+    if (entry.kind !== 'tool' && entry.kind !== 'thought') rows.push({ kind: 'message', entry });
+    else if (entry.kind === 'tool' && entry.name.startsWith(DESK_TOOL_PREFIX))
+      rows.push({ kind: 'action', tool: entry });
     else if (last?.kind === 'tools') last.tools.push(entry);
     else rows.push({ kind: 'tools', tools: [entry] });
   }

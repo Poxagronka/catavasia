@@ -44,6 +44,8 @@ export interface CeoReply {
   error?: string;
   /** Activity-log lines streamed before the turn ends. */
   log?: TaskLogEntry[];
+  /** Raw stream lines (Agent SDK messages as stream-json) streamed before the turn ends. */
+  lines?: string[];
 }
 
 /** Never answers: the turn runs until it is killed. */
@@ -101,6 +103,7 @@ export class FakeCeoAdapter implements EngineAdapter {
     const done = (async (): Promise<TurnOutcome> => {
       const reply = await Promise.race([Promise.resolve(this.script({ req, call })), killed]);
       if (!reply) return { ok: false, error: 'Exit code none: killed', sessionStarted: true };
+      for (const line of reply.lines ?? []) req.onLine?.(line);
       for (const entry of reply.log ?? []) req.onLog?.(entry);
       const ok = reply.ok ?? true;
       return {

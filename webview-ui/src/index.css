@@ -259,6 +259,83 @@
   .tool-row[open] .tool-row-chevron {
     transform: rotate(90deg);
   }
+  .tool-call > summary::-webkit-details-marker {
+    display: none;
+  }
+  /* The command, file or result of one tool call: a small scrolling block. */
+  .tool-detail {
+    font-family: var(--font-code);
+    font-size: 12px;
+    color: var(--color-text-soft);
+    background: var(--color-bg-dark);
+    border: 1px solid var(--color-bg-thumb);
+    border-radius: 6px;
+    padding: 6px 8px;
+    max-height: 180px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  /* A setting label under the composer ("Auto", "Opus 5.5") and its menu above it. */
+  .composer-pick {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .composer-pick:hover,
+  .composer-pick[aria-expanded='true'] {
+    background: var(--color-btn-bg);
+  }
+  .composer-pick:hover,
+  .composer-pick:hover * {
+    color: var(--color-text);
+  }
+  .composer-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    z-index: 50;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 8px;
+    background: var(--color-bg-dark);
+    border: 2px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-pixel);
+  }
+  .composer-choice {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .composer-choice:hover,
+  .composer-choice.is-current {
+    background: var(--color-btn-bg);
+  }
+  .composer-choice.is-current,
+  .composer-choice.is-current * {
+    color: var(--color-text);
+  }
+  /* A limit bar in the context ring's menu. */
+  .usage-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-bg-thumb);
+    overflow: hidden;
+  }
+  .usage-bar > div {
+    height: 100%;
+    background: var(--color-accent-bright);
+  }
   .markdown :where(blockquote) {
     border-left: 3px solid var(--color-border);
     padding-left: 10px;

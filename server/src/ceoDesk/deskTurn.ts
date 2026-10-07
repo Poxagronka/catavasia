@@ -5,25 +5,23 @@
 
 import * as fs from 'fs';
 
-import type { CatSessionEntry } from '../../../core/src/catSession.js';
-import type { TaskLogEntry } from '../../../core/src/tasks.js';
-import { toConsoleEntry } from '../catTerminal/catSessionSource.js';
+import { CEO_ATTACH_MAX_COUNT } from '../../../core/src/ceoDesk.js';
 import { CAT_CEO_ID } from '../constants.js';
 import type { EngineAdapter, TurnHandle } from '../orchestrator/engineAdapter.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
+import { saveAttachments } from './attachments.js';
 import { deskPersona, turnMessage, userPart } from './deskPrompt.js';
 import { type DeskState, type DeskStore, freshDesk } from './deskStore.js';
+import { DeskStream, type DeskStreamHost } from './deskStream.js';
 import { DESK_MCP_NAME } from './deskTools.js';
-
-const DESK_TOOL_PREFIX = `mcp__${DESK_MCP_NAME}__`;
 
 export interface Turn {
   chatId: string;
   handle: TurnHandle;
   /** The user's messages this turn answers (edit_prompts checks `dictated` in them). */
   request: string;
-  /** The newest text row: the turn's full final text replaces it at the end. */
-  held?: string;
+  /** Rows from the turn's stream (its newest text waits: the final text replaces it). */
+  stream: DeskStream;
   stopped: boolean;
   timer: NodeJS.Timeout;
 }
@@ -35,7 +33,8 @@ export interface DeskTurnInput {
   state: DeskState;
   mcpUrl: string;
   parts: DeskState['pending'];
-  onLog: (entry: TaskLogEntry) => void;
+  /** Every stream line of the turn (deskStream.ts makes the rows). */
+  onLine: (line: string) => void;
 }
 
 /**
@@ -47,7 +46,7 @@ export interface DeskTurnInput {
  * an approval card in the dock.
  */
 export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
-  const { adapter, office, store, state, mcpUrl, parts, onLog } = input;
+  const { adapter, office, store, state, mcpUrl, parts, onLine } = input;
   const message = turnMessage(
     state.folder,
     parts.map((p) => (p.kind === 'user' ? userPart(p.text) : p.text)),
@@ -64,6 +63,7 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
   if (state.started && (state.sessionCwd ?? chatDir) !== cwd) {
     state.sessionId = freshDesk().sessionId;
     state.started = false;
+    state.context = undefined;
   }
   state.sessionCwd = cwd;
   return adapter.spawnTurn({
@@ -79,22 +79,36 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     addDirs: cwd === chatDir ? [] : [chatDir],
     permissionMode: settings.permissionMode,
     askPermission: (ask) => office.approvals.ask({ catId: CAT_CEO_ID, name: settings.name }, ask),
-    onLog,
+    onLine,
   });
 }
 
-/** Turn one log line of a live turn into chat rows (`add`). */
-export function logRows(turn: Turn, entry: TaskLogEntry, add: (e: CatSessionEntry) => void): void {
-  if (entry.kind === 'text') {
-    if (turn.held !== undefined) add({ kind: 'text', text: turn.held });
-    turn.held = entry.text;
-    return;
-  }
-  if (entry.kind !== 'tool' && entry.kind !== 'error') return;
-  // The text before a call explains it: write it before the tool's row.
-  if (turn.held !== undefined) add({ kind: 'text', text: turn.held });
-  turn.held = undefined;
-  // Desk tools get a readable row when they run (callTool), not the raw input.
-  if (entry.kind === 'tool' && entry.name?.startsWith(DESK_TOOL_PREFIX)) return;
-  add(toConsoleEntry(entry));
+/**
+ * The rows of a new turn in this chat: tool pictures are saved with the
+ * chat's attachments, paths show relative to the project and chat folders.
+ */
+export function newDeskStream(
+  store: DeskStore,
+  state: DeskState,
+  rows: Pick<DeskStreamHost, 'add' | 'update' | 'context'>,
+): DeskStream {
+  const { chatId } = state;
+  const chatDir = store.chatDir(chatId);
+  const saveImages: DeskStreamHost['saveImages'] = (images) => {
+    const uploads = images
+      .slice(0, CEO_ATTACH_MAX_COUNT)
+      .map((image) => ({ name: 'picture', type: image.mediaType, data: image.data }));
+    const saved = saveAttachments(chatDir, chatId, uploads);
+    return 'error' in saved ? [] : saved.attachments;
+  };
+  // Claude may report a folder by its real path (/private/var/... on macOS).
+  const folders = [state.folder, chatDir].flatMap((dir) => {
+    if (!dir) return [];
+    try {
+      return [dir, fs.realpathSync(dir)];
+    } catch {
+      return [dir];
+    }
+  });
+  return new DeskStream({ ...rows, saveImages, folders }, state.context);
 }
