@@ -128,3 +128,29 @@ export interface CeoFoldersResponse extends CeoFolderResponse {
   /** The server can show the system folder window (else the panel offers a path box). */
   canPick: boolean;
 }
+
+/**
+ * A cat or the CEO waits for the user's yes or no before one action (its
+ * permission mode asked). The CEO dock shows it as a card; the CEO session
+ * status carries the open ones (`CatSessionStatus.approvals`).
+ */
+export interface CeoApproval {
+  id: string;
+  /** `cat-ceo` or the cat's id. */
+  catId: string;
+  /** The CEO's or the cat's name. */
+  who: string;
+  /** What it wants to do, in plain words ("run a command"). */
+  action: string;
+  /** The command, file or address, cut to one short block. */
+  detail: string;
+  /** The engine offers a rule so it does not ask again for this. */
+  canAlwaysAllow: boolean;
+  /** When an unanswered card counts as Deny (ms since epoch). */
+  expiresAt: number;
+}
+
+/** POST /api/ceo/approvals/:id */
+export interface CeoApprovalAnswer {
+  answer: 'allow' | 'always' | 'deny';
+}

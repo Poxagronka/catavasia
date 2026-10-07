@@ -9,6 +9,8 @@
  * - "[Report from" or "[Office] Your turn ended": the root reports the
  *   final result (the office refuses while workers still work).
  * - FAKE_MODE=hang: never answer (for interrupt tests); FAKE_HANG_CAT=<id>: only that cat hangs.
+ * It speaks the Agent SDK protocol (claudeAdapter.ts): the persona comes in
+ * the initialize request, the MCP config as inline JSON.
  * Every run appends {cat, args, cwd, message, persona, compactWindow} to $FAKE_LOG.
  */
 
@@ -20,7 +22,11 @@ import type { CatAgentHost } from '../src/orchestrator/orchestrator.js';
 
 export const FAKE_CAT_CLAUDE = `#!/usr/bin/env node
 const fs = require('fs');
-const args = process.argv.slice(2);
+// The SDK passes --session-id=<id> and --resume=<id>; the log keeps the two-word form.
+const args = process.argv.slice(2).flatMap((a) => {
+  const m = /^(--session-id|--resume)=(.*)$/.exec(a);
+  return m ? [m[1], m[2]] : [a];
+});
 const flag = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 if (args[0] === '--help') {
   process.stdout.write("  --effort <level>   Effort level (low, medium, high, xhigh, max)\\n  --model <model>   Model alias (e.g. 'fable', 'opus', or 'sonnet') or a model's full name.\\n  -n, --name <name>  x\\n");
@@ -34,16 +40,31 @@ if (args[0] === 'auth') {
   process.stdout.write(out ? '{"loggedIn": false, "authMethod": "none"}\\n' : '{"loggedIn": true, "authMethod": "claude.ai"}\\n');
   process.exit(out ? 1 : 0);
 }
-let input = '';
-process.stdin.on('data', (d) => (input += d));
-process.stdin.on('end', async () => {
-  const message = JSON.parse(input.trim().split('\\n')[0]).message.content;
-  const persona = fs.readFileSync(flag('--append-system-prompt-file'), 'utf-8');
+// The Agent SDK protocol: control requests (initialize carries the persona)
+// get a success; the user message runs the turn; stdin EOF ends the process.
+let buf = '';
+let persona = '';
+let running = Promise.resolve();
+process.stdin.on('data', (d) => {
+  buf += d;
+  const lines = buf.split('\\n');
+  buf = lines.pop();
+  for (const line of lines.filter(Boolean)) {
+    const m = JSON.parse(line);
+    if (m.type === 'control_request') {
+      if (m.request.subtype === 'initialize') persona = m.request.appendSystemPrompt || '';
+      process.stdout.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {} } }) + '\\n');
+    } else if (m.type === 'user') running = turn(m.message.content);
+  }
+});
+// Like the real CLI: EOF ends the process once the running turn is done.
+process.stdin.on('end', () => running.then(() => process.exit(0)));
+const turn = async (message) => {
   const cat = /cat id is "([a-z0-9-]+)"/.exec(persona)[1];
   const sessionId = flag('--session-id') || flag('--resume');
   const compactWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
   fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cat, args, cwd: process.cwd(), message, persona, compactWindow }) + '\\n');
-  if (process.env.FAKE_MODE === 'hang' || process.env.FAKE_HANG_CAT === cat) return setInterval(() => {}, 1000);
+  if (process.env.FAKE_MODE === 'hang' || process.env.FAKE_HANG_CAT === cat) return new Promise(() => {});
   // FAKE_MODE=authfail / loggedout: the headless turn of a logged-out CLI (recorded 2026-10-06).
   if (process.env.FAKE_MODE === 'authfail' || process.env.FAKE_MODE === 'loggedout') {
     const nope = 'Not logged in · Please run /login';
@@ -51,7 +72,7 @@ process.stdin.on('end', async () => {
     process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', is_error: true, result: nope, session_id: sessionId, total_cost_usd: 0 }) + '\\n');
     process.exit(1);
   }
-  const mcp = JSON.parse(fs.readFileSync(flag('--mcp-config'), 'utf-8')).mcpServers.office;
+  const mcp = JSON.parse(flag('--mcp-config')).mcpServers.office;
   let rpcId = 0;
   const rpc = async (method, params) => {
     const res = await fetch(mcp.url, {
@@ -88,7 +109,7 @@ process.stdin.on('end', async () => {
     total_cost_usd: resumed ? turns * 2 : turns, duration_ms: 5, num_turns: 1,
     usage: { input_tokens: 3, cache_read_input_tokens: resumed ? 9000 : 0, cache_creation_input_tokens: resumed ? 50 : 9000, output_tokens: 7 },
   });
-});
+};
 `;
 
 export class FakeCatHost implements CatAgentHost {

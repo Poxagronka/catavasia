@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import type { CatSessionEntry } from '../../../core/src/catSession.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import { toConsoleEntry } from '../catTerminal/catSessionSource.js';
-import { CAT_CEO_ID, CEO_DESK_TURN_BUDGET_USD } from '../constants.js';
+import { CAT_CEO_ID } from '../constants.js';
 import type { EngineAdapter, TurnHandle } from '../orchestrator/engineAdapter.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import { deskPersona, turnMessage, userPart } from './deskPrompt.js';
@@ -39,11 +39,12 @@ export interface DeskTurnInput {
 }
 
 /**
- * Start the Claude turn that answers the queued parts. The CEO runs in the
- * work folder, so it loads the project's CLAUDE.md, settings, MCP servers and
- * skills like the user's own Claude Code; the chat folder (attachments) stays
- * readable (--add-dir). It never edits files itself (the team does). It has
- * the user's own MCP servers, like their terminal; the cats stay strict.
+ * Start the Claude turn that answers the queued parts. The CEO is plain Claude
+ * Code with its persona appended: it runs in the work folder, so it loads the
+ * project's CLAUDE.md, settings, MCP servers and skills like the user's own
+ * Claude Code; the chat folder (attachments) stays readable (addDirs). Its
+ * permission mode comes from its settings (Auto by default); a question shows
+ * an approval card in the dock.
  */
 export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
   const { adapter, office, store, state, mcpUrl, parts, onLog } = input;
@@ -75,14 +76,9 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     mcpConfigFile,
     message,
     images: parts.flatMap((p) => p.images ?? []),
-    extraArgs: [
-      ...(cwd === chatDir ? [] : ['--add-dir', chatDir]),
-      '--disallowedTools',
-      'Edit,Write,NotebookEdit',
-      '--max-budget-usd',
-      String(CEO_DESK_TURN_BUDGET_USD),
-    ],
-    userMcp: true,
+    addDirs: cwd === chatDir ? [] : [chatDir],
+    permissionMode: settings.permissionMode,
+    askPermission: (ask) => office.approvals.ask({ catId: CAT_CEO_ID, name: settings.name }, ask),
     onLog,
   });
 }

@@ -39,7 +39,7 @@ function clip(text: string): string {
 }
 
 /** Short, human-readable summary of a tool input. */
-function summarizeInput(input: unknown): string {
+export function summarizeInput(input: unknown): string {
   if (!input || typeof input !== 'object') return '';
   const rec = input as Record<string, unknown>;
   for (const key of [

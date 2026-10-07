@@ -3,7 +3,7 @@
 // (the cat office); `localCatsAdapter.ts` is the in-browser fallback when no
 // server office answers (VS Code, Vite dev). See docs/catavasia/ROADMAP.md.
 
-import type { EngineStatus } from '../../../core/src/messages.js';
+import type { EngineStatus, PermissionMode } from '../../../core/src/messages.js';
 
 export type Engine = 'claude' | 'codex';
 
@@ -54,6 +54,8 @@ export interface CatProfile {
   engine: Engine;
   model: string;
   effort: string;
+  /** What the cat may do without asking (absent: Auto). */
+  permissionMode?: PermissionMode;
   /** null = the boss (exactly one cat). */
   parentId: string | null;
   /** Seeded by the app, not by the user. */

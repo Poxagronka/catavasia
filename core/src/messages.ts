@@ -247,6 +247,7 @@ export interface CatProfile {
   engine: CatEngine;
   model: string;
   effort: string;
+  permissionMode?: PermissionMode;
   parentId: string | null;
   isDefault?: boolean;
 }
@@ -277,6 +278,8 @@ export interface PromptItem {
 }
 
 export type CatEngine = 'claude' | 'codex';
+
+export type PermissionMode = 'auto' | 'ask' | 'bypass' | 'readOnly';
 
 export interface EngineOptions {
   engine: CatEngine;
@@ -392,6 +395,7 @@ export interface CatCeoSettings {
   maxEditsPerCatPerDay: number;
   tidyUserItems: boolean;
   systemPrompt: string;
+  permissionMode: PermissionMode;
 }
 
 export interface ReviewStarted {
@@ -853,6 +857,7 @@ export interface SetCatCeoSettings {
   maxEditsPerCatPerDay?: number;
   tidyUserItems?: boolean;
   systemPrompt?: string;
+  permissionMode?: PermissionMode;
 }
 
 export interface GetPromptHistory {

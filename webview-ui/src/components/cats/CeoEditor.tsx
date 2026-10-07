@@ -7,6 +7,7 @@ import { CAT_CEO_ID } from '../../constants.js';
 import { Select } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
 import { FIELD } from './fields.js';
+import { PermissionModeField } from './PermissionModeField.js';
 import { PromptHistory } from './PromptHistory.js';
 
 /** A text field that saves on blur (each save of the Role is a commit). */
@@ -23,7 +24,7 @@ function useBlurDraft(saved: string, save: (v: string) => void) {
 }
 
 /**
- * The Cat CEO in the Cats menu: name, look, model, effort, its Role, the
+ * The Cat CEO in the Cats menu: name, look, model, effort, permissions, its Role, the
  * daily edit limit, the on/off switch, and the history of its own prompt.
  * It is not a cat of the tree: it cannot be deleted, only turned off.
  */
@@ -92,6 +93,12 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
           />
         </label>
       </div>
+      <PermissionModeField
+        engine="claude"
+        model={settings.model}
+        value={settings.permissionMode}
+        onChange={(permissionMode) => set({ permissionMode })}
+      />
       <label className="flex gap-4 items-center text-xs text-text cursor-pointer">
         <input
           type="checkbox"

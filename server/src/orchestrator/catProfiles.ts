@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { CatAppearance, CatEngine, CatProfile } from '../../../core/src/messages.js';
+import { DEFAULT_PERMISSION_MODE, PERMISSION_MODES } from '../../../core/src/permissionModes.js';
 import { CAT_NAME_MAX_CHARS, CAT_SYSTEM_PROMPT_MAX_CHARS } from '../constants.js';
 import { bossOf, isInSubtree, normalizeHierarchy } from './catTree.js';
 import type { PromptFile, PromptItem } from './promptFile.js';
@@ -111,6 +112,13 @@ function appearance(raw: unknown): CatAppearance {
   return out;
 }
 
+function mode(value: unknown): NonNullable<CatProfile['permissionMode']> {
+  const found = PERMISSION_MODES.find((m) => m === value);
+  if (!found)
+    throw new ProfileError(`permissionMode must be one of ${PERMISSION_MODES.join(', ')}`);
+  return found;
+}
+
 function settle<T>(build: () => T): Result<T> {
   try {
     return { ok: true, value: build() };
@@ -145,6 +153,9 @@ export function validateCat(raw: unknown, catalog?: EngineCatalog): Result<CatPr
       engine,
       model: text(rec.model, 'model', CAT_NAME_MAX_CHARS * 2),
       effort: text(rec.effort, 'effort', CAT_NAME_MAX_CHARS),
+      // An old cat has none: it runs in the default mode (Auto).
+      permissionMode:
+        rec.permissionMode === undefined ? DEFAULT_PERMISSION_MODE : mode(rec.permissionMode),
       parentId:
         rec.parentId === null || rec.parentId === undefined ? null : id(rec.parentId, 'parentId'),
     };
@@ -419,11 +430,16 @@ export class CatStore {
       return out;
     };
     const migrate = parsed.modelDefaults !== 2;
-    const ceo = parsed.catCeo as { model?: unknown; effort?: unknown } | undefined;
+    const ceo = parsed.catCeo as
+      { model?: unknown; effort?: unknown; permissionMode?: unknown } | undefined;
     this.ceoBlock =
       migrate && ceo && isOldDefault(ceo.model, ceo.effort)
         ? { ...ceo, effort: 'medium' }
         : parsed.catCeo;
+    const ceoUnmoded = !!ceo && typeof ceo === 'object' && ceo.permissionMode === undefined;
+    if (ceoUnmoded) {
+      this.ceoBlock = { ...(this.ceoBlock as object), permissionMode: DEFAULT_PERMISSION_MODE };
+    }
     const team = defaultTeam();
     let renamed = false;
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e))).map((cat) => {
@@ -435,9 +451,14 @@ export class CatStore {
     });
     this.syncPrompts();
     // The prompt text moved to the prompt files: cats.json drops it.
+    // One-time move to permission modes: a cat or CEO saved before them is written as Auto.
+    const unmoded =
+      ceoUnmoded ||
+      parsed.cats.some((c) => (c as { permissionMode?: unknown })?.permissionMode === undefined);
     if (
       migrate ||
       renamed ||
+      unmoded ||
       parsed.cats.some((c) => (c as { systemPrompt?: unknown })?.systemPrompt !== undefined)
     ) {
       this.write();

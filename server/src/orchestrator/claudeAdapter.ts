@@ -1,21 +1,29 @@
 /**
- * Claude Code engine adapter: one `claude -p` stream-json process per turn.
+ * Claude Code engine adapter: one Claude Agent SDK `query()` per turn, which
+ * drives the user's installed `claude` (never the SDK's own binary).
  *
- * The cat keeps the project settings (no --setting-sources), so it sees the
- * project CLAUDE.md and the user's hooks. Only the office MCP server and the
- * project's .mcp.json are attached (--strict-mcp-config), unless the turn asks
- * for the user's own MCP servers too (the CEO desk). Permissions are skipped,
- * as for board tasks.
+ * A turn is plain Claude Code plus our persona: its default system prompt,
+ * the user, project and local settings (CLAUDE.md, hooks, skills, the user's
+ * MCP servers and connectors), the office MCP server, and the permission mode
+ * of the cat or the CEO. A mode that asks shows an approval card (askPermission).
  *
  * Claude Code reads AGENTS.md only when the folder has no CLAUDE.md (checked
  * with 2.1.292). When CLAUDE.md does not import it, the turn appends it.
  */
 
-import { execFileSync, spawn } from 'child_process';
+import type {
+  CanUseTool,
+  McpServerConfig,
+  Options,
+  PermissionMode as SdkPermissionMode,
+  SDKUserMessage,
+} from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import type { EngineStatus } from '../../../core/src/messages.js';
+import type { EngineStatus, PermissionMode } from '../../../core/src/messages.js';
+import { effectiveMode } from '../../../core/src/permissionModes.js';
 import { CAT_AUTO_COMPACT_WINDOW } from '../constants.js';
 import { parseStreamLine, type StreamResult } from '../taskBoard/streamJson.js';
 import type { EngineChoices } from './catProfiles.js';
@@ -76,10 +84,10 @@ const IMAGE_MEDIA_TYPES: Record<string, string> = {
 };
 
 /**
- * The stream-json user message of a turn: plain text, or a content-block
- * array (text, then one base64 image block per image) when it has images.
+ * The user message of a turn: plain text, or a content-block array (text,
+ * then one base64 image block per image) when it has images.
  */
-export function claudeUserMessage(text: string, images: string[] = []): string {
+export function claudeUserMessage(text: string, images: string[] = []): SDKUserMessage {
   const content = images.length
     ? [
         { type: 'text', text },
@@ -93,11 +101,15 @@ export function claudeUserMessage(text: string, images: string[] = []): string {
         })),
       ]
     : text;
-  return `${JSON.stringify({ type: 'user', message: { role: 'user', content } })}\n`;
+  return {
+    type: 'user',
+    message: { role: 'user', content: content as SDKUserMessage['message']['content'] },
+    parent_tool_use_id: null,
+  };
 }
 
-/** AGENTS.md of `cwd` as an appended system prompt, when Claude Code would skip it. */
-function agentsMdArgs(cwd: string): string[] {
+/** AGENTS.md of `cwd` for the appended system prompt, when Claude Code would skip it. */
+function agentsMdText(cwd: string): string | undefined {
   const read = (name: string) => {
     try {
       return fs.readFileSync(path.join(cwd, name), 'utf-8');
@@ -107,36 +119,92 @@ function agentsMdArgs(cwd: string): string[] {
   };
   const agents = read('AGENTS.md');
   const claude = read('CLAUDE.md');
-  if (agents === undefined || claude === undefined || claude.includes('@AGENTS.md')) return [];
-  return ['--append-system-prompt', `Project instructions (AGENTS.md):\n\n${agents}`];
+  if (agents === undefined || claude === undefined || claude.includes('@AGENTS.md'))
+    return undefined;
+  return `Project instructions (AGENTS.md):\n\n${agents}`;
 }
 
-/** The `claude -p` arguments of one turn (stdin carries the message). */
-export function claudeTurnArgs(req: TurnRequest): string[] {
-  const projectMcp = path.join(req.cwd, '.mcp.json');
-  return [
-    '-p',
-    '--input-format',
-    'stream-json',
-    '--output-format',
-    'stream-json',
-    '--verbose',
-    req.resume ? '--resume' : '--session-id',
-    req.sessionId,
-    '--append-system-prompt-file',
-    req.systemPromptFile,
-    '--model',
-    req.model,
-    ...(req.effort ? ['--effort', req.effort] : []),
-    '--mcp-config',
-    req.mcpConfigFile,
-    ...(req.userMcp
-      ? []
-      : [...(fs.existsSync(projectMcp) ? [projectMcp] : []), '--strict-mcp-config']),
-    ...agentsMdArgs(req.cwd),
-    '--dangerously-skip-permissions',
-    ...(req.extraArgs ?? []),
-  ];
+/** Our modes as Claude Code permission modes (Read only: `dontAsk` denies all but reads). */
+const SDK_MODES: Record<PermissionMode, SdkPermissionMode> = {
+  auto: 'auto',
+  ask: 'default',
+  bypass: 'bypassPermissions',
+  readOnly: 'dontAsk',
+};
+/** Read only also allows these (Claude Code's own read tools need no rule). */
+const READ_ONLY_TOOLS = ['WebFetch', 'WebSearch'];
+
+/**
+ * The Agent SDK options of one turn: Claude Code's own system prompt with the
+ * persona appended, the user, project and local settings (CLAUDE.md, hooks,
+ * MCP servers, skills), the office MCP server, and the permission mode. A
+ * mode that asks routes the question to `req.askPermission`; the office's
+ * own tools never ask.
+ */
+export function claudeTurnOptions(req: TurnRequest, executable: string): Options {
+  const mcpServers = (
+    JSON.parse(fs.readFileSync(req.mcpConfigFile, 'utf-8')) as {
+      mcpServers: Record<string, McpServerConfig>;
+    }
+  ).mcpServers;
+  const ownTools = Object.keys(mcpServers).map((name) => `mcp__${name}`);
+  const mode = effectiveMode('claude', req.model, req.permissionMode);
+  const append = [fs.readFileSync(req.systemPromptFile, 'utf-8'), agentsMdText(req.cwd)]
+    .filter(Boolean)
+    .join('\n\n');
+  const canUseTool: CanUseTool = async (toolName, input, opts) => {
+    if (ownTools.some((own) => toolName.startsWith(`${own}__`))) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+    const canAlwaysAllow = !!opts.suggestions?.length && !opts.suppressAlwaysAllowRule;
+    const answer = req.askPermission
+      ? await req.askPermission({ toolName, input, canAlwaysAllow, signal: opts.signal })
+      : 'deny';
+    if (answer === 'deny') return { behavior: 'deny', message: 'The user did not allow this.' };
+    return {
+      behavior: 'allow',
+      updatedInput: input,
+      ...(answer === 'always' && canAlwaysAllow ? { updatedPermissions: opts.suggestions } : {}),
+    };
+  };
+  return {
+    pathToClaudeCodeExecutable: executable,
+    cwd: req.cwd,
+    env: claudeTurnEnv(req.cwd),
+    ...(req.resume ? { resume: req.sessionId } : { sessionId: req.sessionId }),
+    model: req.model,
+    ...(req.effort ? { effort: req.effort as Options['effort'] } : {}),
+    systemPrompt: { type: 'preset', preset: 'claude_code', append },
+    settingSources: ['user', 'project', 'local'],
+    mcpServers,
+    ...(req.addDirs?.length ? { additionalDirectories: req.addDirs } : {}),
+    permissionMode: SDK_MODES[mode],
+    ...(mode === 'bypass' ? { allowDangerouslySkipPermissions: true } : {}),
+    ...(mode === 'readOnly' ? { allowedTools: [...READ_ONLY_TOOLS, ...ownTools] } : {}),
+    ...(mode === 'auto' || mode === 'ask' ? { canUseTool } : {}),
+  };
+}
+
+/** The installed `claude` the SDK drives: a bare name is looked up on PATH (PATHEXT on Windows). */
+export function resolveExecutable(
+  bin: string,
+  env = process.env,
+  platform = process.platform,
+): string | undefined {
+  if (bin.includes('/') || bin.includes('\\')) return bin;
+  const exts = platform === 'win32' ? ['', ...(env.PATHEXT ?? '.EXE;.CMD').split(';')] : [''];
+  for (const dir of (env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
+    for (const ext of exts) {
+      const file = path.join(dir, bin + ext);
+      try {
+        fs.accessSync(file, fs.constants.X_OK);
+        if (fs.statSync(file).isFile()) return file;
+      } catch {
+        /* next candidate */
+      }
+    }
+  }
+  return undefined;
 }
 
 /** `{"type":"system","subtype":"compact_boundary","compact_metadata":{...}}` -> CompactInfo. */
@@ -208,17 +276,11 @@ export class ClaudeAdapter implements EngineAdapter {
   }
 
   spawnTurn(req: TurnRequest): TurnHandle {
-    const child = spawn(this.bin, claudeTurnArgs(req), {
-      cwd: req.cwd,
-      env: claudeTurnEnv(req.cwd),
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
+    const abort = new AbortController();
     let result: StreamResult | undefined;
     let sessionStarted = false;
     let stderr = '';
-    let pending = '';
-    const onLine = (line: string): void => {
+    const onMessage = (line: string): void => {
       if (line.includes('"session_id"')) sessionStarted = true;
       const compact = parseCompactBoundary(line);
       if (compact) req.onCompact?.(compact);
@@ -226,43 +288,51 @@ export class ClaudeAdapter implements EngineAdapter {
       if (parsed.result) result = parsed.result;
       for (const entry of parsed.log) req.onLog?.(entry);
     };
-
-    const done = new Promise<TurnOutcome>((resolve) => {
-      child.stdout?.on('data', (chunk: Buffer) => {
-        pending += chunk.toString();
-        const lines = pending.split('\n');
-        pending = lines.pop() ?? '';
-        for (const line of lines) onLine(line);
+    const failure = (err: unknown) => (err instanceof Error ? err.message : String(err));
+    const run = async (): Promise<string | undefined> => {
+      const executable = resolveExecutable(this.bin);
+      if (!executable) return 'Claude Code CLI not found';
+      // The SDK is ESM: a CommonJS build loads it on first use.
+      const { query } = await import('@anthropic-ai/claude-agent-sdk');
+      // One user message; the SDK keeps the input open while a question waits.
+      async function* prompt(): AsyncGenerator<SDKUserMessage> {
+        yield claudeUserMessage(req.message, req.images);
+      }
+      const turn = query({
+        prompt: prompt(),
+        options: {
+          ...claudeTurnOptions(req, executable),
+          abortController: abort,
+          stderr: (data) => {
+            stderr = (stderr + data).slice(-STDERR_TAIL_CHARS);
+          },
+        },
       });
-      child.stderr?.on('data', (chunk: Buffer) => {
-        stderr = (stderr + chunk.toString()).slice(-STDERR_TAIL_CHARS);
-      });
-      child.on('error', (err) => {
-        stderr += `\n${err.message}`;
-      });
-      child.on('close', (code) => {
-        if (pending) onLine(pending);
-        const ok = code === 0 && result !== undefined && !result.isError;
-        resolve({
+      try {
+        for await (const message of turn) onMessage(JSON.stringify(message));
+      } catch (err) {
+        return stderr.trim() ? `${failure(err)}: ${stderr.trim()}` : failure(err);
+      }
+      return undefined;
+    };
+    const done = run()
+      .catch(failure)
+      .then((failed): TurnOutcome => {
+        const ok = !failed && result !== undefined && !result.isError;
+        return {
           ok,
           text: result?.text,
           sessionCostUsd: result?.costUsd,
           usage: result?.usage,
           sessionStarted,
-          ...(result?.budgetHit ? { budgetHit: true } : {}),
+          // The result's own error ("Not logged in") says more than the exit code.
           error: ok
             ? undefined
             : result?.isError
               ? (result.text ?? 'The turn reported an error')
-              : `Exit code ${code ?? 'none'}: ${stderr.trim() || 'no output'}`,
-        });
+              : (failed ?? 'The turn ended without a result'),
+        };
       });
-    });
-
-    // One user message, then EOF: the CLI answers it and exits.
-    child.stdin?.on('error', () => {});
-    child.stdin?.end(claudeUserMessage(req.message, req.images));
-
-    return { done, kill: () => child.kill('SIGTERM') };
+    return { done, kill: () => abort.abort() };
   }
 }

@@ -104,7 +104,17 @@ describe('engine choices', () => {
 describe('profile validation', () => {
   it('normalizes a valid cat and drops unknown fields', () => {
     const result = validateCat({ ...profile(), extra: 1, effort: 'high' }, CATALOG);
-    expect(result).toEqual({ ok: true, value: { ...profile(), name: 'Luna', effort: 'high' } });
+    expect(result).toEqual({
+      ok: true,
+      value: { ...profile(), name: 'Luna', effort: 'high', permissionMode: 'auto' },
+    });
+  });
+
+  it('keeps a picked permission mode and rejects an unknown one', () => {
+    const asked = validateCat(profile({ permissionMode: 'ask' }), CATALOG);
+    expect(asked.ok && asked.value.permissionMode).toBe('ask');
+    const bad = validateCat({ ...profile(), permissionMode: 'yolo' }, CATALOG);
+    expect(!bad.ok && bad.error).toContain('permissionMode must be one of');
   });
 
   it.each([
@@ -252,6 +262,29 @@ describe('CatStore', () => {
       'opus',
       'low',
     ]);
+  });
+
+  it('moves cats and the CEO saved before permission modes to Auto once, and keeps a pick', () => {
+    const catCeo: Record<string, unknown> = { ...CEO_DEFAULTS };
+    delete catCeo.permissionMode;
+    fs.writeFileSync(
+      file(),
+      JSON.stringify({ version: 1, cats: defaultTeam(), catCeo, modelDefaults: 2 }),
+    );
+    const store = new CatStore(file(), () => CATALOG, prompts());
+    const saved = JSON.parse(fs.readFileSync(file(), 'utf-8'));
+    expect(saved.cats.map((c: CatProfile) => c.permissionMode)).toEqual([
+      'auto',
+      'auto',
+      'auto',
+      'auto',
+    ]);
+    expect(saved.catCeo.permissionMode).toBe('auto');
+    expect(store.saveCat({ ...store.get('murka')!, permissionMode: 'readOnly' }).ok).toBe(true);
+    store.setCatCeo({ ...readCeoSettings(store.catCeo), permissionMode: 'ask' });
+    const again = new CatStore(file(), () => CATALOG, prompts());
+    expect(again.get('murka')!.permissionMode).toBe('readOnly');
+    expect(readCeoSettings(again.catCeo).permissionMode).toBe('ask');
   });
 
   it('keeps a copy of an unreadable file and starts from the default team', () => {

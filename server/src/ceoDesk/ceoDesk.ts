@@ -25,9 +25,12 @@ import {
   CAT_CEO_TIMEOUT_MS,
   CEO_DESK_CARD_THROTTLE_MS,
   CEO_DESK_HISTORY_MAX,
-  CEO_DESK_TURN_BUDGET_USD,
 } from '../constants.js';
-import type { EngineAdapter, TurnOutcome } from '../orchestrator/engineAdapter.js';
+import type {
+  EngineAdapter,
+  PermissionAnswer,
+  TurnOutcome,
+} from '../orchestrator/engineAdapter.js';
 import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
@@ -41,7 +44,6 @@ import { RECENT_FOLDERS_MAX, recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
 export const RESTARTED_TEXT = 'The server restarted during this turn; send again.';
-export const BUDGET_HIT_TEXT = `This turn hit the $${CEO_DESK_TURN_BUDGET_USD} budget limit. Ask again to continue.`;
 
 export interface CeoDeskOptions {
   stateDir: string;
@@ -62,6 +64,7 @@ export class CeoDesk implements OfficeToolHandler {
   private disposed = false;
   private readonly cardTimers = new Map<string, NodeJS.Timeout>();
   private readonly onTaskStatus = (id: string) => this.taskChanged(id);
+  private readonly onApprovals = () => this.statusChanged();
 
   constructor(private readonly opts: CeoDeskOptions) {
     this.events.setMaxListeners(0);
@@ -79,6 +82,7 @@ export class CeoDesk implements OfficeToolHandler {
     if (!this.state.boardAdopted) this.adoptBoardTasks();
     this.store.save(this.state);
     opts.tasks.events.on('status', this.onTaskStatus);
+    opts.office.approvals.events.on('change', this.onApprovals);
   }
 
   /** The server listens: the CEO reaches its desk tools here, and queued notices can run. */
@@ -90,6 +94,7 @@ export class CeoDesk implements OfficeToolHandler {
   dispose(): void {
     this.disposed = true;
     this.opts.tasks.events.off('status', this.onTaskStatus);
+    this.opts.office.approvals.events.off('change', this.onApprovals);
     for (const timer of this.cardTimers.values()) clearTimeout(timer);
     this.cardTimers.clear();
     // turnRunning stays true on disk: the next start tells the user.
@@ -161,6 +166,11 @@ export class CeoDesk implements OfficeToolHandler {
     if (had) this.add({ kind: 'text', text: 'Stopped.' });
     this.statusChanged();
     return { draft, ...(attachments.length ? { attachments } : {}) };
+  }
+
+  /** The user's answer to an approval card. False: the card is gone (answered or timed out). */
+  answerApproval(id: string, answer: PermissionAnswer): boolean {
+    return this.opts.office.approvals.answer(id, answer);
   }
 
   /** Archive this chat and start a new one. Live jobs go on; their notices are dropped. */
@@ -306,9 +316,7 @@ export class CeoDesk implements OfficeToolHandler {
       if (!turn.stopped) {
         const text = outcome.ok ? (outcome.text ?? turn.held) : turn.held;
         if (text) this.add({ kind: 'text', text });
-        if (!outcome.ok && outcome.budgetHit) {
-          this.add({ kind: 'error', text: BUDGET_HIT_TEXT });
-        } else if (!outcome.ok) {
+        if (!outcome.ok) {
           const auth = isAuthError(outcome.error);
           const fix = auth ? ` ${this.opts.office.engineDown('claude', true)}` : '';
           const text = `The CEO could not answer: ${outcome.error}${fix}`;
@@ -406,6 +414,7 @@ export class CeoDesk implements OfficeToolHandler {
       queued: this.state.pending.length,
       folder: this.state.folder,
       costUsd: this.state.costUsd,
+      approvals: this.opts.office.approvals.list(),
     };
   }
 

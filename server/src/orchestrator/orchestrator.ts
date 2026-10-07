@@ -25,11 +25,12 @@ import { applyPromptAction, promptDiff, promptHistory } from '../catCeo/promptAc
 import { CAT_CEO_ID, CATS_FILE_NAME, OFFICE_MCP_PATH, PROMPTS_DIR } from '../constants.js';
 import type { RepoInfo } from '../taskBoard/gitWorktree.js';
 import type { StoredTask } from '../taskBoard/taskStore.js';
+import { Approvals } from './approvals.js';
 import { CatConsoles } from './catConsoles.js';
 import { CatStore, type EngineCatalog } from './catProfiles.js';
 import { CatResidents, type ResidentHost } from './catResidents.js';
 import { bossOf, hierarchyOf } from './catTree.js';
-import type { EngineAdapter } from './engineAdapter.js';
+import type { EngineAdapter, PermissionAnswer, PermissionAsk } from './engineAdapter.js';
 import { actionableMessage, EngineStatusProbe, notReadyReason } from './engineStatus.js';
 import { personaText } from './flowPrompts.js';
 import { EventLog, pruneFlowLogs } from './machine/eventLog.js';
@@ -68,6 +69,8 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   readonly consoles = new CatConsoles();
   /** The judge above the boss (docs/catavasia/cat-ceo-judge.md). */
   readonly ceo: CatCeo;
+  /** Actions of cats and the CEO that wait for the user (cards in the CEO dock). */
+  readonly approvals = new Approvals();
   private readonly runners = new Map<string, TaskRunner>();
   private readonly tokens = new Map<string, { runner: TaskRunner; catId: string }>();
   /** Folder of each cat's newest finished task: a console message to an idle cat starts a task there. */
@@ -112,6 +115,10 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
       () => bossOf(this.cats.list())?.id,
     );
     this.residents.sync();
+    // A cat with an open card shows the waiting bubble in the office.
+    this.approvals.events.on('change', () =>
+      this.residents.setAsking(new Set(this.approvals.list().map((a) => a.catId))),
+    );
     pruneFlowLogs(opts.stateDir, Date.now());
     for (const a of opts.adapters) {
       if (!a.probeStatus) continue;
@@ -201,6 +208,10 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
 
   narrate(input: NarratorInput): void {
     this.opts.narrate?.(input);
+  }
+
+  askPermission(cat: CatProfile, ask: PermissionAsk): Promise<PermissionAnswer> {
+    return this.approvals.ask({ catId: cat.id, name: cat.name }, ask);
   }
 
   /** Intro line + the cat's prompt file + office rules; `sha` = the prompt file's commit. */

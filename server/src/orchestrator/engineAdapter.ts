@@ -8,7 +8,7 @@
  * Adapters: Claude Code (`claudeAdapter.ts`) and Codex (`codexAdapter.ts`).
  */
 
-import type { CatEngine, EngineStatus } from '../../../core/src/messages.js';
+import type { CatEngine, EngineStatus, PermissionMode } from '../../../core/src/messages.js';
 import type { TaskLogEntry } from '../../../core/src/tasks.js';
 import type { StreamUsage } from '../taskBoard/streamJson.js';
 import type { EngineChoices } from './catProfiles.js';
@@ -28,10 +28,15 @@ export interface TurnRequest {
   message: string;
   /** Image files the message carries (PNG, JPEG, GIF, WebP). */
   images?: string[];
-  /** CLI arguments after the adapter's own (Claude only). */
-  extraArgs?: string[];
-  /** Keep the user's own MCP servers beside the office server (Claude only). */
-  userMcp?: boolean;
+  /** What the turn may do without asking (absent: Auto). */
+  permissionMode?: PermissionMode;
+  /** More folders the turn may read and write (Claude only: the CEO's chat folder). */
+  addDirs?: string[];
+  /**
+   * The mode asks the user before one action (Claude only). Absent: the
+   * action is denied, as in a run with nobody to ask.
+   */
+  askPermission?: (ask: PermissionAsk) => Promise<PermissionAnswer>;
   /** Activity-log lines as they stream. */
   onLog?: (entry: TaskLogEntry) => void;
   /**
@@ -43,6 +48,19 @@ export interface TurnRequest {
   /** The engine compacted the conversation (Claude: `system/compact_boundary`). */
   onCompact?: (info: CompactInfo) => void;
 }
+
+/** One action the engine wants the user to allow. */
+export interface PermissionAsk {
+  toolName: string;
+  input: Record<string, unknown>;
+  /** The engine offers a rule so it does not ask again for this. */
+  canAlwaysAllow: boolean;
+  /** The turn ended or was killed: the question is moot. */
+  signal: AbortSignal;
+}
+
+/** `always`: allow and keep the engine's suggested rule. */
+export type PermissionAnswer = 'allow' | 'always' | 'deny';
 
 export type ToolActivity =
   { toolId: string; toolName: string; status: string } | { toolId: string; done: true };
@@ -62,8 +80,6 @@ export interface TurnOutcome {
   usage?: StreamUsage;
   /** Process or CLI error, when not ok. */
   error?: string;
-  /** The turn stopped at its --max-budget-usd cap (Claude only). */
-  budgetHit?: boolean;
   /** The CLI created or resumed the session (a later turn can resume it). */
   sessionStarted: boolean;
   /** The engine chose the session id itself (Codex): later turns resume this one. */

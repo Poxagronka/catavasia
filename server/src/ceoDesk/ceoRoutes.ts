@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import {
   CEO_API_PREFIX,
   CEO_ATTACH_MAX_COUNT,
+  type CeoApprovalAnswer,
   type CeoFolderRequest,
   type CeoFolderResponse,
   type CeoFoldersResponse,
@@ -96,6 +97,25 @@ export function registerCeoRoutes(
   );
 
   app.post(`${CEO_API_PREFIX}/new`, { onRequest }, async () => ({ chatId: desk.newChat() }));
+
+  // The user's answer to an approval card (a cat or the CEO waits for it).
+  app.post<{ Params: { id: string }; Body: CeoApprovalAnswer }>(
+    `${CEO_API_PREFIX}/approvals/:id`,
+    {
+      onRequest,
+      schema: {
+        body: {
+          type: 'object',
+          properties: { answer: { type: 'string', enum: ['allow', 'always', 'deny'] } },
+          required: ['answer'],
+        },
+      },
+    },
+    async (request, reply) =>
+      desk.answerApproval(request.params.id, request.body.answer)
+        ? { ok: true }
+        : reply.code(404).send({ error: 'This question is no longer open' }),
+  );
 
   // ── The office's project (the Project button of the bottom bar) ──
 
