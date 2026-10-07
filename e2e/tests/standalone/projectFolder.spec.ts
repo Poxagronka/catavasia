@@ -26,7 +26,12 @@ const PROJECT = path.join(
 );
 fs.mkdirSync(PROJECT);
 fs.writeFileSync(path.join(PROJECT, 'index.html'), '<p>hi</p>\n');
-const git = (...args: string[]) => execFileSync('git', ['-C', PROJECT, ...args]);
+// An explicit GIT_DIR: these commands can never reach the repo the tests run from.
+const git = (...args: string[]) =>
+  execFileSync('git', args, {
+    cwd: PROJECT,
+    env: { ...process.env, GIT_DIR: path.join(PROJECT, '.git'), GIT_WORK_TREE: PROJECT },
+  });
 git('init', '-q');
 git('add', '-A');
 git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'init');
