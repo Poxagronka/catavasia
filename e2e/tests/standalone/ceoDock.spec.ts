@@ -58,6 +58,38 @@ test.describe('Standalone / CEO dock', () => {
     await expect(log.getByText('Mock CEO: hello dock')).toBeVisible();
   });
 
+  test('the reply shows as Claude writes it, then the final text replaces it; code is highlighted @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    await input.fill('stream: live words');
+    await input.press('Enter');
+
+    const log = page.getByTestId('dock-log');
+    const draft = log.getByTestId('dock-draft');
+    // Halfway: the first words show, the rest is not written yet, "thinking" is gone.
+    await expect(draft).toContainText('Mock CEO: stream: live words', { timeout: TURN_TIMEOUT_MS });
+    await expect(draft).not.toContainText('first point');
+    await expect(log.getByText(/is thinking/)).toBeHidden();
+    // The end: the final row replaces the draft, once.
+    await expect(log.locator('li', { hasText: 'second point' })).toBeVisible({
+      timeout: TURN_TIMEOUT_MS,
+    });
+    await expect(draft).toBeHidden();
+    await expect(log.getByText('Mock CEO: stream: live words')).toHaveCount(1);
+    // A ```ts block gets syntax colors.
+    await expect(log.locator('pre code.language-ts .hljs-keyword')).toHaveText('const');
+
+    // Retry under the newest reply sends the last message again as a new turn.
+    await log.getByTestId('reply-retry').click();
+    await expect(log.locator('li', { hasText: 'second point' })).toHaveCount(2, {
+      timeout: TURN_TIMEOUT_MS,
+    });
+    await expect(log.getByTestId('reply-retry')).toHaveCount(1);
+  });
+
   test('a pasted image and a picked file reach the CEO and show in the sent row @area:standalone', async ({
     page,
     standalone,

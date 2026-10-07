@@ -37,6 +37,8 @@ export interface TurnRequest {
    * action is denied, as in a run with nobody to ask.
    */
   askPermission?: (ask: PermissionAsk) => Promise<PermissionAnswer>;
+  /** Stream the reply text as Claude writes it (Claude only: `stream_event` lines in onLine). */
+  partialText?: boolean;
   /** Activity-log lines as they stream. */
   onLog?: (entry: TaskLogEntry) => void;
   /** Every raw stream line (Claude: each Agent SDK message as stream-json), before onLog. */

@@ -193,6 +193,7 @@ export function claudeTurnOptions(req: TurnRequest, executable: string): Options
     ...(mode === 'bypass' ? { allowDangerouslySkipPermissions: true } : {}),
     ...(mode === 'readOnly' ? { allowedTools: [...READ_ONLY_TOOLS, ...ownTools] } : {}),
     ...(mode === 'auto' || mode === 'ask' ? { canUseTool } : {}),
+    ...(req.partialText ? { includePartialMessages: true } : {}),
   };
 }
 

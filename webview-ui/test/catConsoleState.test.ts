@@ -25,6 +25,32 @@ describe('applyFrame', () => {
   });
 });
 
+describe('the live reply (draft frames)', () => {
+  it('grows, then its text row or the turn end clears it', () => {
+    const busy: CatSessionStatus = { ...idle, busy: true };
+    let s = api.applyFrame(api.EMPTY_CONSOLE, {
+      type: 'snapshot',
+      title: '',
+      entries: [],
+      status: busy,
+    });
+    s = api.applyFrame(s, { type: 'draft', text: 'Hel' });
+    s = api.applyFrame(s, { type: 'draft', text: 'Hello' });
+    expect(s.draft).toBe('Hello');
+    // A tool row does not end the text being written.
+    s = api.applyFrame(s, {
+      type: 'entries',
+      entries: [{ kind: 'tool', name: 'Read', text: 'a' }],
+    });
+    expect(s.draft).toBe('Hello');
+    s = api.applyFrame(s, { type: 'entries', entries: [{ kind: 'text', text: 'Hello.' }] });
+    expect(s.draft).toBeUndefined();
+    s = api.applyFrame(s, { type: 'draft', text: 'Stop' });
+    s = api.applyFrame(s, { type: 'status', status: idle });
+    expect(s.draft).toBeUndefined();
+  });
+});
+
 describe('toRows', () => {
   it('folds consecutive tool calls into one collapsible row', () => {
     const tool = (name: string): CatSessionEntry => ({ kind: 'tool', name, text: name });

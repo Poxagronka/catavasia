@@ -82,3 +82,19 @@ export const result = (contextWindow = 200000, model = 'claude-haiku-4-5-2025100
     usage: { input_tokens: 18, cache_creation_input_tokens: 21115, cache_read_input_tokens: 20899 },
     modelUsage: { [model]: { inputTokens: 932, contextWindow, maxOutputTokens: 32000 } },
   });
+
+/** A partial message (`includePartialMessages`): one streaming event of the Messages API. */
+const streamEvent = (event: Record<string, unknown>, parent: string | null = null) =>
+  line({ type: 'stream_event', event, parent_tool_use_id: parent });
+
+export const textStart = (parent: string | null = null) =>
+  streamEvent(
+    { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
+    parent,
+  );
+
+export const textDelta = (t: string, parent: string | null = null) =>
+  streamEvent(
+    { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: t } },
+    parent,
+  );

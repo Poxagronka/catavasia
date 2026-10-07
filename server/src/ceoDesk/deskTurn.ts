@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 
+import type { CatSessionFrame } from '../../../core/src/catSession.js';
 import { CEO_ATTACH_MAX_COUNT } from '../../../core/src/ceoDesk.js';
 import { CAT_CEO_ID } from '../constants.js';
 import type { EngineAdapter, TurnHandle } from '../orchestrator/engineAdapter.js';
@@ -95,20 +96,24 @@ export function spawnDeskTurn(input: DeskTurnInput): TurnHandle {
     images: parts.flatMap((p) => p.images ?? []),
     addDirs: cwd === chatDir ? [] : [chatDir],
     permissionMode: settings.permissionMode,
+    partialText: true,
     askPermission: (ask) => office.approvals.ask({ catId: CAT_CEO_ID, name: settings.name }, ask),
     onLine,
   });
 }
 
+/** What the desk gives a new turn's stream: its rows and its frames. */
+export interface DeskRows extends Pick<DeskStreamHost, 'add' | 'update'> {
+  statusChanged(): void;
+  emit(frame: CatSessionFrame): void;
+}
+
 /**
  * The rows of a new turn in this chat: tool pictures are saved with the
- * chat's attachments, paths show relative to the project and chat folders.
+ * chat's attachments, paths show relative to the project and chat folders;
+ * the context use goes in the status, the live reply in a draft frame.
  */
-export function newDeskStream(
-  store: DeskStore,
-  state: DeskState,
-  rows: Pick<DeskStreamHost, 'add' | 'update' | 'context'>,
-): DeskStream {
+export function newDeskStream(store: DeskStore, state: DeskState, desk: DeskRows): DeskStream {
   const { chatId } = state;
   const chatDir = store.chatDir(chatId);
   const saveImages: DeskStreamHost['saveImages'] = (images) => {
@@ -127,5 +132,16 @@ export function newDeskStream(
       return [dir];
     }
   });
-  return new DeskStream({ ...rows, saveImages, folders }, state.context);
+  const host: DeskStreamHost = {
+    add: desk.add,
+    update: desk.update,
+    context: (use) => {
+      state.context = use;
+      desk.statusChanged();
+    },
+    draft: (text) => desk.emit({ type: 'draft', text }),
+    saveImages,
+    folders,
+  };
+  return new DeskStream(host, state.context);
 }

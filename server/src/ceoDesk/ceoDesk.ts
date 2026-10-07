@@ -283,10 +283,8 @@ export class CeoDesk implements OfficeToolHandler {
     const stream = newDeskStream(this.store, this.state, {
       add: (entry) => this.add(entry),
       update: (row) => this.update(row),
-      context: (use) => {
-        this.state.context = use;
-        this.statusChanged();
-      },
+      statusChanged: () => this.statusChanged(),
+      emit: (frame) => this.emit(frame),
     });
     const handle = spawnDeskTurn({
       adapter,
