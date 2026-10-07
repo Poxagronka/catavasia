@@ -9,8 +9,8 @@
  *
  * Version 1 is the judge chat's chat.json (rows only). The first desk chat
  * starts with those rows under a divider: the CEO session does not know them.
- * New chat leaves the old history file as the archive; archived chats are
- * swept after 30 days.
+ * New chat leaves the old history file as the archive; chatHistory.ts lists
+ * the archived chats and reopens them. Only the user deletes a chat.
  */
 
 import * as crypto from 'crypto';
@@ -21,8 +21,6 @@ import type { CatSessionEntry, ContextUse } from '../../../core/src/catSession.j
 import type { CeoAttachment } from '../../../core/src/ceoDesk.js';
 import { CEO_DESK_CHATS_DIR, CEO_DESK_FILE, CEO_DESK_HISTORY_MAX } from '../constants.js';
 
-const ARCHIVE_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
-
 export const ADOPTED_TEXT =
   'Team tasks the server stopped (from the old Tasks board). Resume or cancel them here.';
 export const LEGACY_DIVIDER = 'Earlier chat (before the CEO desk). The CEO does not remember it.';
@@ -30,6 +28,10 @@ export const LEGACY_DIVIDER = 'Earlier chat (before the CEO desk). The CEO does 
 export interface DeskState {
   version: 2;
   chatId: string;
+  /** The chat's name (empty until the first message): see chatHistory.ts. */
+  title?: string;
+  /** Who named it: Claude Code's title replaces the first-message one; the user's wins. */
+  titleBy?: 'claude' | 'user';
   /** Claude session id of the CEO in this chat. */
   sessionId: string;
   /** The session exists: the next turn resumes it. */
@@ -99,9 +101,7 @@ export class DeskStore {
   load(now: number): DeskState {
     const saved = readJson(this.deskFile) as Partial<DeskState> | undefined;
     if (saved?.version === 2 && typeof saved.chatId === 'string' && saved.sessionId) {
-      const state = { ...freshDesk(), ...saved } as DeskState;
-      this.sweep(state.chatId, now);
-      return state;
+      return { ...freshDesk(), ...saved } as DeskState;
     }
     const state = freshDesk();
     const legacy = this.legacyRows(now);
@@ -163,46 +163,9 @@ export class DeskStore {
       ...rows.map((r) => ({ ...r, at: typeof r.at === 'number' ? r.at : now })),
     ];
   }
-
-  /**
-   * Remove archived chats untouched for 30 days: the history and the chat
-   * folder (attachments, sandbox work) go together. The age is the newer of
-   * the two, so a folder never outlives its history or the other way round.
-   */
-  private sweep(liveChatId: string, now: number): void {
-    let names: string[];
-    try {
-      names = fs.readdirSync(this.chatsDir);
-    } catch {
-      return;
-    }
-    const ids = new Set(names.map((n) => n.replace(/\.json$/, '')));
-    ids.delete(liveChatId);
-    for (const id of ids) {
-      const paths = [path.join(this.chatsDir, `${id}.json`), this.chatDir(id)];
-      const touched = Math.max(...paths.map(mtimeOf));
-      if (now - touched <= ARCHIVE_KEEP_MS) continue;
-      for (const p of paths) {
-        try {
-          fs.rmSync(p, { recursive: true, force: true });
-        } catch {
-          // A locked or read-only file: the next start tries again.
-        }
-      }
-    }
-  }
 }
 
-/** Modification time, or 0 when the path is gone. */
-function mtimeOf(file: string): number {
-  try {
-    return fs.statSync(file).mtimeMs;
-  } catch {
-    return 0;
-  }
-}
-
-function readJson(file: string): unknown {
+export function readJson(file: string): unknown {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf-8')) as unknown;
   } catch {
@@ -210,7 +173,7 @@ function readJson(file: string): unknown {
   }
 }
 
-function writeJson(file: string, data: unknown): void {
+export function writeJson(file: string, data: unknown): void {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;

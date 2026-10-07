@@ -17,23 +17,32 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
-import type { CeoAttachmentUpload, CeoStopResponse, JobCard } from '../../../core/src/ceoDesk.js';
-import { CAT_CEO_DIR, CAT_CEO_ID, CAT_CEO_TIMEOUT_MS, CEO_DESK_HISTORY_MAX } from '../constants.js';
+import type { CeoAttachmentUpload, CeoStopResponse } from '../../../core/src/ceoDesk.js';
+import { CAT_CEO_DIR, CAT_CEO_ID, CAT_CEO_TIMEOUT_MS } from '../constants.js';
 import type {
   EngineAdapter,
   PermissionAnswer,
   TurnOutcome,
 } from '../orchestrator/engineAdapter.js';
-import { isAuthError } from '../orchestrator/engineStatus.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
 import { officeLimits } from '../usageLimits.js';
 import { saveAttachments, type SavedAttachments } from './attachments.js';
+import { ChatHistory, messageTitle } from './chatHistory.js';
 import { DeskJobs } from './deskJobs.js';
-import { type DeskRow, type DeskState, DeskStore, freshDesk } from './deskStore.js';
+import { DeskLog } from './deskLog.js';
+import { type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, DESK_MCP_NAME, type DeskToolHost } from './deskTools.js';
-import { newDeskStream, spawnDeskTurn, takeTurnParts, type Turn } from './deskTurn.js';
+import {
+  claudeDown,
+  failureRow,
+  newDeskStream,
+  queuedDraft,
+  spawnDeskTurn,
+  takeTurnParts,
+  type Turn,
+} from './deskTurn.js';
 import { RECENT_FOLDERS_MAX, recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
@@ -51,12 +60,14 @@ export class CeoDesk implements OfficeToolHandler {
   private readonly events = new EventEmitter<{ frame: [CatSessionFrame] }>();
   private readonly store: DeskStore;
   private state: DeskState;
-  private rows: DeskRow[];
+  private log: DeskLog;
   private turn: Turn | undefined;
   private reworkCount = 0;
   private mcpUrl = '';
   private disposed = false;
   private readonly jobs: DeskJobs;
+  /** The chat title menu: list, open, rename and delete chats. */
+  readonly chats: ChatHistory;
   private readonly onTaskStatus = (id: string) => this.jobs.taskChanged(id);
   private readonly onApprovals = () => this.statusChanged();
   private readonly onLimits = () => this.statusChanged();
@@ -65,14 +76,21 @@ export class CeoDesk implements OfficeToolHandler {
     this.events.setMaxListeners(0);
     this.store = new DeskStore(path.join(opts.stateDir, CAT_CEO_DIR));
     this.state = this.store.load(Date.now());
-    this.rows = this.store.readHistory(this.state.chatId);
+    this.log = new DeskLog(this.store, this.state.chatId, (f) => this.emit(f));
+    this.chats = new ChatHistory(this.store, {
+      state: () => this.state,
+      rows: () => this.log.rows,
+      switchTo: (next, note) => this.switchTo(next, note),
+      newChat: () => this.newChat(),
+      changed: () => (this.store.save(this.state), this.statusChanged()),
+    });
     this.jobs = new DeskJobs({
       tasks: opts.tasks,
       office: opts.office,
       state: () => this.state,
       save: () => this.store.save(this.state),
-      add: (entry) => this.add(entry),
-      replaceCard: (text, job) => this.replaceCard(text, job),
+      add: (entry) => this.log.add(entry),
+      replaceCard: (text, job) => this.log.replaceCard(text, job),
       statusChanged: () => this.statusChanged(),
       pump: () => this.pump(),
       folderOf: (cwd) => this.folderOf(cwd),
@@ -81,7 +99,7 @@ export class CeoDesk implements OfficeToolHandler {
       this.state.turnRunning = false;
       // The cut turn may have created the session: a first turn starts a new one.
       if (!this.state.started) this.state.sessionId = freshDesk().sessionId;
-      this.add({ kind: 'error', text: RESTARTED_TEXT });
+      this.log.add({ kind: 'error', text: RESTARTED_TEXT });
     }
     // Jobs that ended while the server was down get their notice now.
     for (const id of [...this.state.liveJobs]) this.jobs.taskChanged(id, true);
@@ -105,11 +123,8 @@ export class CeoDesk implements OfficeToolHandler {
     officeLimits.events.off('change', this.onLimits);
     this.jobs.clear();
     // turnRunning stays true on disk: the next start tells the user.
-    if (this.turn) {
-      clearTimeout(this.turn.timer);
-      this.turn.stopped = true;
-      this.turn.handle.kill();
-    }
+    if (this.turn) clearTimeout(this.turn.timer);
+    this.killTurn();
   }
 
   // ── Chat (officeCatSource.ts and ceoRoutes.ts) ──
@@ -117,7 +132,7 @@ export class CeoDesk implements OfficeToolHandler {
   snapshot(): { title: string; entries: CatSessionEntry[]; status: CatSessionStatus } {
     return {
       title: this.opts.office.ceo.settings.name,
-      entries: this.rows.slice(),
+      entries: this.log.rows.slice(),
       status: this.status(),
     };
   }
@@ -139,7 +154,8 @@ export class CeoDesk implements OfficeToolHandler {
   /** A user message. Returns how many messages and notices wait for the next turn. */
   send(text: string, files?: SavedAttachments): number {
     const attachments = files?.attachments.length ? { attachments: files.attachments } : {};
-    this.add({ kind: 'user', text, ...attachments });
+    this.log.add({ kind: 'user', text, ...attachments });
+    this.state.title ||= messageTitle(text, files?.attachments);
     this.state.pending.push({
       kind: 'user',
       text: [text, ...(files?.lines ?? [])].filter(Boolean).join('\n'),
@@ -157,22 +173,14 @@ export class CeoDesk implements OfficeToolHandler {
    * draft, their files too (the stored files stay where they are).
    */
   stop(): CeoStopResponse {
-    const queued = this.state.pending.filter((p) => p.kind === 'user');
-    const draft = queued
-      .map((p) => p.draft ?? p.text)
-      .filter(Boolean)
-      .join('\n\n');
-    const attachments = queued.flatMap((p) => p.attachments ?? []);
+    const queued = queuedDraft(this.state.pending);
     const had = !!this.turn || this.state.pending.length > 0;
     this.state.pending = [];
     this.store.save(this.state);
-    if (this.turn) {
-      this.turn.stopped = true;
-      this.turn.handle.kill();
-    }
-    if (had) this.add({ kind: 'text', text: 'Stopped.' });
+    this.killTurn();
+    if (had) this.log.add({ kind: 'text', text: 'Stopped.' });
     this.statusChanged();
-    return { draft, ...(attachments.length ? { attachments } : {}) };
+    return queued;
   }
 
   /** The user's answer to an approval card. False: the card is gone (answered or timed out). */
@@ -180,19 +188,32 @@ export class CeoDesk implements OfficeToolHandler {
     return this.opts.office.approvals.answer(id, answer);
   }
 
-  /** Archive this chat and start a new one. Live jobs go on; their notices are dropped. */
+  /** Archive this chat and start a new one. */
   newChat(): string {
-    this.stop();
-    this.jobs.clear();
     // The board's tasks were adopted once; a New chat never adopts them again.
     // The project is the office's: it stays for the new chat.
     const { folder, recent } = this.state;
-    this.state = { ...freshDesk(), boardAdopted: true, folder, ...(recent ? { recent } : {}) };
-    this.rows = [];
+    this.switchTo({ ...freshDesk(), boardAdopted: true, folder, ...(recent ? { recent } : {}) });
+    return this.state.chatId;
+  }
+
+  /**
+   * Stop the turn, archive this chat and make `next` the live chat (chatHistory.ts).
+   * Live jobs go on; their notices are dropped, their cards show the newest state.
+   */
+  private switchTo(next: DeskState, note?: string): void {
+    this.stop();
+    // The killed turn ends later: it must not touch `next`, even when `next` is its chat.
+    if (this.turn) this.turn.chatId = '';
+    this.jobs.clear();
+    this.chats.archive(this.state, this.log.rows);
+    this.state = next;
+    this.log = new DeskLog(this.store, next.chatId, (f) => this.emit(f));
     this.reworkCount = 0;
+    for (const row of this.log.rows) if (row.kind === 'job') this.jobs.updateCard(row.job.jobId);
+    if (note) this.log.add({ kind: 'note', text: note });
     this.store.save(this.state);
     this.emit({ type: 'snapshot', ...this.snapshot() });
-    return this.state.chatId;
   }
 
   /** The office's project folder (already checked), or null for the sandbox. */
@@ -229,8 +250,8 @@ export class CeoDesk implements OfficeToolHandler {
     const chatId = this.state.chatId;
     const { row, jobId, edits, ...result } = await callDeskTool(this.toolHost(), name, args);
     if (chatId !== this.state.chatId) return result;
-    if (row) this.add({ kind: 'tool', name: `mcp__${DESK_MCP_NAME}__${name}`, text: row });
-    if (edits) this.add({ kind: 'edits', ...edits });
+    if (row) this.log.add({ kind: 'tool', name: `mcp__${DESK_MCP_NAME}__${name}`, text: row });
+    if (edits) this.log.add({ kind: 'edits', ...edits });
     // The job's card follows the row that started it.
     if (jobId) this.jobs.updateCard(jobId);
     return result;
@@ -263,14 +284,11 @@ export class CeoDesk implements OfficeToolHandler {
   private pump(): void {
     if (this.turn || !this.state.pending.length || !this.mcpUrl) return;
     const { adapter, office } = this.opts;
-    const missing = adapter.choices().unavailable;
-    const down = missing
-      ? `${missing}.`
-      : office.notReady('claude') && office.engineDown('claude', false);
+    const down = claudeDown(adapter, office);
     if (down) {
       this.state.pending = [];
       this.store.save(this.state);
-      this.add({ kind: 'error', text: `The CEO cannot answer: ${down}` });
+      this.log.add({ kind: 'error', text: `The CEO cannot answer: ${down}` });
       this.statusChanged();
       return;
     }
@@ -281,8 +299,8 @@ export class CeoDesk implements OfficeToolHandler {
       .map((p) => p.text)
       .join('\n\n');
     const stream = newDeskStream(this.store, this.state, {
-      add: (entry) => this.add(entry),
-      update: (row) => this.update(row),
+      add: (entry) => this.log.add(entry),
+      update: (row) => this.log.update(row),
       statusChanged: () => this.statusChanged(),
       emit: (frame) => this.emit(frame),
     });
@@ -323,15 +341,11 @@ export class CeoDesk implements OfficeToolHandler {
       this.state.turnRunning = false;
       if (outcome.sessionStarted) this.state.started = true;
       if (outcome.sessionCostUsd !== undefined) this.state.costUsd = outcome.sessionCostUsd;
+      if (outcome.ok) this.chats.nameFromClaude();
       if (!turn.stopped) {
         const text = outcome.ok ? (outcome.text ?? turn.stream.held) : turn.stream.held;
-        if (text) this.add({ kind: 'text', text });
-        if (!outcome.ok) {
-          const auth = isAuthError(outcome.error);
-          const fix = auth ? ` ${this.opts.office.engineDown('claude', true)}` : '';
-          const text = `The CEO could not answer: ${outcome.error}${fix}`;
-          this.add({ kind: 'error', text, ...(auth ? { login: true } : {}) });
-        }
+        if (text) this.log.add({ kind: 'text', text });
+        if (!outcome.ok) this.log.add(failureRow(outcome.error, this.opts.office));
       }
       this.store.save(this.state);
     }
@@ -340,6 +354,12 @@ export class CeoDesk implements OfficeToolHandler {
   }
 
   // ── Helpers ──
+
+  private killTurn(): void {
+    if (!this.turn) return;
+    this.turn.stopped = true;
+    this.turn.handle.kill();
+  }
 
   private sandbox(): string {
     const dir = path.join(this.store.chatDir(this.state.chatId), 'work');
@@ -359,41 +379,12 @@ export class CeoDesk implements OfficeToolHandler {
       busyText: `${this.opts.office.ceo.settings.name} is thinking…`,
       queued: this.state.pending.length,
       folder: this.state.folder,
+      chat: { id: this.state.chatId, title: this.state.title ?? '' },
       costUsd: this.state.costUsd,
       approvals: this.opts.office.approvals.list(),
       ...(this.state.context ? { context: this.state.context } : {}),
       limits: officeLimits.get(),
     };
-  }
-
-  private add(entry: CatSessionEntry): DeskRow {
-    // `at` is the row's id for the dock's unread mark: unique and rising.
-    const row = { ...entry, at: Math.max(Date.now(), (this.rows.at(-1)?.at ?? 0) + 1) } as DeskRow;
-    this.rows.push(row);
-    if (this.rows.length > CEO_DESK_HISTORY_MAX)
-      this.rows.splice(0, this.rows.length - CEO_DESK_HISTORY_MAX);
-    this.store.writeHistory(this.state.chatId, this.rows);
-    this.emit({ type: 'entries', entries: [row] });
-    return row;
-  }
-
-  /** Replace the job's card row; false: this chat has none. */
-  private replaceCard(text: string, job: JobCard): boolean {
-    const at = this.rows.findIndex((r) => r.kind === 'job' && r.job.jobId === job.jobId);
-    if (at < 0) return false;
-    this.rows[at] = { kind: 'job', text, job, at: this.rows[at].at };
-    this.store.writeHistory(this.state.chatId, this.rows);
-    this.emit({ type: 'job', text, job });
-    return true;
-  }
-
-  /** A row changed in place (a tool's result came). */
-  private update(row: DeskRow): void {
-    const at = this.rows.findIndex((r) => r.at === row.at);
-    if (at < 0) return;
-    this.rows[at] = row;
-    this.store.writeHistory(this.state.chatId, this.rows);
-    this.emit({ type: 'update', entry: row });
   }
 
   private statusChanged(): void {

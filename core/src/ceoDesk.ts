@@ -96,6 +96,28 @@ export interface CeoStopResponse {
   attachments?: CeoAttachment[];
 }
 
+/** One chat of the CEO desk history (the chat title menu of the dock). */
+export interface CeoChatSummary {
+  id: string;
+  /** The user's name for it, Claude Code's title, or the start of its first message. */
+  title: string;
+  /** When its newest row was added (ms since epoch). */
+  updatedAt: number;
+}
+
+/** GET /api/ceo/chats: every chat with a message, newest first. */
+export interface CeoChatsResponse {
+  chats: CeoChatSummary[];
+}
+
+/** PUT /api/ceo/chats/:id: the user's name for the chat. */
+export interface CeoChatRenameRequest {
+  title: string;
+}
+
+/** The longest chat name the user can give. */
+export const CEO_CHAT_TITLE_MAX = 100;
+
 /** PUT /api/ceo/folder: an absolute project folder, or null for the sandbox. */
 export interface CeoFolderRequest {
   path: string | null;

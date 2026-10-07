@@ -356,18 +356,24 @@ test.describe('Standalone / CEO dock', () => {
       expect(Math.abs(a - b), `${what}: ${a.toString()} vs ${b.toString()}`).toBeLessThanOrEqual(1);
     const check = async () => {
       const composer = await box('dock-box');
-      const [collapse, status, newChat, connectors, project] = await Promise.all(
-        ['dock-collapse', 'dock-status', 'dock-new-chat', 'dock-connectors', 'dock-project'].map(
-          box,
-        ),
+      const [collapse, status, newChat, connectors, project, chatTitle] = await Promise.all(
+        [
+          'dock-collapse',
+          'dock-status',
+          'dock-new-chat',
+          'dock-connectors',
+          'dock-project',
+          'dock-chat-title',
+        ].map(box),
       );
-      // Header: the actions end on the composer's right line, the project starts on its left line.
+      // Header: the actions end on the composer's right line, the chat title starts on its left line.
       near(collapse.right, composer.right, 'collapse right');
       near(newChat.right, composer.right, 'new chat right');
-      near(project.left, composer.left, 'project left');
+      near(chatTitle.left, composer.left, 'chat title left');
       near(status.mid, collapse.mid, 'header row 1 center');
+      near(project.mid, collapse.mid, 'project center');
       near(connectors.mid, newChat.mid, 'header row 2 center');
-      near(project.mid, newChat.mid, 'project center');
+      near(chatTitle.mid, newChat.mid, 'chat title center');
       // Composer row: "+" and the ring flush with the box, every control on one center.
       const row = await Promise.all(
         ['dock-attach', 'dock-mode', 'dock-model', 'dock-effort', 'dock-usage'].map(box),
