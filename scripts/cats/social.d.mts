@@ -4,7 +4,7 @@ import type { Breed, Cell } from './breeds.mjs';
 
 type Grid = Array<Array<Cell | null>>;
 
-/** Talk and angry (puffed-up) frames of one breed per direction (down, up, right). */
+/** Talk frames of one breed per direction (down, up, right). */
 export function renderSocialCatFrames(
   breed: Breed,
-): Record<'down' | 'up' | 'right', { angry: Grid[]; talk: Grid[] }>;
+): Record<'down' | 'up' | 'right', { talk: Grid[] }>;

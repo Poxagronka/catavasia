@@ -131,24 +131,24 @@ export class PetCareWorld {
     return id;
   }
 
-  /** Advance `hours` of office time for every known cat. */
-  tick(hours: number, fullBoxes: number): void {
+  /** Advance `hours` of office time for every known cat. `bowelMul`: its personality's bowel fill. */
+  tick(hours: number, fullBoxes: number, bowelMul: (petId: string) => number = () => 1): void {
     const env = { floorPoops: this.floorPoops.length, fullBoxes };
-    for (const e of this.pets.values()) {
+    for (const [petId, e] of this.pets) {
       decayNeeds(e.needs, hours, env);
-      e.bowel = Math.min(PET_BOWEL_MAX, e.bowel + PET_BOWEL_PER_HOUR * hours);
+      e.bowel = Math.min(PET_BOWEL_MAX, e.bowel + PET_BOWEL_PER_HOUR * hours * bowelMul(petId));
     }
   }
 
   /** Eat one meal from a bowl. Gain scales with what is left; false if empty. */
-  eat(petId: string, bowlUid: string): boolean {
+  eat(petId: string, bowlUid: string, bowelMul = 1): boolean {
     const b = this.bowl(bowlUid);
     const portion = Math.min(b.food, PET_BOWL_FOOD_PER_MEAL);
     if (portion <= 0) return false;
     b.food -= portion;
     const e = this.entry(petId);
     raiseNeed(e.needs, 'hunger', (PET_GAIN_MEAL * portion) / PET_BOWL_FOOD_PER_MEAL);
-    e.bowel = Math.min(PET_BOWEL_MAX, e.bowel + PET_BOWEL_PER_MEAL);
+    e.bowel = Math.min(PET_BOWEL_MAX, e.bowel + PET_BOWEL_PER_MEAL * bowelMul);
     return true;
   }
 

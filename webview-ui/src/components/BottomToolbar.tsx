@@ -18,6 +18,8 @@ interface BottomToolbarProps {
   onToggleCats: () => void;
   isHierarchyOpen: boolean;
   onToggleHierarchy: () => void;
+  isFeedbackOpen: boolean;
+  onToggleFeedback: () => void;
   workspaceFolders: WorkspaceFolder[];
 }
 
@@ -31,6 +33,8 @@ export function BottomToolbar({
   onToggleCats,
   isHierarchyOpen,
   onToggleHierarchy,
+  isFeedbackOpen,
+  onToggleFeedback,
   workspaceFolders,
 }: BottomToolbarProps) {
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -159,6 +163,14 @@ export function BottomToolbar({
         title="Settings"
       >
         Settings
+      </Button>
+      <Button
+        variant={isFeedbackOpen ? 'active' : 'default'}
+        onClick={onToggleFeedback}
+        title="Send feedback or a bug report to GitHub"
+        data-testid="feedback-button"
+      >
+        Feedback
       </Button>
     </div>
   );

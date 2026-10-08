@@ -251,3 +251,16 @@ export const TASK_RESTORE_MAX_CATS = 6;
 /** Self-update: how long the old server stays up after spawning the new one,
  *  so the open tab reads the `restarting` phase. */
 export const UPDATE_RESTART_GRACE_MS = 1500;
+
+// ── Feedback (server/src/feedback/) ─────────────────────────
+
+/** Branch of UPDATE_REPO that holds the feedback images (created on first use). */
+export const FEEDBACK_ASSETS_BRANCH = 'feedback-assets';
+/** Folder of the images on that branch: `<folder>/<timestamp>-<n>.<ext>`. */
+export const FEEDBACK_ASSETS_DIR = 'feedback';
+/** Label the issue gets when the repo has it. */
+export const FEEDBACK_LABEL = 'feedback';
+/** Upper bound of the browser fallback link (GitHub refuses much longer URLs). */
+export const FEEDBACK_URL_MAX_CHARS = 8000;
+/** One `gh` call may take this long before it counts as failed. */
+export const FEEDBACK_GH_TIMEOUT_MS = 60_000;

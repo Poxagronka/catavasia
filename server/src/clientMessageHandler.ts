@@ -14,6 +14,7 @@ import {
   writeConfig,
 } from './configPersistence.js';
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
+import { feedbackEnvironment, submitFeedback } from './feedback/githubFeedback.js';
 import { applyShowGuests } from './guests.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import type { Narrator } from './narrator/narrator.js';
@@ -326,6 +327,14 @@ export function handleClientMessage(
       if (error) send({ type: 'catProfileRejected', id, error });
       break;
     }
+
+    case 'submitFeedback':
+      // Runs `gh` on this machine: gh is used only on a tokened connection.
+      void submitFeedback(msg, {
+        privileged: ctx.privileged === true,
+        env: feedbackEnvironment('standalone CLI'),
+      }).then((result) => send({ ...result }));
+      break;
 
     case 'checkEngines':
       // Read-only (runs `--version` and the status commands): no token needed.

@@ -43,6 +43,7 @@ import { startAnim } from './activityAnim.js';
 import type { ActivitySpotSet } from './idleActivities.js';
 import { getIdleActivity } from './idleActivities.js';
 import { LITTER_USE_IDS } from './litterActivities.js';
+import { personalityMul } from './personality.js';
 
 /** The slice of OfficeState litter life reads and drives. */
 export interface LitterWorld {
@@ -60,6 +61,8 @@ export interface LitterWorld {
 }
 
 const isUse = (id: string | undefined) => (LITTER_USE_IDS as readonly string[]).includes(id ?? '');
+/** Seconds between box visits of this cat (a pooper goes far more often). */
+const dueSec = (ch: Character) => LITTER_DUE_SEC * personalityMul(ch.personality, 'litterDue');
 
 export class LitterLife {
   /** Boxes each cat turned down since its last pile. */
@@ -84,7 +87,7 @@ export class LitterLife {
     const world = this.w.petCare.world;
     for (const ch of this.w.characters.values()) {
       if (ch.grimaceSec) ch.grimaceSec = Math.max(0, ch.grimaceSec - dt);
-      const since = this.sinceVisit.get(ch.id) ?? this.rand() * LITTER_DUE_SEC;
+      const since = this.sinceVisit.get(ch.id) ?? this.rand() * dueSec(ch);
       this.sinceVisit.set(ch.id, since + dt);
       const run = ch.activity;
       if (run?.spot) this.watchRun(run);
@@ -126,7 +129,7 @@ export class LitterLife {
     if (isUse(run.id) || run.id === 'litterFloor') this.sinceVisit.set(ch.id, 0);
     if (isUse(run.id)) {
       this.refused.delete(ch.id);
-      if (this.rand() < LITTER_ZOOMIES_CHANCE) {
+      if (this.rand() < LITTER_ZOOMIES_CHANCE * personalityMul(ch.personality, 'zoomies')) {
         const n =
           ZOOMIES_DASHES_MIN +
           Math.floor(this.rand() * (ZOOMIES_DASHES_MAX - ZOOMIES_DASHES_MIN + 1));
@@ -155,7 +158,7 @@ export class LitterLife {
 
   /** An idle pick: a cat due for a box walks to the nearest free one. False: not due, or none. */
   startDue(ch: Character): boolean {
-    if ((this.sinceVisit.get(ch.id) ?? 0) < LITTER_DUE_SEC) return false;
+    if ((this.sinceVisit.get(ch.id) ?? 0) < dueSec(ch)) return false;
     return this.nextBox(ch, new Set());
   }
 

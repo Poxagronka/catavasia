@@ -70,7 +70,7 @@ export interface CharacterSprites {
   /** Idle-activity frames (sheet frames 7..), empty for a 7-frame sheet. */
   idle: Record<Direction, SpriteData[]>;
   /** Social poses of a custom coat; absent: the breed art in cat-social.json. */
-  social?: Record<'talk' | 'angry', Record<Direction, SpriteData[]>>;
+  social?: Record<'talk', Record<Direction, SpriteData[]>>;
 }
 
 const spriteCache = new Map<string, CharacterSprites>();

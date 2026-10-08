@@ -1,3 +1,4 @@
+import type { CatPersonality } from '../../core/src/messages.js';
 import type { ColorValue } from './components/ui/types.js';
 
 // ── Grid & Layout ────────────────────────────────────────────
@@ -353,8 +354,6 @@ export const SOCIAL_GREET_RUB_SEC = 0.9;
 export const SOCIAL_GREET_RUB_CHANCE = 0.5;
 /** The listener's happy tail flick: seconds per frame. */
 export const SOCIAL_FLICK_FRAME_SEC = 0.35;
-/** The arched-back hiss bobs at this pace before a fight. */
-export const SOCIAL_HISS_FRAME_SEC = 0.25;
 /** Mouth open / closed toggle while a cat talks. */
 export const SOCIAL_TALK_MOUTH_SEC = 0.18;
 /** Chase play: total length, walk-speed multiplier, re-path interval, chase radius. */
@@ -371,8 +370,32 @@ export const SOCIAL_TAG_COOLDOWN_SEC = 1.2;
 /** Toy joint play: total length and seconds per turn. */
 export const SOCIAL_TOY_DURATION_SEC = 10;
 export const SOCIAL_TOY_TURN_SEC = 2;
-/** Fight: puff-up stare, dust cloud, then fleeing with the anger mark. */
-export const SOCIAL_FIGHT_PUFF_SEC = 1.2;
+/** Fight standoff: seconds per intro frame (socStandoffIn1..3); the exit plays them reversed. */
+export const SOCIAL_STANDOFF_IN_FRAME_SEC = [0.1, 0.1, 0.12] as const;
+/** The full puff is held this long before the first sway. */
+export const SOCIAL_STANDOFF_PEAK_HOLD_SEC = 0.5;
+/** Seconds per sway frame (weight forward / back); the rival sways in anti-phase. */
+export const SOCIAL_STANDOFF_SWAY_FRAME_SEC = 0.4;
+/** Seconds of swaying before the roll: fight or back down. */
+export const SOCIAL_STANDOFF_MIN_SEC = 3;
+export const SOCIAL_STANDOFF_MAX_SEC = 6;
+/** Chance the standoff ends in a fight, times the pair's `fight` multiplier, clamped. */
+export const SOCIAL_STANDOFF_FIGHT_CHANCE = 0.4;
+export const SOCIAL_STANDOFF_FIGHT_MIN = 0.05;
+export const SOCIAL_STANDOFF_FIGHT_MAX = 0.95;
+/** A cat crab-steps this many px sideways every N sway loops (render offset, stays on its tile). */
+export const SOCIAL_STANDOFF_CRAB_EVERY_LOOPS = 3;
+export const SOCIAL_STANDOFF_CRAB_PX = 1;
+/** Tiles around the pair searched for the head-to-tail standoff spots. */
+export const SOCIAL_STANDOFF_SEARCH_TILES = 2;
+/** Back down: the winner holds its puff this long; the loser walks off 2-4 tiles, slower. */
+export const SOCIAL_STANDOFF_WINNER_HOLD_SEC = 1;
+export const SOCIAL_BACKDOWN_MIN_TILES = 2;
+export const SOCIAL_BACKDOWN_MAX_TILES = 4;
+export const SOCIAL_BACKDOWN_SPEED_MUL = 0.7;
+/** A back-down scene ends at the latest this long after it starts (the loser's walk). */
+export const SOCIAL_BACKDOWN_TIMEOUT_SEC = 8;
+/** Fight: dust cloud, then fleeing with the anger mark. */
 export const SOCIAL_FIGHT_CLOUD_SEC = 2.5;
 export const SOCIAL_FIGHT_FLEE_SEC = 4;
 export const SOCIAL_FIGHT_ANGER_SEC = 2;
@@ -380,8 +403,7 @@ export const SOCIAL_FLEE_SPEED_MUL = 1.9;
 export const SOCIAL_FLEE_MIN_TILES = 4;
 /** Seconds a pair that fought avoids each other (no talk / play / fight). */
 export const SOCIAL_FIGHT_AVOID_SEC = 120;
-/** Frame durations for the angry bristle, the anger mark and the dust cloud. */
-export const SOCIAL_ANGRY_FRAME_SEC = 0.15;
+/** Frame durations for the anger mark and the dust cloud. */
 export const SOCIAL_ANGER_FRAME_SEC = 0.25;
 export const SOCIAL_CLOUD_FRAME_SEC = 0.1;
 /** Wander pause given back to a cat when its scene ends. */
@@ -610,6 +632,8 @@ export const HOUSE_PEEK_INNER_EAR_COLOR = '#E89AA8';
 export const PET_SOCIAL_BUBBLE_OFFSET_PX = 20;
 /** Head height of a pet above its feet, for its Zzz while it naps. */
 export const PET_HEAD_ABOVE_ANCHOR_PX = 12;
+/** Half the widest side pose of a pet (stretched out long): a table top narrower than it walks the cat lengthwise. */
+export const PET_SIDE_POSE_HALF_PX = 13;
 /** Outline for the ears / tail of a near-black cat, so they read against a dark doorway. */
 export const HOUSE_PEEK_RIM_COLOR = '#9A8AA0';
 
@@ -714,3 +738,61 @@ export const LITTER_FX_COLORS = {
   tongue: '#ff8fa8',
   speed: '#f4f4f8',
 } as const;
+
+// ── Feedback ─────────────────────────────────────────────────
+/** The form stops waiting for feedbackResult after this (each server gh call has 60 s). */
+export const FEEDBACK_REPLY_TIMEOUT_MS = 10 * 60 * 1000;
+
+// ── Cat personalities (office/engine/personality.ts reads them) ──
+
+/** Knobs a personality preset scales. Every value is a multiplier of the base tuning. */
+export type PersonalityKnob =
+  | 'fight' // SOCIAL_FIGHT_CHANCE in a social roll, SOCIAL_STANDOFF_FIGHT_CHANCE after a standoff
+  | 'spotFight' // SPOT_CONTEST_FIGHT_CHANCE (capped at 1)
+  | 'encounter' // SOCIAL_ENCOUNTER_CHANCE and ACTIVITY_SOCIAL_CHANCE
+  | 'greetRub' // SOCIAL_GREET_RUB_CHANCE
+  | 'chasePlay' // SOCIAL_PLAY_CHANCE (a chase instead of a talk)
+  | 'play' // toy and playroom activity weights (agent cats and pets)
+  | 'tailChase' // the tailChase weight
+  | 'sleep' // sleep, bed, house, catBed, loaf, yawn weights; pet nap weights
+  | 'wander' // the wander weight
+  | 'litter' // litter box activity weights
+  | 'litterDue' // LITTER_DUE_SEC (0.25 = due 4x as often)
+  | 'zoomies' // LITTER_ZOOMIES_CHANCE
+  | 'petActivity' // PET_ACTIVITY_CHANCE
+  | 'bowel'; // PET_BOWEL_PER_HOUR and PET_BOWEL_PER_MEAL
+
+export const CAT_PERSONALITY_TUNING: Record<
+  CatPersonality,
+  Partial<Record<PersonalityKnob, number>>
+> = {
+  scrappy: { fight: 5, spotFight: 2 },
+  playful: { play: 3, tailChase: 3, chasePlay: 2, petActivity: 2 },
+  pooper: { litter: 6, litterDue: 0.25, bowel: 3 },
+  sleepy: { sleep: 3, wander: 0.5, fight: 0.5 },
+  social: { encounter: 2.5, fight: 0.3, greetRub: 1.8 },
+  zoomie: { wander: 3, zoomies: 2, sleep: 0.5 },
+};
+
+export const CAT_PERSONALITY_LABELS: Record<CatPersonality, string> = {
+  scrappy: 'Scrappy',
+  playful: 'Playful',
+  pooper: 'Pooper',
+  sleepy: 'Sleepy',
+  social: 'Social',
+  zoomie: 'Zoomie',
+};
+
+export const CAT_PERSONALITY_BLURBS: Record<CatPersonality, string> = {
+  scrappy: 'Picks fights with other cats and contests every spot.',
+  playful: 'Lives in the playroom: toys, tail chases and chase games.',
+  pooper: 'Visits the litter box far more often than the others.',
+  sleepy: 'Naps on every bed, sofa and loaf spot, and walks little.',
+  social: 'Meets every cat, rubs heads, and rarely fights.',
+  zoomie: 'Always on the move, with extra zoomies and short naps.',
+};
+
+/** Picker label when a cat has no personality. */
+export const CAT_PERSONALITY_NONE_LABEL = 'None';
+/** Picker hint when a cat has no personality. */
+export const CAT_PERSONALITY_NONE_BLURB = 'The default office cat behaviour.';

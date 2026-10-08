@@ -9,14 +9,17 @@
  * Pure module: no DOM, no OfficeState. The FSM lives in characters.ts.
  */
 
+import type { CatPersonality } from '../../../../core/src/messages.js';
 import type { ActivitySpot } from '../types.js';
 import type { AnimParts } from './activityAnim.js';
 import type { SpotContext } from './activitySpots.js';
 import { adjacentSpots, floorNear, itemsOfType, seatSpots } from './activitySpots.js';
 import { BED_ACTIVITIES } from './bedActivities.js';
 import { COFFEE_ACTIVITIES } from './coffeeActivities.js';
+import { DESK_NAP_ACTIVITY } from './deskNapActivities.js';
 import { GROOM, LOAF, NAP, SIP, STRETCH, TAIL_CHASE, YAWN } from './idleAnims.js';
 import { LITTER_ACTIVITIES } from './litterActivities.js';
+import { activityMul } from './personality.js';
 import { SKILL_READ } from './skillReading.js';
 import { TOY_ACTIVITIES } from './toyActivities.js';
 
@@ -98,6 +101,7 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
   { id: 'loaf', weight: 1, durationSec: [10, 20], ...LOAF, inPlace: 'front' },
   ...TOY_ACTIVITIES,
   ...BED_ACTIVITIES,
+  DESK_NAP_ACTIVITY,
   ...LITTER_ACTIVITIES,
   SKILL_READ,
 ];
@@ -138,7 +142,9 @@ export function chooseIdleActivity(
   taken: Set<string>,
   rand: () => number = Math.random,
   defs: readonly IdleActivityDef[] = IDLE_ACTIVITIES,
+  personality?: CatPersonality,
 ): IdleChoice | null {
+  const weight = (def: IdleActivityDef) => def.weight * activityMul(personality, def.id);
   const options: IdleChoice[] = [];
   const spotsFor = new Map<string, ActivitySpot[]>();
   for (const def of defs) {
@@ -159,12 +165,12 @@ export function chooseIdleActivity(
   }
   const fresh = options.filter((o) => o.def.id !== lastId);
   const pool = fresh.length > 0 ? fresh : options;
-  const total = pool.reduce((sum, o) => sum + o.def.weight, 0);
+  const total = pool.reduce((sum, o) => sum + weight(o.def), 0);
   if (pool.length === 0 || total <= 0) return null;
   let roll = rand() * total;
   let chosen = pool[pool.length - 1];
   for (const o of pool) {
-    roll -= o.def.weight;
+    roll -= weight(o.def);
     if (roll < 0) {
       chosen = o;
       break;
