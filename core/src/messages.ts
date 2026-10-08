@@ -48,6 +48,7 @@ export type ServerMessage =
   | AgentContextUsage
   | LayoutLoaded
   | ResetAllResult
+  | FeedbackResult
   | PetCareLoaded
   | FurnitureAssetsLoaded
   | CharacterSpritesLoaded
@@ -104,7 +105,8 @@ export type ClientMessage =
   | RemovePromptItem
   | SavePromptItem
   | TidyPrompt
-  | CheckEngines;
+  | CheckEngines
+  | SubmitFeedback;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -250,6 +252,7 @@ export interface CatProfile {
   permissionMode?: PermissionMode;
   parentId: string | null;
   isDefault?: boolean;
+  personality?: CatPersonality;
 }
 
 export interface CatAppearance {
@@ -280,6 +283,8 @@ export interface PromptItem {
 export type CatEngine = 'claude' | 'codex';
 
 export type PermissionMode = 'auto' | 'ask' | 'bypass' | 'readOnly';
+
+export type CatPersonality = 'scrappy' | 'playful' | 'pooper' | 'sleepy' | 'social' | 'zoomie';
 
 export interface EngineOptions {
   engine: CatEngine;
@@ -384,6 +389,7 @@ export interface CatCharacter {
   appearance: CatAppearance;
   working: boolean;
   lead?: boolean;
+  personality?: CatPersonality;
 }
 
 export interface CatCeoSettings {
@@ -397,6 +403,7 @@ export interface CatCeoSettings {
   tidyUserItems: boolean;
   systemPrompt: string;
   permissionMode: PermissionMode;
+  personality?: CatPersonality;
 }
 
 export interface ReviewStarted {
@@ -553,6 +560,15 @@ export interface ResetAllResult {
   backupDir?: string;
   error?: string;
 }
+
+export interface FeedbackResult {
+  type: 'feedbackResult';
+  status: FeedbackStatus;
+  url?: string;
+  error?: string;
+}
+
+export type FeedbackStatus = 'created' | 'fallback' | 'error';
 
 export interface PetCareLoaded {
   type: 'petCareLoaded';
@@ -859,6 +875,7 @@ export interface SetCatCeoSettings {
   tidyUserItems?: boolean;
   systemPrompt?: string;
   permissionMode?: PermissionMode;
+  personality?: CatPersonality;
 }
 
 export interface GetPromptHistory {
@@ -905,4 +922,17 @@ export interface TidyPrompt {
 
 export interface CheckEngines {
   type: 'checkEngines';
+}
+
+export interface SubmitFeedback {
+  type: 'submitFeedback';
+  title: string;
+  description: string;
+  images: FeedbackImage[];
+}
+
+export interface FeedbackImage {
+  name: string;
+  type: string;
+  data: string;
 }

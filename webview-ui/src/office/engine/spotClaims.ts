@@ -7,9 +7,10 @@
  *     Called when a cat STARTS walking to a spot. 'ok': walk. 'repick':
  *     choose another spot. 'fight': two cats went for the spot at the same
  *     moment and the contest roll said fight — the social fight scene starts
- *     between them and the cat must not walk now. The winner keeps (or gets)
- *     the spot and walks there again when the scene ends (its `resume`);
- *     the loser picks something else.
+ *     between them and the cat must not walk now. Its standoff may end in a
+ *     fight or with the loser backing down. The winner keeps (or gets) the
+ *     spot and walks there again when the scene ends (its `resume`); the
+ *     loser picks something else.
  *
  *   reconcile(wants, seats, isAlive, onLost)
  *     Once per frame. Keys nobody wants any more are released (arrived then
@@ -21,6 +22,7 @@
 import { SPOT_CONTEST_FIGHT_RADIUS_TILES } from '../../constants.js';
 import type { ActivitySpot, Character } from '../types.js';
 import type { CatSocial } from './catSocial.js';
+import { pairMul } from './personality.js';
 import { isPetActorId } from './petActors.js';
 import { SpotReservations } from './spotReservations.js';
 
@@ -71,7 +73,13 @@ export class SpotClaims {
   }
 
   claim(selfId: number, keys: string[], resume: () => void): ClaimOutcome {
-    const res = this.spots.claim(keys, selfId);
+    const res = this.spots.claim(keys, selfId, 'spot', (rival) =>
+      pairMul(
+        this.host.actor(selfId)?.personality,
+        this.host.actor(rival)?.personality,
+        'spotFight',
+      ),
+    );
     if (res.ok) return 'ok';
     if (res.outcome !== 'fight') return 'repick';
     const self = this.host.actor(selfId);
@@ -85,6 +93,7 @@ export class SpotClaims {
     const started = this.social.trySocialEncounter(a, b, {
       kind: 'fight',
       radius: SPOT_CONTEST_FIGHT_RADIUS_TILES,
+      loser: res.winner === selfId ? res.rival : selfId,
     });
     if (!started) return 'repick';
     if (res.winner === selfId) {

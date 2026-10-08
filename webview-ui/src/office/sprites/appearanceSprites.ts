@@ -1,7 +1,7 @@
 /**
  * Office sprites of a custom cat coat: the same runtime generation the Cats
  * menu previews use (cats/catArt.ts renderAppearance), turned into the sprite
- * sets the renderer draws, with the idle social poses (talk, angry) of the
+ * sets the renderer draws, with the idle social pose (talk) of the
  * same coat. A plain breed preset needs none: its char_N sheet
  * (the character palette) already is that breed.
  */
@@ -34,7 +34,7 @@ export function appearanceSprites(appearance: Appearance): CharacterSprites | un
     const social = renderSocialAppearance(appearance);
     sprites = {
       ...spritesFromSheet(renderAppearance(appearance)),
-      social: { talk: byDirection(social.talk), angry: byDirection(social.angry) },
+      social: { talk: byDirection(social.talk) },
     };
     cache.set(key, sprites);
   }

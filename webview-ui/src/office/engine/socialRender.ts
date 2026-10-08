@@ -32,7 +32,13 @@ import { socialBubbleVisible } from './catSocial.js';
 const SOCIAL_FRAMES = {
   boop: ['socBoop'],
   rub: ['socRub'],
-  hiss: ['socHissA', 'socHissB'],
+  standoff: [
+    'socStandoffIn1',
+    'socStandoffIn2',
+    'socStandoffIn3',
+    'socStandoffSwayA',
+    'socStandoffSwayB',
+  ],
   flick: ['socFlickA', 'socFlickB'],
 } as const;
 
@@ -45,7 +51,7 @@ export function socialSpriteFor(
   const v = ch.social;
   if (!v || v.pose === null) return base;
   if (v.pose === 'hidden') return null;
-  if (v.pose === 'talk' || v.pose === 'angry') return socialPoseOf(ch, v.pose, v.frame) ?? base;
+  if (v.pose === 'talk') return socialPoseOf(ch, v.pose, v.frame) ?? base;
   const names = SOCIAL_FRAMES[v.pose];
   const idx = pose(names[v.frame % names.length]);
   return sprites?.idle[ch.dir][idx] ?? base;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { BREED_PRESETS, COAT_PRESETS } from '../../cats/catArt.js';
-import { type Appearance, nameErrors } from '../../cats/catsApi.js';
+import { nameErrors } from '../../cats/catsApi.js';
 import { addPet, deletePet, type PetRow, type Species } from '../../cats/petRoster.js';
 import type { PetRosterState } from '../../cats/usePetRoster.js';
 import { PET_EDITOR_ZOOM, PET_LIST_ZOOM, PET_PRESET_ZOOM } from '../../constants.js';
@@ -10,6 +10,7 @@ import { isCatPet } from '../../office/sprites/petSpriteData.js';
 import { Button } from '../ui/Button.js';
 import { AppearanceEditor, type PreviewFn } from './AppearanceEditor.js';
 import { FIELD } from './fields.js';
+import { PersonalityField } from './PersonalityField.js';
 import { PetSprite } from './PetSprite.js';
 
 function lookName(pet: PetRow): string {
@@ -22,17 +23,25 @@ function lookName(pet: PetRow): string {
   return preset ? preset.name : 'custom coat';
 }
 
+type Profile = Pick<PetRow, 'name' | 'appearance' | 'personality'>;
+
 function PetEditor({
   pet,
   onChange,
   onDelete,
 }: {
   pet: PetRow;
-  onChange: (profile: { name: string; appearance?: Appearance }) => void;
+  onChange: (profile: Profile) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(pet.name);
   const [confirming, setConfirming] = useState(false);
+  // Every change carries the whole profile: updatePetProfile replaces it.
+  const saved: Profile = {
+    name: pet.name,
+    appearance: pet.appearance,
+    personality: pet.personality,
+  };
   const error = nameErrors(name)[0] ?? null;
   const preview: PreviewFn = (a, size, dir) => (
     <PetSprite
@@ -54,7 +63,7 @@ function PetEditor({
             onChange={(e) => {
               setName(e.target.value);
               if (nameErrors(e.target.value).length === 0)
-                onChange({ name: e.target.value.trim(), appearance: pet.appearance });
+                onChange({ ...saved, name: e.target.value.trim() });
             }}
           />
           {confirming ? (
@@ -74,12 +83,16 @@ function PetEditor({
         </div>
         {error && <div className="text-xs text-status-error">{error}</div>}
       </div>
+      <PersonalityField
+        value={pet.personality}
+        onChange={(personality) => onChange({ ...saved, personality })}
+      />
       {/* Coats repaint the cat sheet only: a dog keeps its own look. */}
       {isCatPet(pet.petType) ? (
         <AppearanceEditor
           value={pet.appearance}
-          onChange={(appearance) => onChange({ name: pet.name, appearance })}
-          onOriginal={() => onChange({ name: pet.name, appearance: undefined })}
+          onChange={(appearance) => onChange({ ...saved, appearance })}
+          onOriginal={() => onChange({ ...saved, appearance: undefined })}
           preview={preview}
         />
       ) : (

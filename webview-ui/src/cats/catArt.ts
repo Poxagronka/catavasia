@@ -293,24 +293,20 @@ export function renderAppearance(a: Appearance): CatFrames {
   return frames;
 }
 
-/** Social-scene poses of a coat: talk and angry frames per direction. */
+/** Social-scene poses of a coat: talk frames per direction. */
 export interface SocialArt {
   talk: CatFrames;
-  angry: CatFrames;
 }
 
 /**
- * The idle social poses (talk, angry) of a coat, from the same generator as
+ * The idle social pose (talk) of a coat, from the same generator as
  * the breed sheet in cat-social.json (scripts/cats/social.mjs). Not cached:
  * office/sprites/appearanceSprites.ts caches per appearance.
  */
 export function renderSocialAppearance(a: Appearance): SocialArt {
   const breed = resolveBreed(a);
   const rows = renderSocialCatFrames(breed);
-  const art: SocialArt = { talk: {} as CatFrames, angry: {} as CatFrames };
-  for (const dir of ART_DIRS) {
-    art.talk[dir] = rows[dir].talk.map((grid) => paint(breed, grid, dir));
-    art.angry[dir] = rows[dir].angry.map((grid) => paint(breed, grid, dir));
-  }
+  const art: SocialArt = { talk: {} as CatFrames };
+  for (const dir of ART_DIRS) art.talk[dir] = rows[dir].talk.map((grid) => paint(breed, grid, dir));
   return art;
 }

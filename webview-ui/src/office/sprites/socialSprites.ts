@@ -18,7 +18,6 @@ type Frames = string[][];
 interface SocialCatJson {
   name: string;
   palette: string[];
-  angry: Record<DirName, Frames>;
   talk: Record<DirName, Frames>;
 }
 
@@ -84,14 +83,14 @@ function dirName(dir: Direction): { name: DirName; mirror: boolean } {
 }
 
 /**
- * Talk / angry frame for a cat, or null when the palette has no social art
+ * Talk frame for a cat, or null when the palette has no social art
  * (the renderer then keeps the normal sprite). Repeated palettes beyond the
  * generated breeds get the same hue shift as their regular sprites.
  */
 export function getSocialPoseSprite(
   palette: number,
   hueShift: number,
-  pose: 'talk' | 'angry',
+  pose: 'talk',
   dir: Direction,
   frame: number,
 ): SpriteData | null {
@@ -109,12 +108,12 @@ export function getSocialPoseSprite(
 }
 
 /**
- * Talk / angry frame of a cat: the frames of its custom coat (generated at
+ * Talk frame of a cat: the frames of its custom coat (generated at
  * runtime, see appearanceSprites.ts), else the breed art of its palette.
  */
 export function socialPoseOf(
   ch: Pick<Character, 'palette' | 'hueShift' | 'dir' | 'customSprites'>,
-  pose: 'talk' | 'angry',
+  pose: 'talk',
   frame: number,
 ): SpriteData | null {
   const custom = ch.customSprites?.social?.[pose][ch.dir];

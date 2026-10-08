@@ -25,6 +25,7 @@ import { ZoomControls } from './components/ZoomControls.js';
 import { CAT_CEO_ID } from './constants.js';
 import { EngineLoginPanel } from './engines/EngineLoginPanel.js';
 import { EngineBanner } from './engines/EngineNotice.js';
+import { FeedbackModal } from './feedback/FeedbackModal.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
@@ -136,6 +137,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCatsOpen, setIsCatsOpen] = useState(false);
   const [isHierarchyOpen, setIsHierarchyOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   /** The cat the Hierarchy chart asked the Cats menu to open on. */
   const [catsFocusId, setCatsFocusId] = useState<string | null>(null);
   /** The Cats menu opens on the focused cat's Prompt history (a Cat CEO chat edit link). */
@@ -597,8 +599,12 @@ function App() {
         onToggleCats={() => setIsCatsOpen((v) => !v)}
         isHierarchyOpen={isHierarchyOpen}
         onToggleHierarchy={() => setIsHierarchyOpen((v) => !v)}
+        isFeedbackOpen={isFeedbackOpen}
+        onToggleFeedback={() => setIsFeedbackOpen((v) => !v)}
         workspaceFolders={workspaceFolders}
       />
+
+      <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
 
       {/* Top banners, stacked so they never cover each other: the update offer,
           then the engine notice. Centred in the room the open CEO dock leaves:
@@ -744,6 +750,7 @@ function App() {
             isSettingsOpen ||
             isCatsOpen ||
             isHierarchyOpen ||
+            isFeedbackOpen ||
             isChangelogOpen ||
             isHooksInfoOpen ||
             showMigrationNotice ||

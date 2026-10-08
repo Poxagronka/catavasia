@@ -1,6 +1,6 @@
 /**
  * A resident cat with a custom coat keeps that coat in its idle social poses
- * (talk, angry), in the fight cloud paws and in the house peek, instead of
+ * (talk), in the fight cloud paws and in the house peek, instead of
  * the colours of its breed palette.
  *
  * Run with: npm test
@@ -29,19 +29,18 @@ function cat(custom = true) {
   } as unknown as Character;
 }
 
-test('a custom coat gets talk and angry frames in its own colours', () => {
+test('a custom coat gets talk frames in its own colours', () => {
   const sprites = appearanceSprites(coat)!;
   assert.ok(sprites.social, 'social poses are generated');
-  for (const pose of ['talk', 'angry'] as const)
-    for (const dir of [Direction.DOWN, Direction.UP, Direction.RIGHT, Direction.LEFT])
-      assert.ok(sprites.social[pose][dir].length > 0, `${pose} ${dir}`);
+  for (const dir of [Direction.DOWN, Direction.UP, Direction.RIGHT, Direction.LEFT])
+    assert.ok(sprites.social.talk[dir].length > 0, `talk ${dir}`);
   const talk = socialPoseOf(cat(), 'talk', 0)!;
   assert.equal(talk, sprites.social.talk[Direction.RIGHT][0]);
   assert.ok(pixels(talk).has(BLUE), 'the talk frame is painted with the custom fur');
 });
 
 test('a plain breed keeps the breed art', () => {
-  const s = socialPoseOf(cat(false), 'angry', 0);
+  const s = socialPoseOf(cat(false), 'talk', 0);
   assert.ok(s && s.length > 0);
   assert.ok(!pixels(s).has(BLUE));
 });

@@ -282,3 +282,24 @@ test('two cats at coffee talk in place; two on toys play together on one toy', (
   runFor(os2, 4);
   assert.equal(os2.social.sceneInfo(1)?.phase, 'toy');
 });
+
+test('a fight rolled at coffee ends both activities; the spots are free after the scene', () => {
+  const os = office();
+  const a = idleCat(os, 1, 'chairA');
+  const b = idleCat(os, 2, 'chairB');
+  assert.ok(os.forceIdleActivity(1, 'coffee', '5,5'));
+  assert.ok(os.forceIdleActivity(2, 'coffee', '7,5'));
+  runFor(os, 6);
+  assert.equal(a.state, CharacterState.ACTIVITY);
+  os.social.rng = () => 0.01; // the roll is a fight, and its standoff ends in one
+  assert.equal(os.life.encounter(1, 2, false), 'fight');
+  os.social.rng = () => 0.99;
+  for (let t = 0; t < 30 && (os.social.isInScene(1) || os.social.isInScene(2)); t += 0.05)
+    os.update(0.05);
+  assert.equal(os.social.isInScene(1) || os.social.isInScene(2), false, 'the scene ended');
+  assert.equal(a.activity, null, 'cat 1 left its coffee activity');
+  assert.equal(b.activity, null, 'cat 2 left its coffee activity');
+  os.update(0.05);
+  assert.equal(spots(os).holderOf('5,5'), undefined, 'spot 5,5 is free');
+  assert.equal(spots(os).holderOf('7,5'), undefined, 'spot 7,5 is free');
+});
