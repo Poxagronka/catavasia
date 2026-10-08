@@ -55,3 +55,21 @@ export const ENGINE_LOGIN_COMMANDS = {
 
 /** WS /api/engines/:engine/login runs the engine's login flow in a PTY (server token). */
 export const ENGINE_API_PREFIX = '/api/engines';
+
+// ── Feedback ─────────────────────────────────────────────────
+
+/** Images one feedback issue may carry (screenshots and the user's own). */
+export const FEEDBACK_MAX_IMAGES = 5;
+/** Largest image after the downscale (a bigger one gets downscaled first). */
+export const FEEDBACK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** All images of one feedback issue together. */
+export const FEEDBACK_MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+export const FEEDBACK_TITLE_MAX_CHARS = 200;
+export const FEEDBACK_DESCRIPTION_MAX_CHARS = 20_000;
+/** Image types the form takes, with the file extension of each. */
+export const FEEDBACK_IMAGE_EXTENSIONS: Readonly<Record<string, string>> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+};

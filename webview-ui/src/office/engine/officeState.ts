@@ -1,3 +1,5 @@
+import { isCatPersonality } from '../../../../core/src/catPersonality.js';
+import type { CatPersonality } from '../../../../core/src/messages.js';
 import { pickDiversePalette } from '../../../../core/src/paletteUtils.js';
 import { BREED_IDS } from '../../cats/catArt.js';
 import { type Appearance, appearanceErrors, nameErrors } from '../../cats/catsApi.js';
@@ -99,6 +101,8 @@ export interface ResidentCat {
   ceo?: boolean;
   /** The team lead (root of the cat tree): it takes the lead chair when the office has one. */
   lead?: boolean;
+  /** Idle behaviour preset (absent: the default behaviour). */
+  personality?: CatPersonality;
 }
 
 export class OfficeState {
@@ -714,6 +718,7 @@ export class OfficeState {
       this.vacateSeat(ch.seatId);
     }
     ch.agentName = r.name;
+    ch.personality = r.personality;
     ch.customSprites = appearanceSprites(r.appearance);
     // A resident cat between turns idles (idle activities); in a turn it works.
     if (ch.isActive !== r.working) this.setAgentActive(id, r.working);
@@ -1361,7 +1366,10 @@ export class OfficeState {
   }
 
   /** Rename / recolour a placed pet (Cats menu). Invalid values are dropped. */
-  updatePetProfile(id: string, profile: { name?: string; appearance?: Appearance }): void {
+  updatePetProfile(
+    id: string,
+    profile: { name?: string; appearance?: Appearance; personality?: CatPersonality },
+  ): void {
     const pet = this.pets.find((p) => p.id === id);
     if (!pet) return;
     applyPetProfile(pet, { ...profile, petType: pet.petType });
@@ -1467,6 +1475,7 @@ export class OfficeState {
       petType: p.petType,
       ...(p.customName ? { name: p.customName } : {}),
       ...(p.appearance ? { appearance: p.appearance } : {}),
+      ...(p.personality ? { personality: p.personality } : {}),
     }));
   }
 
@@ -1803,13 +1812,14 @@ export class OfficeState {
 }
 
 /**
- * Copy a layout entry's name and coat onto the runtime pet. The layout file is
+ * Copy a layout entry's name, coat and personality onto the runtime pet. The layout file is
  * user-editable: a bad name or coat falls back to the manifest name / template.
  */
 function applyPetProfile(
   pet: Pet,
-  placed: { petType: number; name?: unknown; appearance?: unknown },
+  placed: { petType: number; name?: unknown; appearance?: unknown; personality?: unknown },
 ): void {
+  pet.personality = isCatPersonality(placed.personality) ? placed.personality : undefined;
   const name = typeof placed.name === 'string' ? placed.name.trim() : '';
   pet.customName = name && nameErrors(name).length === 0 ? name : undefined;
   pet.name = pet.customName ?? getPetName(placed.petType);

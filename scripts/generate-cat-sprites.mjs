@@ -74,7 +74,7 @@ writePng(path.join(publicDir, 'cats.png'), CELL_W * sheets.length, 36 * SCALE, (
   });
 });
 
-// Social-scene frames (angry, talk) and shared overlays, imported by the webview.
+// Social-scene frames (talk) and shared overlays, imported by the webview.
 fs.writeFileSync(
   path.join(root, 'webview-ui', 'src', 'office', 'sprites', 'cat-social.json'),
   JSON.stringify(buildSocialSheet(BREEDS)) + '\n',

@@ -1,6 +1,7 @@
 /**
  * Cat social layer: idle cats meet, talk in pictogram bubbles, play chase,
- * and, rarely, fight in a dust cloud.
+ * and, rarely, square off side-on: the standoff ends in a dust-cloud fight
+ * or one cat backs down.
  *
  * ── Integration API (for an idle-activity registry) ─────────────────────
  *
@@ -17,13 +18,15 @@
  *     commands, an activity that must start now). The cat leaves its scene
  *     with its new path; the partner resumes idling.
  *
- *   social.trySocialEncounter(a, b, { activity?, location?, kind?, radius? }): SocialKind | null
+ *   social.trySocialEncounter(a, b, { activity?, location?, kind?, radius?, loser? }): SocialKind | null
  *     Call when two cats share an activity spot (both at coffee, both in the
  *     lounge / playroom). With `activity` set the cats keep their spots (no
- *     walking up, no chase) and may be mid-activity (ACTIVITY state).
+ *     walking up, no chase) and may be mid-activity (ACTIVITY state). A
+ *     fight still walks both cats to its head-to-tail standoff spots.
  *     `location` anchors the dust cloud. `kind` forces talk / play / fight;
  *     otherwise fight is ~1/15 and play is SOCIAL_PLAY_CHANCE. `radius`
- *     overrides the distance limit (a spot contest). Returns null when
+ *     overrides the distance limit (a spot contest). `loser`: the cat that
+ *     backs down when a fight's standoff ends without a fight. Returns null when
  *     cooldowns, distance or eligibility say no.
  *
  *   social.startJointPlay(a, b, play, radius?): boolean
@@ -63,6 +66,7 @@ import {
 } from '../../constants.js';
 import type { Character } from '../types.js';
 import { CharacterState } from '../types.js';
+import { pairMul } from './personality.js';
 import type { SocialWorld, Tile } from './socialMoves.js';
 import { stopAfterStep, tileDistance, tileOf } from './socialMoves.js';
 import { type Scene, type SceneCast, type SocialKind, stepScene } from './socialScenes.js';
@@ -78,6 +82,8 @@ export interface SocialContext {
   kind?: SocialKind;
   /** Max distance in tiles, instead of the default for the scene type. */
   radius?: number;
+  /** Fight: the cat that backs down if the standoff ends without a fight (a lost spot contest). */
+  loser?: number;
 }
 
 export type JointPlay =
@@ -120,10 +126,18 @@ export function socialBubbleVisible(ch: { bubbleType: unknown }): boolean {
   return ch.bubbleType === null;
 }
 
-/** Roll the scene kind: fight first (rare), then play (only when free to move). */
-export function rollKind(rng: () => number, stationary: boolean): SocialKind {
-  if (rng() < SOCIAL_FIGHT_CHANCE) return 'fight';
-  if (!stationary && rng() < SOCIAL_PLAY_CHANCE) return 'play';
+/**
+ * Roll the scene kind: fight first (rare), then play (only when free to move).
+ * The multipliers come from the pair's personalities (personality.ts pairMul).
+ */
+export function rollKind(
+  rng: () => number,
+  stationary: boolean,
+  fightMul = 1,
+  playMul = 1,
+): SocialKind {
+  if (rng() < SOCIAL_FIGHT_CHANCE * fightMul) return 'fight';
+  if (!stationary && rng() < SOCIAL_PLAY_CHANCE * playMul) return 'play';
   return 'talk';
 }
 
@@ -197,7 +211,14 @@ export class CatSocial {
     const stationary = ctx.activity !== undefined;
     const radius = ctx.radius ?? (stationary ? SOCIAL_ACTIVITY_RADIUS_TILES : SOCIAL_RADIUS_TILES);
     if (!this.admits(a, b, radius, stationary)) return null;
-    let kind = ctx.kind ?? rollKind(this.rng, stationary);
+    let kind =
+      ctx.kind ??
+      rollKind(
+        this.rng,
+        stationary,
+        pairMul(a.personality, b.personality, 'fight'),
+        pairMul(a.personality, b.personality, 'chasePlay'),
+      );
     if (kind === 'play' && stationary) kind = 'talk';
     this.begin(
       a,
@@ -206,6 +227,7 @@ export class CatSocial {
       stationary,
       ctx.location,
       kind === 'play' ? { kind: 'chase' } : undefined,
+      ctx.loser,
     );
     return kind;
   }
@@ -253,7 +275,10 @@ export class CatSocial {
     this.checkTimer = SOCIAL_CHECK_INTERVAL_SEC;
     this.pruneCooldowns();
     const pair = this.findEncounterPair(characters.values());
-    if (pair && this.rng() < SOCIAL_ENCOUNTER_CHANCE) this.trySocialEncounter(pair[0], pair[1]);
+    const chance = pair
+      ? SOCIAL_ENCOUNTER_CHANCE * pairMul(pair[0].personality, pair[1].personality, 'encounter')
+      : 0;
+    if (pair && this.rng() < chance) this.trySocialEncounter(pair[0], pair[1]);
   }
 
   /**
@@ -288,6 +313,7 @@ export class CatSocial {
     stationary: boolean,
     location: Tile | undefined,
     play: JointPlay | undefined,
+    loserId?: number,
   ): void {
     const span = SOCIAL_TALK_EXCHANGES_MAX - SOCIAL_TALK_EXCHANGES_MIN + 1;
     const scene: Scene = {
@@ -306,6 +332,7 @@ export class CatSocial {
       icon: null,
       lastIcon: null,
       tagT: 0,
+      loserId,
     };
     for (const ch of [a, b]) {
       stopAfterStep(ch);

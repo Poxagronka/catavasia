@@ -164,6 +164,10 @@ The CEO chat is one live Claude Code session per chat (`server/src/orchestrator/
 
 **Tripwire**: `.gitignore` ignores every `tasks/` directory — a folder named `tasks` is silently untracked AND skipped by Tailwind's class scan. That is why the folders are named `taskBoard`.
 
+### Feedback (both hosts)
+
+The toolbar **Feedback** button (`webview-ui/src/feedback/`) sends `submitFeedback`. `server/src/feedback/githubFeedback.ts` creates the issue in `UPDATE_REPO` with the user's local `gh`. The REST issue API takes no files, so each image goes first to the `feedback-assets` branch through the Contents API, and the body links its raw URL. Without `gh`, a `gh` login, or the server token, `feedbackResult` carries a prefilled `issues/new` link (at most `FEEDBACK_URL_MAX_CHARS`). **Tripwire:** `gh` runs with an argument array and no shell, and every user value travels as JSON on stdin (`gh api --input -`), never in argv or an API path. Only a privileged connection runs `gh`.
+
 **Narrator** (`server/src/narrator/`, contract `core/src/narrator.ts`): job store events → English hover lines (templates) + batched one-shot Haiku summaries every 10 s. Tripwire: its WS messages are NOT in `core/asyncapi.yaml` yet; every Haiku sentence must pass the server-side evidence check. Decisions: docs/catavasia/ROADMAP.md, "Narrator decisions".
 
 ## Persistence

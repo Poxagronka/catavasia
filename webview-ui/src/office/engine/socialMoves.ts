@@ -105,6 +105,47 @@ export function meetTile(
 }
 
 /**
+ * Tiles for a head-to-tail standoff: [top, bottom] on adjacent rows, the
+ * same column first (bodies overlap), then a neighbouring one. Searched
+ * within `radius` of the pair's midpoint; the pair is assigned to [a, b] by
+ * the shorter total walk. Null when no free pair of tiles exists.
+ */
+export function standoffTiles(
+  a: Character,
+  b: Character,
+  world: SocialWorld,
+  occupied: Set<string>,
+  radius: number,
+): [Tile, Tile] | null {
+  const ta = tileOf(a);
+  const tb = tileOf(b);
+  const own = new Set([`${ta.col},${ta.row}`, `${tb.col},${tb.row}`]);
+  const isFree = (t: Tile) =>
+    isWalkable(t.col, t.row, world.tileMap, world.blockedTiles) &&
+    (own.has(`${t.col},${t.row}`) || !occupied.has(`${t.col},${t.row}`));
+  const mid = { col: Math.round((ta.col + tb.col) / 2), row: Math.round((ta.row + tb.row) / 2) };
+  let best: [Tile, Tile] | null = null;
+  let bestCost = Infinity;
+  for (let dr = -radius; dr <= radius; dr++)
+    for (let dc = -radius; dc <= radius; dc++) {
+      const top = { col: mid.col + dc, row: mid.row + dr };
+      if (!isFree(top)) continue;
+      for (const shift of [0, -1, 1]) {
+        const bottom = { col: top.col + shift, row: top.row + 1 };
+        if (!isFree(bottom)) continue;
+        const straight = tileDistance(ta, top) + tileDistance(tb, bottom);
+        const swapped = tileDistance(ta, bottom) + tileDistance(tb, top);
+        // A neighbouring column costs one extra step: same column wins a tie.
+        const cost = Math.min(straight, swapped) + Math.abs(shift);
+        if (cost >= bestCost) continue;
+        bestCost = cost;
+        best = straight <= swapped ? [top, bottom] : [bottom, top];
+      }
+    }
+  return best;
+}
+
+/**
  * A walkable tile `minDist..maxDist` tiles from `from`, at most `roam` tiles
  * from `home`, and away from `away` (the other cat). Falls back to any tile
  * in range.

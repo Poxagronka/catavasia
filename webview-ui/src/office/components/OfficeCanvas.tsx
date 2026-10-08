@@ -955,6 +955,7 @@ export function OfficeCanvas({
         onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}
         className="block"
+        data-testid="office-canvas"
       />
     </div>
   );

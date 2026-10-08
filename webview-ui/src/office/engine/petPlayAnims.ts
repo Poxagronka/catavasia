@@ -21,6 +21,7 @@ import type { Pet, PetPlayAnim, SpriteData } from '../types.js';
 import { Direction, TILE_SIZE } from '../types.js';
 import type { FxDrawable, FxKind } from './activityFx.js';
 import { fxDrawables } from './activityFx.js';
+import { NARROW_POSE, PET_DESK_ANIMS } from './petDeskAnims.js';
 
 export interface PetStep {
   /** A derived pose, or 'run': the walk cycle along the tunnel. */
@@ -39,6 +40,11 @@ export interface PetStep {
   fxAt?: readonly [number, number];
   /** 'run' steps: toward the far end, or back to the spot. */
   run?: 'out' | 'back';
+  /**
+   * Fraction of the way from the spot down to the floor line in front of the
+   * item (a hop onto a table top: 1 on the floor, 0 on the top).
+   */
+  drop?: number;
 }
 
 export interface PetAnim {
@@ -52,6 +58,8 @@ export interface PetAnim {
    * 16 px pose standing a little lower), a pet's side pose is wider.
    */
   base?: { dx: number; dy: number };
+  /** A nap: it restores energy, and the Zzz shows only in the loop. */
+  nap?: boolean;
 }
 
 const s = (pose: PetStep['pose'], sec: number, extra: Omit<PetStep, 'pose' | 'sec'> = {}) => ({
@@ -193,7 +201,9 @@ export const PET_PLAY_ANIMS: Readonly<Record<PetPlayAnim, PetAnim>> = {
   curl: {
     base: { dx: 0, dy: 0 },
     loop: [s('curlA', 1.4), s('curlB', 1.4)],
+    nap: true,
   },
+  ...PET_DESK_ANIMS,
 };
 
 const partSec = (steps: readonly PetStep[] = []) => steps.reduce((sum, st) => sum + st.sec, 0);
@@ -231,6 +241,21 @@ export function petPlayStep(
     return stepIn(a.outro, t - (dur - outro));
   const loop = partSec(a.loop);
   return stepIn(a.loop, a.fixed ? t - intro : (t - intro) % loop);
+}
+
+/**
+ * When a nap that wakes early jumps to: the start of its outro (a hop down
+ * plays), or its end when it has none.
+ */
+export function petWakeAt(kind: string, dur: number): number {
+  return isPetPlayAnim(kind) ? dur - partSec(PET_PLAY_ANIMS[kind].outro) : dur;
+}
+
+/** True while a nap's intro or outro plays (a hop up or down): no Zzz then. */
+export function petNapAwake(kind: string, t: number, dur: number): boolean {
+  if (!isPetPlayAnim(kind)) return false;
+  const a = PET_PLAY_ANIMS[kind];
+  return t < partSec(a.intro) || (!!a.outro && t >= dur - partSec(a.outro));
 }
 
 export function isPetPlayAnim(kind: string | undefined): kind is PetPlayAnim {
@@ -299,7 +324,9 @@ export function petPlayView(pet: Pet, sprites: PetSpriteFrames): PetPlayView | n
     const sign = dir === Direction.LEFT ? -1 : 1;
     return { sprite, x, y, hidden: along > lip && along < len - lip, dir, sign, step, stepT };
   }
-  const pose = getPlayPoses(sprites)[step.pose];
+  // A narrow table top: lengthwise walk, front-view poses (petDeskAnims.ts).
+  const narrow = !!rest?.narrow;
+  const pose = getPlayPoses(sprites)[(narrow && NARROW_POSE[step.pose]) || step.pose];
   const side = dir === Direction.LEFT || dir === Direction.RIGHT;
   let sprite = side
     ? pose.side
@@ -310,8 +337,10 @@ export function petPlayView(pet: Pet, sprites: PetSpriteFrames): PetPlayView | n
   const flip = side ? dir === Direction.LEFT : !!rest?.mirrored && sprite === pose.side;
   if (flip) sprite = flipped(sprite);
   const sign = dir === Direction.LEFT || (!side && rest?.mirrored) ? -1 : 1;
-  x += ((step.dx ?? 0) + base.dx) * sign;
-  y += step.dy ?? 0;
+  const along = narrow ? 0 : (step.dx ?? 0);
+  const up = narrow ? Math.abs(step.dx ?? 0) : 0;
+  x += (along + base.dx) * sign;
+  y += (step.dy ?? 0) + up + (step.drop ?? 0) * (TILE_SIZE / 2 - (rest?.offsetY ?? 0));
   return { sprite, x, y, hidden: false, dir, sign, step, stepT };
 }
 

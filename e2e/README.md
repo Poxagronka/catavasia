@@ -266,6 +266,7 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 - `e2e/standalone/decor.spec.ts:79` — the whiteboard is decor; a click on the CEO cat opens the CEO chat (Standalone / board removed › office)
 - `e2e/standalone/decor.spec.ts:120` — seven steps; the engines step hides the banner and says "not logged in" once; the CEO step opens the chat (Standalone / board removed › onboarding)
 - `e2e/standalone/engines.spec.ts:44` — a logged-out Claude Code: notice, blocked Send, and Log in in the terminal (Standalone / engines)
+- `e2e/standalone/feedback.spec.ts:25` — Feedback form: office screenshot, remove, and the browser fallback without a gh login (Standalone / Feedback)
 - `e2e/standalone/hooks.spec.ts:17` — propagates hook-driven lifecycle into the browser UI (Standalone / hooks)
 - `e2e/standalone/hooks.spec.ts:142` — the tokened page shows the Intro and Install writes the hooks (Standalone / hooks consent)
 - `e2e/standalone/hooks.spec.ts:169` — an untokened spectator page never sees the consent dialog (Standalone / hooks consent)
