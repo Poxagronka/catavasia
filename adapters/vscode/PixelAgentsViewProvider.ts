@@ -35,6 +35,7 @@ import {
   setHooksEnabled as persistHooksEnabled,
   writeConfig,
 } from '../../server/src/configPersistence.js';
+import { feedbackEnvironment, submitFeedback } from '../../server/src/feedback/githubFeedback.js';
 import { setFolderNameResolver, setTerminalAdapter } from '../../server/src/fileWatcher.js';
 import type { LayoutWatcher } from '../../server/src/layoutPersistence.js';
 import {
@@ -494,6 +495,13 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           this.webview?.postMessage({ type: 'petCareLoaded', state: null });
         }
         this.webview?.postMessage({ type: 'resetAllResult', ...result });
+      } else if (message.type === 'submitFeedback') {
+        // Our own webview iframe is privileged by construction (see webviewReady).
+        const result = await submitFeedback(message, {
+          privileged: true,
+          env: feedbackEnvironment('VS Code extension', vscode.version),
+        });
+        this.webview?.postMessage(result);
       } else if (message.type === 'savePetCare') {
         writePetCareState(message.state);
       } else if (message.type === 'setSoundEnabled') {

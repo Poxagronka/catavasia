@@ -48,6 +48,7 @@ export type ServerMessage =
   | AgentContextUsage
   | LayoutLoaded
   | ResetAllResult
+  | FeedbackResult
   | PetCareLoaded
   | FurnitureAssetsLoaded
   | CharacterSpritesLoaded
@@ -104,7 +105,8 @@ export type ClientMessage =
   | RemovePromptItem
   | SavePromptItem
   | TidyPrompt
-  | CheckEngines;
+  | CheckEngines
+  | SubmitFeedback;
 
 export interface ProviderCapabilities {
   type: 'providerCapabilities';
@@ -559,6 +561,15 @@ export interface ResetAllResult {
   error?: string;
 }
 
+export interface FeedbackResult {
+  type: 'feedbackResult';
+  status: FeedbackStatus;
+  url?: string;
+  error?: string;
+}
+
+export type FeedbackStatus = 'created' | 'fallback' | 'error';
+
 export interface PetCareLoaded {
   type: 'petCareLoaded';
   state: Record<string, any> | null;
@@ -911,4 +922,17 @@ export interface TidyPrompt {
 
 export interface CheckEngines {
   type: 'checkEngines';
+}
+
+export interface SubmitFeedback {
+  type: 'submitFeedback';
+  title: string;
+  description: string;
+  images: FeedbackImage[];
+}
+
+export interface FeedbackImage {
+  name: string;
+  type: string;
+  data: string;
 }

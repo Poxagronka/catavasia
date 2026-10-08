@@ -737,6 +737,10 @@ export const LITTER_FX_COLORS = {
   speed: '#f4f4f8',
 } as const;
 
+// ── Feedback ─────────────────────────────────────────────────
+/** The form stops waiting for feedbackResult after this (each server gh call has 60 s). */
+export const FEEDBACK_REPLY_TIMEOUT_MS = 10 * 60 * 1000;
+
 // ── Cat personalities (office/engine/personality.ts reads them) ──
 
 /** Knobs a personality preset scales. Every value is a multiplier of the base tuning. */
