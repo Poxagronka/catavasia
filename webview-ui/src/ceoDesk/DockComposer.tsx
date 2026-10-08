@@ -38,6 +38,8 @@ interface DockComposerProps {
   commands?: DeskCommand[];
   /** Claude's guess of the next message: ghost text in the empty box, Tab or a click takes it. */
   suggestion?: string;
+  /** Esc while the CEO works stops the turn, as in the terminal (the draft stays). None: idle. */
+  onStop?(): void;
 }
 
 /** A quiet return arrow (the Claude app send glyph). */
@@ -70,7 +72,8 @@ let nextId = 1;
  * The message box of the CEO dock (the Claude app look): one box with the send
  * arrow inside, and under it "+" (attach) left and the CEO settings right.
  * Enter sends, Shift+Enter is a new line.
- * The input stays usable while the CEO works: a message then waits (queued).
+ * The input stays usable while the CEO works: a message goes into the running
+ * session at once, and Esc stops the turn.
  * Files come from paste, drag and drop, or the paperclip; a big image is
  * downscaled first, and a limit problem shows at once, before Send.
  */
@@ -86,6 +89,7 @@ export function DockComposer({
   settings,
   commands = [],
   suggestion,
+  onStop,
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
@@ -162,6 +166,11 @@ export function DockComposer({
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (slash.onKeyDown(e)) return;
+    if (e.key === 'Escape' && onStop) {
+      e.preventDefault();
+      onStop();
+      return;
+    }
     if (e.key === 'Tab' && !e.shiftKey && ghost) {
       e.preventDefault();
       onDraft(ghost);

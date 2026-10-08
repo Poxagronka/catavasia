@@ -125,7 +125,7 @@ describe('CEO desk approvals', () => {
     expect(users.map((e) => e.kind === 'user' && e.text)).toEqual(['pick a color', 'Blue, small']);
   });
 
-  it('a slash command queues past the open question; a path answers it', async () => {
+  it('a slash command goes past the open question into the session; a path answers it', async () => {
     const answers: PermissionAnswer[] = [];
     const questions = [{ question: 'Which folder?', header: '', options: [], multiSelect: false }];
     env = await startDeskOffice(async ({ req }) => {
@@ -142,12 +142,14 @@ describe('CEO desk approvals', () => {
     });
     env.desk.send('pick a folder');
     await waitFor(() => env!.desk.snapshot().status.approvals?.[0]);
-    expect(env.desk.send('/compact')).toBe(1);
+    expect(env.desk.send('/compact')).toBe(0);
     expect(env.desk.snapshot().status.approvals).toHaveLength(1);
-    expect(env.desk.send('/Users/me/project')).toBe(1);
+    expect(env.desk.send('/Users/me/project')).toBe(0);
     expect(env.desk.snapshot().status.approvals).toEqual([]);
     await deskIdle(env.desk);
     expect(answers).toEqual([{ answers: { 'Which folder?': '/Users/me/project' } }]);
+    // The command went as typed, in a message of its own.
+    expect(env.ceo.turns.map((t) => t.message).at(-1)).toBe('/compact');
   });
 
   it('answers on a card without questions count as a plain Allow', async () => {

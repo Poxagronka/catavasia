@@ -10,6 +10,7 @@
  */
 
 import * as crypto from 'crypto';
+import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -78,6 +79,8 @@ export class CatCeo {
   readonly running = new Set<Promise<void>>();
   /** Prompt hygiene: tidies of the cats' Rules and Lessons (§14). */
   readonly tidy: CatTidy;
+  /** `change`: the settings were saved (the CEO dock applies model and mode to its live session). */
+  readonly events = new EventEmitter<{ change: [] }>();
 
   constructor(private readonly opts: CatCeoOptions) {
     this.store = new ReviewStore(path.join(opts.stateDir, CAT_CEO_DIR, 'reviews.json'));
@@ -155,6 +158,7 @@ export class CatCeo {
       }
     }
     this.opts.cats.setCatCeo(checked.value);
+    this.events.emit('change');
     return undefined;
   }
 

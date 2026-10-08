@@ -1,11 +1,13 @@
 /**
  * The CEO desk (docs/catavasia/ROADMAP.md, "CEO desk replaces the task board"):
- * one live CEO conversation per office. Each user message is one turn of a
- * resumable Claude session, in the project folder (or cat-ceo/chats/<chatId>/
- * without one; a new folder starts a new session). The CEO
+ * one live CEO conversation per office. The chat is one live Claude Code
+ * session (claudeSession.ts), like the terminal: in the project folder (or
+ * cat-ceo/chats/<chatId>/ without one; a new folder starts a new session).
+ * A message goes into the session at once, also while Claude works. The CEO
  * answers itself or starts jobs (team tasks) with its desk tools; when a job
- * ends, a job notice with the full result becomes the CEO's next turn. One
- * turn at a time: messages and notices wait in `pending` (no TurnScheduler).
+ * ends, a job notice with the full result goes into the session too. Parts
+ * wait in `pending` only while no session can take them (no server URL yet,
+ * a process closing, or a stale process still busy).
  */
 
 import { EventEmitter } from 'events';
@@ -18,16 +20,11 @@ import type {
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
 import type { CeoAttachmentUpload, CeoStopResponse } from '../../../core/src/ceoDesk.js';
-import {
-  CAT_CEO_DIR,
-  CAT_CEO_ID,
-  CAT_CEO_TIMEOUT_MS,
-  CEO_SUGGESTION_WAIT_MS,
-} from '../constants.js';
+import { CAT_CEO_DIR, CAT_CEO_ID } from '../constants.js';
 import type {
-  EngineAdapter,
   PermissionAnswer,
-  TurnHandle,
+  SessionEnd,
+  SessionEngine,
   TurnOutcome,
 } from '../orchestrator/engineAdapter.js';
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
@@ -42,10 +39,13 @@ import { type DeskState, DeskStore, freshDesk } from './deskStore.js';
 import { callDeskTool, DESK_MCP_NAME, type DeskToolHost } from './deskTools.js';
 import {
   claudeDown,
+  currentPersona,
+  deskMessage,
   failureRow,
   newDeskStream,
+  openDeskSession,
   queuedDraft,
-  spawnDeskTurn,
+  sessionSettings,
   takeTurnParts,
   type Turn,
 } from './deskTurn.js';
@@ -58,8 +58,8 @@ export interface CeoDeskOptions {
   stateDir: string;
   office: Orchestrator;
   tasks: TaskManager;
-  /** The Claude Code adapter: the CEO always runs on Claude. */
-  adapter: EngineAdapter;
+  /** The Claude Code adapter: the CEO always runs on Claude, in a live session. */
+  adapter: SessionEngine;
 }
 
 export class CeoDesk implements OfficeToolHandler {
@@ -67,9 +67,10 @@ export class CeoDesk implements OfficeToolHandler {
   private readonly store: DeskStore;
   private state: DeskState;
   private log: DeskLog;
+  /** The chat's live session; none until the first message (and after a teardown). */
   private turn: Turn | undefined;
-  /** The ended turn whose stream still waits for Claude's suggestion. */
-  private lingering: TurnHandle | undefined;
+  /** A session that is closing: the next one opens only after it is gone. */
+  private closing: Promise<void> | undefined;
   /** Claude's guess of the user's next message; a new message or turn drops it. */
   private suggestion: string | undefined;
   private reworkCount = 0;
@@ -81,6 +82,12 @@ export class CeoDesk implements OfficeToolHandler {
   private readonly onTaskStatus = (id: string) => this.jobs.taskChanged(id);
   private readonly onApprovals = () => this.statusChanged();
   private readonly onLimits = () => this.statusChanged();
+  /** The dock's model or mode changed: the live session takes it, or opens anew. */
+  private readonly onSettings = () => {
+    const turn = this.turn;
+    if (turn && !turn.session.update(sessionSettings(this.opts.office))) turn.stale = true;
+    this.pump();
+  };
 
   constructor(private readonly opts: CeoDeskOptions) {
     this.events.setMaxListeners(0);
@@ -118,6 +125,7 @@ export class CeoDesk implements OfficeToolHandler {
     opts.tasks.events.on('status', this.onTaskStatus);
     opts.office.approvals.events.on('change', this.onApprovals);
     officeLimits.events.on('change', this.onLimits);
+    opts.office.ceo.events.on('change', this.onSettings);
   }
 
   /** The server listens: the CEO reaches its desk tools here, and queued notices can run. */
@@ -131,11 +139,10 @@ export class CeoDesk implements OfficeToolHandler {
     this.opts.tasks.events.off('status', this.onTaskStatus);
     this.opts.office.approvals.events.off('change', this.onApprovals);
     officeLimits.events.off('change', this.onLimits);
+    this.opts.office.ceo.events.off('change', this.onSettings);
     this.jobs.clear();
     // turnRunning stays true on disk: the next start tells the user.
-    if (this.turn) clearTimeout(this.turn.timer);
-    this.killTurn();
-    this.lingering?.kill();
+    this.teardown();
   }
 
   // ── Chat (officeCatSource.ts and ceoRoutes.ts) ──
@@ -194,20 +201,46 @@ export class CeoDesk implements OfficeToolHandler {
   }
 
   /**
-   * Kill the turn, drop queued notices; queued user messages go back to the
-   * draft, their files too (the stored files stay where they are).
+   * Interrupt the running turn (Esc in the terminal: the session stays), drop
+   * queued notices; user messages that did not start go back to the draft,
+   * their files too (the stored files stay where they are).
    */
-  stop(): CeoStopResponse {
-    const queued = queuedDraft(this.state.pending);
-    const had = !!this.turn || this.state.pending.length > 0;
+  async stop(): Promise<CeoStopResponse> {
+    const held = this.state.pending;
+    const turn = this.turn?.busy ? this.turn : undefined;
+    this.halt();
+    if (!turn) return queuedDraft(held);
+    turn.stopped = true;
+    // New messages wait in `pending` until the interrupt settles: a teardown
+    // below must not take them with it.
+    turn.stopping = true;
+    let waiting: DeskState['pending'] = [];
+    try {
+      const ids = await turn.session.interrupt();
+      waiting = ids.flatMap((id) => turn.sent.get(id) ?? []);
+      // The CLI would still run them after the interrupt: a new process
+      // (resumed) drops them, and they go back to the draft.
+      if (waiting.length && this.turn === turn) this.teardown();
+    } catch (err) {
+      console.error(`[catavasia] CEO desk: interrupt failed: ${String(err)}`);
+      if (this.turn === turn) this.teardown();
+    } finally {
+      turn.stopping = false;
+      this.pump();
+    }
+    // A chat switch during the wait: these parts belong to the old chat.
+    if (turn.chatId !== this.state.chatId) return { draft: '' };
+    return queuedDraft([...waiting, ...held]);
+  }
+
+  /** Drop what waits and the suggestion; say "Stopped." when a turn ran or parts waited. */
+  private halt(): void {
+    const had = !!this.turn?.busy || this.state.pending.length > 0;
     this.state.pending = [];
     this.suggestion = undefined;
-    this.lingering?.kill();
     this.store.save(this.state);
-    this.killTurn();
     if (had) this.log.add({ kind: 'text', text: 'Stopped.' });
     this.statusChanged();
-    return queued;
   }
 
   /** The user's answer to an approval card. False: the card is gone (answered or timed out). */
@@ -229,9 +262,9 @@ export class CeoDesk implements OfficeToolHandler {
    * Live jobs go on; their notices are dropped, their cards show the newest state.
    */
   private switchTo(next: DeskState, note?: string): void {
-    this.stop();
-    // The killed turn ends later: it must not touch `next`, even when `next` is its chat.
-    if (this.turn) this.turn.chatId = '';
+    this.halt();
+    // The session belongs to this chat: `next` opens its own (resumed) one.
+    this.teardown();
     this.jobs.clear();
     this.chats.archive(this.state, this.log.rows);
     this.state = next;
@@ -245,6 +278,8 @@ export class CeoDesk implements OfficeToolHandler {
 
   /** The office's project folder (already checked), or null for the sandbox. */
   setFolder(folder: string | null): void {
+    // Claude keys sessions by folder: the next message opens a session there.
+    if (this.turn && folder !== this.state.folder) this.turn.stale = true;
     this.state.folder = folder;
     if (folder) {
       const rest = (this.state.recent ?? []).filter((f) => f !== folder);
@@ -306,97 +341,181 @@ export class CeoDesk implements OfficeToolHandler {
     };
   }
 
-  // ── Turns ──
+  // ── The live session ──
 
+  /** Send what waits into the live session; open one first when there is none. */
   private pump(): void {
-    if (this.turn || !this.state.pending.length || !this.mcpUrl) return;
+    if (!this.state.pending.length || !this.mcpUrl || this.disposed || this.closing) return;
+    if (this.turn?.stopping) return;
     const { adapter, office } = this.opts;
-    const down = claudeDown(adapter, office);
-    if (down) {
-      this.state.pending = [];
-      this.store.save(this.state);
-      this.log.add({ kind: 'error', text: `The CEO cannot answer: ${down}` });
-      this.statusChanged();
+    let turn = this.turn;
+    // A changed persona (name, Role & conduct) also needs a new process.
+    if (turn && !turn.busy && turn.persona !== currentPersona(office)) turn.stale = true;
+    if (turn?.stale) {
+      // A busy session ends its turn first: its idle pumps again.
+      if (!turn.busy) this.teardown();
       return;
     }
-    this.lingering?.kill();
+    if (!turn) {
+      const down = claudeDown(adapter, office);
+      if (down) {
+        this.state.pending = [];
+        this.store.save(this.state);
+        this.log.add({ kind: 'error', text: `The CEO cannot answer: ${down}` });
+        this.statusChanged();
+        return;
+      }
+      turn = this.openTurn();
+    }
     this.suggestion = undefined;
-    const parts = takeTurnParts(this.state.pending);
-    if (parts.some((p) => p.kind === 'user')) this.reworkCount = 0;
-    const request = parts
-      .filter((p) => p.kind === 'user')
-      .map((p) => p.text)
-      .join('\n\n');
+    while (this.state.pending.length) {
+      const parts = takeTurnParts(this.state.pending);
+      const users = parts.filter((p) => p.kind === 'user').map((p) => p.text);
+      if (users.length) this.reworkCount = 0;
+      turn.request = [turn.request, ...users].filter(Boolean).join('\n\n');
+      const id = turn.session.send(
+        deskMessage(this.state.folder, parts),
+        parts.flatMap((p) => p.images ?? []),
+      );
+      turn.sent.set(id, parts);
+    }
+    this.store.save(this.state);
+    this.statusChanged();
+  }
+
+  private openTurn(): Turn {
+    const { adapter, office } = this.opts;
     const stream = newDeskStream(this.store, this.state, {
       add: (entry) => this.log.add(entry),
       update: (row) => this.log.update(row),
       statusChanged: () => this.statusChanged(),
       emit: (frame) => this.emit(frame),
     });
-    const handle = spawnDeskTurn({
+    const persona = currentPersona(office);
+    const live = () => this.turn === turn && !this.disposed;
+    const session = openDeskSession({
       adapter,
       office,
       store: this.store,
       state: this.state,
       mcpUrl: this.mcpUrl,
-      parts,
+      persona,
       onLine: (line) => {
-        if (!turn.stopped && turn.chatId === this.state.chatId) stream.line(line);
+        if (live() && !turn.stopped) stream.line(line);
+      },
+      onResult: (outcome) => {
+        if (live()) this.turnResult(turn, outcome);
+      },
+      onBusy: (busy) => {
+        if (live()) this.turnBusy(turn, busy);
       },
       onSuggestion: (text) => {
-        if (turn.stopped || turn.chatId !== this.state.chatId || this.turn) return;
-        if (this.state.pending.length) return;
+        if (!live() || turn.busy || this.state.pending.length) return;
         this.suggestion = text;
         this.statusChanged();
       },
     });
     const turn: Turn = {
+      session,
       chatId: this.state.chatId,
-      handle,
-      request,
+      stopping: false,
+      request: '',
       stream,
+      busy: false,
       stopped: false,
-      timer: setTimeout(() => handle.kill(), CAT_CEO_TIMEOUT_MS),
+      stale: false,
+      persona,
+      sent: new Map(),
     };
     this.turn = turn;
-    this.state.turnRunning = true;
-    this.store.save(this.state);
-    office.residents.setWorking(CAT_CEO_ID, true);
-    this.statusChanged();
-    void handle.done.then((outcome) => this.finishTurn(turn, outcome));
+    void session.ended.then((end) => {
+      if (live()) this.sessionEnded(turn, end);
+    });
+    return turn;
   }
 
-  private finishTurn(turn: Turn, outcome: TurnOutcome): void {
-    clearTimeout(turn.timer);
-    if (this.disposed) return;
-    if (this.turn === turn) this.turn = undefined;
-    this.lingering = turn.handle;
-    setTimeout(() => turn.handle.kill(), CEO_SUGGESTION_WAIT_MS).unref();
-    this.opts.office.residents.setWorking(CAT_CEO_ID, false);
-    // A New chat during the turn: the old chat's state is archived as it was.
-    if (turn.chatId === this.state.chatId) {
-      this.state.turnRunning = false;
-      if (outcome.sessionStarted) this.state.started = true;
-      if (outcome.sessionCostUsd !== undefined) this.state.costUsd = outcome.sessionCostUsd;
-      if (outcome.ok) this.chats.nameFromClaude();
-      if (!turn.stopped) {
-        const text = outcome.ok ? (outcome.text ?? turn.stream.held) : turn.stream.held;
-        if (text) this.log.add({ kind: 'text', text });
-        if (!outcome.ok) this.log.add(failureRow(outcome.error, this.opts.office));
-      }
-      this.store.save(this.state);
+  /** One turn ended (its result): the final text, or why it failed. */
+  private turnResult(turn: Turn, outcome: TurnOutcome): void {
+    if (outcome.sessionStarted) this.state.started = true;
+    if (outcome.sessionCostUsd !== undefined) this.state.costUsd = outcome.sessionCostUsd;
+    if (outcome.ok) this.chats.nameFromClaude();
+    // An interrupted turn ends with an error result: Stop already said so.
+    if (!turn.stopped) {
+      const text = outcome.ok ? (outcome.text ?? turn.stream.held) : turn.stream.held;
+      if (text) this.log.add({ kind: 'text', text });
+      if (!outcome.ok) this.log.add(failureRow(outcome.error, this.opts.office));
     }
+    turn.stream.held = undefined;
+    turn.stopped = false;
+    turn.request = '';
+    this.store.save(this.state);
+    this.statusChanged();
+  }
+
+  private turnBusy(turn: Turn, busy: boolean): void {
+    turn.busy = busy;
+    if (!busy) {
+      // Idle: every sent message was answered.
+      turn.stopped = false;
+      turn.sent.clear();
+    }
+    this.state.turnRunning = busy;
+    this.store.save(this.state);
+    this.opts.office.residents.setWorking(CAT_CEO_ID, busy);
+    this.statusChanged();
+    if (!busy) this.pump();
+  }
+
+  /** The process ended on its own (crash, CLI gone): the next message resumes in a new one. */
+  private sessionEnded(turn: Turn, { error, sessionStarted }: SessionEnd): void {
+    this.turn = undefined;
+    // The next process resumes the session; one that never started gets a new id.
+    if (sessionStarted) this.state.started = true;
+    else if (!this.state.started) this.state.sessionId = freshDesk().sessionId;
+    if (turn.busy) {
+      this.state.turnRunning = false;
+      this.opts.office.residents.setWorking(CAT_CEO_ID, false);
+      if (!turn.stopped) {
+        if (turn.stream.held) this.log.add({ kind: 'text', text: turn.stream.held });
+        this.log.add(failureRow(error ?? 'Claude Code ended the session', this.opts.office));
+      }
+    }
+    this.store.save(this.state);
     this.statusChanged();
     this.pump();
   }
 
-  // ── Helpers ──
-
-  private killTurn(): void {
-    if (!this.turn) return;
-    this.turn.stopped = true;
-    this.turn.handle.kill();
+  /**
+   * End the live session: close its input and its process. The next message
+   * opens a new one (resumed), only after this one is gone.
+   */
+  private teardown(): void {
+    const turn = this.turn;
+    if (!turn) return;
+    this.turn = undefined;
+    if (turn.busy) {
+      this.opts.office.residents.setWorking(CAT_CEO_ID, false);
+      // On dispose turnRunning stays true on disk: the next start tells the user.
+      if (!this.disposed) this.state.turnRunning = false;
+    }
+    const state = this.state;
+    void turn.session.close();
+    const closing = turn.session.ended
+      .then(({ sessionStarted }) => {
+        // A message of this chat made the session: the next process resumes it.
+        if (!sessionStarted || state !== this.state || state.started || this.disposed) return;
+        state.started = true;
+        this.store.save(state);
+      })
+      .finally(() => {
+        if (this.closing === closing) this.closing = undefined;
+        this.pump();
+      });
+    this.closing = closing;
+    this.statusChanged();
   }
+
+  // ── Helpers ──
 
   private sandbox(): string {
     const dir = path.join(this.store.chatDir(this.state.chatId), 'work');
@@ -410,7 +529,7 @@ export class CeoDesk implements OfficeToolHandler {
 
   private status(): CatSessionStatus {
     return {
-      busy: !!this.turn,
+      busy: !!this.turn?.busy,
       wheelHeld: false,
       wheelUnavailable: CEO_NO_WHEEL,
       busyText: `${this.opts.office.ceo.settings.name} is thinking…`,

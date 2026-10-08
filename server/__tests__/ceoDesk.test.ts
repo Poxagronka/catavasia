@@ -57,8 +57,9 @@ describe('CEO desk turns', () => {
     await deskIdle(desk);
 
     const [first, second] = ceo.turns;
+    // One live process served both messages, like the terminal.
+    expect(ceo.sessions).toHaveLength(1);
     expect(first.resume).toBe(false);
-    expect(second.resume).toBe(true);
     expect(second.sessionId).toBe(first.sessionId);
     const chatId = path.basename(first.cwd);
     expect(first.cwd).toBe(path.join(stateDir, 'cat-ceo', 'chats', chatId));
@@ -136,20 +137,48 @@ describe('CEO desk turns', () => {
     ]);
   });
 
-  it('queues messages while busy; Stop kills the turn and returns queued messages', async () => {
-    env = await startDeskOffice(() => HANG);
-    const { desk } = env;
+  it('Stop interrupts the turn and keeps the live session for the next message', async () => {
+    env = await startDeskOffice(({ req }) =>
+      req.message.includes('first') ? HANG : { text: `ok ${req.message.slice(-5)}` },
+    );
+    const { desk, ceo } = env;
     desk.send('first');
     await waitFor(() => (desk.snapshot().status.busy ? true : undefined));
-    expect(desk.send('second')).toBe(1);
-    expect(desk.send('third')).toBe(2);
-    expect(desk.snapshot().status.queued).toBe(2);
-    expect(desk.stop()).toEqual({ draft: 'second\n\nthird' });
+    expect(await desk.stop()).toEqual({ draft: '' });
+    expect(ceo.interrupts).toBe(1);
+    await deskIdle(desk);
+    desk.send('third');
     await deskIdle(desk);
     const rows = desk.snapshot().entries;
-    expect(rows.at(-1)).toMatchObject({ kind: 'text', text: 'Stopped.' });
+    expect(rows).toContainEqual(expect.objectContaining({ kind: 'text', text: 'Stopped.' }));
+    expect(texts(rows).at(-1)).toBe('ok third');
     expect(rows.some((e) => e.kind === 'error')).toBe(false);
-    expect(env.ceo.turns).toHaveLength(1);
+    expect(ceo.sessions).toHaveLength(1);
+    expect(ceo.closes).toBe(0);
+  });
+
+  it('a message during a turn goes in at once; Stop gives back one that did not start', async () => {
+    env = await startDeskOffice(({ req }) =>
+      req.message.includes('first') ? HANG : { text: `ok ${req.message.slice(-5)}` },
+    );
+    const { desk, ceo } = env;
+    desk.send('first');
+    await waitFor(() => (desk.snapshot().status.busy ? true : undefined));
+    expect(desk.send('second')).toBe(0);
+    expect(desk.snapshot().status.queued).toBe(0);
+    expect(ceo.turns.map((t) => t.message.slice(-6))).toEqual(['\nfirst', 'second']);
+    // The CLI still holds "second": it would run after the interrupt, so the
+    // desk closes the process and gives the text back.
+    const stopped = desk.stop();
+    // Sent while Stop waits for the interrupt: it waits, then goes to the new process.
+    desk.send('third');
+    expect(await stopped).toEqual({ draft: 'second' });
+    expect(ceo.closes).toBe(1);
+    await deskIdle(desk);
+    expect(texts(desk.snapshot().entries).at(-1)).toBe('ok third');
+    expect(ceo.turns.map((t) => t.message.slice(-5))).toEqual(['first', 'econd', 'third']);
+    expect(ceo.sessions).toHaveLength(2);
+    expect(ceo.sessions[1]).toMatchObject({ resume: true, sessionId: ceo.sessions[0].sessionId });
   });
 
   it("shows Claude's suggested next message after the turn; a new message drops it", async () => {
@@ -325,7 +354,7 @@ describe('CEO desk jobs', () => {
 });
 
 describe('CEO desk jobs across a restart', () => {
-  it('keeps a queued notice across a restart', async () => {
+  it('keeps a held notice across a restart', async () => {
     let jobId = '';
     env = await startDeskOffice(async ({ req, call }) => {
       if (!req.message.includes('[Message from the user]')) return HANG;
@@ -337,7 +366,10 @@ describe('CEO desk jobs across a restart', () => {
     const { tmp } = env;
     env.desk.setFolder(makeRepo(path.join(tmp, 'repo')));
     env.desk.send('go');
-    // The job ends while the CEO turn still runs: its notice waits in the queue.
+    await waitFor(() => (jobId ? true : undefined), 30_000);
+    // A new project while the turn runs: the busy session cannot take the
+    // notice (a new folder needs a new process), so it waits in the queue.
+    env.desk.setFolder(makeRepo(path.join(tmp, 'repo2')));
     await waitFor(() => (env!.desk.snapshot().status.queued === 1 ? true : undefined), 30_000);
     await env.close();
     env = await startDeskOffice(() => ({ text: 'ok' }), { tmp });

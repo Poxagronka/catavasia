@@ -297,6 +297,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           onSend={send}
           commands={slash.commands}
           suggestion={chat.status.suggestion}
+          onStop={chat.status.busy ? stop : undefined}
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}

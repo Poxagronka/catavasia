@@ -7,11 +7,10 @@ import type { PermissionMode } from '../../core/src/messages.js';
 import {
   ClaudeAdapter,
   claudeTurnOptions,
-  claudeUserMessage,
   resolveExecutable,
 } from '../src/orchestrator/claudeAdapter.js';
+import { claudeUserMessage } from '../src/orchestrator/claudeSession.js';
 import type { PermissionAsk, TurnRequest } from '../src/orchestrator/engineAdapter.js';
-import { waitFor } from './catOfficeHarness.js';
 
 const PNG = Buffer.from('89504e470d0a1a0a0000', 'hex');
 
@@ -244,10 +243,6 @@ async function turn(m) {
     text = JSON.stringify(await reply);
   }
   out({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: 's' });
-  if (process.env.FAKE_SUGGEST) {
-    await new Promise((r) => setTimeout(r, 300));
-    out({ type: 'prompt_suggestion', suggestion: 'Now blue?', uuid: 'u1', session_id: 's' });
-  }
 }
 `;
   const fakeCli = (dir: string) => {
@@ -264,7 +259,6 @@ async function turn(m) {
   });
   afterEach(() => {
     delete process.env.FAKE_ASK;
-    delete process.env.FAKE_SUGGEST;
   });
 
   it('drives the installed CLI through the SDK and sends the image blocks', async () => {
@@ -308,19 +302,6 @@ async function turn(m) {
       behavior: 'allow',
       updatedPermissions: [{ type: 'addRules', destination: 'localSettings' }],
     });
-  });
-
-  it('ends the turn at its result and passes the later prompt suggestion on', async () => {
-    const dir = makeTmp();
-    process.env.FAKE_SUGGEST = '1';
-    const got: string[] = [];
-    const outcome = await new ClaudeAdapter(fakeCli(dir)).spawnTurn(
-      req({ ...files(dir), onSuggestion: (s) => got.push(s) }),
-    ).done;
-    expect(outcome).toMatchObject({ ok: true, text: 'Red.' });
-    expect(got).toEqual([]);
-    await waitFor(() => got[0]);
-    expect(got).toEqual(['Now blue?']);
   });
 
   it('says so when the CLI is not installed', async () => {

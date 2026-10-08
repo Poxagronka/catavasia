@@ -255,10 +255,12 @@ async function main(): Promise<void> {
 
     // Cat office: cat profiles, team tasks, and the office MCP tools.
     const stateDir = path.join(os.homedir(), LAYOUT_FILE_DIR);
+    // One Claude adapter: the cats' turns and the CEO desk's live session.
+    const claude = new ClaudeAdapter();
     const orchestrator = new Orchestrator({
       host: runtime,
       stateDir,
-      adapters: [new ClaudeAdapter(), new CodexAdapter()],
+      adapters: [claude, new CodexAdapter()],
       emit: (message) => store.broadcast({ ...message }),
       turnConcurrency:
         parseTurnConcurrency(adapter.getSetting('pixel-agents.turnConcurrency', undefined)) ??
@@ -283,7 +285,7 @@ async function main(): Promise<void> {
       stateDir,
       office: orchestrator,
       tasks,
-      adapter: orchestrator.opts.adapters.find((a) => a.engine === 'claude')!,
+      adapter: claude,
     });
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents

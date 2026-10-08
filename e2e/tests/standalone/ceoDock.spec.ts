@@ -83,6 +83,30 @@ test.describe('Standalone / CEO dock', () => {
     await expect(log.locator('pre code.language-ts .hljs-keyword')).toHaveText('const');
   });
 
+  test('Esc while the CEO works stops the turn; the next message still gets an answer @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    await input.fill('stream: stop me');
+    await input.press('Enter');
+
+    const log = page.getByTestId('dock-log');
+    await expect(log.getByTestId('dock-draft')).toContainText('Mock CEO: stream: stop me', {
+      timeout: TURN_TIMEOUT_MS,
+    });
+    // Esc in the box stops the turn, as in the terminal; the rest never comes.
+    await input.press('Escape');
+    await expect(log.getByText('Stopped.')).toBeVisible();
+    await expect(page.getByTestId('dock-status')).toHaveText('idle');
+    await expect(log.locator('li', { hasText: 'second point' })).toHaveCount(0);
+
+    await input.fill('hello again');
+    await input.press('Enter');
+    await expect(log.getByText('Mock CEO: hello again')).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+  });
+
   test('a pasted image and a picked file reach the CEO and show in the sent row @area:standalone', async ({
     page,
     standalone,

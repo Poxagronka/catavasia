@@ -138,12 +138,14 @@ describe('desk messages with attachments', () => {
     expect(sneaky.statusCode).toBe(404);
   });
 
-  it('Stop gives queued messages back with their files, which stay stored', async () => {
+  it('Stop gives held messages back with their files, which stay stored', async () => {
     env = await startDeskOffice(() => HANG);
     const { app } = env.server;
     const auth = { authorization: 'Bearer tok' };
     env.desk.send('first');
     await waitFor(() => (env!.desk.snapshot().status.busy ? true : undefined));
+    // A new project: the busy session cannot take the next message, so it waits.
+    env.desk.setFolder(env.tmp);
     const queued = await app.inject({
       method: 'POST',
       url: '/api/ceo/messages',
@@ -206,10 +208,12 @@ describe('desk messages with attachments', () => {
     // the chat folder stays readable for attachments.
     expect(second.cwd).toBe(env.tmp);
     expect(second.addDirs).toEqual([first.cwd]);
-    // Sessions are keyed by cwd: a new folder starts a new session, the same one resumes it.
+    // Sessions are keyed by cwd: a new folder starts a new session (a new
+    // process); the same folder keeps the live one.
+    expect(env.ceo.sessions).toHaveLength(3);
     expect(second).toMatchObject({ resume: false });
     expect(second.sessionId).not.toBe(first.sessionId);
-    expect(third).toMatchObject({ resume: true, sessionId: second.sessionId, cwd: env.tmp });
+    expect(third).toMatchObject({ sessionId: second.sessionId, cwd: env.tmp });
     expect(fourth).toMatchObject({ resume: false, cwd: first.cwd });
     expect(fourth.sessionId).not.toBe(third.sessionId);
   });
