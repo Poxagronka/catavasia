@@ -205,6 +205,7 @@ export function newDeskStream(store: DeskStore, state: DeskState, desk: DeskRows
       desk.statusChanged();
     },
     draft: (text) => desk.emit({ type: 'draft', text }),
+    status: desk.statusChanged,
     saveImages,
     folders,
   };

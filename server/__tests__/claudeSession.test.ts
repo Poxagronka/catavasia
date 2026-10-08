@@ -38,7 +38,7 @@ process.stdin.on('data', (d) => {
   for (const line of lines.filter(Boolean)) {
     const m = JSON.parse(line);
     if (m.type === 'control_request') {
-      log({ control: m.request.subtype, mode: m.request.mode, model: m.request.model });
+      log({ control: m.request.subtype, mode: m.request.mode, model: m.request.model, task: m.request.task_id, perTask: m.request.perTaskStopAffordance, todo: m.request.perTaskStopAffordance && process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS });
       if (m.request.subtype === 'interrupt') interrupted();
       out({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {} } });
     }
@@ -181,6 +181,19 @@ describe('ClaudeAdapter.openSession', () => {
     expect(o.results[1]).toMatchObject({ ok: true, text: 'echo again' });
     expect(o.events().filter((e) => e.control === 'interrupt')).toHaveLength(1);
     expect(o.spawns()).toHaveLength(1);
+  });
+
+  it('declares the per-task stop and the to-do tools; a task stops by its id', async () => {
+    const o = open();
+    session!.send('hi');
+    await idle(o, 1);
+    await session!.stopTask('b3a1k73m9');
+    const events = o.events();
+    expect(events.find((e) => e.control === 'initialize')).toMatchObject({
+      perTask: true,
+      todo: '1',
+    });
+    expect(events.find((e) => e.control === 'stop_task')).toMatchObject({ task: 'b3a1k73m9' });
   });
 
   it('applies a mode or model change live; a move into Bypass needs a new process', async () => {

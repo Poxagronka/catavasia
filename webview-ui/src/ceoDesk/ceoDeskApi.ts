@@ -52,6 +52,8 @@ export const ceoDeskApi = {
     }),
   /** Stop the turn; the queued user messages come back for the draft. */
   stop: () => call<CeoStopResponse>('POST', 'stop'),
+  /** Stop one background task of the CEO session (a command or a helper); the turn goes on. */
+  stopTask: (id: string) => call<{ ok: boolean }>('POST', `tasks/${encodeURIComponent(id)}/stop`),
   newChat: () => call<{ chatId: string }>('POST', 'new'),
   /** Every chat with a message, newest first (the chat title menu). */
   chats: () => call<CeoChatsResponse>('GET', 'chats'),

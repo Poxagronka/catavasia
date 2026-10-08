@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { waitFor } from './catOfficeHarness.js';
 import { deskIdle, type DeskOffice, HANG, startDeskOffice } from './ceoDeskHarness.js';
+import { backgroundTasks } from './fixtures/sdkLines.js';
 
 let env: DeskOffice | undefined;
 
@@ -82,6 +83,32 @@ describe('CEO desk live session', () => {
     await deskIdle(desk);
     expect(ceo.interrupts).toBe(1);
     expect(ceo.closes).toBe(0);
+  });
+
+  it('background tasks show in the status; their own Stop reaches stopTask with the id', async () => {
+    const sleep = { task_id: 'b3a1k73m9', task_type: 'local_bash', description: 'Sleep 60' };
+    env = await startDeskOffice(() => ({ text: 'ok', lines: [backgroundTasks([sleep])] }));
+    const { desk, ceo, server } = env;
+    const stop = (id: string, auth = true) =>
+      server.app.inject({
+        method: 'POST',
+        url: `/api/ceo/tasks/${id}/stop`,
+        ...(auth ? { headers: { authorization: 'Bearer tok' } } : {}),
+      });
+    expect((await stop('b3a1k73m9')).statusCode).toBe(409);
+    desk.send('run it in the background');
+    await deskIdle(desk);
+    expect(desk.snapshot().status.tasks).toEqual([
+      { id: 'b3a1k73m9', type: 'local_bash', description: 'Sleep 60' },
+    ]);
+    expect((await stop('b3a1k73m9', false)).statusCode).toBe(401);
+    expect((await stop('a.b')).statusCode).toBe(400);
+    const ok = await stop('b3a1k73m9');
+    expect(ok.json()).toEqual({ ok: true });
+    expect(ceo.stoppedTasks).toEqual(['b3a1k73m9']);
+    // The process ends: its task list goes with it.
+    desk.newChat();
+    expect(desk.snapshot().status.tasks).toBeUndefined();
   });
 
   it('New chat closes the live process; the new chat opens its own', async () => {

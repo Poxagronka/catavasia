@@ -66,6 +66,8 @@ export class FakeCeoAdapter implements SessionEngine {
   readonly updates: Array<Parameters<LiveSession['update']>[0]> = [];
   interrupts = 0;
   closes = 0;
+  /** Background tasks the desk stopped (`stopTask`), by task id. */
+  readonly stoppedTasks: string[] = [];
   /** What `update` answers: false means the change needs a new process. */
   liveUpdates = true;
   unavailable: string | undefined;
@@ -180,6 +182,9 @@ export class FakeCeoAdapter implements SessionEngine {
         const queued = [...waitingIds];
         interrupt();
         return queued;
+      },
+      stopTask: async (taskId) => {
+        this.stoppedTasks.push(taskId);
       },
       update: (change) => {
         this.updates.push(change);

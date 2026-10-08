@@ -27,6 +27,7 @@ import {
   type DockState,
   initialDock,
   parseSavedDock,
+  pinnedTodos,
   queuedRows,
   setCollapsed,
   statusPill,
@@ -35,6 +36,7 @@ import {
 import { HelpCard } from './HelpCard.js';
 import type { JobCardActions } from './JobCard.js';
 import { QuestionCard } from './QuestionCard.js';
+import { BackgroundTasks, TodoChecklist } from './SessionTray.js';
 import { UsageRing } from './UsageRing.js';
 import { useDockCommands } from './useDockCommands.js';
 
@@ -168,6 +170,8 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
 
   const problem = engineProblem('claude', catsApi.engineOptions('claude'));
   const queued = queuedRows(chat);
+  const todos = pinnedTodos(chat.entries);
+  const tasks = chat.status.tasks ?? [];
   const send = async (text: string, attachments: CeoAttachmentUpload[] = []) => {
     if (!attachments.length && slash.run(text)) return;
     await ceoDeskApi.send(text, attachments);
@@ -255,10 +259,14 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           <div className="contents" data-testid="dock-draft">
             <MessageRow entry={{ kind: 'text', text: chat.draft }} />
           </div>
+        ) : chat.status.busy ? (
+          <span className="self-start text-status-active text-sm pixel-pulse">
+            {chat.status.notice ?? chat.status.busyText ?? `${name} is thinking...`}
+          </span>
         ) : (
-          chat.status.busy && (
-            <span className="self-start text-status-active text-sm pixel-pulse">
-              {chat.status.busyText ?? `${name} is thinking...`}
+          chat.status.notice && (
+            <span className="self-start text-text-muted text-sm" data-testid="dock-notice">
+              {chat.status.notice}
             </span>
           )
         )}
@@ -290,6 +298,17 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           />
         )}
       </div>
+      {privileged && !gone && (todos || tasks.length > 0) && (
+        <div className="border-t-2 border-border px-16 py-8 flex flex-col gap-6">
+          {todos && <TodoChecklist todos={todos} />}
+          {tasks.length > 0 && (
+            <BackgroundTasks
+              tasks={tasks}
+              onStop={(id) => void ceoDeskApi.stopTask(id).catch(() => {})}
+            />
+          )}
+        </div>
+      )}
       {privileged && !gone && (
         <DockComposer
           draft={draft}

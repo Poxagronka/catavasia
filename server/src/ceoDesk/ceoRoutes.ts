@@ -99,6 +99,25 @@ export function registerCeoRoutes(
     desk.stop(),
   );
 
+  // One background task of the CEO session (the dock's task list): the turn goes on.
+  app.post<{ Params: { id: string } }>(
+    `${CEO_API_PREFIX}/tasks/:id/stop`,
+    {
+      onRequest,
+      schema: {
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' } },
+          required: ['id'],
+        },
+      },
+    },
+    async (request, reply) =>
+      (await desk.stopTask(request.params.id))
+        ? { ok: true }
+        : reply.code(409).send({ error: 'The CEO session is not running' }),
+  );
+
   app.post(`${CEO_API_PREFIX}/new`, { onRequest }, async () => ({ chatId: desk.newChat() }));
 
   // ── Chat history (the chat title menu of the dock) ──

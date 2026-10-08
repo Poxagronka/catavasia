@@ -529,6 +529,10 @@ async function headlessTurn(argv) {
       const m = JSON.parse(line);
       if (m.type === 'control_request') {
         if (m.request && m.request.subtype === 'interrupt') io.interrupt();
+        // A stopped background task leaves the live list (CLI 2.1.293).
+        if (m.request && m.request.subtype === 'stop_task') {
+          out({ type: 'system', subtype: 'background_tasks_changed', tasks: [] });
+        }
         out({
           type: 'control_response',
           response: {
@@ -647,6 +651,7 @@ async function mockTurn(argv, first, out, io) {
     return;
   }
   if (said === 'show tools') toolActivity(say, process.cwd());
+  if (said === 'show helpers') helperActivity(say);
   if (said.startsWith('stream:') && argv.includes('--include-partial-messages')) {
     const event = (e) => say({ type: 'stream_event', event: e, parent_tool_use_id: null });
     const delta = (part) =>
@@ -854,6 +859,46 @@ function toolActivity(say, cwd) {
     input: { command: 'ls', description: 'List the files' },
   });
   result('mock-bash', 'README.md\nred.png');
+}
+
+/**
+ * "show helpers": a background helper with its own call and answer, a to-do
+ * list (TaskCreate, TaskUpdate) and a background command, in the shapes CLI
+ * 2.1.293 sent through the Agent SDK.
+ */
+function helperActivity(say) {
+  const assistant = (block, parent = null) =>
+    say({
+      type: 'assistant',
+      message: { content: [block], usage: MOCK_USAGE },
+      parent_tool_use_id: parent,
+    });
+  const result = (id, content, parent = null) =>
+    say({
+      type: 'user',
+      message: { role: 'user', content: [{ tool_use_id: id, type: 'tool_result', content }] },
+      parent_tool_use_id: parent,
+    });
+  const call = (id, name, input) => assistant({ type: 'tool_use', id, name, input });
+  call('mock-agent', 'Agent', { description: 'Check the files', prompt: 'List the files.' });
+  result('mock-agent', 'Async agent launched successfully.');
+  assistant(
+    { type: 'tool_use', id: 'mock-sub', name: 'Bash', input: { command: 'ls' } },
+    'mock-agent',
+  );
+  result('mock-sub', 'README.md', 'mock-agent');
+  assistant({ type: 'text', text: 'Found README.md.' }, 'mock-agent');
+  call('mock-todo-1', 'TaskCreate', { subject: 'Read the files', activeForm: 'Reading the files' });
+  result('mock-todo-1', 'Task #1 created successfully: Read the files');
+  call('mock-todo-2', 'TaskCreate', { subject: 'Answer' });
+  result('mock-todo-2', 'Task #2 created successfully: Answer');
+  call('mock-todo-3', 'TaskUpdate', { taskId: '1', status: 'in_progress' });
+  result('mock-todo-3', 'Updated task #1 status');
+  say({
+    type: 'system',
+    subtype: 'background_tasks_changed',
+    tasks: [{ task_id: 'mock-sleep', task_type: 'local_bash', description: 'Sleep a minute' }],
+  });
 }
 
 /** Call a tool of the `desk` MCP server in --mcp-config (the CEO desk); returns its text. */
