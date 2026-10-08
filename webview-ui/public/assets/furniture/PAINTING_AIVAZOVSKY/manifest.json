@@ -1,0 +1,14 @@
+{
+  "id": "PAINTING_AIVAZOVSKY",
+  "name": "The Ninth Wave (after Aivazovsky)",
+  "category": "wall",
+  "type": "asset",
+  "rotationScheme": "symmetric",
+  "canPlaceOnWalls": true,
+  "canPlaceOnSurfaces": false,
+  "backgroundTiles": 0,
+  "width": 48,
+  "height": 32,
+  "footprintW": 3,
+  "footprintH": 2
+}

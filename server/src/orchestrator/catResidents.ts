@@ -137,9 +137,19 @@ export class CatResidents {
     const characters = [...this.ids].flatMap(([catId, id]) => {
       const cat = byId.get(catId) ?? this.spawnedFor.get(catId);
       if (!cat) return [];
-      const { name, appearance } = cat;
+      const { name, appearance, personality } = cat;
       const working = this.working.has(catId);
-      return [{ catId, id, name, appearance, working, ...(catId === lead ? { lead: true } : {}) }];
+      return [
+        {
+          catId,
+          id,
+          name,
+          appearance,
+          working,
+          ...(personality ? { personality } : {}),
+          ...(catId === lead ? { lead: true } : {}),
+        },
+      ];
     });
     return { type: 'catCharacters', characters };
   }

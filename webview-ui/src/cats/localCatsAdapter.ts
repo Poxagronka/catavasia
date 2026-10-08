@@ -49,13 +49,14 @@ export function localSeed(): CatsSnapshot {
     cats: [
       {
         ...worker('boss', 'Marmalade', 'marmalade', 'Team lead'),
+        personality: 'scrappy',
         model: 'opus',
         effort: 'medium',
         parentId: null,
         systemPrompt: 'You lead the team. Split the task, delegate, review the reports.',
       },
-      worker('dev', 'Smokey', 'smokey', 'Developer'),
-      worker('qa', 'Mochi', 'mochi', 'Tester'),
+      { ...worker('dev', 'Smokey', 'smokey', 'Developer'), personality: 'zoomie' },
+      { ...worker('qa', 'Mochi', 'mochi', 'Tester'), personality: 'pooper' },
     ],
   };
 }

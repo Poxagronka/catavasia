@@ -552,7 +552,14 @@ function startIdleActivity(
   if (idle.due?.(ch)) return true;
   const taken = idle.takenBy(ch);
   for (let i = 0; i < SPOT_CLAIM_RETRIES; i++) {
-    const choice = chooseIdleActivity(ch.lastActivityId, idle.spotSets, taken);
+    const choice = chooseIdleActivity(
+      ch.lastActivityId,
+      idle.spotSets,
+      taken,
+      undefined,
+      undefined,
+      ch.personality,
+    );
     if (!choice) return false;
     const outcome = choice.spot && idle.claim ? idle.claim(ch, choice) : 'ok';
     if (outcome === 'ok') return beginIdleActivity(ch, choice, tileMap, blockedTiles);

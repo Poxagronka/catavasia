@@ -81,3 +81,15 @@ export function catchCommand(text: string): DockAction | null {
       return null;
   }
 }
+
+/**
+ * The command a bare "/name" opens a picker for: one with fixed choices
+ * (/output-style, /color). Typed with a value, it goes to Claude.
+ */
+export function choiceCommand(list: DeskCommand[], text: string): DeskCommand | null {
+  const typed = /^\/(\S+)$/.exec(text.trim());
+  if (!typed) return null;
+  const name = typed[1].toLowerCase();
+  const command = list.find((c) => c.name === name || c.aliases?.includes(name));
+  return command?.choices?.length ? command : null;
+}

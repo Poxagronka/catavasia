@@ -152,6 +152,20 @@ describe('CEO desk turns', () => {
     expect(env.ceo.turns).toHaveLength(1);
   });
 
+  it("shows Claude's suggested next message after the turn; a new message drops it", async () => {
+    env = await startDeskOffice(({ req }) => {
+      // The SDK sends the suggestion after the result: after the turn ended here.
+      setTimeout(() => req.onSuggestion?.('Now add tests'), 20);
+      return { text: 'done' };
+    });
+    const { desk } = env;
+    desk.send('fix the bug');
+    await deskIdle(desk);
+    expect(await waitFor(() => desk.snapshot().status.suggestion)).toBe('Now add tests');
+    desk.send('Now add tests');
+    expect(desk.snapshot().status.suggestion).toBeUndefined();
+  });
+
   it('shows a failed turn as an error row', async () => {
     env = await startDeskOffice(() => ({ ok: false, error: 'Not logged in' }));
     env.desk.send('hi');

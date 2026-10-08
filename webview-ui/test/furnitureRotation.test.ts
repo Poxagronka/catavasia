@@ -26,6 +26,7 @@ import { decodePetPng } from '../../core/src/assets/pngDecoder.ts';
 import { canPlaceFurniture, rotateFurniture } from '../src/office/editor/editorActions.js';
 import type { SpotContext } from '../src/office/engine/activitySpots.js';
 import { stepDirection } from '../src/office/engine/characters.js';
+import { DESK_NAP_ID, PET_DESK_ANIM_OF } from '../src/office/engine/deskNapActivities.js';
 import { itemFrameSprite } from '../src/office/engine/furnitureFrames.js';
 import { IDLE_ACTIVITIES } from '../src/office/engine/idleActivities.js';
 import {
@@ -35,7 +36,7 @@ import {
   petAnimFor,
 } from '../src/office/engine/petActivities.js';
 import { createPet, getPetSpriteData } from '../src/office/engine/petEntity.js';
-import { petPlayStep, petPlayView } from '../src/office/engine/petPlayAnims.js';
+import { petPlaySec, petPlayStep, petPlayView } from '../src/office/engine/petPlayAnims.js';
 import {
   buildDynamicCatalog,
   FURNITURE_CATEGORIES,
@@ -61,6 +62,7 @@ import type {
   ActivitySpot,
   Character,
   OfficeLayout,
+  PetDeskAnim,
   PlacedFurniture,
   TileType as TileTypeVal,
 } from '../src/office/types.js';
@@ -304,7 +306,7 @@ test('every pet activity of an item works in every view: a claim, its pose, the 
           const where = `${view} pet ${id} @${spot.key}`;
           const claim = provider.claimAt(createPet('p', 0, spot.col, spot.row), id, spot);
           assert.ok(typeof claim === 'object', `${where}: no claim`);
-          assert.equal(claim.anim, petAnimFor(id), `${where}: pose`);
+          assert.equal(claim.anim, petAnimFor(id, view), `${where}: pose`);
           const pet = createPet('p', 0, spot.col, spot.row);
           pet.dir = spot.facing;
           pet.rest = {
@@ -346,4 +348,51 @@ test('every pet activity of an item works in every view: a claim, its pose, the 
     }
   }
   assert.ok(checked >= 30, `only ${checked} pet spots checked`);
+});
+
+test('every desk and table has a pet nap spot on its top in every view, with its own animation', () => {
+  const sheet = decodePetPng(fs.readFileSync(path.join(ASSETS, 'pets', 'gitcat', 'pet.png')));
+  setPetTemplates([sheet], ['Gitcat'], ['cat']);
+  const sprites = getPetSprites(0)!;
+  const desks = getCatalogByCategory('desks').map((e) => e.type);
+  assert.ok(desks.length >= 6, `only ${desks.length} desks`);
+  for (const type of desks) {
+    for (const view of views(type)) {
+      const { layout, item } = room(view);
+      const spots = activitySpots(spotContext(layout)).get(DESK_NAP_ID) ?? [];
+      assert.equal(spots.length, 1, `${view}: ${spots.length} desk nap spots`);
+      const [spot] = spots;
+      assert.ok(spot.onFurniture && spot.itemUid === item.uid, `${view}: not on the item`);
+      assert.equal(spot.facing, Direction.DOWN, `${view}: faces the viewer`);
+      // The cat's feet stay on the sprite, above its bottom edge.
+      const e = getCatalogEntry(view)!;
+      const feetY = (spot.row - item.row) * TILE_SIZE + TILE_SIZE / 2 + spot.offsetY;
+      const top = e.footprintH * TILE_SIZE - e.sprite.length;
+      assert.ok(feetY > top && feetY < e.footprintH * TILE_SIZE, `${view}: feet at ${feetY}`);
+      const kind = petAnimFor(DESK_NAP_ID, view) as PetDeskAnim;
+      assert.equal(kind, PET_DESK_ANIM_OF[furnitureKind(view)], view);
+      // Every pose of every step (hops, the walk on the top, the nap) stays within the sprite's width.
+      const pet = createPet('p', 0, spot.col, spot.row);
+      pet.dir = spot.facing;
+      pet.rest = {
+        offsetX: spot.offsetX,
+        offsetY: spot.offsetY,
+        zzz: false,
+        ...(spot.mirrored ? { mirrored: true } : {}),
+        ...(spot.narrow ? { narrow: true } : {}),
+      };
+      const dur = petPlaySec(kind);
+      const left = item.col * TILE_SIZE;
+      const right = left + e.sprite[0].length;
+      for (let t = 0; t < dur; t += 0.05) {
+        pet.careAnim = { kind, frame: 0, t, dur };
+        const v = petPlayView(pet, sprites)!;
+        const cols = v.sprite[0].map((_, x) => x).filter((x) => v.sprite.some((r) => r[x]));
+        const x0 = pet.x + v.x - v.sprite[0].length / 2;
+        const where = `${view} ${kind} ${v.step.pose} @${t.toFixed(2)}s`;
+        assert.ok(x0 + Math.min(...cols) >= left, `${where}: sticks out left`);
+        assert.ok(x0 + Math.max(...cols) + 1 <= right, `${where}: sticks out right`);
+      }
+    }
+  }
 });

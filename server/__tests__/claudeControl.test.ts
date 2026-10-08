@@ -46,7 +46,21 @@ const COMMANDS = [
     builtin: true,
   },
   { name: 'tidy-notes', description: 'Tidy my notes', argumentHint: '' },
+  {
+    name: 'output-style',
+    description: 'List output styles or switch to one',
+    argumentHint: '[style]',
+    builtin: true,
+  },
+  {
+    name: 'color',
+    description: 'Set the prompt bar color for this session',
+    argumentHint: '[red|blue|default]',
+    builtin: true,
+  },
 ];
+/** `initialize` of CLI 2.1.292: built-in styles plus ~/.claude/output-styles ones. */
+const OUTPUT_STYLES = ['default', 'Explanatory', 'Learning', 'Proactive'];
 const STATUSES = [
   {
     name: 'slack-user',
@@ -92,7 +106,10 @@ function fakeQuery(statusRounds: unknown[][]): { fn: QueryFn; log: FakeLog } {
   const fn = ((args: { options: { cwd?: string; settingSources?: unknown } }) => {
     log.queries.push({ cwd: args.options.cwd, settings: args.options.settingSources });
     return {
-      supportedCommands: async () => COMMANDS,
+      initializationResult: async () => ({
+        commands: COMMANDS,
+        available_output_styles: OUTPUT_STYLES,
+      }),
       mcpServerStatus: async () => statusRounds[Math.min(round++, statusRounds.length - 1)],
       toggleMcpServer: async (name: string, enabled: boolean) => {
         log.toggles.push([name, enabled]);
@@ -206,7 +223,17 @@ describe('ClaudeControl', () => {
     const { fn, log } = fakeQuery([STATUSES]);
     const control = new ClaudeControl(process.execPath, fn);
     const list = await control.commands('/a');
-    expect(list.map((c) => c.name)).toEqual(['clear', 'model', 'tidy-notes']);
+    expect(list.map((c) => c.name)).toEqual([
+      'clear',
+      'model',
+      'tidy-notes',
+      'output-style',
+      'color',
+    ]);
+    // A command with fixed values gets them as choices; a free hint ("[name]") gets none.
+    expect(list.find((c) => c.name === 'output-style')?.choices).toEqual(OUTPUT_STYLES);
+    expect(list.find((c) => c.name === 'color')?.choices).toEqual(['red', 'blue', 'default']);
+    expect(list.find((c) => c.name === 'model')?.choices).toBeUndefined();
     expect(list[0]).toEqual({
       name: 'clear',
       description: 'Start a new session',
@@ -295,7 +322,7 @@ describe('connector routes', () => {
     const project = tempDir();
     const { call, log } = await app(project);
     const commands = await call('GET', '/api/ceo/commands');
-    expect(commands.json().commands).toHaveLength(3);
+    expect(commands.json().commands).toHaveLength(5);
     const listed = await call('GET', '/api/ceo/connectors');
     expect(listed.json().project).toBe(project);
     expect(listed.json().connectors).toHaveLength(4);

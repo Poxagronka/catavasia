@@ -221,5 +221,11 @@ describe('desk tools', () => {
     expect(git(repo, 'merge-base', '--is-ancestor', `task/${firstId}`, `task/${reworkId}`)).toBe(
       '',
     );
+    // Let both reworks finish: a job still writing into tmp made afterEach's rmSync fail (ENOTEMPTY).
+    const secondId = /Job ([0-9a-f]+) started/.exec(replies[1].text)![1];
+    for (const id of [reworkId, secondId]) {
+      await waitFor(() => (env!.tasks.get(id)?.status === 'done' ? true : undefined), 30_000);
+    }
+    await deskIdle(env!.desk);
   });
 });
