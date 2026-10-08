@@ -43,6 +43,8 @@ test('Auto on a model without it runs as Bypass, and the picker says so', () => 
   assert.deepEqual(Object.values(PERMISSION_MODE_LABELS), [
     'Auto',
     'Ask before actions',
+    'Accept edits',
+    'Plan mode',
     'Bypass',
     'Read only',
   ]);

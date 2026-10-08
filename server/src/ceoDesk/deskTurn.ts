@@ -133,6 +133,13 @@ export function openDeskSession(input: DeskSessionInput): LiveSession {
     onResult: input.onResult,
     onBusy: input.onBusy,
     onSuggestion: input.onSuggestion,
+    // Claude Code switched the mode itself (an approved plan): the CEO's setting
+    // follows, saved and sent to every client like a pick in the dock.
+    onMode: (permissionMode) => {
+      if (office.ceo.settings.permissionMode === permissionMode) return;
+      const error = office.editProfiles({ type: 'setCatCeoSettings', permissionMode });
+      if (error) console.error(`[catavasia] CEO desk: could not keep the mode: ${error}`);
+    },
   });
 }
 

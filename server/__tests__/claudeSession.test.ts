@@ -16,7 +16,8 @@ import { waitFor } from './catOfficeHarness.js';
  * start (spawns.log), each user message and control request as it arrives
  * (events.log), and runs the messages one after another. A message with
  * "slow" runs until an interrupt; "die" ends the process with an error;
- * "suggest" sends a prompt suggestion after the result. With the env flag of
+ * "suggest" sends a prompt suggestion after the result; "approve" switches
+ * the mode to acceptEdits, as an approved plan does (a status line). With the env flag of
  * claudeSession.ts it reports its state (running, idle) like CLI 2.1.293.
  */
 const FAKE = `#!/usr/bin/env node
@@ -65,6 +66,7 @@ async function next() {
       out({ type: 'result', subtype: 'error_during_execution', is_error: true, errors: [] });
       continue;
     }
+    if (text.includes('approve')) out({ type: 'system', subtype: 'status', status: null, permissionMode: 'acceptEdits', uuid: 'u' });
     out({ type: 'assistant', message: { content: [{ type: 'text', text: 'echo ' + text }] } });
     out({ type: 'result', subtype: 'success', is_error: false, result: 'echo ' + text, total_cost_usd: 0.01 });
   }
@@ -208,9 +210,41 @@ describe('ClaudeAdapter.openSession', () => {
       { control: 'set_permission_mode', mode: 'auto' },
       { control: 'set_model', model: 'sonnet' },
     ]);
+    // Accept edits and Plan mode keep the questions: they apply live too.
+    expect(session!.update({ model: 'sonnet', permissionMode: 'plan' })).toBe(true);
+    expect(session!.update({ model: 'sonnet', permissionMode: 'acceptEdits' })).toBe(true);
+    await waitFor(() => (o.events().some((e) => e.mode === 'acceptEdits') ? true : undefined));
+    expect(
+      o
+        .events()
+        .filter((e) => e.control === 'set_permission_mode')
+        .map((e) => e.mode),
+    ).toEqual(['auto', 'plan', 'acceptEdits']);
+    expect(session!.update({ model: 'sonnet', permissionMode: 'readOnly' })).toBe(false);
     expect(session!.update({ model: 'sonnet', permissionMode: 'bypass' })).toBe(false);
     expect(session!.update({ model: 'sonnet', effort: 'max', permissionMode: 'auto' })).toBe(false);
     expect(o.spawns()).toHaveLength(1);
+  });
+
+  it("reports the CLI's own mode change once; the same mode then needs no switch", async () => {
+    const modes: string[] = [];
+    const o = open({ permissionMode: 'plan', onMode: (mode) => modes.push(mode) });
+    session!.send('approve the plan');
+    await idle(o, 1);
+    expect(modes).toEqual(['acceptEdits']);
+    expect(session!.update({ model: 'opus', permissionMode: 'acceptEdits' })).toBe(true);
+    session!.send('approve again');
+    await idle(o, 2);
+    expect(modes).toEqual(['acceptEdits']);
+    expect(o.events().some((e) => e.control === 'set_permission_mode')).toBe(false);
+  });
+
+  it('does not keep a mode change that is not a move out of or into Plan mode', async () => {
+    const modes: string[] = [];
+    const o = open({ permissionMode: 'ask', onMode: (mode) => modes.push(mode) });
+    session!.send('approve');
+    await idle(o, 1);
+    expect(modes).toEqual([]);
   });
 
   it('ends with the error when the process dies', async () => {

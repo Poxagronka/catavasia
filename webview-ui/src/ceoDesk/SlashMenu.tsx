@@ -1,19 +1,25 @@
 import { useEffect, useRef } from 'react';
 
-import type { DeskCommand } from '../../../core/src/ceoDesk.js';
+import type { MentionMenuState } from './useMentionMenu.js';
 import type { SlashMenuState } from './useSlashMenu.js';
 
-/** One row on one line: `/name`, then the argument hint and the CLI's description, muted. */
-function CommandRow({
-  command,
+/** One row on one line: the label, then a muted hint. */
+function MenuRow({
+  label,
+  hint,
+  title,
   active,
   onPick,
   onHover,
+  testId,
 }: {
-  command: DeskCommand;
+  label: string;
+  hint?: string;
+  title: string;
   active: boolean;
   onPick(): void;
   onHover(): void;
+  testId: string;
 }) {
   const row = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -30,13 +36,18 @@ function CommandRow({
       }}
       onMouseEnter={onHover}
       className={`composer-choice w-full min-w-0 ${active ? 'is-current' : ''}`}
-      title={command.description}
-      data-testid={`slash-${command.name}`}
+      title={title}
+      data-testid={testId}
     >
-      <span className="composer-choice-label shrink-0">/{command.name}</span>
-      <span className="composer-choice-hint flex-1 min-w-0 truncate text-left">
-        {[command.argumentHint, command.description].filter(Boolean).join('  ')}
+      {/* A row without a hint (a file path) gives the label the whole width. */}
+      <span
+        className={`composer-choice-label ${hint === undefined ? 'flex-1 min-w-0 truncate text-left' : 'shrink-0'}`}
+      >
+        {label}
       </span>
+      {hint !== undefined && (
+        <span className="composer-choice-hint flex-1 min-w-0 truncate text-left">{hint}</span>
+      )}
     </button>
   );
 }
@@ -52,12 +63,40 @@ export function SlashMenu({ menu }: { menu: SlashMenuState }) {
       data-testid="slash-menu"
     >
       {menu.items.map((command, n) => (
-        <CommandRow
+        <MenuRow
           key={`${command.name}-${n}`}
-          command={command}
+          label={`/${command.name}`}
+          hint={[command.argumentHint, command.description].filter(Boolean).join('  ')}
+          title={command.description}
           active={n === menu.active}
           onPick={() => menu.pick(command, true)}
           onHover={() => menu.setIndex(n)}
+          testId={`slash-${command.name}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** The "@" menu: files of the chat's folder (useMentionMenu has its keys). */
+export function MentionMenu({ menu }: { menu: MentionMenuState }) {
+  if (!menu.items.length) return null;
+  return (
+    <div
+      className="slash-menu composer-list pixel-scrollbar prose-body"
+      role="listbox"
+      aria-label="Files"
+      data-testid="mention-menu"
+    >
+      {menu.items.map((file, n) => (
+        <MenuRow
+          key={file}
+          label={`@${file}`}
+          title={file}
+          active={n === menu.active}
+          onPick={() => menu.pick(file)}
+          onHover={() => menu.setIndex(n)}
+          testId="mention-file"
         />
       ))}
     </div>

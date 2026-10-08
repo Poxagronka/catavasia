@@ -208,6 +208,87 @@ test.describe('Standalone / CEO dock', () => {
     ).toBeVisible({ timeout: TURN_TIMEOUT_MS });
   });
 
+  test('Shift+Tab cycles the mode; the plan card approves and the mode follows Claude @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    const chip = page.getByTestId('dock-mode');
+    await expect(chip).toHaveText('Auto');
+    for (const label of ['Ask before actions', 'Accept edits', 'Plan mode']) {
+      await input.press('Shift+Tab');
+      await expect(chip).toHaveText(label);
+    }
+
+    await input.fill('plan: Write hello.txt');
+    await input.press('Enter');
+    const card = page.getByTestId('plan-card');
+    await expect(card).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await expect(card.locator('li', { hasText: 'Write hello.txt' })).toBeVisible();
+    await expect(page.getByTestId('approval-card')).toHaveCount(0);
+
+    // Keep planning sends the words back; Claude stays in Plan mode.
+    await card.getByTestId('plan-feedback').fill('Add a test step');
+    await card.getByTestId('plan-keepPlanning').click();
+    await expect(card).toBeHidden();
+    await expect(
+      page.getByTestId('dock-log').getByText('Keep planning: Add a test step'),
+    ).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await expect(chip).toHaveText('Plan mode');
+
+    // Approve, auto-accept edits: Claude switches to Accept edits and the chip follows.
+    await input.fill('plan: Write hello.txt');
+    await input.press('Enter');
+    await card.getByTestId('plan-acceptEdits').click({ timeout: TURN_TIMEOUT_MS });
+    await expect(
+      page.getByTestId('dock-log').getByText('Permission answer: allow acceptEdits'),
+    ).toBeVisible({ timeout: TURN_TIMEOUT_MS });
+    await expect(chip).toHaveText('Accept edits');
+  });
+
+  test('the arrows walk the sent messages; the "@" menu inserts a file; "/" keeps its arrows @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    void standalone;
+    const input = page.getByTestId('dock-input');
+    for (const text of ['first message', 'second message']) {
+      await input.fill(text);
+      await input.press('Enter');
+      await expect(page.getByTestId('dock-log').getByText(`Mock CEO: ${text}`)).toBeVisible({
+        timeout: TURN_TIMEOUT_MS,
+      });
+    }
+    await input.press('ArrowUp');
+    await expect(input).toHaveValue('second message');
+    await input.press('ArrowUp');
+    await expect(input).toHaveValue('first message');
+    await input.press('ArrowDown');
+    await input.press('ArrowDown');
+    await expect(input).toHaveValue('');
+
+    // With the "/" menu open, the arrows move in the menu, not through the history.
+    const menu = page.getByTestId('slash-menu');
+    await input.fill('/');
+    await expect(menu).toBeVisible();
+    const current = menu.locator('.is-current');
+    const first = await current.getAttribute('data-testid');
+    await input.press('ArrowDown');
+    await expect(input).toHaveValue('/');
+    await expect(current).not.toHaveAttribute('data-testid', first ?? '');
+    await input.press('Escape');
+
+    // "@" lists the chat folder's files; Tab inserts the path.
+    await input.fill('look at @');
+    const mentions = page.getByTestId('mention-menu');
+    await expect(mentions.getByTestId('mention-file').first()).toBeVisible();
+    const file = (await mentions.getByTestId('mention-file').first().getAttribute('title')) ?? '';
+    await input.press('Tab');
+    await expect(input).toHaveValue(`look at @${file} `);
+    await expect(mentions).toBeHidden();
+  });
+
   test('tool activity reads in plain words, with the picture; ring, limits and pickers @area:standalone', async ({
     page,
     standalone,
@@ -252,11 +333,11 @@ test.describe('Standalone / CEO dock', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('dock-usage-menu')).toBeHidden();
 
-    // The permission mode label opens the CEO's mode menu: four rows, a check on the current one.
+    // The permission mode label opens the CEO's mode menu: six rows, a check on the current one.
     await expect(page.getByTestId('dock-mode')).toHaveText('Auto');
     await page.getByTestId('dock-mode').click();
     const modeMenu = page.getByTestId('dock-mode-menu');
-    await expect(modeMenu.getByRole('menuitemradio')).toHaveCount(4);
+    await expect(modeMenu.getByRole('menuitemradio')).toHaveCount(6);
     await expect(page.getByTestId('dock-mode-auto')).toHaveAttribute('aria-checked', 'true');
     await page.getByTestId('dock-mode-ask').click();
     await expect(modeMenu).toBeHidden();

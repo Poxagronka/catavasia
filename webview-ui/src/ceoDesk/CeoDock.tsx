@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
-import { useCatCeo } from '../cats/catCeoClient.js';
+import { DEFAULT_PERMISSION_MODE, nextMode } from '../../../core/src/permissionModes.js';
+import { catCeo, useCatCeo } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
 import { catSessionApi } from '../catTerminal/catSessionApi.js';
 import { ConsoleRowView, MessageRow } from '../catTerminal/ChatConsole.js';
@@ -35,9 +36,11 @@ import {
 } from './dockState.js';
 import { HelpCard } from './HelpCard.js';
 import type { JobCardActions } from './JobCard.js';
+import { PlanCard } from './PlanCard.js';
 import { QuestionCard } from './QuestionCard.js';
 import { BackgroundTasks, TodoChecklist } from './SessionTray.js';
 import { UsageRing } from './UsageRing.js';
+import { sentMessages } from './useComposerHistory.js';
 import { useDockCommands } from './useDockCommands.js';
 
 const READ_ONLY_TEXT = 'Open the office with `catavasia` to chat with the CEO.';
@@ -273,6 +276,8 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         {approvals.map((a) =>
           a.questions ? (
             <QuestionCard key={a.id} approval={a} questions={a.questions} />
+          ) : a.plan !== undefined ? (
+            <PlanCard key={a.id} approval={a} plan={a.plan} />
           ) : (
             <ApprovalCard key={a.id} approval={a} />
           ),
@@ -317,6 +322,18 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           commands={slash.commands}
           suggestion={chat.status.suggestion}
           onStop={chat.status.busy ? stop : undefined}
+          history={sentMessages(chat.entries)}
+          onCycleMode={
+            settings
+              ? () =>
+                  void catCeo.setSettings({
+                    permissionMode: nextMode(
+                      settings.permissionMode ?? DEFAULT_PERMISSION_MODE,
+                      settings.model,
+                    ),
+                  })
+              : undefined
+          }
           blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}

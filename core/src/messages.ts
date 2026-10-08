@@ -282,7 +282,7 @@ export interface PromptItem {
 
 export type CatEngine = 'claude' | 'codex';
 
-export type PermissionMode = 'auto' | 'ask' | 'bypass' | 'readOnly';
+export type PermissionMode = 'auto' | 'ask' | 'acceptEdits' | 'plan' | 'bypass' | 'readOnly';
 
 export type CatPersonality = 'scrappy' | 'playful' | 'pooper' | 'sleepy' | 'social' | 'zoomie';
 

@@ -645,6 +645,8 @@ export const TERMINAL_FONT_SIZE_PX = 13;
 export const TERMINAL_SCROLLBACK_LINES = 5_000;
 /** Debounce for propagating a resize to the PTY (fit on every frame thrashes it). */
 export const TERMINAL_RESIZE_DEBOUNCE_MS = 100;
+/** The CEO dock's `@` menu asks for files this long after the last typed letter. */
+export const MENTION_FETCH_DEBOUNCE_MS = 120;
 /** xterm theme, matched to the office palette (index.css :root). */
 export const TERMINAL_THEME = {
   background: '#181828',

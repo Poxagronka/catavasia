@@ -14,7 +14,9 @@ import { attachError, type DraftAttachment } from './attachState.js';
 import { shownSuggestion } from './dockState.js';
 import { prepareAttachment, toUploads } from './prepareAttachment.js';
 import { catchCommand } from './slashCommands.js';
-import { SlashMenu } from './SlashMenu.js';
+import { MentionMenu, SlashMenu } from './SlashMenu.js';
+import { useComposerHistory } from './useComposerHistory.js';
+import { useMentionMenu } from './useMentionMenu.js';
 import { useSlashMenu } from './useSlashMenu.js';
 
 interface DockComposerProps {
@@ -40,6 +42,10 @@ interface DockComposerProps {
   suggestion?: string;
   /** Esc while the CEO works stops the turn, as in the terminal (the draft stays). None: idle. */
   onStop?(): void;
+  /** The messages this chat sent, newest first: ArrowUp and ArrowDown walk them. */
+  history?: string[];
+  /** Shift+Tab: the next permission mode, as in the terminal. */
+  onCycleMode?(): void;
 }
 
 /** A quiet return arrow (the Claude app send glyph). */
@@ -71,7 +77,8 @@ let nextId = 1;
 /**
  * The message box of the CEO dock (the Claude app look): one box with the send
  * arrow inside, and under it "+" (attach) left and the CEO settings right.
- * Enter sends, Shift+Enter is a new line.
+ * Enter sends, Shift+Enter is a new line, Shift+Tab cycles the mode, the
+ * arrows walk the sent messages, and `@` offers the folder's files.
  * The input stays usable while the CEO works: a message goes into the running
  * session at once, and Esc stops the turn.
  * Files come from paste, drag and drop, or the paperclip; a big image is
@@ -90,13 +97,17 @@ export function DockComposer({
   commands = [],
   suggestion,
   onStop,
+  history = [],
+  onCycleMode,
 }: DockComposerProps) {
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<DraftAttachment[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [caret, setCaret] = useState(0);
   const picker = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
   const filesRef = useRef(files);
   filesRef.current = files;
   // Send is off, but a command the dock answers itself (/help, /model...) still works.
@@ -164,8 +175,22 @@ export function DockComposer({
     send ? void submit(text) : onDraft(text),
   );
 
+  const mention = useMentionMenu(draft, caret, (text, at) => {
+    onDraft(text);
+    setCaret(at);
+    // After React writes the new text: the caret goes after the inserted path.
+    requestAnimationFrame(() => box.current?.setSelectionRange(at, at));
+  });
+  const recall = useComposerHistory(history, draft, onDraft);
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (slash.onKeyDown(e)) return;
+    if (slash.onKeyDown(e) || mention.onKeyDown(e)) return;
+    if (e.key === 'Tab' && e.shiftKey && onCycleMode) {
+      e.preventDefault();
+      onCycleMode();
+      return;
+    }
+    if (recall.onKeyDown(e)) return;
     if (e.key === 'Escape' && onStop) {
       e.preventDefault();
       onStop();
@@ -220,17 +245,23 @@ export function DockComposer({
       )}
       <AttachmentStrip files={files} onRemove={remove} />
       <SlashMenu menu={slash} />
+      <MentionMenu menu={mention} />
       <div
         className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] pl-4 pr-6"
         data-testid="dock-box"
       >
         <textarea
+          ref={box}
           value={draft}
-          onChange={(e) => onDraft(e.target.value)}
+          onChange={(e) => {
+            onDraft(e.target.value);
+            setCaret(e.target.selectionStart);
+          }}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           rows={2}
-          placeholder={ghost ?? 'Ask the CEO anything. Type / for commands.'}
+          placeholder={ghost ?? 'Ask the CEO anything. Type / for commands, @ for files.'}
           className="flex-1 min-w-0 resize-none bg-transparent border-0 outline-none px-8 py-6 prose-body"
           data-testid="dock-input"
         />

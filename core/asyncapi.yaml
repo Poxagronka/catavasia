@@ -2236,10 +2236,12 @@ components:
       description: |
         What a cat (or the Cat CEO) may do without asking: `auto` (a classifier
         approves each action and asks when unsure; the default), `ask` (asks
-        before actions), `bypass` (never asks), `readOnly` (reads, never
-        changes anything). Absent on an old cat: `auto`.
+        before actions), `acceptEdits` (changes files without asking, asks
+        before other actions), `plan` (reads and plans, changes nothing until
+        the user approves the plan), `bypass` (never asks), `readOnly` (reads,
+        never changes anything). Absent on an old cat: `auto`.
       type: string
-      enum: [auto, ask, bypass, readOnly]
+      enum: [auto, ask, acceptEdits, plan, bypass, readOnly]
 
     CatPattern:
       type: string

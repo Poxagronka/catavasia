@@ -29,8 +29,10 @@ export function QuestionCard({
     setBusy(true);
     setError(null);
     try {
-      if (skip) await ceoDeskApi.answerApproval(approval.id, 'deny');
-      else await ceoDeskApi.answerApproval(approval.id, 'allow', answers ?? {});
+      await ceoDeskApi.answerApproval(
+        approval.id,
+        skip ? { answer: 'deny' } : { answer: 'allow', answers: answers ?? {} },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);

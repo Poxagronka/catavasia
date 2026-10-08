@@ -174,6 +174,9 @@ describe('codex adapter', () => {
     ]);
     expect(pairs('ask')).toEqual(['sandbox_mode="workspace-write"', 'approval_policy="never"']);
     expect(pairs('readOnly')).toEqual(['sandbox_mode="read-only"', 'approval_policy="never"']);
+    // Codex has no plan mode or edit-only mode: the closest settings.
+    expect(codexModeArgs('plan')).toEqual(codexModeArgs('readOnly'));
+    expect(codexModeArgs('acceptEdits')).toEqual(codexModeArgs('ask'));
     // `codex exec resume` has no --sandbox flag: the mode rides on -c keys there too.
     const resumed = codexTurnArgs(
       { sessionId: 'abc', resume: true, model: 'm', permissionMode: 'readOnly' } as TurnRequest,

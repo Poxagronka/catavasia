@@ -19,7 +19,7 @@ export function ApprovalCard({ approval }: { approval: CeoApproval }) {
     setBusy(true);
     setError(null);
     try {
-      await ceoDeskApi.answerApproval(approval.id, value);
+      await ceoDeskApi.answerApproval(approval.id, { answer: value });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
