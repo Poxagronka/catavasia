@@ -57,6 +57,7 @@ async function makeCat(dialog: Locator, name: string): Promise<void> {
 }
 
 test.describe('Standalone / onboarding', () => {
+  test.skip(process.platform === 'win32', 'the fake claude CLI is a POSIX sh script');
   test.use({ seedOnboardingDone: false, seedCats: false, pathPrepend: fakeClaude(false) });
 
   test('language, the plain steps, a boss and a worker made together, then done @area:standalone', async ({
