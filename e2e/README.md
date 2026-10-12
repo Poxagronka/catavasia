@@ -209,7 +209,7 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 - `e2e/claude/hooks-on/consent.spec.ts:265` — Back after Don't Ask Again lets Not Now bring the ask back (Hooks consent gate)
 - `e2e/claude/hooks-on/consent.spec.ts:312` — a failed install is reported, and Not Now brings the ask back (Hooks consent gate › when settings.json cannot be parsed)
 - `e2e/claude/hooks-on/consent.spec.ts:358` — clicking the office around the panel neither answers nor dismisses (Hooks consent gate)
-- `e2e/claude/hooks-on/consent.spec.ts:395` — a pre-consent 14-event install migrates to 12 with no prompt (Hooks consent gate / pre-consent install)
+- `e2e/claude/hooks-on/consent.spec.ts:395` — a pre-consent 14-event install migrates to 10 with no prompt (Hooks consent gate / pre-consent install)
 - `e2e/claude/hooks-on/consent.spec.ts:435` — Settings toggle removes the migrated hooks and keeps third-party entries (Hooks consent gate / pre-consent install)
 - `e2e/claude/hooks-on/consent.spec.ts:486` — a failed uninstall does not persist hooks-off (Hooks consent gate / toggle-off failure)
 - `e2e/claude/hooks-on/lifecycle.spec.ts:593` — done sound chime fires on agentStatus waiting (Hooks ON / lifecycle)
