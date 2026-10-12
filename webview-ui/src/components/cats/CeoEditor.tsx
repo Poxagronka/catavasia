@@ -8,6 +8,7 @@ import { cats } from '../../i18n/cats/en.js';
 import { useT } from '../../i18n/useT.js';
 import { Select } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
+import { EditorTabs } from './EditorTabs.js';
 import { FIELD } from './fields.js';
 import { PermissionModeField } from './PermissionModeField.js';
 import { PersonalityField } from './PersonalityField.js';
@@ -60,74 +61,102 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
       </div>
       {error && <div className="text-xs text-status-error">{error}</div>}
       <div className="text-xs text-text-muted">{t('ceoExplain')}</div>
-      <div className="grid grid-cols-3 gap-8">
-        <Select
-          label={t('model')}
-          value={settings.model}
-          options={
-            options.models.includes(settings.model)
-              ? options.models
-              : [settings.model, ...options.models]
-          }
-          onChange={(model) => set({ model })}
-        />
-        <Select
-          label={t('effort')}
-          value={settings.effort}
-          options={options.efforts}
-          onChange={(effort) => set({ effort })}
-        />
-        <label className="flex flex-col gap-2 text-xs text-text-muted">
-          {t('ceoEditsPerDay')}
-          <input
-            type="number"
-            min={0}
-            max={10}
-            className={`${FIELD} text-xs`}
-            value={settings.maxEditsPerCatPerDay}
-            onChange={(e) => {
-              const n = e.target.valueAsNumber;
-              if (Number.isInteger(n)) set({ maxEditsPerCatPerDay: n });
-            }}
-          />
-        </label>
-      </div>
-      <PermissionModeField
-        engine="claude"
-        model={settings.model}
-        value={settings.permissionMode}
-        onChange={(permissionMode) => set({ permissionMode })}
+      <EditorTabs
+        tabs={[
+          {
+            id: 'appearance',
+            content: (
+              <AppearanceEditor
+                value={settings.appearance}
+                onChange={(appearance) => set({ appearance })}
+              />
+            ),
+          },
+          {
+            id: 'behaviour',
+            content: (
+              <PersonalityField
+                value={settings.personality}
+                required
+                onChange={(personality) => personality && set({ personality })}
+              />
+            ),
+          },
+          {
+            id: 'prompt',
+            content: (
+              <>
+                <label className="flex flex-col gap-2 text-xs text-text-muted">
+                  {t('ceoRoleConduct')}
+                  <textarea
+                    className={`${FIELD} text-xs h-80 resize-y`}
+                    value={role.value}
+                    onChange={(e) => role.onChange(e.target.value)}
+                    onBlur={role.onBlur}
+                  />
+                </label>
+                <div className="flex flex-col gap-4">
+                  <span className="text-xs text-text-muted">{t('ceoHistory')}</span>
+                  <PromptHistory catId={CAT_CEO_ID} />
+                </div>
+              </>
+            ),
+          },
+          {
+            id: 'other',
+            content: (
+              <>
+                <div className="grid grid-cols-3 gap-8">
+                  <Select
+                    label={t('model')}
+                    value={settings.model}
+                    options={
+                      options.models.includes(settings.model)
+                        ? options.models
+                        : [settings.model, ...options.models]
+                    }
+                    onChange={(model) => set({ model })}
+                  />
+                  <Select
+                    label={t('effort')}
+                    value={settings.effort}
+                    options={options.efforts}
+                    onChange={(effort) => set({ effort })}
+                  />
+                  <label className="flex flex-col gap-2 text-xs text-text-muted">
+                    {t('ceoEditsPerDay')}
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      className={`${FIELD} text-xs`}
+                      value={settings.maxEditsPerCatPerDay}
+                      onChange={(e) => {
+                        const n = e.target.valueAsNumber;
+                        if (Number.isInteger(n)) set({ maxEditsPerCatPerDay: n });
+                      }}
+                    />
+                  </label>
+                </div>
+                <PermissionModeField
+                  engine="claude"
+                  model={settings.model}
+                  value={settings.permissionMode}
+                  onChange={(permissionMode) => set({ permissionMode })}
+                />
+                <label className="flex gap-4 items-center text-xs text-text cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.tidyUserItems}
+                    onChange={(e) => set({ tidyUserItems: e.target.checked })}
+                  />
+                  {t('ceoTidyMine')}
+                </label>
+              </>
+            ),
+          },
+        ]}
       />
-      <label className="flex gap-4 items-center text-xs text-text cursor-pointer">
-        <input
-          type="checkbox"
-          checked={settings.tidyUserItems}
-          onChange={(e) => set({ tidyUserItems: e.target.checked })}
-        />
-        {t('ceoTidyMine')}
-      </label>
-      <label className="flex flex-col gap-2 text-xs text-text-muted">
-        {t('ceoRoleConduct')}
-        <textarea
-          className={`${FIELD} text-xs h-80 resize-y`}
-          value={role.value}
-          onChange={(e) => role.onChange(e.target.value)}
-          onBlur={role.onBlur}
-        />
-      </label>
-      <PersonalityField
-        value={settings.personality}
-        required
-        onChange={(personality) => personality && set({ personality })}
-      />
-      <AppearanceEditor
-        value={settings.appearance}
-        onChange={(appearance) => set({ appearance })}
-      />
-      <div className="flex flex-col gap-4">
-        <span className="text-xs text-text-muted">{t('ceoHistory')}</span>
-        <PromptHistory catId={CAT_CEO_ID} />
-      </div>
     </div>
   );
 }
