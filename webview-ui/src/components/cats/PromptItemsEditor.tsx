@@ -41,7 +41,10 @@ function ItemRow({
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') save();
-            if (e.key === 'Escape') setDraft(null);
+            if (e.key === 'Escape') {
+              e.preventDefault(); // cancels the edit only: the modal around it stays open
+              setDraft(null);
+            }
           }}
         />
         <Button size="sm" onClick={save}>

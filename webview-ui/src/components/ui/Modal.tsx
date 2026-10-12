@@ -23,14 +23,16 @@ export function Modal({
   className = '',
 }: ModalProps) {
   const t = useT(chrome);
-  // Escape closes the modal (an input inside it may use Escape first and call preventDefault).
+  // Escape closes the modal. Capture phase: a panel under it (the onboarding) stops keydown from bubbling.
+  // The close waits until the key has reached its target, so an inner field that uses Escape (and calls
+  // preventDefault) keeps it.
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
+      if (e.key === 'Escape') setTimeout(() => !e.defaultPrevented && onClose(), 0);
     };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [isOpen, onClose]);
   if (!isOpen) return null;
 
