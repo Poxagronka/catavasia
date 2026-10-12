@@ -142,9 +142,9 @@ test('a pair that fought avoids each other for SOCIAL_FIGHT_AVOID_SEC', () => {
   // Low rolls while the fight runs (its standoff ends in the cloud), then no new encounters.
   let fighting = true;
   const social = new CatSocial({ rng: () => (fighting ? 0.01 : 0.99) });
-  // Already head to tail: no walk needed (this test runs no character FSM).
-  const a = idleCat(1, 6, 4);
-  const b = idleCat(2, 6, 5);
+  // Already face to face, two tiles apart: no walk needed (this test runs no character FSM).
+  const a = idleCat(1, 6, 5);
+  const b = idleCat(2, 8, 5);
   const chars = office(a, b);
   assert.equal(social.trySocialEncounter(a, b, { kind: 'fight' }), 'fight');
   run(social, chars, world, 12);
@@ -208,7 +208,7 @@ test('interrupt: a cat that gets work leaves at once and the partner resumes idl
     onSceneEnd: (id, _k, r) => ended.push([id, r]),
   });
   const a = idleCat(1, 4, 4);
-  const b = idleCat(2, 4, 5);
+  const b = idleCat(2, 6, 4);
   const chars = office(a, b);
   social.trySocialEncounter(a, b, { kind: 'fight' });
   for (let t = 0; t < 10 && a.social?.pose !== 'hidden'; t += DT) social.update(DT, chars, world);
@@ -338,15 +338,31 @@ test('meetTile: a cat directly above its partner moves beside it (sprites would 
   assert.equal(meetTile(beside, host, world, new Set()), null, 'already side by side');
 });
 
-/** How a fight's standoff ends for a head-to-tail pair: 'unpuff' (fight) or 'backDown'. */
+test('standoff: the puffed cats stand at least one sprite width apart on one row', () => {
+  const social = new CatSocial({ rng: () => 0.5 });
+  const a = idleCat(1, 6, 5);
+  const b = idleCat(2, 8, 5);
+  const chars = office(a, b);
+  social.trySocialEncounter(a, b, { kind: 'fight' });
+  let found = false;
+  for (let t = 0; t < 15 && !found; t += DT) {
+    social.update(DT, chars, world0);
+    found = social.sceneInfo(1)?.phase === 'standoff';
+  }
+  assert.ok(found, 'the scene reached the standoff');
+  assert.ok(Math.abs(a.x - b.x) >= TILE_SIZE, `dx ${Math.abs(a.x - b.x)} < sprite width`);
+  assert.equal(a.tileRow, b.tileRow, 'one row: sprites cannot stack');
+});
+
+/** How a fight's standoff ends for a pair on one row: 'unpuff' (fight) or 'backDown'. */
 function standoffOutcome(
   rng: () => number,
   pa?: Character['personality'],
   pb?: Character['personality'],
 ): string {
   const social = new CatSocial({ rng });
-  const a = idleCat(1, 6, 4);
-  const b = idleCat(2, 6, 5);
+  const a = idleCat(1, 6, 5);
+  const b = idleCat(2, 8, 5);
   a.personality = pa;
   b.personality = pb;
   const chars = office(a, b);
@@ -381,8 +397,8 @@ test('standoff: the fight share follows the personalities (scrappy > default > s
 
 test('standoff back down: the less scrappy cat backs down', () => {
   const social = new CatSocial({ rng: () => 0.99 }); // no fight
-  const a = idleCat(1, 6, 4);
-  const b = idleCat(2, 6, 5);
+  const a = idleCat(1, 6, 5);
+  const b = idleCat(2, 8, 5);
   a.personality = 'scrappy';
   const chars = office(a, b);
   social.trySocialEncounter(a, b, { kind: 'fight' });
@@ -396,8 +412,8 @@ test('standoff back down: the less scrappy cat backs down', () => {
 
 test('standoff back down: the loser keeps its slow walk until it reaches its target', () => {
   const social = new CatSocial({ rng: () => 0.99 }); // no fight
-  const a = idleCat(1, 6, 4);
-  const b = idleCat(2, 6, 5);
+  const a = idleCat(1, 6, 5);
+  const b = idleCat(2, 8, 5);
   a.personality = 'scrappy';
   const chars = office(a, b);
   social.trySocialEncounter(a, b, { kind: 'fight' });

@@ -32,6 +32,7 @@ import {
   SOCIAL_STANDOFF_FIGHT_CHANCE,
   SOCIAL_STANDOFF_FIGHT_MAX,
   SOCIAL_STANDOFF_FIGHT_MIN,
+  SOCIAL_STANDOFF_GAP_TILES,
   SOCIAL_STANDOFF_IN_FRAME_SEC,
   SOCIAL_STANDOFF_MAX_SEC,
   SOCIAL_STANDOFF_MIN_SEC,
@@ -189,7 +190,14 @@ function approach(s: Scene, cast: SceneCast): StepResult {
     }
     if (s.kind === 'play') return begin(s, cast);
     if (s.kind === 'fight') {
-      const spots = standoffTiles(a, b, world, cast.occupied, SOCIAL_STANDOFF_SEARCH_TILES);
+      const spots = standoffTiles(
+        a,
+        b,
+        world,
+        cast.occupied,
+        SOCIAL_STANDOFF_SEARCH_TILES,
+        SOCIAL_STANDOFF_GAP_TILES,
+      );
       if (spots) {
         walkTo(a, spots[0], world);
         walkTo(b, spots[1], world);
