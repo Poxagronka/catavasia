@@ -22,7 +22,7 @@ server/                              Lifecycle runtime + Fastify HTTP/WS server
   src/
     providers/hook/claude/           Reference HookProvider — only place that knows Claude specifics
       claude.ts                      normalizeHookEvent for 11 Claude events, formatToolStatus, file fallback
-      claudeTeamProvider.ts          TeamProvider: reads ~/.claude/teams/<name>/config.json
+      claudeTeamProvider.ts          TeamProvider: reads sidecars under <session>/subagents/ and team tags
       claudeHookInstaller.ts         Consent-gated install/uninstall in ~/.claude/settings.json (abort on unparseable file or non-array hooks.<Event>; one-time .pixel-agents.backup, exclusive-create, no backup ⇒ no write — but skipped when the replaced content is entirely our own install's output, since backing up our own file masquerades as the user's original (`settingsHoldOnlyOurHooks`, compared against makeHookEntry — the WRITER — so a field added to what we write can't silently revive the bug; only `command`/`timeout` may differ, they vary across installs); every write failure THROWS; mode preserved, 0600 on create; re-read verify immediately before rename + retry; hook identity = `/.pixel-agents/hooks/claude-hook.js` suffix anchored at both ends of the command's first token, case-insensitive; `areHooksInstalled` = ANY of our commands on ANY event)
       consentCopy.ts                 Claude's first-run consent disclosure text (scope/data/undo), served through consentDisclosure()
       constants.ts                   Claude hook event names, script path
@@ -46,7 +46,6 @@ server/                              Lifecycle runtime + Fastify HTTP/WS server
     transcriptParser.ts              JSONL parsing for heuristic / file-fallback mode
     timerManager.ts                  Waiting / permission timers
     assetLoader.ts                   PNG → SpriteData via pngjs
-    teamUtils.ts                     isInlineTeammateOf, getInlineTeammates, hasInlineTeammates
     types.ts                         ServerAgentState
     constants.ts                     All timing/scanning constants
   __tests__/                         28 Vitest files
@@ -132,10 +131,10 @@ e2e/                                 Playwright suite (real VS Code + mock-claud
     standalone.ts                    Standalone server + WebSocket browser helpers
     internal-agent.ts                spawnInternalAgentAndWait
     lifecycle.ts                     Reusable scenario fragments
-    team.ts                          Team config seeding + teammate helpers
+    team.ts                          Transcript record builders for sub-agent and teammate scenarios
     allure-labels.ts                 @area:<tag> → Allure epic
   tests/
-    claude/hooks-on/                 basic.spec.ts, lifecycle.spec.ts, teams.spec.ts
+    claude/hooks-on/                 basic.spec.ts, lifecycle.spec.ts
     claude/hooks-off/                lifecycle.spec.ts, matrix.spec.ts
     standalone/                      hooks.spec.ts
   README.md                          Auto-generated test inventory (regen via npm run e2e:inventory)

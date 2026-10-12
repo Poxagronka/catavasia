@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StateAdapter } from '../../core/src/adapter.js';
 import { AgentRuntime } from '../src/agentRuntime.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
-import { scanAllTeammateFiles } from '../src/fileWatcher.js';
+import { scanAllBackgroundAgentFiles } from '../src/fileWatcher.js';
 import { claudeProvider } from '../src/providers/hook/claude/claude.js';
 import { processTranscriptLine } from '../src/transcriptParser.js';
 import type { PersistedAgent } from '../src/types.js';
@@ -137,12 +137,37 @@ describe('one Claude session renders as one character', () => {
       );
     }
     // The periodic 1s teammate/background scan.
-    scanAllTeammateFiles(store.nextAgentId, store, new Map(), new Map(), noTimers, noTimers, () =>
-      store.persist(),
-    );
+    scanAllBackgroundAgentFiles(store);
 
     expect(store.size).toBe(1);
     expect(created).toEqual([leadId]);
+  });
+
+  it('a created cat spawning sub-agents and a teammate adds no character', () => {
+    const store = new AgentStateStore();
+    runtime = new AgentRuntime(store, claudeProvider);
+    const created: number[] = [];
+    store.on('agentAdded', (id) => created.push(id));
+    const catId = runtime.spawnResidentAgent();
+    expect(created).toEqual([catId]);
+    store.get(catId)!.sessionId = LEAD_SESSION;
+    store.get(catId)!.projectDir = tmpDir;
+
+    const noTimers = new Map<number, ReturnType<typeof setTimeout>>();
+    for (const s of SPAWNS) {
+      processTranscriptLine(catId, spawnRecord(s.toolId, s.name), store, noTimers, noTimers);
+      processTranscriptLine(
+        catId,
+        asyncLaunchRecord(s.toolId, s.agentId),
+        store,
+        noTimers,
+        noTimers,
+      );
+    }
+    scanAllBackgroundAgentFiles(store);
+
+    expect(store.size).toBe(1);
+    expect(created).toEqual([catId]);
   });
 
   it('does not restore a persisted teammate of a session', () => {
@@ -154,13 +179,11 @@ describe('one Claude session renders as one character', () => {
       jsonlFile: leadJsonl,
       projectDir: tmpDir,
       teamName: 'team-x',
-      isTeamLead: true,
     };
     const teammate: PersistedAgent = {
       ...lead,
       id: 2,
       jsonlFile: path.join(tmpDir, LEAD_SESSION, 'subagents', `agent-${SPAWNS[2].agentId}.jsonl`),
-      isTeamLead: undefined,
       agentName: 'reviewer',
       leadAgentId: 1,
     };

@@ -1,6 +1,5 @@
 import type { AgentStateStore } from './agentStateStore.js';
 import { PERMISSION_TIMER_DELAY_MS } from './constants.js';
-import { hasPromotedBackgroundAgent } from './teamUtils.js';
 import type { AgentState } from './types.js';
 
 export function clearAgentActivity(
@@ -35,13 +34,10 @@ export function clearAgentActivity(
   agent.permissionSent = false;
   cancelPermissionTimer(agentId, permissionTimers);
   agents.broadcast({ type: 'agentToolsClear', id: agentId });
-  // Re-send background agent tools so webview re-creates their sub-agents.
+  // Re-send background agent tools so the webview keeps their overlay rows.
   // toolName + runInBackground are REQUIRED: without them the webview can't
-  // recognize the re-sent tool as a subagent spawn and never recreates the
-  // Subtask sub-character. Skip tools whose spawn became its own character
-  // (named background teammate) -- re-sending would spawn a ghost alongside it.
+  // recognize the re-sent tool as a background spawn.
   for (const toolId of agent.backgroundAgentToolIds) {
-    if (hasPromotedBackgroundAgent(agentId, toolId, agents)) continue;
     const status = agent.activeToolStatuses.get(toolId);
     if (status) {
       agents.broadcast({
@@ -51,7 +47,6 @@ export function clearAgentActivity(
         status,
         toolName: agent.activeToolNames.get(toolId),
         runInBackground: true,
-        isTeammateSpawn: agent.teammateSpawnToolIds?.has(toolId) || undefined,
       });
     }
   }
@@ -128,11 +123,9 @@ export function startPermissionTimer(
     }
 
     // Check sub-agent tools for non-exempt tools
-    const stuckSubagentParentToolIds: string[] = [];
-    for (const [parentToolId, subToolNames] of agent.activeSubagentToolNames) {
+    for (const subToolNames of agent.activeSubagentToolNames.values()) {
       for (const [, toolName] of subToolNames) {
         if (!permissionExemptTools.has(toolName)) {
-          stuckSubagentParentToolIds.push(parentToolId);
           hasNonExempt = true;
           break;
         }
@@ -146,14 +139,6 @@ export function startPermissionTimer(
         type: 'agentToolPermission',
         id: agentId,
       });
-      // Also notify stuck sub-agents
-      for (const parentToolId of stuckSubagentParentToolIds) {
-        agents.broadcast({
-          type: 'subagentToolPermission',
-          id: agentId,
-          parentToolId,
-        });
-      }
     }
   }, PERMISSION_TIMER_DELAY_MS);
   permissionTimers.set(agentId, timer);

@@ -122,7 +122,7 @@ describe('claudeHookInstaller', () => {
   });
 
   // 4a. A PARTIAL install still fires. Both consent surfaces branch on this
-  //     answer, and an all-12-or-nothing reading presented live hooks as
+  //     answer, and an all-10-or-nothing reading presented live hooks as
   //     "nothing installed": the checkbox read off while hooks fired, "Not
   //     Now" left them firing without saying so, and "Don't Ask Again"
   //     persisted hooks-off without removing them.
@@ -376,7 +376,7 @@ describe('claudeHookInstaller', () => {
   //       The backup preserves the user's pre-Pixel-Agents file; when the only
   //       content ever in the file is our own install, a backup enshrines our
   //       output as "the user's original". Observed in a fresh home: the first
-  //       uninstall backed up the install's own 12 entries.
+  //       uninstall backed up the install's own 10 entries.
   it('creates no backup across uninstall/reinstall of a file our install created', async () => {
     const backupPath = settingsPathFor() + SETTINGS_BACKUP_SUFFIX;
     await installHooks();

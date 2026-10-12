@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'অনুমোদন দরকার',
   toolWaitingInput: 'ইনপুটের অপেক্ষায়',
   toolIdle: 'নিষ্ক্রিয়',
-  toolSubtask: 'উপকাজ',
   toolChat: 'চ্যাট',
   toolContextUsed: '{pct}% কনটেক্সট ব্যবহৃত ({max}k টোকেনের মধ্যে {used}k)',
   projectPickingText: 'একটি ফোল্ডার উইন্ডো খোলা আছে। সেটি এই ব্রাউজার উইন্ডোর পিছনে থাকতে পারে।',

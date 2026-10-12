@@ -80,7 +80,6 @@ import { OfficeScenes } from './officeScenes.js';
 import { createPet, updatePet } from './petEntity.js';
 import { petToyMotion } from './petPlayAnims.js';
 import { isHiddenInRunThrough } from './runThrough.js';
-import { anchorTile, closestFreeSeat } from './seatPlacement.js';
 import { DESK_READ_SEC, SKILL_READ, SKILL_TOOL } from './skillReading.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
@@ -137,11 +136,6 @@ export class OfficeState {
   cameraFollowId: number | null = null;
   hoveredAgentId: number | null = null;
   hoveredTile: { col: number; row: number } | null = null;
-  /** Maps "parentId:toolId" → sub-agent character ID (negative) */
-  subagentIdMap: Map<string, number> = new Map();
-  /** Reverse lookup: sub-agent character ID → parent info */
-  subagentMeta: Map<number, { parentAgentId: number; parentToolId: string }> = new Map();
-  private nextSubagentId = -1;
   /** Resident cats of the cat office by agent id (setResidentCats). */
   private residents = new Map<number, ResidentCat>();
 
@@ -525,15 +519,6 @@ export class OfficeState {
     return this.pickFromSeats(freeSeats, electronicsTiles);
   }
 
-  /** Seats minus those a cat holds for an activity (a sofa nap) and the Cat CEO's chair: new agents skip them. */
-  private seatsFreeOfCats(): Map<string, Seat> {
-    return new Map(
-      [...this.seats].filter(
-        ([uid, seat]) => !this.life.seatHeldByCat(seat) && !this.reservedFor(uid),
-      ),
-    );
-  }
-
   /**
    * Seat of the executive chair: the Cat CEO's own desk, reserved for it.
    * Null when the office has no executive chair (an edited office).
@@ -603,11 +588,10 @@ export class OfficeState {
    * repeat in balanced rounds with a random hue shift (≥45°).
    */
   private pickDiversePalette(): { palette: number; hueShift: number } {
-    // Count how many non-sub-agents use each base palette (0-12)
+    // Count how many agents use each base palette (0-12)
     const paletteCount = getLoadedCharacterCount();
     const counts = new Array(paletteCount).fill(0) as number[];
     for (const ch of this.characters.values()) {
-      if (ch.isSubagent) continue;
       if (ch.palette < paletteCount) counts[ch.palette]++;
     }
     return pickDiversePalette(paletteCount, counts);
@@ -620,7 +604,6 @@ export class OfficeState {
     preferredSeatId?: string,
     skipSpawnEffect?: boolean,
     folderName?: string,
-    nearAgentId?: number,
   ): void {
     if (this.characters.has(id)) return;
 
@@ -635,12 +618,7 @@ export class OfficeState {
       hueShift = pick.hueShift;
     }
 
-    // Try preferred seat first, then (for teammates) the seat closest to the
-    // anchor agent, then any free seat. anchorTile resolves to the anchor's SEAT
-    // (stable from creation) rather than its live tile, so a teammate placed while
-    // the lead is still walking to its seat still clusters around the final seat.
-    const anchor = nearAgentId !== undefined ? this.characters.get(nearAgentId) : undefined;
-    const anchorAt = anchorTile(anchor, this.seats);
+    // Try preferred seat first, then any free seat.
     let seatId: string | null = null;
     // The Cat CEO starts at its executive chair, the team lead at the lead chair.
     const r = this.residents.get(id);
@@ -656,9 +634,6 @@ export class OfficeState {
         seatId = preferredSeatId;
       }
     }
-    if (!seatId && anchorAt) {
-      seatId = closestFreeSeat(this.seatsFreeOfCats(), anchorAt.col, anchorAt.row);
-    }
     if (!seatId) {
       seatId = this.findFreeSeat(folderName);
     }
@@ -669,14 +644,11 @@ export class OfficeState {
       seat.assigned = true;
       ch = createCharacter(id, palette, seatId, seat, hueShift);
     } else {
-      // No seats — teammates spawn beside their anchor, others at a random walkable tile
-      let spawn = anchorAt ? this.closestFreeWalkableTile(anchorAt.col, anchorAt.row) : null;
-      if (!spawn) {
-        spawn =
-          this.walkableTiles.length > 0
-            ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
-            : { col: 1, row: 1 };
-      }
+      // No seats — spawn at a random walkable tile
+      const spawn =
+        this.walkableTiles.length > 0
+          ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
+          : { col: 1, row: 1 };
       ch = createCharacter(id, palette, null, null, hueShift);
       ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
       ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
@@ -939,34 +911,6 @@ export class OfficeState {
     }
   }
 
-  /**
-   * Move a just-linked teammate to the free seat closest to its lead, so teams
-   * cluster. Only moves when that seat is strictly closer than the teammate's
-   * current one — a teammate created as a plain external agent (seated by an
-   * arbitrary findFreeSeat) and tagged as a teammate only after tag discovery
-   * would otherwise keep its arbitrary seat, unlike an inline teammate seated
-   * next to the lead at creation.
-   */
-  private reseatNextToLead(teammateId: number, leadId: number): void {
-    const teammate = this.characters.get(teammateId);
-    const lead = this.characters.get(leadId);
-    if (!teammate || !lead) return;
-    const anchorAt = anchorTile(lead, this.seats);
-    if (!anchorAt) return;
-    const target = closestFreeSeat(this.seatsFreeOfCats(), anchorAt.col, anchorAt.row);
-    if (!target || target === teammate.seatId) return;
-    const targetSeat = this.seats.get(target)!;
-    const targetDist =
-      Math.abs(targetSeat.seatCol - anchorAt.col) + Math.abs(targetSeat.seatRow - anchorAt.row);
-    const currentSeat = teammate.seatId ? this.seats.get(teammate.seatId) : undefined;
-    const currentDist = currentSeat
-      ? Math.abs(currentSeat.seatCol - anchorAt.col) + Math.abs(currentSeat.seatRow - anchorAt.row)
-      : Infinity;
-    if (targetDist < currentDist) {
-      this.reassignSeat(teammateId, target);
-    }
-  }
-
   /** Send an agent back to their currently assigned seat */
   sendToSeat(agentId: number): void {
     const ch = this.characters.get(agentId);
@@ -999,7 +943,7 @@ export class OfficeState {
   /** Walk an agent to an arbitrary walkable tile (right-click command) */
   walkToTile(agentId: number, col: number, row: number): boolean {
     const ch = this.characters.get(agentId);
-    if (!ch || ch.isSubagent) return false;
+    if (!ch) return false;
     ch.activity = null; // a command walk ends any idle activity
     if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) {
       // Also allow walking to own seat tile (blocked for others but not self)
@@ -1017,108 +961,6 @@ export class OfficeState {
     ch.frame = 0;
     ch.frameTimer = 0;
     return true;
-  }
-
-  /** Create a sub-agent character with the parent's palette. Returns the sub-agent ID. */
-  addSubagent(parentAgentId: number, parentToolId: string): number {
-    const key = `${parentAgentId}:${parentToolId}`;
-    if (this.subagentIdMap.has(key)) return this.subagentIdMap.get(key)!;
-
-    const id = this.nextSubagentId--;
-    const parentCh = this.characters.get(parentAgentId);
-    const palette = parentCh ? parentCh.palette : 0;
-    const hueShift = parentCh ? parentCh.hueShift : 0;
-
-    // Find the closest walkable tile to the parent, avoiding tiles occupied by other characters
-    const parentCol = parentCh ? parentCh.tileCol : 0;
-    const parentRow = parentCh ? parentCh.tileRow : 0;
-    let spawn = { col: parentCol, row: parentRow };
-    if (this.walkableTiles.length > 0) {
-      spawn = this.closestFreeWalkableTile(parentCol, parentRow) ?? this.walkableTiles[0];
-    }
-
-    const ch = createCharacter(id, palette, null, null, hueShift);
-    ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
-    ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
-    ch.tileCol = spawn.col;
-    ch.tileRow = spawn.row;
-    // Face the same direction as the parent agent
-    if (parentCh) ch.dir = parentCh.dir;
-    ch.isSubagent = true;
-    ch.parentAgentId = parentAgentId;
-    startMatrixEffect(ch, 'spawn');
-    this.characters.set(id, ch);
-
-    this.subagentIdMap.set(key, id);
-    this.subagentMeta.set(id, { parentAgentId, parentToolId });
-    return id;
-  }
-
-  /** Remove a specific sub-agent character and free its seat */
-  removeSubagent(parentAgentId: number, parentToolId: string): void {
-    const key = `${parentAgentId}:${parentToolId}`;
-    const id = this.subagentIdMap.get(key);
-    if (id === undefined) return;
-
-    const ch = this.characters.get(id);
-    if (ch) {
-      if (ch.matrixEffect === 'despawn') {
-        // Already despawning — just clean up maps
-        this.subagentIdMap.delete(key);
-        this.subagentMeta.delete(id);
-        return;
-      }
-      if (ch.seatId) {
-        const seat = this.seats.get(ch.seatId);
-        if (seat) seat.assigned = false;
-      }
-      // Start despawn animation — keep character in map for rendering
-      startMatrixEffect(ch, 'despawn');
-      ch.bubbleType = null;
-    }
-    // Clean up tracking maps immediately so keys don't collide
-    this.subagentIdMap.delete(key);
-    this.subagentMeta.delete(id);
-    if (this.selectedAgentId === id) this.selectedAgentId = null;
-    if (this.cameraFollowId === id) this.cameraFollowId = null;
-  }
-
-  /** Remove all sub-agents belonging to a parent agent */
-  removeAllSubagents(parentAgentId: number): void {
-    const toRemove: string[] = [];
-    for (const [key, id] of this.subagentIdMap) {
-      const meta = this.subagentMeta.get(id);
-      if (meta && meta.parentAgentId === parentAgentId) {
-        const ch = this.characters.get(id);
-        if (ch) {
-          if (ch.matrixEffect === 'despawn') {
-            // Already despawning — just clean up maps
-            this.subagentMeta.delete(id);
-            toRemove.push(key);
-            continue;
-          }
-          if (ch.seatId) {
-            const seat = this.seats.get(ch.seatId);
-            if (seat) seat.assigned = false;
-          }
-          // Start despawn animation
-          startMatrixEffect(ch, 'despawn');
-          ch.bubbleType = null;
-        }
-        this.subagentMeta.delete(id);
-        if (this.selectedAgentId === id) this.selectedAgentId = null;
-        if (this.cameraFollowId === id) this.cameraFollowId = null;
-        toRemove.push(key);
-      }
-    }
-    for (const key of toRemove) {
-      this.subagentIdMap.delete(key);
-    }
-  }
-
-  /** Look up the sub-agent character ID for a given parent+toolId, or null */
-  getSubagentId(parentAgentId: number, parentToolId: string): number | null {
-    return this.subagentIdMap.get(`${parentAgentId}:${parentToolId}`) ?? null;
   }
 
   setAgentActive(id: number, active: boolean): void {
@@ -1507,38 +1349,6 @@ export class OfficeState {
     }));
   }
 
-  setTeamInfo(
-    id: number,
-    teamName?: string,
-    agentName?: string,
-    isTeamLead?: boolean,
-    leadAgentId?: number,
-    teamUsesTmux?: boolean,
-  ): void {
-    const ch = this.characters.get(id);
-    if (!ch) return;
-    const wasUnlinked = ch.leadAgentId === undefined;
-    ch.teamName = teamName;
-    ch.agentName = agentName;
-    ch.isTeamLead = isTeamLead;
-    ch.leadAgentId = leadAgentId;
-    if (teamUsesTmux !== undefined) {
-      ch.teamUsesTmux = teamUsesTmux;
-    }
-    // A teammate is not a headless agent: clicking it focuses its lead's terminal.
-    // Adopted sessions are marked headless at creation and only later discovered
-    // to be teammates, so drop the mark once the link lands.
-    if (leadAgentId !== undefined) {
-      ch.isHeadless = false;
-    }
-    // A teammate discovered only after its plain external session was adopted is
-    // linked here, not at creation, so it never went through the seat-next-to-lead
-    // path addAgent runs for inline teammates. Cluster it now, once, on first link.
-    if (wasUnlinked && leadAgentId !== undefined && !isTeamLead) {
-      this.reseatNextToLead(id, leadAgentId);
-    }
-  }
-
   /**
    * Send a content cat pet to an activity now (screenshots, tests): it claims
    * the spot (`spotKey`, else the activity's first spot) and walks there like
@@ -1799,16 +1609,13 @@ export class OfficeState {
   }
 
   /** The `saveAgentSeats` payload: palette, hue and seat for every agent worth
-   *  restoring. Sub-agents are excluded because they are derived state the
-   *  runtime re-materializes, and the greeter never reaches here at all —
-   *  it is not in `characters`. */
+   *  restoring. The greeter never reaches here at all — it is not in `characters`. */
   getPersistableSeats(): Record<
     number,
     { palette: number; hueShift: number; seatId: string | null }
   > {
     const seats: Record<number, { palette: number; hueShift: number; seatId: string | null }> = {};
     for (const ch of this.characters.values()) {
-      if (ch.isSubagent) continue;
       seats[ch.id] = { palette: ch.palette, hueShift: ch.hueShift, seatId: ch.seatId };
     }
     return seats;

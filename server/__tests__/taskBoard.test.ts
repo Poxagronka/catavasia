@@ -4,35 +4,14 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { NarratorInput } from '../../core/src/narrator.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { createHttpServer } from '../src/httpServer.js';
 import { createWorktree, finalizeWorktree, inspectRepo } from '../src/taskBoard/gitWorktree.js';
 import { parseStreamLine } from '../src/taskBoard/streamJson.js';
-import { type TaskAgentHost, TaskManager } from '../src/taskBoard/taskManager.js';
-
-/** Stand-in for `claude -p`: echoes the prompt into a file in its cwd, prints
- *  stream-json, and fails when the prompt says FAIL. */
-const FAKE_CLAUDE = `#!/usr/bin/env node
-let prompt = '';
-process.stdin.on('data', (d) => (prompt += d));
-process.stdin.on('end', () => {
-  const out = (o) => process.stdout.write(JSON.stringify(o) + '\\n');
-  if (prompt.includes('FAIL')) {
-    process.stderr.write('boom: something broke');
-    process.exit(3);
-  }
-  require('fs').writeFileSync('meow.txt', prompt);
-  out({ type: 'system', subtype: 'init', cwd: process.cwd() });
-  out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Write', input: { file_path: 'meow.txt' } }] } });
-  out({ type: 'assistant', message: { content: [{ type: 'text', text: 'Created **meow.txt**' }] } });
-  out({ type: 'result', subtype: 'success', is_error: false, result: 'Done: meow.txt', total_cost_usd: 0.01, duration_ms: 42, num_turns: 2, args: process.argv.slice(2) });
-});
-`;
+import { TaskManager } from '../src/taskBoard/taskManager.js';
 
 let tmp: string;
 let stateDir: string;
-let fakeBin: string;
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf-8' });
@@ -48,45 +27,9 @@ function makeRepo(): string {
   return repo;
 }
 
-class FakeHost implements TaskAgentHost {
-  launched: Array<{ sessionId: string; cwd: string }> = [];
-  finished: number[] = [];
-  finishedTasks: string[] = [];
-  launchHeadlessAgent(sessionId: string, cwd: string) {
-    this.launched.push({ sessionId, cwd });
-    return { id: this.launched.length, palette: 4, hueShift: 0 };
-  }
-  finishHeadlessAgent(id: number, taskId: string) {
-    this.finished.push(id);
-    this.finishedTasks.push(taskId);
-  }
-  resumeHeadlessAgent() {}
-  restored: Array<{ sessionId: string; taskId: string; palette?: number }> = [];
-  restoreFinishedAgent(
-    sessionId: string,
-    _cwd: string,
-    taskId: string,
-    look?: { palette?: number },
-  ) {
-    this.restored.push({ sessionId, taskId, palette: look?.palette });
-    return { id: 100 + this.restored.length };
-  }
-}
-
-async function waitSettled(manager: TaskManager, id: string) {
-  for (let i = 0; i < 200; i++) {
-    const task = manager.get(id);
-    if (task && task.status !== 'running') return task;
-    await new Promise((r) => setTimeout(r, 25));
-  }
-  throw new Error('task never settled');
-}
-
 beforeEach(() => {
   tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-tasks-')));
   stateDir = path.join(tmp, 'state');
-  fakeBin = path.join(tmp, 'fake-claude');
-  fs.writeFileSync(fakeBin, FAKE_CLAUDE, { mode: 0o755 });
 });
 
 afterEach(() => {
@@ -206,143 +149,16 @@ describe('parseStreamLine', () => {
 });
 
 describe('TaskManager', () => {
-  it('runs a task in a worktree and records result, diff and branch', async () => {
-    const repo = makeRepo();
-    const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
-
-    const created = await manager.create('create meow.txt\nwith the word meow', repo);
-    expect(created).toMatchObject({ status: 'running', title: 'create meow.txt', palette: 4 });
-    const task = await waitSettled(manager, created.id);
-
-    expect(task.status).toBe('done');
-    expect(task.result).toBe('Done: meow.txt');
-    expect(task.costUsd).toBe(0.01);
-    expect(task.branch).toBe(`task/${created.id}`);
-    expect(task.changedFiles).toEqual([{ status: 'A', path: 'meow.txt' }]);
-    expect(task.diff).toContain('+create meow.txt');
-    expect(task.log.map((e) => e.kind)).toEqual(['tool', 'text']);
-    // The agent ran inside the worktree, which is gone now; the main checkout is untouched.
-    const wt = path.join(stateDir, 'worktrees', created.id);
-    expect(host.launched[0].cwd).toBe(wt);
-    expect(fs.existsSync(wt)).toBe(false);
-    expect(fs.existsSync(path.join(repo, 'meow.txt'))).toBe(false);
-    expect(git(repo, 'show', `task/${created.id}:meow.txt`)).toContain('with the word meow');
-    expect(host.finished).toEqual([1]);
-    expect(host.finishedTasks).toEqual([created.id]);
-    // Persisted for the next server start.
-    const stored = JSON.parse(fs.readFileSync(path.join(stateDir, 'tasks.json'), 'utf-8'));
-    expect(stored.tasks[created.id].status).toBe('done');
-  });
-
-  it('runs directly in a folder that is not a git repo', async () => {
-    const folder = path.join(tmp, 'plain');
-    fs.mkdirSync(folder);
-    const host = new FakeHost();
-    const narrated: NarratorInput[] = [];
-    const manager = new TaskManager({
-      host,
-      stateDir,
-      claudeBin: fakeBin,
-      narrate: (input) => narrated.push(input),
-    });
-
-    const task = await waitSettled(manager, (await manager.create('hello', folder)).id);
-
-    expect(task.status).toBe('done');
-    expect(task.branch).toBeUndefined();
-    // The stream feeds the narrator: tool, assistant text, final result.
-    expect(narrated.map(({ ts: _ts, ...rest }) => rest)).toEqual([
-      { catId: 1, kind: 'tool', tool: 'Write', file: 'meow.txt', text: 'meow.txt' },
-      { catId: 1, kind: 'state', text: 'thinking' },
-      { catId: 1, kind: 'result', text: 'Done: meow.txt' },
-    ]);
-    expect(host.launched[0].cwd).toBe(folder);
-    expect(fs.readFileSync(path.join(folder, 'meow.txt'), 'utf-8')).toBe('hello');
-  });
-
-  it('marks a failing run as error with the stderr tail', async () => {
-    const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
-
-    const task = await waitSettled(manager, (await manager.create('please FAIL', tmp)).id);
-
-    expect(task.status).toBe('error');
-    expect(task.error).toContain('Exit code 3');
-    expect(task.error).toContain('boom: something broke');
-    expect(host.finished).toEqual([1]);
-  });
-
-  it('marks a missing CLI binary as error', async () => {
-    const manager = new TaskManager({
-      host: new FakeHost(),
-      stateDir,
-      claudeBin: path.join(tmp, 'no-such-claude'),
-    });
-    const task = await waitSettled(manager, (await manager.create('hi', tmp)).id);
-    expect(task.status).toBe('error');
-    expect(task.error).toContain('ENOENT');
-  });
-
   it('marks tasks left running by a dead server as interrupted on start', () => {
     fs.mkdirSync(stateDir, { recursive: true });
     const orphan = { id: 'dead0001', title: 't', prompt: 't', cwd: tmp, status: 'running' };
     const tasks = { dead0001: { ...orphan, createdAt: 1, ownerPid: 2 ** 22 + 7, log: [] } };
     fs.writeFileSync(path.join(stateDir, 'tasks.json'), JSON.stringify({ version: 1, tasks }));
 
-    const manager = new TaskManager({ host: new FakeHost(), stateDir });
+    const manager = new TaskManager({ stateDir });
 
     expect(manager.get('dead0001')).toMatchObject({ status: 'error' });
     expect(manager.get('dead0001')?.error).toContain('Interrupted');
-  });
-
-  it('gives the newest finished one-cat runs their idle cat back after a restart', () => {
-    fs.mkdirSync(stateDir, { recursive: true });
-    const dead = 2 ** 22 + 7;
-    const run = (id: string, finishedAt: number, extra: object = {}) => ({
-      id,
-      title: id,
-      prompt: id,
-      cwd: tmp,
-      status: 'done',
-      createdAt: finishedAt - 1,
-      finishedAt,
-      ownerPid: dead,
-      log: [],
-      sessionId: `s-${id}`,
-      agentCwd: tmp,
-      agentId: 3,
-      palette: 5,
-      hueShift: 0,
-      ...extra,
-    });
-    const list = [
-      ...Array.from({ length: 7 }, (_, i) => run(`old${i}`, 100 + i)),
-      run('team1', 500, { target: 'team' }),
-      run('nosess', 600, { sessionId: undefined }),
-      run('live', 700, { ownerPid: process.ppid }),
-    ];
-    const tasks = Object.fromEntries(list.map((t) => [t.id, t]));
-    fs.writeFileSync(path.join(stateDir, 'tasks.json'), JSON.stringify({ version: 1, tasks }));
-    const host = new FakeHost();
-    const manager = new TaskManager({ host, stateDir });
-
-    manager.restoreFinishedCats();
-
-    // Newest first, at most 6; team tasks, runs without a session and tasks a
-    // live server owns are skipped.
-    expect(host.restored.map((r) => r.taskId)).toEqual([
-      'old6',
-      'old5',
-      'old4',
-      'old3',
-      'old2',
-      'old1',
-    ]);
-    expect(host.restored[0]).toEqual({ sessionId: 's-old6', taskId: 'old6', palette: 5 });
-    // Clicking the restored cat (new agent id) opens its task.
-    expect(manager.findByAgent(101)?.id).toBe('old6');
-    expect(manager.resumeBlocker('old6')).toBeUndefined();
   });
 });
 
@@ -350,11 +166,7 @@ describe('/api/tasks', () => {
   const token = 'secret-token';
 
   async function startServer() {
-    const manager = new TaskManager({
-      host: new FakeHost(),
-      stateDir,
-      claudeBin: fakeBin,
-    });
+    const manager = new TaskManager({ stateDir });
     const { app, port } = await createHttpServer({
       embedded: true,
       token,
@@ -378,17 +190,10 @@ describe('/api/tasks', () => {
       expect((await post(`${base}?token=wrong`, { prompt: 'hi', cwd: tmp })).status).toBe(401);
       expect(manager.list()).toHaveLength(0);
 
-      const res = await post(`${base}?token=${token}`, { prompt: 'hi', cwd: tmp });
-      expect(res.status).toBe(201);
-      const created = (await res.json()) as { id: string };
-      await waitSettled(manager, created.id);
-
       const list = (await (await fetch(base)).json()) as { tasks: unknown[]; defaultCwd?: string };
-      expect(list.tasks).toHaveLength(1);
+      expect(list.tasks).toHaveLength(0);
       // No default folder: the server's own folder is never offered.
       expect(list.defaultCwd).toBeUndefined();
-      const detail = (await (await fetch(`${base}/${created.id}`)).json()) as { log: unknown[] };
-      expect(detail.log.length).toBeGreaterThan(0);
       expect((await fetch(`${base}/nope`)).status).toBe(404);
     } finally {
       await app.close();
@@ -398,12 +203,28 @@ describe('/api/tasks', () => {
   it('rejects an empty prompt, a missing folder and a folder that does not exist', async () => {
     const { app, base, manager } = await startServer();
     try {
-      expect((await post(`${base}?token=${token}`, { prompt: '   ', cwd: tmp })).status).toBe(400);
+      expect(
+        (await post(`${base}?token=${token}`, { prompt: '   ', cwd: tmp, target: 'team' })).status,
+      ).toBe(400);
       // The folder is required: no fallback to the server's folder.
-      expect((await post(`${base}?token=${token}`, { prompt: 'hi' })).status).toBe(400);
+      expect((await post(`${base}?token=${token}`, { prompt: 'hi', target: 'team' })).status).toBe(
+        400,
+      );
       expect(manager.list()).toHaveLength(0);
-      const missing = { prompt: 'hi', cwd: path.join(tmp, 'missing') };
+      const missing = { prompt: 'hi', cwd: path.join(tmp, 'missing'), target: 'team' };
       expect((await post(`${base}?token=${token}`, missing)).status).toBe(400);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects a task without a target cat or team with a clear 400', async () => {
+    const { app, base, manager } = await startServer();
+    try {
+      const res = await post(`${base}?token=${token}`, { prompt: 'hi', cwd: tmp });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toMatch(/cat or the team/);
+      expect(manager.list()).toHaveLength(0);
     } finally {
       await app.close();
     }

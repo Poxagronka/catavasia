@@ -141,10 +141,6 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         id,
         folderName: agent.folderName,
         isExternal: agent.isExternal || undefined,
-        isTeammate: agent.leadAgentId !== undefined || undefined,
-        teammateName: agent.agentName,
-        parentAgentId: agent.leadAgentId,
-        teamName: agent.teamName,
         hooksOnly: agent.hooksOnly || undefined,
         palette: agent.palette,
         hueShift: agent.hueShift,
@@ -484,12 +480,6 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         if (agent) {
           if (agent.terminalRef) {
             agent.terminalRef.show();
-          } else if (agent.leadAgentId !== undefined) {
-            // Teammate (tmux): focus the lead's terminal instead
-            const lead = this.store.get(agent.leadAgentId);
-            if (lead?.terminalRef) {
-              lead.terminalRef.show();
-            }
           }
         }
       } else if (message.type === 'closeAgent') {
@@ -1001,10 +991,6 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         if (agent.terminalRef && agent.terminalRef === closed) {
           if (this.runtime.activeAgentId.current === id) {
             this.runtime.activeAgentId.current = null;
-          }
-          // If this is a team lead, remove its teammates
-          if (agent.isTeamLead) {
-            this.runtime.removeTeammates(id);
           }
           // Dismiss JSONL so external scanner doesn't re-adopt it
           this.runtime.dismissalTracker.dismiss(agent.jsonlFile);

@@ -23,29 +23,29 @@ An AI coding session tracked by Pixel Agents, whether spawned from the office or
 _Avoid_: bot, terminal (as a synonym), session (as a synonym)
 
 **Headless agent**:
-An agent with no terminal — a non-interactive run adopted from outside the office, for example. A full citizen: it has a seat and can be selected, but there is no terminal to focus. Agents it spawns are sub-agents or teammates like anyone else's. Optionally drawn as a Ghost.
+An agent with no terminal — a non-interactive run adopted from outside the office, for example. A task-board run is never one: tasks create no characters. A full citizen: it has a seat and can be selected, but there is no terminal to focus. Agents it spawns are sub-agents or teammates like anyone else's, so they are not drawn. Optionally drawn as a Ghost.
 
 **Character**:
 The animated pixel-art figure representing an agent in the office. An agent has a status and a session; its character has a position and an animation state.
 _Avoid_: avatar, sprite (a sprite is the image asset, not the figure)
 
 **Ghost**:
-A character drawn translucent because its agent is headless — the visual shorthand for "nothing to focus here". Opt-in: off unless the user turns on "Display Headless as Ghosts", and never used in adapters without terminals, where every agent would qualify and the cue would say nothing. Teammates and sub-agents are never ghosts; clicking one reaches its lead's or parent's terminal.
+A character drawn translucent because its agent is headless — the visual shorthand for "nothing to focus here". Opt-in: off unless the user turns on "Display Headless as Ghosts", and never used in adapters without terminals, where every agent would qualify and the cue would say nothing. Teammates and sub-agents are never drawn at all, so they are never ghosts.
 _Avoid_: faded, dimmed, transparent, inactive (that's a status)
 
 **Sub-agent**:
-An unnamed piece of delegated work spawned by an agent, visualized with its own character near its parent — around it, not in a seat. Not an Agent (no session of its own) and not a Teammate (no name). It exists only for the duration of its task, which may outlive the parent's turn. Having no name is what makes it a sub-agent.
+An unnamed piece of delegated work spawned by an agent. It is NOT drawn (owner, 2026-10-12): no character appears for it. The parent's status and tool overlay shows the work, and the debug view lists its tool rows. Not an Agent (no session of its own) and not a Teammate (no name). It exists only for the duration of its task, which may outlive the parent's turn. Having no name is what makes it a sub-agent.
 _Avoid_: subtask (UI label prefix only)
 
 **Team**:
-A Lead plus the Teammates it spawned. A team exists because a teammate was spawned — whether or not the CLI recorded one. A CLI's team registry is evidence of a team, never its definition.
+A Lead plus the Teammates it spawned. A team exists because a teammate was spawned — whether or not the CLI recorded one. A CLI's team registry is evidence of a team, never its definition. The office tracks a team only to recognize a teammate's own session and keep it out of the guests. Not to be confused with the cat office's team: the cats a task runs on.
 
 **Lead**:
 The agent that spawned a Team's teammates. An agent becomes a lead the moment it spawns its first teammate.
 _Avoid_: parent (that's the sub-agent relationship), orchestrator
 
 **Teammate**:
-A named agent spawned by another agent — the name is what makes it a teammate. Its spawner is its Lead, and together they form a Team. Every teammate has its own transcript and sits in a seat; it may or may not have its own session or terminal — how it runs never changes what it is.
+A named agent spawned by another agent — the name is what makes it a teammate. Its spawner is its Lead, and together they form a Team. Every teammate has its own transcript. It is NOT drawn (owner, 2026-10-12): no character appears for it, and its own session is never adopted as a guest while its lead is tracked. It may or may not have its own session or terminal — how it runs never changes what it is.
 _Avoid_: inline teammate, tmux teammate, session teammate (former run-style distinctions; a teammate's run style is a property, not an identity)
 
 ## Agent Lifecycle
@@ -120,7 +120,7 @@ The indicator above a character announcing a form of inactivity: "…" for a per
 _Avoid_: bubble alone when ambiguous, notification
 
 **Context gauge**:
-The small bar under an agent's activity label showing how full its context window is. Every agent has one once it has taken a turn; sub-agents never do, having no session of their own. It reads the newest turn, so it falls when a session compacts or clears — it is a level, not a total.
+The small bar under an agent's activity label showing how full its context window is. Every agent has one once it has taken a turn. It reads the newest turn, so it falls when a session compacts or clears — it is a level, not a total.
 _Avoid_: fuel gauge, health bar, token gauge (tokens are the unit, context is the thing)
 
 ## Office & Layout
@@ -200,7 +200,7 @@ The integration that connects one coding-agent CLI — Claude Code, Codex, Pi, A
 _Avoid_: plugin, connector
 
 **Agent event**:
-The canonical, CLI-agnostic description of something happening in a session: a tool started, a turn ended, a teammate went idle. Providers produce agent events; everything downstream consumes only these, never CLI-specific names.
+The canonical, CLI-agnostic description of something happening in a session: a tool started, a turn ended, a sub-agent started. Providers produce agent events; everything downstream consumes only these, never CLI-specific names.
 _Avoid_: hook event (the raw, CLI-specific payload before a provider normalizes it)
 
 **Runtime**:

@@ -224,23 +224,11 @@ function normalizeHookEvent(
         },
       };
 
-    // Agent Teams: a teammate went idle / marked a task complete. Normalize as
-    // `subagentTurnEnd` so the team handler can route by the provider's event-specific identity.
-    // `reason` discriminates the two so handlers don't read raw eventName.
+    // TeammateIdle, TaskCompleted and TaskCreated are informational; no
+    // AgentEvent shape fits them. Drop. No longer installed for that reason,
+    // but stale installs still POST them — keep tolerating them here.
     case 'TeammateIdle':
-      return {
-        sessionId,
-        event: { kind: 'subagentTurnEnd', parentToolId: 'current', reason: 'idle' },
-      };
     case 'TaskCompleted':
-      return {
-        sessionId,
-        event: { kind: 'subagentTurnEnd', parentToolId: 'current', reason: 'completed' },
-      };
-
-    // TaskCreated is informational; no AgentEvent shape fits it. Drop. No
-    // longer installed for that reason, but stale installs still POST it —
-    // keep tolerating it here.
     case 'TaskCreated':
     default:
       return null;

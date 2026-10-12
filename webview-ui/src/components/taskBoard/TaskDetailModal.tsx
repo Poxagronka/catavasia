@@ -7,7 +7,6 @@ import { useMoneyShown } from '../../engines/money.js';
 import { terminal } from '../../i18n/terminal/en.js';
 import { useT } from '../../i18n/useT.js';
 import { Modal } from '../ui/Modal.js';
-import { CatAvatar } from './CatAvatar.js';
 import { Markdown } from './Markdown.js';
 import { fetchTask } from './taskApi.js';
 import { TaskControls } from './TaskControls.js';
@@ -42,10 +41,11 @@ function Meta({ task }: { task: TaskDetail }) {
   // [id, label, value]: the id marks the Status row for its color.
   const facts: Array<[string, string, string]> = [
     ['status', t('factStatus'), statusText],
-    ['cat', t('factCat'), taskCatLabel(task, cats)],
     ['folder', t('factFolder'), task.cwd],
     ['branch', t('factBranch'), task.branch ?? t('branchNone')],
   ];
+  const who = taskCatLabel(task, cats);
+  if (who) facts.splice(1, 0, ['cat', t('factCat'), who]);
   if (task.finishedAt !== undefined) {
     facts.push(['elapsed', t('factElapsed'), formatElapsed(task.finishedAt - task.createdAt)]);
   }
@@ -67,7 +67,6 @@ function Meta({ task }: { task: TaskDetail }) {
   }
   return (
     <div className="flex gap-12 items-start">
-      <CatAvatar palette={task.palette} hueShift={task.hueShift} />
       <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-2 items-baseline text-xs min-w-0">
         {facts.map(([id, label, value]) => (
           <div key={id} className="contents">

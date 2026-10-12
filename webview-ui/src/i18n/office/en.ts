@@ -64,7 +64,6 @@ export const messages = {
   toolNeedsApproval: 'Needs approval',
   toolWaitingInput: 'Waiting for input',
   toolIdle: 'Idle',
-  toolSubtask: 'Subtask',
   toolChat: 'Chat',
   toolContextUsed: '{pct}% context used ({used}k of {max}k tokens)',
   projectPickingText: 'A folder window is open. It can be behind this browser window.',

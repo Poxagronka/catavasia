@@ -271,7 +271,7 @@ export async function startDeskOffice(
     emit: () => {},
     turnConcurrency: 6,
   });
-  const tasks = new TaskManager({ host, stateDir, flows: office });
+  const tasks = new TaskManager({ stateDir, flows: office });
   const ceo = new FakeCeoAdapter(script);
   const desk = new CeoDesk({
     stateDir,

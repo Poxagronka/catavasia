@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'منظوری درکار ہے',
   toolWaitingInput: 'جواب کا انتظار',
   toolIdle: 'فارغ',
-  toolSubtask: 'ذیلی کام',
   toolChat: 'چیٹ',
   toolContextUsed: '{pct}% سیاق استعمال ہوا ({max}k میں سے {used}k ٹوکن)',
   projectPickingText: 'فولڈر کی ونڈو کھلی ہے۔ وہ اس براؤزر ونڈو کے پیچھے ہو سکتی ہے۔',

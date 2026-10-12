@@ -113,7 +113,6 @@ export interface CatSocialOptions {
 export function canSocialize(ch: Character, inActivity = false): boolean {
   return (
     !ch.isActive &&
-    !ch.isSubagent &&
     !ch.matrixEffect &&
     (ch.state === CharacterState.IDLE ||
       ch.state === CharacterState.WALK ||

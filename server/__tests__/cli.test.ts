@@ -304,13 +304,14 @@ describe('dist/cli.js entry-point guard', () => {
   });
 
   // An existing user whose hooks a pre-consent version installed gets ZERO
-  // friction: no prompt, just the migration. The startup install is the 14 -> 12
-  // migration and it only ever REDUCES scope (UserPromptSubmit and TaskCreated,
-  // the two events that forwarded prompt text, go away), so asking would buy
+  // friction: no prompt, just the migration. The startup install is the 14 -> 10
+  // migration and it only ever REDUCES scope (UserPromptSubmit, TaskCreated,
+  // TeammateIdle and TaskCompleted, the events that forwarded prompt and task
+  // text, go away), so asking would buy
   // this user nothing they do not already have. What it must NOT do is take the
   // opportunity to touch anything else: unrelated settings keys and a
   // third-party hook sharing one of our entries both survive intact.
-  itBuilt('migrates a pre-consent install to 12 events with no prompt', async () => {
+  itBuilt('migrates a pre-consent install to 10 events with no prompt', async () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-cli-legacy-'));
     const settingsPath = path.join(tmpHome, '.claude', 'settings.json');
     fs.mkdirSync(path.join(tmpHome, '.claude'), { recursive: true });

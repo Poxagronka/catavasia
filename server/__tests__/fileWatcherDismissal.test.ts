@@ -61,7 +61,7 @@ describe('fileWatcher dismissal state', () => {
     return filePath;
   }
 
-  function runExternalScan(hooksEnabled = false): void {
+  function runExternalScan(): void {
     scanExternalDir(
       projectDir,
       knownJsonlFiles,
@@ -72,7 +72,6 @@ describe('fileWatcher dismissal state', () => {
       waitingTimers,
       permissionTimers,
       () => {},
-      { current: hooksEnabled },
     );
   }
 
@@ -295,12 +294,10 @@ describe('fileWatcher dismissal state', () => {
   });
 
   describe('scanExternalDir: team session ownership', () => {
-    it('leaves a tracked lead’s teammate session to team discovery', () => {
+    it('never adopts a tracked lead’s teammate session as a guest', () => {
       // Newer harnesses run each spawned agent as its own top-level session in
-      // the LEAD's projectDir, so this scan sees it too. Generic adoption here
-      // would strip the teammate identity (no leadAgentId, and a seat picked by
-      // findFreeSeat rather than the seat closest to its lead), and since
-      // workspace polling runs under hooks it can beat the hook-driven attach.
+      // the LEAD's projectDir, so this scan sees it too. A teammate is never a
+      // character: the lead's overlay shows its work.
       setTeamProvider(claudeTeamProvider);
       try {
         const teamName = 'session-abc12345';
@@ -320,9 +317,9 @@ describe('fileWatcher dismissal state', () => {
           `${JSON.stringify({ type: 'system', teamName, agentName: 'researcher' })}\n`,
         );
 
-        runExternalScan(true);
+        runExternalScan();
 
-        // The teammate transcript must be left for team discovery. Asserted on
+        // The teammate transcript must be left alone. Asserted on
         // the adopted FILES, not the store size: the scanner assigns ids from
         // nextAgentIdRef, which can collide with a hand-seeded lead and mask an
         // adoption as an overwrite.
@@ -333,10 +330,7 @@ describe('fileWatcher dismissal state', () => {
       }
     });
 
-    it('still adopts a teammate session when hooks are OFF', () => {
-      // Hooks off = no fast-attach, so this scan is the ONLY discovery path for
-      // tmux teammates. Guarding on team tags without checking hooks state broke
-      // the hooks-off matrix specs: the teammate was never adopted at all.
+    it('never adopts a tracked lead’s tmux teammate session either', () => {
       setTeamProvider(claudeTeamProvider);
       try {
         const teamName = 'session-abc12345';
@@ -356,10 +350,10 @@ describe('fileWatcher dismissal state', () => {
           `${JSON.stringify({ type: 'system', teamName, agentName: 'researcher' })}\n`,
         );
 
-        runExternalScan(false);
+        runExternalScan();
 
         const adopted = [...agents.values()].map((a) => path.basename(a.jsonlFile));
-        expect(adopted).toContain('cccccccc-3333-4333-8333-e2e000000003.jsonl');
+        expect(adopted).toEqual(['lead.jsonl']);
       } finally {
         setTeamProvider(null as unknown as Parameters<typeof setTeamProvider>[0]);
       }
@@ -373,7 +367,7 @@ describe('fileWatcher dismissal state', () => {
           `${JSON.stringify({ type: 'system', teamName: 'session-orphan1', agentName: 'stray' })}\n`,
         );
 
-        runExternalScan(true);
+        runExternalScan();
 
         const adopted = [...agents.values()].map((a) => path.basename(a.jsonlFile));
         expect(adopted).toEqual(['bbbbbbbb-2222-4222-8222-e2e000000002.jsonl']);
@@ -418,7 +412,6 @@ describe('fileWatcher dismissal state', () => {
         permissionTimers,
         new Map(),
         () => {},
-        { current: true },
         { current: true },
       );
 

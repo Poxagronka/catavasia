@@ -321,7 +321,7 @@ export class CatLife {
     const out: Participant[] = [];
     for (const ch of w.characters.values()) {
       const run = ch.activity;
-      if (ch.isSubagent || ch.isActive || ch.state !== CharacterState.ACTIVITY) continue;
+      if (ch.isActive || ch.state !== CharacterState.ACTIVITY) continue;
       if (run?.phase !== 'doing' || !run.spot) continue;
       out.push({ actor: ch, activityId: run.id, spot: run.spot });
     }

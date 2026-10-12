@@ -4,7 +4,6 @@ import type { AgentEvent, HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { SESSION_END_GRACE_MS } from './constants.js';
 import type { SessionRouter } from './sessionRouter.js';
-import { getInlineTeammates, hasInlineTeammates, hasPromotedBackgroundAgent } from './teamUtils.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from './timerManager.js';
 import { notifyBackgroundAgentCompleted } from './transcriptParser.js';
 import type { AgentState } from './types.js';
@@ -48,12 +47,6 @@ interface SessionLifecycleCallbacks {
   onSessionResume?: (transcriptPath: string) => void;
   /** Called when a session ends (exit/logout). */
   onSessionEnd?: (agentId: number, reason: string) => void;
-  /** Called when an Agent Teams teammate is detected via SubagentStart hook.
-   *  Triggers scanning of the session's subagents/ directory for the teammate's JSONL. */
-  onTeammateDetected?: (parentAgentId: number, sessionId: string, agentType: string) => void;
-  /** Called when a teammate should be removed (e.g. no longer in team config members).
-   *  Removes the teammate agent from the office. */
-  onTeammateRemoved?: (teammateAgentId: number) => void;
 }
 
 export class HookEventHandler {
@@ -322,8 +315,6 @@ export class HookEventHandler {
       );
 
     // Dispatch on normalized AgentEvent.kind, not raw hook event names.
-    // The TeammateIdle / TaskCompleted hooks normalize to `subagentTurnEnd` -- both
-    // retain their raw payload for the team-routing handler's identity extraction.
     switch (normEvent.kind) {
       case 'sessionEnd':
         return this.handleSessionEnd(normEvent, agent, agentId);
@@ -347,15 +338,6 @@ export class HookEventHandler {
         // awaitingInput discriminates them: idle_prompt sets it (-> "Waiting for
         // input"), Stop leaves it absent (-> "Done").
         return this.handleStop(agent, agentId, normEvent.awaitingInput === true);
-      case 'subagentTurnEnd':
-        // Handles TeammateIdle AND TaskCompleted -- both normalize here. The normalized
-        // `reason` field discriminates; the team-provider's extractTeammateNameFromEvent(raw)
-        // still routes to the specific teammate. (TaskCreated normalizes to null in the provider.)
-        if (!this.provider.team) return;
-        if (normEvent.reason === 'completed') {
-          return this.handleTaskCompleted(event, agentId);
-        }
-        return this.handleTeammateIdle(event, agent, agentId);
       case 'progress':
         // Not yet consumed by the office visualization. Silently drop.
         return;
@@ -416,18 +398,9 @@ export class HookEventHandler {
     const status = this.provider.formatToolStatus(toolName, toolInput);
     const hookToolId = `hook-${Date.now()}`;
 
-    // Track for PostToolUse/SubagentStart correlation (always, even if suppressed below).
-    // currentHookIsTeammateSpawn is the authoritative teammate-vs-subagent discriminator.
-    // It is NOT cleared in PostToolUse to survive the PostToolUse-before-SubagentStart race.
+    // Track for PostToolUse correlation.
     agent.currentHookToolId = hookToolId;
     agent.currentHookToolName = toolName;
-    agent.currentHookIsTeammateSpawn =
-      this.provider.team?.isTeammateSpawnCall(toolName, toolInput) ?? false;
-
-    // When a lead has inline teammates, hook tool events are ambiguous (could be
-    // from the lead or any teammate -- they share session_id). Suppress hook-originated
-    // tool display on the lead. Both lead and teammate tools display via JSONL polling.
-    if (hasInlineTeammates(agentId, this.agents)) return;
 
     // Cancel waiting, mark active
     cancelWaitingTimer(agentId, this.waitingTimers);
@@ -436,7 +409,7 @@ export class HookEventHandler {
     agent.hadToolsInTurn = true;
 
     // Send tool start + active state to webview (instant, no 500ms JSONL delay).
-    // Skip for Task/Agent tools — their sub-agent characters need the stable JSONL
+    // Skip for Task/Agent tools — their overlay rows need the stable JSONL
     // tool ID (not the transient hook ID) so that SubagentStop/tool_result cleanup
     // can find and remove them. JSONL handles agentToolStart (with runInBackground)
     // for these tools.
@@ -463,14 +436,11 @@ export class HookEventHandler {
    */
   private handlePostToolUse(agent: AgentState, agentId: number): void {
     if (agent.currentHookToolId) {
-      // Suppress tool display when lead has inline teammates (see handlePreToolUse)
-      if (!hasInlineTeammates(agentId, this.agents)) {
-        this.agents.broadcast({
-          type: 'agentToolDone',
-          id: agentId,
-          toolId: agent.currentHookToolId,
-        });
-      }
+      this.agents.broadcast({
+        type: 'agentToolDone',
+        id: agentId,
+        toolId: agent.currentHookToolId,
+      });
       agent.currentHookToolId = undefined;
       agent.currentHookToolName = undefined;
     }
@@ -481,36 +451,13 @@ export class HookEventHandler {
   // the 'toolEnd' AgentEvent kind and share handlePostToolUse.
 
   /**
-   * Handle SubagentStart: notify webview that a sub-agent is spawning.
-   *
-   * For Agent Teams teammates (Agent tool with run_in_background), triggers
-   * teammate discovery via lifecycle callback -- teammates become independent
-   * agents with their own JSONL file watching.
-   *
-   * For old-style Task/Agent subagents (inline, no run_in_background), creates
-   * the child character immediately via hooks without waiting for JSONL polling.
+   * Handle SubagentStart: add a row for the sub-agent to its parent tool in the
+   * overlay. A sub-agent or a teammate is never a character.
    */
   private handleSubagentStart(event: HookEvent, agent: AgentState, agentId: number): void {
     const agentType = this.provider.team?.extractTeammateNameFromEvent(event) ?? 'unknown';
 
-    // Decide path: teammate spawn vs basic within-turn subagent.
-    // Two conditions must BOTH hold for the teammate path:
-    //   1. currentHookIsTeammateSpawn === true -- this specific tool call has the
-    //      teammate-spawn flag (e.g. Agent with run_in_background=true)
-    //   2. agent.teamName set -- JSONL has confirmed this agent is a team lead.
-    //      Without this guard, external sessions firing run_in_background=true
-    //      for parallel basic subagents would be mis-routed to teammate discovery.
-    // Mirrors the same gate used by the periodic scanAllTeammateFiles fallback.
-    if (this.provider.team && agent.currentHookIsTeammateSpawn === true && agent.teamName) {
-      if (debug)
-        console.log(
-          `[catavasia] Hook: Agent ${agentId} - SubagentStart: teammate "${agentType}" detected, triggering discovery`,
-        );
-      this.lifecycleCallbacks.onTeammateDetected?.(agentId, event.session_id, agentType);
-      return;
-    }
-
-    // Basic within-turn subagent path: find parent tool ID from activeToolNames.
+    // Find the parent tool ID from activeToolNames.
     // Use only the real JSONL-populated id -- no synthetic fallback here, or we'd
     // double-track parents once JSONL catches up.
     const parentTools = this.getSubagentToolSet();
@@ -523,7 +470,7 @@ export class HookEventHandler {
     }
     if (!parentToolId) return; // JSONL will handle it via agent_progress tool_use
 
-    // Create child sub-agent character immediately (same as old behavior).
+    // Add the overlay row immediately, without waiting for JSONL polling.
     const subToolId = `hook-sub-${agentType}-${Date.now()}`;
     const status = `Subtask: ${agentType}`;
 
@@ -551,35 +498,9 @@ export class HookEventHandler {
     });
   }
 
-  /**
-   * Handle SubagentStop: notify webview that a sub-agent finished.
-   *
-   * For Agent Teams teammates: marks all teammate agents as waiting (they're
-   * independent agents, not sub-agent characters to destroy).
-   *
-   * For old-style Task subagents: removes the child character from the office.
-   */
+  /** Handle SubagentStop: clear the overlay rows of the finished sub-agent. */
   private handleSubagentStop(agent: AgentState, agentId: number): void {
-    // Check if this agent has inline teammates (independent agents with leadAgentId).
-    // Just mark them waiting -- SubagentStop fires per-task-iteration; teammates may
-    // sit idle for minutes between lead requests before being re-invoked.
-    // Actual removal is driven by:
-    //   - Periodic team config polling (scanTeamConfigsForRemovals) -- teammate
-    //     removed when no longer in team config members list
-    //   - SessionEnd on lead (removeTeammates in ViewProvider)
-    const inlineTeammates = getInlineTeammates(agentId, this.agents);
-    if (inlineTeammates.length > 0) {
-      if (debug)
-        console.log(
-          `[catavasia] Hook: Agent ${agentId} - SubagentStop: marking inline teammates as waiting`,
-        );
-      for (const [id, a] of inlineTeammates) {
-        this.markAgentWaiting(a, id);
-      }
-      return;
-    }
-
-    // Old-style within-turn subagents: find a parent tool that actually has tracked
+    // Find a parent tool that actually has tracked
     // sub-agents. The `activeSubagentToolIds.has(toolId)` gate below prevents us
     // from picking a subagent-spawning parent that already had its sub-agents
     // cleared in the same turn.
@@ -602,111 +523,19 @@ export class HookEventHandler {
     });
   }
 
-  /** Handle PermissionRequest: cancel heuristic timer, show permission bubble on agent + sub-agents. */
+  /** Handle PermissionRequest: cancel heuristic timer, show permission bubble on the agent. */
   private handlePermissionRequest(agent: AgentState, agentId: number): void {
-    // When lead has inline teammates, route permission to the teammates instead.
-    // The hook fires on the lead's session_id but the permission is for a teammate.
-    const inlineTeammates = getInlineTeammates(agentId, this.agents);
-    if (inlineTeammates.length > 0) {
-      for (const [id, a] of inlineTeammates) {
-        cancelPermissionTimer(id, this.permissionTimers);
-        a.permissionSent = true;
-        this.agents.broadcast({ type: 'agentToolPermission', id });
-      }
-      return;
-    }
-
     cancelPermissionTimer(agentId, this.permissionTimers);
     agent.permissionSent = true;
     this.agents.broadcast({
       type: 'agentToolPermission',
       id: agentId,
     });
-    // Also notify any sub-agents with active tools
-    for (const parentToolId of agent.activeSubagentToolNames.keys()) {
-      this.agents.broadcast({
-        type: 'subagentToolPermission',
-        id: agentId,
-        parentToolId,
-      });
-    }
   }
 
   /** Handle Stop: Claude finished responding, mark agent as waiting. */
   private handleStop(agent: AgentState, agentId: number, awaitingInput = false): void {
     this.markAgentWaiting(agent, agentId, awaitingInput);
-  }
-
-  /**
-   * Handle TeammateIdle: teammate signaled it's idle and available for work.
-   * Routes to the specific teammate if identifiable by teammate_name, otherwise
-   * marks all inline teammates of this lead as waiting.
-   * Fallback: if the agent has no inline teammates, mark the agent itself.
-   */
-  private handleTeammateIdle(event: HookEvent, agent: AgentState, agentId: number): void {
-    const teammateName = this.provider.team?.extractTeammateNameFromEvent(event);
-    const inlineTeammates = getInlineTeammates(agentId, this.agents);
-
-    if (inlineTeammates.length === 0) {
-      // No inline teammates — treat as a completed turn for this agent.
-      this.markAgentWaiting(agent, agentId);
-      return;
-    }
-
-    // Match by agentName if provider extracted a name from the event
-    if (teammateName) {
-      const match = inlineTeammates.find(([, a]) => a.agentName === teammateName);
-      if (match) {
-        const [id, a] = match;
-        if (debug)
-          console.log(`[catavasia] Hook: TeammateIdle "${teammateName}" -> teammate Agent ${id}`);
-        this.markAgentWaiting(a, id);
-        return;
-      }
-    }
-
-    // Fallback: mark all inline teammates as waiting
-    if (debug)
-      console.log(
-        `[catavasia] Hook: TeammateIdle (no teammate_name match) -> marking ${inlineTeammates.length} teammate(s) done`,
-      );
-    for (const [id, a] of inlineTeammates) {
-      this.markAgentWaiting(a, id);
-    }
-  }
-
-  /**
-   * Handle TaskCompleted: a teammate marked its task done.
-   * Routes to the specific teammate when identifiable, marking it waiting instantly.
-   */
-  private handleTaskCompleted(event: HookEvent, agentId: number): void {
-    const taskSubject =
-      typeof event.task_subject === 'string'
-        ? event.task_subject
-        : typeof event.subject === 'string'
-          ? event.subject
-          : '';
-    const teammateName = this.provider.team?.extractTeammateNameFromEvent(event);
-    if (debug)
-      console.log(
-        `[catavasia] Hook: Agent ${agentId} - TaskCompleted: ${taskSubject}${teammateName ? ` (teammate_name=${teammateName})` : ''}`,
-      );
-
-    const inlineTeammates = getInlineTeammates(agentId, this.agents);
-    if (inlineTeammates.length === 0) return;
-
-    // Match by agentName if available, otherwise mark all inline teammates waiting
-    if (teammateName) {
-      const match = inlineTeammates.find(([, a]) => a.agentName === teammateName);
-      if (match) {
-        const [id, a] = match;
-        this.markAgentWaiting(a, id);
-        return;
-      }
-    }
-    for (const [id, a] of inlineTeammates) {
-      this.markAgentWaiting(a, id);
-    }
   }
 
   /**
@@ -721,7 +550,7 @@ export class HookEventHandler {
     // Clear foreground tools, preserve background agents (same logic as turn_duration handler).
     // ALWAYS send agentToolsClear at turn end -- even when activeToolIds is empty by now
     // (because tool_results already processed and removed them). Without this, stale
-    // sub-agent characters and permission bubbles from the turn would never clear.
+    // sub-agent overlay rows and permission bubbles from the turn would never clear.
     const parentTools = this.getSubagentToolSet();
     for (const toolId of [...agent.activeToolIds]) {
       if (agent.backgroundAgentToolIds.has(toolId)) continue;
@@ -740,11 +569,8 @@ export class HookEventHandler {
     this.agents.broadcast({ type: 'agentToolsClear', id: agentId });
     // Re-send background agent tools to restore them after the clear.
     // toolName + runInBackground are REQUIRED: without them the webview can't
-    // recognize the re-sent tool as a subagent spawn and never recreates the
-    // Subtask sub-character (extractToolName("Subtask: ...") is not a tool).
-    // Skip tools whose background agent was promoted to its own character.
+    // recognize the re-sent tool as a background spawn.
     for (const toolId of agent.backgroundAgentToolIds) {
-      if (hasPromotedBackgroundAgent(agentId, toolId, this.agents)) continue;
       const status = agent.activeToolStatuses.get(toolId);
       if (status) {
         this.agents.broadcast({
@@ -754,7 +580,6 @@ export class HookEventHandler {
           status,
           toolName: agent.activeToolNames.get(toolId),
           runInBackground: true,
-          isTeammateSpawn: agent.teammateSpawnToolIds?.has(toolId) || undefined,
         });
       }
     }
