@@ -536,3 +536,12 @@ describe('CEO desk slash commands', () => {
     ]);
   });
 });
+
+describe('desk rules delegation', () => {
+  it('sends every project task to the team', () => {
+    expect(DESK_RULES).not.toMatch(/lookups and links yourself/i);
+    expect(DESK_RULES).toMatch(/Delegate every project task/);
+    expect(DESK_RULES).toMatch(/investigation, review/);
+    expect(DESK_RULES).toMatch(/to: "team"/);
+  });
+});
