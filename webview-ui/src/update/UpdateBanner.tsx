@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
 import { Button } from '../components/ui/Button.js';
+import { chrome } from '../i18n/chrome/en.js';
+import { useT } from '../i18n/useT.js';
 import { updateActions, useUpdate } from './updateStore.js';
 
 const STEP_MARK = { pending: ' ', running: '>', done: 'x', failed: '!' } as const;
 /** Log lines shown in the progress panel (the server keeps more). */
 const LOG_TAIL_SHOWN = 12;
+/** Stands in for the version inside a translated sentence, so the number can be highlighted. */
+const VERSION_MARK = '\u0000';
 
 // Placed by the App's top banner stack (above the engine notice).
 const panel = 'pixel-panel py-8 px-12 flex flex-col gap-6 text-sm w-full';
@@ -16,20 +20,27 @@ const panel = 'pixel-panel py-8 px-12 flex flex-col gap-6 text-sm w-full';
  * to say (or the server has no update API for this tab).
  */
 export function UpdateBanner() {
+  const t = useT(chrome);
   const { status, refusal, restarting } = useUpdate();
   const [showNews, setShowNews] = useState(false);
   const [hidden, setHidden] = useState(false);
   if (!status) return null;
   const { run } = status;
+  const installed = run.installedVersion ?? status.latestVersion;
 
   if (restarting) {
     return (
       <div className={panel} data-testid="update-restarting">
-        <span className="text-accent-bright">Restarting…</span>
+        <span className="text-accent-bright">{t('restarting')}</span>
         <span className="text-xs text-text-muted">
           {restarting.timedOut
-            ? `The new version did not answer. Start it by hand (catavasia --port ${window.location.port}). Log: ${run.logPath ?? 'see ~/.pixel-agents/update/'}`
-            : `Installed ${run.installedVersion ?? status.latestVersion ?? 'the new version'}. The page reloads when it is up.`}
+            ? t('restartTimedOut', {
+                port: window.location.port,
+                log: run.logPath ?? '~/.pixel-agents/update/',
+              })
+            : installed
+              ? t('restartDone', { version: installed })
+              : t('restartDoneUnknown')}
         </span>
       </div>
     );
@@ -41,12 +52,14 @@ export function UpdateBanner() {
         <div className="flex justify-between items-center gap-8">
           <span className="text-accent-bright">
             {run.phase === 'running'
-              ? `Updating to ${status.latestVersion ?? 'the latest version'}…`
-              : 'Update failed'}
+              ? status.latestVersion
+                ? t('updatingTo', { version: status.latestVersion })
+                : t('updatingToLatest')
+              : t('updateFailed')}
           </span>
           {run.phase === 'failed' && (
             <Button variant="ghost" size="sm" onClick={() => setHidden(true)}>
-              Close
+              {t('close')}
             </Button>
           )}
         </div>
@@ -60,7 +73,7 @@ export function UpdateBanner() {
         {run.error && <span className="text-xs text-status-error">{run.error}</span>}
         {run.phase === 'failed' && (
           <span className="text-xs text-text-muted">
-            The current version keeps running. Log: {run.logPath}
+            {t('keepsRunning', { log: run.logPath ?? '' })}
           </span>
         )}
         <pre className="text-2xs bg-bg p-4 max-h-[160px] overflow-auto whitespace-pre-wrap break-all">
@@ -75,7 +88,16 @@ export function UpdateBanner() {
   return (
     <div className={panel} data-testid="update-banner">
       <span>
-        New version <span className="text-accent-bright">{latest}</span> is available
+        {t('newVersionAvailable', { version: VERSION_MARK })
+          .split(VERSION_MARK)
+          .flatMap((part, i) => [
+            i > 0 && (
+              <span key={`v${i}`} className="text-accent-bright">
+                {latest}
+              </span>
+            ),
+            part,
+          ])}
       </span>
       <div className="flex gap-6">
         <Button
@@ -86,13 +108,13 @@ export function UpdateBanner() {
             void updateActions.start();
           }}
         >
-          Update
+          {t('update')}
         </Button>
         <Button size="sm" onClick={() => updateActions.dismiss(latest).catch(() => {})}>
-          Later
+          {t('later')}
         </Button>
         <Button size="sm" onClick={() => setShowNews((v) => !v)}>
-          What's new
+          {t('whatsNew')}
         </Button>
       </div>
       {refusal && <span className="text-xs text-status-error">{refusal}</span>}
@@ -108,9 +130,10 @@ function WhatsNew({
   commits?: Array<{ sha: string; title: string; url: string }>;
   compareUrl: string;
 }) {
+  const t = useT(chrome);
   const link = (
     <a href={compareUrl} target="_blank" rel="noreferrer" className="text-accent-bright">
-      See the changes on GitHub
+      {t('seeChanges')}
     </a>
   );
   if (!commits || commits.length === 0) return <span className="text-xs">{link}</span>;

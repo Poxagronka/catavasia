@@ -1,3 +1,7 @@
+import { chrome } from '../i18n/chrome/en.js';
+import type { MessageKey, Params } from '../i18n/core.js';
+import { translate } from '../i18n/dictionaries.js';
+import { getLanguage } from '../i18n/languageStore.js';
 import { Button } from './ui/Button.js';
 
 interface DefaultLayoutResetProps {
@@ -16,13 +20,16 @@ export function DefaultLayoutReset({
   onConfirmingChange,
   onReset,
 }: DefaultLayoutResetProps) {
+  // Not a hook: these components stay pure functions of props. The parent re-renders on a language change.
+  const t = (key: MessageKey<typeof chrome>, params?: Params) =>
+    translate(chrome, key, getLanguage(), params);
   if (!confirming) {
     return (
       <Button
         variant="default"
         size="md"
         onClick={() => onConfirmingChange(true)}
-        title="Replace your office with the default layout"
+        title={t('defaultLayoutTitle')}
       >
         {label}
       </Button>
@@ -30,9 +37,7 @@ export function DefaultLayoutReset({
   }
   return (
     <div className="flex flex-wrap gap-4 items-center">
-      <span className="text-base text-reset-text">
-        Replace with default? Custom edits are lost.
-      </span>
+      <span className="text-base text-reset-text">{t('replaceConfirm')}</span>
       <Button
         variant="default"
         size="md"
@@ -42,10 +47,10 @@ export function DefaultLayoutReset({
           onReset();
         }}
       >
-        Yes
+        {t('yes')}
       </Button>
       <Button variant="default" size="md" onClick={() => onConfirmingChange(false)}>
-        No
+        {t('no')}
       </Button>
     </div>
   );

@@ -1,4 +1,6 @@
 import { CHANGELOG_REPO_URL, changelogEntries, toMajorMinor } from '../changelogData.ts';
+import { chrome } from '../i18n/chrome/en.js';
+import { useT } from '../i18n/useT.js';
 import { Modal } from './ui/Modal.js';
 
 function GitHubIcon() {
@@ -21,6 +23,7 @@ interface ChangelogModalProps {
 }
 
 export function ChangelogModal({ isOpen, onClose, currentVersion }: ChangelogModalProps) {
+  const t = useT(chrome);
   const majorMinor = toMajorMinor(currentVersion);
   const entry = changelogEntries.find((e) => e.version === majorMinor) ?? changelogEntries[0];
 
@@ -30,7 +33,11 @@ export function ChangelogModal({ isOpen, onClose, currentVersion }: ChangelogMod
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={<span className="text-4xl">What's New in v{currentVersion || entry.version}</span>}
+      title={
+        <span className="text-4xl">
+          {t('whatsNewTitle', { version: currentVersion || entry.version })}
+        </span>
+      }
       zIndex={51}
       className="min-w-sm!"
     >
@@ -39,7 +46,7 @@ export function ChangelogModal({ isOpen, onClose, currentVersion }: ChangelogMod
         {entry.sections.map((section) => (
           <div key={section.title} className="mb-12">
             <div className="text-lg text-accent-bright mb-4">{section.title}</div>
-            <ul className="m-0 pl-18 list-disc">
+            <ul className="m-0 ps-18 list-disc">
               {section.items.map((item, i) => (
                 <li key={i} className="text-sm mb-2">
                   {item}
@@ -52,8 +59,8 @@ export function ChangelogModal({ isOpen, onClose, currentVersion }: ChangelogMod
         {/* Contributors */}
         {entry.contributors.length > 0 && (
           <div className="mb-8">
-            <div className="text-lg text-accent-bright mb-4">Contributors</div>
-            <ul className="m-0 pl-18 list-disc">
+            <div className="text-lg text-accent-bright mb-4">{t('contributors')}</div>
+            <ul className="m-0 ps-18 list-disc">
               {entry.contributors.map((c) => (
                 <li key={c.name} className="text-sm mb-2">
                   <a
@@ -82,7 +89,7 @@ export function ChangelogModal({ isOpen, onClose, currentVersion }: ChangelogMod
           className="flex-1 py-6 px-10 flex items-center justify-center gap-12 text-lg no-underline cursor-pointer transition-colors duration-200 hover:text-accent-bright"
         >
           <GitHubIcon />
-          View on GitHub
+          {t('viewOnGitHub')}
         </a>
       </div>
     </Modal>

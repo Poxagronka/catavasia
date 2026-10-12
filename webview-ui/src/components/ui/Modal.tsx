@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { chrome } from '../../i18n/chrome/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Button } from './Button.js';
 
 interface ModalProps {
@@ -20,6 +22,7 @@ export function Modal({
   zIndex = 50,
   className = '',
 }: ModalProps) {
+  const t = useT(chrome);
   if (!isOpen) return null;
 
   return (
@@ -31,7 +34,7 @@ export function Modal({
       >
         <div className="flex items-center justify-between py-4 px-10 border-b border-border mb-4">
           <span className="text-accent-bright text-2xl">{title}</span>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('close')}>
             x
           </Button>
         </div>

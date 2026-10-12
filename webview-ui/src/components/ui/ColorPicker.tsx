@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
 
+import { chrome } from '../../i18n/chrome/en.js';
+import { useT } from '../../i18n/useT.js';
 import { VisualColorPicker } from '../VisualColorPicker.js';
 import { Button } from './Button.js';
 import type { ColorValue } from './types.js';
@@ -30,7 +32,7 @@ function ColorSlider({
         className="pixel-range flex-1 min-w-0"
         style={{ '--range-fill': `${pct}%` } as CSSProperties}
       />
-      <span className="text-sm text-text w-44 text-right shrink-0 tabular-nums">{value}</span>
+      <span className="text-sm text-text w-44 text-end shrink-0 tabular-nums">{value}</span>
     </div>
   );
 }
@@ -53,6 +55,7 @@ export function ColorPicker({
   showColorizeToggle,
   onReset,
 }: ColorPickerProps) {
+  const t = useT(chrome);
   const handleChange = (key: keyof ColorValue, v: number) => {
     onChange({ ...value, [key]: v });
   };
@@ -62,28 +65,28 @@ export function ColorPicker({
   return (
     <div className="flex flex-col py-8 px-10 bg-bg-dark border-2 border-border rounded-none">
       <ColorSlider
-        label="Hue"
+        label={t('hue')}
         value={value.h}
         min={isColorize ? 0 : -180}
         max={isColorize ? 360 : 180}
         onChange={(v) => handleChange('h', v)}
       />
       <ColorSlider
-        label="Saturation"
+        label={t('saturation')}
         value={value.s}
         min={isColorize ? 0 : -100}
         max={100}
         onChange={(v) => handleChange('s', v)}
       />
       <ColorSlider
-        label="Brightness"
+        label={t('brightness')}
         value={value.b}
         min={-100}
         max={100}
         onChange={(v) => handleChange('b', v)}
       />
       <ColorSlider
-        label="Contrast"
+        label={t('contrast')}
         value={value.c}
         min={-100}
         max={100}
@@ -98,10 +101,10 @@ export function ColorPicker({
             <button
               type="button"
               onClick={() => onChange({ ...value, colorize: !value.colorize || undefined })}
-              className="flex items-center gap-8 shrink-0 bg-transparent border-0 p-0 cursor-pointer text-left"
-              title="Toggle colorize mode"
+              className="flex items-center gap-8 shrink-0 bg-transparent border-0 p-0 cursor-pointer text-start"
+              title={t('toggleColorize')}
             >
-              <span className="text-sm text-text-muted w-64 shrink-0">Colorize</span>
+              <span className="text-sm text-text-muted w-64 shrink-0">{t('colorize')}</span>
               <span
                 className={`w-18 h-18 border-2 border-border inline-flex items-center justify-center text-2xs leading-none text-text shrink-0 ${
                   value.colorize ? 'bg-accent' : 'bg-bg'
@@ -124,10 +127,10 @@ export function ColorPicker({
               variant="default"
               size="sm"
               onClick={onReset}
-              title="Reset to default"
+              title={t('resetToDefault')}
               className="mt-6"
             >
-              Reset
+              {t('reset')}
             </Button>
           )}
         </div>

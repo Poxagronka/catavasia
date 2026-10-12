@@ -1,3 +1,7 @@
+import { chrome } from '../i18n/chrome/en.js';
+import type { MessageKey, Params } from '../i18n/core.js';
+import { translate } from '../i18n/dictionaries.js';
+import { getLanguage } from '../i18n/languageStore.js';
 import { Button } from './ui/Button.js';
 
 /** The word the user types to confirm. */
@@ -24,6 +28,9 @@ export function ResetEverything({
   onReset,
   result,
 }: ResetEverythingProps) {
+  // Not a hook: these components stay pure functions of props. The parent re-renders on a language change.
+  const t = (key: MessageKey<typeof chrome>, params?: Params) =>
+    translate(chrome, key, getLanguage(), params);
   const close = () => {
     onTypedChange('');
     onConfirmingChange(false);
@@ -35,13 +42,13 @@ export function ResetEverything({
           variant="default"
           size="md"
           onClick={() => onConfirmingChange(true)}
-          title="Start from scratch: default cats, layout and pets"
+          title={t('resetEverythingTitle')}
         >
-          Reset everything
+          {t('resetEverything')}
         </Button>
         {result?.backupDir && (
           <span className="prose-body prose-small text-text-muted break-all">
-            Reset done. Old files: {result.backupDir}
+            {t('resetDone', { dir: result.backupDir })}
           </span>
         )}
         {result?.error && (
@@ -54,14 +61,13 @@ export function ResetEverything({
   return (
     <div className="flex flex-col gap-4">
       <span className="prose-body text-reset-text">
-        Your cats, their prompts, the layout and the pets go back to the defaults. A backup is saved
-        first. Type {RESET_WORD} to confirm.
+        {t('resetConfirmText', { word: RESET_WORD })}
       </span>
       <input
         type="text"
         value={typed}
         placeholder={RESET_WORD}
-        aria-label={`Type ${RESET_WORD} to confirm`}
+        aria-label={t('resetTypeAria', { word: RESET_WORD })}
         onChange={(e) => onTypedChange(e.target.value)}
         className="text-xs py-2 px-4 bg-bg border-2 border-border rounded-none text-text"
       />
@@ -77,10 +83,10 @@ export function ResetEverything({
             onReset();
           }}
         >
-          Reset everything now
+          {t('resetNow')}
         </Button>
         <Button variant="default" size="md" onClick={close}>
-          Cancel
+          {t('cancel')}
         </Button>
       </div>
     </div>

@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
+import { chrome } from '../i18n/chrome/en.js';
+import { useT } from '../i18n/useT.js';
+
 interface VersionIndicatorProps {
   currentVersion: string;
   onOpenChangelog: () => void;
 }
 
 export function VersionIndicator({ currentVersion, onOpenChangelog }: VersionIndicatorProps) {
+  const t = useT(chrome);
   const [labelHovered, setLabelHovered] = useState(false);
 
   if (!currentVersion) return null;
@@ -18,7 +22,7 @@ export function VersionIndicator({ currentVersion, onOpenChangelog }: VersionInd
           onClick={onOpenChangelog}
           className="absolute bottom-42 right-28 z-20 pixel-panel py-6 px-12 cursor-pointer text-sm whitespace-nowrap"
         >
-          See what's new!
+          {t('seeWhatsNew')}
         </div>
       )}
       {/* Version label — always visible */}
