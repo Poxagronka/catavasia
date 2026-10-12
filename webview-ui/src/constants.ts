@@ -347,7 +347,9 @@ export const SOCIAL_STANDOFF_FIGHT_MAX = 0.95;
 /** A cat crab-steps this many px sideways every N sway loops (render offset, stays on its tile). */
 export const SOCIAL_STANDOFF_CRAB_EVERY_LOOPS = 3;
 export const SOCIAL_STANDOFF_CRAB_PX = 1;
-/** Tiles around the pair searched for the head-to-tail standoff spots. */
+/** Columns between the two cats of a standoff (2 tiles = 2 sprite widths between centres). */
+export const SOCIAL_STANDOFF_GAP_TILES = 2;
+/** Tiles around the pair searched for the face-to-face standoff spots. */
 export const SOCIAL_STANDOFF_SEARCH_TILES = 2;
 /** Back down: the winner holds its puff this long; the loser walks off 2-4 tiles, slower. */
 export const SOCIAL_STANDOFF_WINNER_HOLD_SEC = 1;
