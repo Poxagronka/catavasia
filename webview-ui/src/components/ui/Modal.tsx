@@ -12,6 +12,8 @@ interface ModalProps {
   /** z-index for backdrop (modal gets +1). Default 49 */
   zIndex?: number;
   className?: string;
+  /** Anchor the top edge and keep clear of the bottom toolbar: the modal stays put when its content changes (tabs). */
+  pinTop?: boolean;
 }
 
 export function Modal({
@@ -21,6 +23,7 @@ export function Modal({
   children,
   zIndex = 50,
   className = '',
+  pinTop = false,
 }: ModalProps) {
   const t = useT(chrome);
   // Escape closes the modal. Capture phase: a panel under it (the onboarding) stops keydown from bubbling.
@@ -40,7 +43,11 @@ export function Modal({
     <>
       <div className="fixed inset-0 bg-black/50" style={{ zIndex }} onClick={onClose} />
       <div
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-bg border-2 border-border rounded-none shadow-pixel p-4 min-w-xs ${className}`}
+        className={`fixed left-1/2 -translate-x-1/2 ${
+          pinTop
+            ? 'top-(--modal-top) flex flex-col max-h-[calc(100vh-var(--modal-top)-var(--modal-bottom-clear))]'
+            : 'top-1/2 -translate-y-1/2'
+        } bg-bg border-2 border-border rounded-none shadow-pixel p-4 min-w-xs ${className}`}
         style={{ zIndex: zIndex + 1 }}
       >
         <div className="flex items-center justify-between py-4 px-10 border-b border-border mb-4">
@@ -49,7 +56,7 @@ export function Modal({
             x
           </Button>
         </div>
-        {children}
+        {pinTop ? <div className="min-h-0 overflow-y-auto">{children}</div> : children}
       </div>
     </>
   );

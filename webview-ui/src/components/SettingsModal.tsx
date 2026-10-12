@@ -120,12 +120,7 @@ export function SettingsModal(props: SettingsModalProps) {
   ];
 
   return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={onClose}
-      title={t('settings')}
-      className="max-h-[96vh] overflow-y-auto"
-    >
+    <Modal isOpen={props.isOpen} onClose={onClose} title={t('settings')} pinTop>
       <Tabs testIdPrefix="settings" tabs={tabs} panelClassName="flex flex-col" />
     </Modal>
   );

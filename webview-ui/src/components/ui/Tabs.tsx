@@ -54,16 +54,19 @@ export function Tabs<Id extends string>({
           </Button>
         ))}
       </div>
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          role="tabpanel"
-          data-testid={`${testIdPrefix}-panel-${tab.id}`}
-          className={active === tab.id ? panelClassName : 'hidden'}
-        >
-          {tab.content}
-        </div>
-      ))}
+      {/* All panels share one grid cell: the area is as tall as the tallest panel, so a switch moves nothing. */}
+      <div className="grid">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            role="tabpanel"
+            data-testid={`${testIdPrefix}-panel-${tab.id}`}
+            className={`col-start-1 row-start-1 ${active === tab.id ? panelClassName : 'invisible'}`}
+          >
+            {tab.content}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
