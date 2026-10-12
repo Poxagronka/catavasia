@@ -12,10 +12,11 @@ import { useT } from '../../i18n/useT.js';
 import type { OfficeState } from '../../office/engine/officeState.js';
 import { Button } from '../ui/Button.js';
 import { Modal } from '../ui/Modal.js';
-import { AgentFields } from './AgentFields.js';
+import { AgentOtherFields, AgentPromptFields } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
 import { CatSprite } from './CatSprite.js';
 import { CeoEditor } from './CeoEditor.js';
+import { EditorTabs } from './EditorTabs.js';
 import { FIELD } from './fields.js';
 import { PersonalityField } from './PersonalityField.js';
 import { PetsTab } from './PetsTab.js';
@@ -199,27 +200,54 @@ function AgentEditor({
         }}
         onDelete={() => catsApi.deleteCat(cat.id)}
       />
-      <AgentFields cat={draft} onChange={update} />
-      {online && (
-        <div className="flex flex-col gap-4">
-          <Button
-            size="md"
-            className="self-start"
-            variant={showHistory ? 'active' : 'default'}
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            {t('promptHistory')}
-          </Button>
-          {showHistory && <PromptHistory catId={cat.id} />}
-        </div>
-      )}
-      <PersonalityField
-        value={draft.personality}
-        onChange={(personality) => update({ ...draft, personality })}
-      />
-      <AppearanceEditor
-        value={draft.appearance}
-        onChange={(appearance) => update({ ...draft, appearance })}
+      <EditorTabs
+        initial={historyOpen ? 'prompt' : undefined}
+        tabs={[
+          {
+            id: 'appearance',
+            content: (
+              <AppearanceEditor
+                value={draft.appearance}
+                onChange={(appearance) => update({ ...draft, appearance })}
+              />
+            ),
+          },
+          {
+            id: 'behaviour',
+            content: (
+              <PersonalityField
+                value={draft.personality}
+                onChange={(personality) => update({ ...draft, personality })}
+              />
+            ),
+          },
+          {
+            id: 'prompt',
+            error: !!cat.promptError,
+            content: (
+              <>
+                <AgentPromptFields cat={draft} onChange={update} />
+                {online && (
+                  <div className="flex flex-col gap-4">
+                    <Button
+                      size="md"
+                      className="self-start"
+                      variant={showHistory ? 'active' : 'default'}
+                      onClick={() => setShowHistory(!showHistory)}
+                    >
+                      {t('promptHistory')}
+                    </Button>
+                    {showHistory && <PromptHistory catId={cat.id} />}
+                  </div>
+                )}
+              </>
+            ),
+          },
+          {
+            id: 'other',
+            content: <AgentOtherFields cat={draft} onChange={update} />,
+          },
+        ]}
       />
     </div>
   );
