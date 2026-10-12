@@ -10,6 +10,7 @@
  */
 
 import type { CatPersonality } from '../../../../core/src/messages.js';
+import { IDLE_COFFEE_SEC, IDLE_GROOM_SEC, IDLE_LOAF_SEC, IDLE_SLEEP_SEC } from '../../constants.js';
 import type { ActivitySpot } from '../types.js';
 import type { AnimParts } from './activityAnim.js';
 import type { SpotContext } from './activitySpots.js';
@@ -78,14 +79,14 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
     // A cup someone left on a table (the COFFEE item): the brew chain is the main coffee idle.
     id: 'coffee',
     weight: 1,
-    durationSec: [8, 16],
+    durationSec: IDLE_COFFEE_SEC,
     ...SIP,
     spots: (ctx) => adjacentSpots(ctx, itemsOfType(ctx, COFFEE_TYPES)),
   },
   {
     id: 'sleep',
     weight: 2,
-    durationSec: [25, 60],
+    durationSec: IDLE_SLEEP_SEC,
     ...NAP,
     spots: (ctx) => seatSpots(ctx, itemsOfType(ctx, SOFA_TYPES), true),
     fallbackSpots: (ctx) => floorNear(ctx, itemsOfType(ctx, SOFA_TYPES)),
@@ -94,11 +95,11 @@ export const IDLE_ACTIVITIES: IdleActivityDef[] = [
   },
   ...COFFEE_ACTIVITIES,
   // In place, wherever the cat stands.
-  { id: 'groom', weight: 1, durationSec: [5, 9], ...GROOM, inPlace: 'front' },
+  { id: 'groom', weight: 1, durationSec: IDLE_GROOM_SEC, ...GROOM, inPlace: 'front' },
   { id: 'yawn', weight: 0.6, durationSec: [0, 0], ...YAWN, inPlace: 'front' },
   { id: 'stretch', weight: 0.8, durationSec: [0, 0], ...STRETCH, inPlace: 'side' },
   { id: 'tailChase', weight: 0.5, durationSec: [2, 3], ...TAIL_CHASE, inPlace: 'side' },
-  { id: 'loaf', weight: 1, durationSec: [10, 20], ...LOAF, inPlace: 'front' },
+  { id: 'loaf', weight: 1, durationSec: IDLE_LOAF_SEC, ...LOAF, inPlace: 'front' },
   ...TOY_ACTIVITIES,
   ...BED_ACTIVITIES,
   DESK_NAP_ACTIVITY,
