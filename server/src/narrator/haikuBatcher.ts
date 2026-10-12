@@ -14,8 +14,8 @@ import {
   buildSummaryPrompt,
   parseSummaryOutput,
   SUMMARY_JSON_SCHEMA,
-  SUMMARY_SYSTEM_PROMPT,
   type SummaryItem,
+  summarySystemPrompt,
   type ValidSummary,
 } from './schema.js';
 
@@ -28,7 +28,7 @@ export const LINES_MAX_PER_CONVERSATION = 12;
 const CALL_TIMEOUT_MS = 60_000;
 
 /** Runs one call: user prompt in, `--output-format json` stdout out. */
-export type SummaryRunner = (prompt: string) => Promise<string>;
+export type SummaryRunner = (prompt: string, language?: string) => Promise<string>;
 
 /** Thrown by a runner when the CLI is not installed. */
 export class ClaudeMissingError extends Error {}
@@ -48,6 +48,8 @@ export interface HaikuBatcherOptions {
   /** Checked before each call. False drops the queue without a call. */
   shouldRun?: () => boolean;
   run?: SummaryRunner;
+  /** The UI language, read on every call: summaries are written and validated in it. Default English. */
+  language?: () => string;
   clock?: Clock;
   intervalMs?: number;
   log?: (message: string) => void;
@@ -65,7 +67,7 @@ export class HaikuBatcher {
   private disabled = false;
 
   constructor(private readonly opts: HaikuBatcherOptions) {
-    this.run = opts.run ?? runClaudeHaiku;
+    this.run = opts.run ?? ((prompt, language) => runClaudeHaiku(prompt, 'claude', language));
     this.clock = opts.clock ?? realClock;
     this.intervalMs = opts.intervalMs ?? BATCH_INTERVAL_MS;
     this.delayMs = this.intervalMs;
@@ -117,8 +119,9 @@ export class HaikuBatcher {
     if (this.opts.shouldRun && !this.opts.shouldRun()) return;
     this.inFlight = true;
     try {
-      const stdout = await this.run(buildSummaryPrompt(batch));
-      const summaries = parseSummaryOutput(stdout, batch);
+      const language = this.opts.language?.();
+      const stdout = await this.run(buildSummaryPrompt(batch), language);
+      const summaries = parseSummaryOutput(stdout, batch, language);
       this.delayMs = this.intervalMs;
       if (summaries.length > 0 && !this.disabled) this.opts.onSummaries(summaries);
     } catch (err) {
@@ -150,7 +153,7 @@ function errorText(err: unknown): string {
 }
 
 /** Lean flags verified in research (scratchpad/research/jev.md): ~5 s, ~1.3k tokens. */
-export function haikuArgs(): string[] {
+export function haikuArgs(language?: string): string[] {
   return [
     '-p',
     '--model',
@@ -162,7 +165,7 @@ export function haikuArgs(): string[] {
     '--tools',
     '',
     '--system-prompt',
-    SUMMARY_SYSTEM_PROMPT,
+    summarySystemPrompt(language),
     '--setting-sources',
     '',
     '--strict-mcp-config',
@@ -172,9 +175,9 @@ export function haikuArgs(): string[] {
 }
 
 /** Default runner: one `claude -p` process, prompt via stdin. */
-export function runClaudeHaiku(prompt: string, bin = 'claude'): Promise<string> {
+export function runClaudeHaiku(prompt: string, bin = 'claude', language?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, haikuArgs(), {
+    const child = spawn(bin, haikuArgs(language), {
       env: { ...process.env, MAX_THINKING_TOKENS: '0' },
       stdio: ['pipe', 'pipe', 'pipe'],
     });

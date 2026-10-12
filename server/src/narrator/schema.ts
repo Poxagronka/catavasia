@@ -7,7 +7,9 @@
  * must be supported by the input lines of its conversation, or it is dropped.
  */
 
+import { DEFAULT_LANGUAGE } from '../../../core/src/languages.js';
 import { NARRATOR_SUMMARY_MAX_CHARS } from '../../../core/src/narrator.js';
+import { languageEndonym, toLanguage } from '../i18n/translate.js';
 
 /** One conversation queued for a summary. */
 export interface SummaryItem {
@@ -41,16 +43,29 @@ export const SUMMARY_JSON_SCHEMA = {
  * Static, byte-identical on every call so the prompt prefix can cache.
  * Never interpolate run data here: data goes into the user prompt.
  */
+const SUMMARY_LANGUAGE_LINE =
+  'For each block write one short summary in English: who asked or answered what.';
+
 export const SUMMARY_SYSTEM_PROMPT = [
   'You narrate an office game where cat agents write code.',
   'Input: blocks "conversationId=<id>", each followed by the event lines of one conversation.',
-  'For each block write one short summary in English: who asked or answered what.',
+  SUMMARY_LANGUAGE_LINE,
   `Each summary is at most ${NARRATOR_SUMMARY_MAX_CHARS} characters, one or two sentences, present or past tense.`,
   'Mention only facts from the lines of that block. Do not invent results, files, numbers, saves, commits or successes.',
   'Do not write file names, commands, paths, flags or code. No emoji and no checkmarks.',
   'A light, playful cat tone is fine, but every summary stays factual.',
   'Return JSON by the schema: {"summaries":[{"conversationId":"<id>","summary":"<text>"}]}. One item per conversationId.',
 ].join('\n');
+
+/** The system prompt for the chosen UI language. English stays byte-identical to SUMMARY_SYSTEM_PROMPT. */
+export function summarySystemPrompt(language?: unknown): string {
+  const code = toLanguage(language);
+  if (code === DEFAULT_LANGUAGE) return SUMMARY_SYSTEM_PROMPT;
+  return SUMMARY_SYSTEM_PROMPT.replace(
+    SUMMARY_LANGUAGE_LINE,
+    `For each block write one short summary in ${languageEndonym(code)} (language code ${code}): who asked or answered what. The input lines stay in their own language.`,
+  );
+}
 
 /** The per-batch user prompt: compact lines grouped by conversation. */
 export function buildSummaryPrompt(items: SummaryItem[]): string {
@@ -87,14 +102,18 @@ const CHECKMARK_RE = /[✓✔✅☑]/;
 const NUMBER_RE = /\d+(?:[.,]\d+)?/g;
 const FILE_RE = /[\w-]+\.[a-z]{1,5}\b/gi;
 const LATIN_RE = /[a-z]/i;
+const ANY_LETTER_RE = /\p{L}/u;
 /** Any letter outside the Latin script (Cyrillic, CJK, ...). */
 const NON_LATIN_RE = /(?!\p{Script=Latin})\p{L}/u;
 
-/** True when every claim, number and file name in the sentence is in the source. */
-function isSupported(sentence: string, source: string): boolean {
+/**
+ * True when every claim, number and file name in the sentence is in the source. The claim stems are English, so
+ * they only apply to an English summary. Other languages keep the checkmark, number and file name checks.
+ */
+function isSupported(sentence: string, source: string, english: boolean): boolean {
   const s = sentence.toLowerCase();
   if (CHECKMARK_RE.test(s)) return false;
-  for (const { claim, evidence } of CLAIMS) {
+  for (const { claim, evidence } of english ? CLAIMS : []) {
     if (claim.test(s) && !evidence.test(source)) return false;
   }
   for (const n of s.match(NUMBER_RE) ?? []) if (!source.includes(n)) return false;
@@ -104,16 +123,20 @@ function isSupported(sentence: string, source: string): boolean {
 
 /**
  * Keep only the supported sentences of a summary. Returns '' when nothing is
- * left or the text is not English. Cuts to NARRATOR_SUMMARY_MAX_CHARS with an ellipsis.
+ * left or the text is not in the chosen script (English: Latin only; other languages: any letter). Cuts to NARRATOR_SUMMARY_MAX_CHARS with an ellipsis.
  */
-export function filterSummary(summary: string, sourceLines: string[]): string {
+export function filterSummary(summary: string, sourceLines: string[], language?: unknown): string {
+  const english = toLanguage(language) === DEFAULT_LANGUAGE;
   const source = sourceLines.join('\n').toLowerCase();
   const sentences = summary.split(/(?<=[.!?…])\s+/);
   const kept = sentences
     .map((x) => x.trim())
-    .filter((x) => x && isSupported(x, source))
+    .filter((x) => x && isSupported(x, source, english))
     .join(' ');
-  if (!kept || !LATIN_RE.test(kept) || NON_LATIN_RE.test(kept)) return '';
+  if (!kept) return '';
+  if (english ? !LATIN_RE.test(kept) || NON_LATIN_RE.test(kept) : !ANY_LETTER_RE.test(kept)) {
+    return '';
+  }
   return kept.length > NARRATOR_SUMMARY_MAX_CHARS
     ? `${kept.slice(0, NARRATOR_SUMMARY_MAX_CHARS - 1)}…`
     : kept;
@@ -131,7 +154,11 @@ export interface ValidSummary {
  * schema and the batch. Throws on output that is not the expected envelope.
  * Drops entries for unknown or repeated conversations and unsupported claims.
  */
-export function parseSummaryOutput(stdout: string, batch: SummaryItem[]): ValidSummary[] {
+export function parseSummaryOutput(
+  stdout: string,
+  batch: SummaryItem[],
+  language?: unknown,
+): ValidSummary[] {
   const envelope = JSON.parse(stdout) as Record<string, unknown>;
   if (envelope.is_error === true)
     throw new Error(`claude reported an error: ${String(envelope.result)}`);
@@ -147,7 +174,7 @@ export function parseSummaryOutput(stdout: string, batch: SummaryItem[]): ValidS
     const item = byId.get(entry.conversationId);
     if (!item) continue;
     byId.delete(entry.conversationId);
-    const summary = filterSummary(entry.summary, item.lines);
+    const summary = filterSummary(entry.summary, item.lines, language);
     if (summary) out.push({ conversationId: item.conversationId, catIds: item.catIds, summary });
   }
   return out;
