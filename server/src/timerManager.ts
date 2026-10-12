@@ -123,11 +123,9 @@ export function startPermissionTimer(
     }
 
     // Check sub-agent tools for non-exempt tools
-    const stuckSubagentParentToolIds: string[] = [];
-    for (const [parentToolId, subToolNames] of agent.activeSubagentToolNames) {
+    for (const subToolNames of agent.activeSubagentToolNames.values()) {
       for (const [, toolName] of subToolNames) {
         if (!permissionExemptTools.has(toolName)) {
-          stuckSubagentParentToolIds.push(parentToolId);
           hasNonExempt = true;
           break;
         }
@@ -141,14 +139,6 @@ export function startPermissionTimer(
         type: 'agentToolPermission',
         id: agentId,
       });
-      // Also notify stuck sub-agents
-      for (const parentToolId of stuckSubagentParentToolIds) {
-        agents.broadcast({
-          type: 'subagentToolPermission',
-          id: agentId,
-          parentToolId,
-        });
-      }
     }
   }, PERMISSION_TIMER_DELAY_MS);
   permissionTimers.set(agentId, timer);

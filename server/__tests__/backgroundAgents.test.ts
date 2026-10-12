@@ -253,6 +253,18 @@ describe('background spawns are watched, never seated', () => {
     expect(messages.some((m) => (m.id as number) >= 1_000_000)).toBe(false);
   });
 
+  it('raises the parent permission bubble when a watched sub-agent waits on approval', () => {
+    vi.useFakeTimers();
+    seedSidecar();
+    spawnAndLaunch();
+    const shadowId = [...watch.store.keys()][0];
+    watch.store.broadcast({ type: 'agentToolPermission', id: shadowId });
+
+    expect(messages.find((m) => m.type === 'agentToolPermission' && m.id === 1)).toBeDefined();
+    expect(lead.permissionSent).toBe(true);
+    expect(messages.some((m) => m.type === 'subagentToolPermission')).toBe(false);
+  });
+
   it('marks sub tools done when the watched transcript ends its turn cleanly', () => {
     // tool_result BEFORE turn_duration: nothing left to clear at turn end, so
     // the done batch must ride the agentStatus:waiting broadcast instead.
