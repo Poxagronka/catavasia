@@ -105,10 +105,10 @@ export function meetTile(
 }
 
 /**
- * Tiles for a head-to-tail standoff: [top, bottom] on adjacent rows, the
- * same column first (bodies overlap), then a neighbouring one. Searched
- * within `radius` of the pair's midpoint; the pair is assigned to [a, b] by
- * the shorter total walk. Null when no free pair of tiles exists.
+ * Tiles for a face-to-face standoff: [left, right] on one row, `gapTiles`
+ * columns apart, so the puffed sprites never overlap. Searched within
+ * `radius` of the pair's midpoint; the pair is assigned to [a, b] by the
+ * shorter total walk. Null when no free pair of tiles exists.
  */
 export function standoffTiles(
   a: Character,
@@ -116,6 +116,7 @@ export function standoffTiles(
   world: SocialWorld,
   occupied: Set<string>,
   radius: number,
+  gapTiles: number,
 ): [Tile, Tile] | null {
   const ta = tileOf(a);
   const tb = tileOf(b);
@@ -128,19 +129,15 @@ export function standoffTiles(
   let bestCost = Infinity;
   for (let dr = -radius; dr <= radius; dr++)
     for (let dc = -radius; dc <= radius; dc++) {
-      const top = { col: mid.col + dc, row: mid.row + dr };
-      if (!isFree(top)) continue;
-      for (const shift of [0, -1, 1]) {
-        const bottom = { col: top.col + shift, row: top.row + 1 };
-        if (!isFree(bottom)) continue;
-        const straight = tileDistance(ta, top) + tileDistance(tb, bottom);
-        const swapped = tileDistance(ta, bottom) + tileDistance(tb, top);
-        // A neighbouring column costs one extra step: same column wins a tie.
-        const cost = Math.min(straight, swapped) + Math.abs(shift);
-        if (cost >= bestCost) continue;
-        bestCost = cost;
-        best = straight <= swapped ? [top, bottom] : [bottom, top];
-      }
+      const left = { col: mid.col + dc, row: mid.row + dr };
+      const right = { col: left.col + gapTiles, row: left.row };
+      if (!isFree(left) || !isFree(right)) continue;
+      const straight = tileDistance(ta, left) + tileDistance(tb, right);
+      const swapped = tileDistance(ta, right) + tileDistance(tb, left);
+      const cost = Math.min(straight, swapped);
+      if (cost >= bestCost) continue;
+      bestCost = cost;
+      best = straight <= swapped ? [left, right] : [right, left];
     }
   return best;
 }

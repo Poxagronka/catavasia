@@ -14,7 +14,7 @@ import { renderAppearance } from '../src/cats/catArt.js';
 import { OfficeState } from '../src/office/engine/officeState.js';
 import { spritesFromSheet } from '../src/office/sprites/spriteData.js';
 import type { Character, OfficeLayout } from '../src/office/types.js';
-import { CharacterState, Direction, TileType } from '../src/office/types.js';
+import { CharacterState, Direction, TILE_SIZE, TileType } from '../src/office/types.js';
 
 function pair(): { os: OfficeState; a: Character; b: Character } {
   const cols = 8;
@@ -71,16 +71,16 @@ function until(os: OfficeState, cats: Character[], sec: number, done: () => bool
   return seen;
 }
 
-test('before a fight, the cats walk head to tail and puff up side-on', () => {
+test('before a fight, the cats walk face to face, a sprite width apart, and puff up side-on', () => {
   const { os, a, b } = pair();
   assert.equal(os.social.trySocialEncounter(a, b, { kind: 'fight' }), 'fight');
   until(os, [a, b], 8, () => os.social.sceneInfo(1)?.phase === 'standoff');
   assert.equal(os.social.sceneInfo(1)?.phase, 'standoff');
-  assert.equal(Math.abs(a.tileRow - b.tileRow), 1, 'adjacent rows');
-  assert.ok(Math.abs(a.tileCol - b.tileCol) <= 1, 'bodies overlap');
-  const [top, bottom] = a.tileRow < b.tileRow ? [a, b] : [b, a];
-  assert.equal(top.dir, Direction.LEFT);
-  assert.equal(bottom.dir, Direction.RIGHT);
+  assert.equal(a.tileRow, b.tileRow, 'one row');
+  assert.ok(Math.abs(a.x - b.x) >= TILE_SIZE, 'at least one sprite width between the centres');
+  const [left, right] = a.x < b.x ? [a, b] : [b, a];
+  assert.equal(left.dir, Direction.RIGHT);
+  assert.equal(right.dir, Direction.LEFT);
   // Intro, then the sway in anti-phase.
   const frames = new Set<string>();
   for (let t = 0; t < 2.5; t += 0.05) {
