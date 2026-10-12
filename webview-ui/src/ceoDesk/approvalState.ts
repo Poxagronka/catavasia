@@ -2,6 +2,15 @@
 
 import type { CeoApprovalAnswer, CeoQuestion } from '../../../core/src/ceoDesk.js';
 
+/** Stands for the name in a translated sentence, so the card can style the name. */
+export const WHO_MARK = '\u0001';
+
+/** The text before and after the name mark of a translated sentence. */
+export function splitWho(text: string): [string, string] {
+  const [before, ...after] = text.split(WHO_MARK);
+  return [before, after.join(WHO_MARK)];
+}
+
 /** "14:32": when an unanswered card counts as No. */
 export function deadline(expiresAt: number): string {
   return new Date(expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

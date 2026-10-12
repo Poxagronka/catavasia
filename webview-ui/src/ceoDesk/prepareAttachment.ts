@@ -6,6 +6,7 @@
 
 import type { CeoAttachmentUpload } from '../../../core/src/ceoDesk.js';
 import { type DraftAttachment, fitEdge, isImageType, needsDownscale } from './attachState.js';
+import { ceoText } from './ceoText.js';
 
 const JPEG_QUALITY = 0.9;
 
@@ -43,7 +44,7 @@ function base64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''));
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read the file'));
+    reader.onerror = () => reject(reader.error ?? new Error(ceoText('attachReadFailed')));
     reader.readAsDataURL(blob);
   });
 }

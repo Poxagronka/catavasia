@@ -2,7 +2,16 @@ import { useState } from 'react';
 
 import type { CeoApproval, CeoQuestion } from '../../../core/src/ceoDesk.js';
 import { Button } from '../components/ui/Button.js';
-import { deadline, questionAnswers, type QuestionPick, togglePick } from './approvalState.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
+import {
+  deadline,
+  questionAnswers,
+  type QuestionPick,
+  splitWho,
+  togglePick,
+  WHO_MARK,
+} from './approvalState.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
 
 /**
@@ -17,6 +26,7 @@ export function QuestionCard({
   approval: CeoApproval;
   questions: CeoQuestion[];
 }) {
+  const t = useT(ceoDesk);
   const [picks, setPicks] = useState<QuestionPick[]>(() =>
     questions.map(() => ({ picked: [], other: '' })),
   );
@@ -38,21 +48,24 @@ export function QuestionCard({
       setBusy(false);
     }
   };
+  const [before, after] = splitWho(t('questionAsks', { who: WHO_MARK }));
   return (
     <div
       className="self-stretch pixel-panel bg-bg-dark! border-status-permission! px-10 py-8 flex flex-col gap-8 prose-body"
       data-testid="question-card"
     >
       <div>
-        <span className="text-status-permission">{approval.who}</span> asks you
+        {before}
+        <span className="text-status-permission">{approval.who}</span>
+        {after}
       </div>
       {questions.map((q, n) => (
         <div key={q.question} className="flex flex-col gap-4" data-testid="question">
           <div className="text-text">
-            {q.header && <span className="composer-choice-hint mr-6">{q.header}</span>}
+            {q.header && <span className="composer-choice-hint me-6">{q.header}</span>}
             {q.question}
           </div>
-          {q.multiSelect && <span className="composer-note px-0!">Pick one or more.</span>}
+          {q.multiSelect && <span className="composer-note px-0!">{t('questionPickMany')}</span>}
           <div className="composer-list" role="group" aria-label={q.question}>
             {q.options.map((o) => {
               const on = picks[n].picked.includes(o.label);
@@ -66,7 +79,7 @@ export function QuestionCard({
                   onClick={() => setPick(n, togglePick(q, picks[n], o.label))}
                   data-testid="question-option"
                 >
-                  <span className="flex-1 flex flex-col text-left">
+                  <span className="flex-1 flex flex-col text-start">
                     <span className="composer-choice-label">{o.label}</span>
                     {o.description && <span className="composer-choice-hint">{o.description}</span>}
                   </span>
@@ -86,8 +99,8 @@ export function QuestionCard({
                 other: e.target.value,
               })
             }
-            placeholder="Other: type your own answer"
-            aria-label={`Other answer to: ${q.question}`}
+            placeholder={t('questionOtherPlaceholder')}
+            aria-label={t('questionOtherLabel', { question: q.question })}
             className="bg-bg border-2 border-border rounded-[8px] px-8 py-4 prose-small outline-none focus:border-accent"
             data-testid="question-other"
           />
@@ -101,7 +114,7 @@ export function QuestionCard({
           onClick={() => void send(false)}
           data-testid="question-send"
         >
-          Send answer
+          {t('questionSend')}
         </Button>
         <button
           type="button"
@@ -110,11 +123,11 @@ export function QuestionCard({
           onClick={() => void send(true)}
           data-testid="question-skip"
         >
-          Skip
+          {t('questionSkip')}
         </button>
       </div>
       <span className="text-2xs text-text-muted">
-        No answer by {deadline(approval.expiresAt)} counts as Skip.
+        {t('deadlineSkip', { time: deadline(approval.expiresAt) })}
       </span>
       {error && <span className="prose-small text-status-error">{error}</span>}
     </div>

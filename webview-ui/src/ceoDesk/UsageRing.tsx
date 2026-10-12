@@ -1,4 +1,6 @@
 import type { ContextUse, UsageLimits } from '../../../core/src/catSession.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { ComposerMenu } from './ComposerMenu.js';
 import { contextText, percent, resetText } from './dockState.js';
 
@@ -13,12 +15,15 @@ function Bar({
   note?: string;
   testId: string;
 }) {
+  const t = useT(ceoDesk);
   return (
     <div className="flex flex-col gap-2" data-testid={testId}>
       <div className="flex gap-8 justify-between">
         <span className="text-text whitespace-nowrap">{label}</span>
-        <span className="text-right">
-          {percent(used)} used{note ? ` · ${note}` : ''}
+        <span className="text-end">
+          {note
+            ? t('usedPercentNote', { percent: percent(used), note })
+            : t('usedPercent', { percent: percent(used) })}
         </span>
       </div>
       <div className="usage-bar">
@@ -74,25 +79,26 @@ export function UsageRing({
   /** /context or /usage opens it. */
   openKey?: number;
 }) {
+  const t = useT(ceoDesk);
   const part = context ? context.used / context.window : 0;
   return (
     <ComposerMenu
       label={<Ring part={part} />}
       title={contextText(context)}
       testId="dock-usage"
-      align="right"
+      align="end"
       openKey={openKey}
     >
       {() => (
         <div className="flex flex-col gap-10 prose-small text-text-muted w-[240px]">
           {context ? (
-            <Bar label="Context used" used={part} testId="usage-context" />
+            <Bar label={t('contextUsed')} used={part} testId="usage-context" />
           ) : (
             <span data-testid="usage-context">{contextText(context)}</span>
           )}
           {limits?.fiveHour && (
             <Bar
-              label="5-hour limit"
+              label={t('fiveHourLimit')}
               used={limits.fiveHour.used}
               note={resetText(limits.fiveHour, false)}
               testId="usage-five-hour"
@@ -100,7 +106,7 @@ export function UsageRing({
           )}
           {limits?.weekly && (
             <Bar
-              label="Weekly limit"
+              label={t('weeklyLimit')}
               used={limits.weekly.used}
               note={resetText(limits.weekly, true)}
               testId="usage-weekly"

@@ -11,6 +11,8 @@ import { EngineNotice } from '../engines/EngineNotice.js';
 import { engineProblem } from '../engines/engineReadiness.js';
 import { engineUi } from '../engines/engineStore.js';
 import { useMoneyShown } from '../engines/money.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { playDoneSound } from '../notificationSound.js';
 import { sessionToken } from '../sessionToken.js';
 import { ApprovalCard } from './ApprovalCard.js';
@@ -43,8 +45,6 @@ import { UsageRing } from './UsageRing.js';
 import { sentMessages } from './useComposerHistory.js';
 import { useDockCommands } from './useDockCommands.js';
 
-const READ_ONLY_TEXT = 'Open the office with `catavasia` to chat with the CEO.';
-
 function loadDock(): DockState {
   try {
     return initialDock(parseSavedDock(window.localStorage.getItem(DOCK_STORAGE_KEY)));
@@ -69,6 +69,7 @@ interface CeoDockProps {
  * shows the read-only note.
  */
 export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory }: CeoDockProps) {
+  const t = useT(ceoDesk);
   const showMoney = useMoneyShown(); // also re-renders when the engine status changes
   const { settings } = useCatCeo();
   const [dock, setDock] = useState(loadDock);
@@ -154,11 +155,11 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
         className="fixed right-0 top-1/3 w-56 py-8 pixel-panel flex flex-col items-center gap-4 cursor-pointer"
         style={{ zIndex: 44 }}
         onClick={() => setDock((s) => setCollapsed(s, false))}
-        title={`Chat with ${name}`}
+        title={t('chatWith', { name })}
         data-testid="dock-tab"
       >
         <CeoFace appearance={settings?.appearance} />
-        <span className="text-2xs text-text-muted">Chat</span>
+        <span className="text-2xs text-text-muted">{t('tabChat')}</span>
         {unread > 0 && (
           <span
             className="absolute -top-10 -left-10 min-w-26 h-26 px-4 bg-danger text-white text-xs flex items-center justify-center border-2 border-bg-dark"
@@ -227,16 +228,15 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
       >
         {(!privileged || gone) && (
           <div className="m-auto max-w-[320px] text-center prose-body text-text-muted">
-            {READ_ONLY_TEXT}
+            {t('readOnly')}
           </div>
         )}
         {privileged && !gone && !chat.loaded && (
-          <span className="text-text-muted text-sm">Connecting...</span>
+          <span className="text-text-muted text-sm">{t('connecting')}</span>
         )}
         {privileged && chat.loaded && chat.entries.length === 0 && (
           <div className="m-auto max-w-[340px] text-center prose-body text-text-muted">
-            Ask {name} anything. It answers itself, or hands the work to the team and brings back
-            the result here.
+            {t('emptyChat', { name })}
           </div>
         )}
         {toRows(chat.entries).map((row, n) =>
@@ -244,7 +244,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
             <div key={n} className="self-end flex flex-col items-end gap-2 max-w-full">
               <MessageRow entry={row.entry} />
               <span className="text-2xs text-text-muted" data-testid="dock-queued">
-                queued
+                {t('queuedTag')}
               </span>
             </div>
           ) : (
@@ -264,7 +264,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
           </div>
         ) : chat.status.busy ? (
           <span className="self-start text-status-active text-sm pixel-pulse">
-            {chat.status.notice ?? chat.status.busyText ?? `${name} is thinking...`}
+            {chat.status.notice ?? chat.status.busyText ?? t('isThinking', { name })}
           </span>
         ) : (
           chat.status.notice && (
@@ -334,7 +334,7 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
                   })
               : undefined
           }
-          blocked={problem ? 'Send is off until Claude Code is ready. Your draft stays.' : null}
+          blocked={problem ? t('blockedNotReady') : null}
           notice={problem ? <EngineNotice engine="claude" /> : undefined}
           restored={restored}
           onRestored={() => setRestored(undefined)}

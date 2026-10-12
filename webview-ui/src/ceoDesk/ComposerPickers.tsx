@@ -9,6 +9,8 @@ import {
 } from '../../../core/src/permissionModes.js';
 import { catCeo, type CeoSettings } from '../cats/catCeoClient.js';
 import { catsApi } from '../cats/catsClient.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { Choices } from './ChoiceCard.js';
 import { ComposerMenu } from './ComposerMenu.js';
 import { settingLabel } from './dockState.js';
@@ -17,11 +19,12 @@ const set = (patch: Partial<CeoSettings>) => catCeo.setSettings(patch);
 
 /** "Auto": the CEO's permission mode; it opens the mode picker of the CEO settings. */
 export function ModePicker({ settings, openKey }: { settings: CeoSettings; openKey?: number }) {
+  const t = useT(ceoDesk);
   const mode = settings.permissionMode ?? 'auto';
   return (
     <ComposerMenu
       label={PERMISSION_MODE_LABELS[mode]}
-      title={`What the CEO may do without asking: ${permissionHint('claude', settings.model, mode)}`}
+      title={t('modeTitle', { hint: permissionHint('claude', settings.model, mode) })}
       testId="dock-mode"
       openKey={openKey}
     >
@@ -54,6 +57,7 @@ export function ModelPickers({
   /** A slash command opens the model or the effort list. */
   openKeys?: { model?: number; effort?: number };
 }) {
+  const t = useT(ceoDesk);
   const options = catsApi.engineOptions('claude');
   const models = options.models.includes(settings.model)
     ? options.models
@@ -62,14 +66,14 @@ export function ModelPickers({
     <>
       <ComposerMenu
         label={settingLabel(settings.model)}
-        title="The model the CEO thinks with"
+        title={t('modelTitle')}
         testId="dock-model"
-        align="right"
+        align="end"
         openKey={openKeys?.model}
       >
         {(close) => (
           <Choices
-            note="The model the CEO thinks with. Bigger models are smarter and slower."
+            note={t('modelNote')}
             value={settings.model}
             options={models.map((m) => ({ value: m, label: settingLabel(m) }))}
             onPick={(model) => {
@@ -83,14 +87,14 @@ export function ModelPickers({
       {options.efforts.length > 0 && (
         <ComposerMenu
           label={settingLabel(settings.effort)}
-          title="How long the CEO thinks before it answers"
+          title={t('effortTitle')}
           testId="dock-effort"
-          align="right"
+          align="end"
           openKey={openKeys?.effort}
         >
           {(close) => (
             <Choices
-              note="How long the CEO thinks before it answers. More effort is slower and more careful."
+              note={t('effortNote')}
               value={settings.effort}
               options={options.efforts.map((e) => ({ value: e, label: settingLabel(e) }))}
               onPick={(effort) => {
