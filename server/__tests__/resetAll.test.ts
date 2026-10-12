@@ -154,6 +154,41 @@ describe('resetAllToDefault', () => {
     ]);
   });
 
+  it('clears finished tasks from tasks.json, keeps running ones and tasks with a worktree', () => {
+    const worktree = path.join(home, 'wt');
+    fs.mkdirSync(worktree);
+    const task = (id: string, status: string, extra: object = {}) => ({
+      id,
+      title: id,
+      prompt: id,
+      cwd: home,
+      status,
+      createdAt: 1,
+      ownerPid: 2 ** 22 + 7,
+      log: [],
+      ...extra,
+    });
+    const tasks = Object.fromEntries(
+      [
+        task('done1', 'done'),
+        task('err1', 'error'),
+        task('run1', 'running'),
+        task('wt1', 'error', { worktreePath: worktree }),
+        task('gone1', 'done', { worktreePath: path.join(home, 'removed') }),
+      ].map((t) => [t.id, t]),
+    );
+    fs.writeFileSync(file('tasks.json'), JSON.stringify({ version: 1, tasks }));
+
+    const { sent } = reset(office(), true);
+
+    expect(sent.at(-1)!.error).toBeUndefined();
+    // The backup keeps all five, the live file keeps the unfinished and the worktree ones.
+    const backupDir = String(sent.at(-1)!.backupDir);
+    const saved = JSON.parse(fs.readFileSync(path.join(backupDir, 'tasks.json'), 'utf-8'));
+    expect(Object.keys(saved.tasks)).toHaveLength(5);
+    expect(Object.keys(readJson('tasks.json').tasks).sort()).toEqual(['run1', 'wt1']);
+  });
+
   it('without a cat office it resets the layout and pet care (VS Code)', () => {
     const { sent } = reset(undefined, false);
     expect(sent.at(-1)!.backupDir).toBeDefined();

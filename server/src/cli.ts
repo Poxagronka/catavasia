@@ -281,8 +281,6 @@ async function main(): Promise<void> {
       flows: orchestrator,
       narrate: (input) => narrator.push(input),
     });
-    // Finished one-cat runs keep their idle cat across restarts.
-    tasks.restoreFinishedCats();
 
     // CEO desk: the user's chat with the CEO, which starts team tasks as jobs.
     const ceoDesk = new CeoDesk({

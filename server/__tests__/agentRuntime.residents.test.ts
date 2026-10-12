@@ -4,7 +4,6 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StateAdapter } from '../../core/src/adapter.js';
-import { resendAgentActivity } from '../src/agentActivityResend.js';
 import { AgentRuntime } from '../src/agentRuntime.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { claudeProvider } from '../src/providers/hook/claude/claude.js';
@@ -83,21 +82,5 @@ describe('AgentRuntime resident cats', () => {
     // The profile is deleted: the character and its session routing go.
     runtime.removeResidentAgent(id);
     expect(store.get(id)).toBeUndefined();
-  });
-
-  it('restores a finished task cat that opens its task after a restart', () => {
-    const agent = runtime.restoreFinishedAgent('old-session', tmp, 'task-1', { palette: 3 });
-    expect(agent.id).toBe(5);
-    expect(store.get(agent.id)).toMatchObject({
-      finishedTaskId: 'task-1',
-      isWaiting: true,
-      palette: 3,
-    });
-    // Before the first connect: writing the agents now would drop the
-    // persisted external agents that connect is about to restore.
-    expect(persisted.saved).toEqual([]);
-    const sent: Array<Record<string, unknown>> = [];
-    resendAgentActivity((m) => sent.push(m), store);
-    expect(sent).toContainEqual({ type: 'agentTaskFinished', id: agent.id, taskId: 'task-1' });
   });
 });

@@ -334,33 +334,6 @@ export class AgentRuntime {
     return agent;
   }
 
-  /**
-   * A task-board cat of a finished run, restored after a server restart: an
-   * idle character that still opens its task. Nothing watches its transcript.
-   */
-  restoreFinishedAgent(
-    sessionId: string,
-    cwd: string,
-    taskId: string,
-    look?: { palette?: number; hueShift?: number },
-  ): AgentState {
-    this.reserveRestoredIds();
-    const id = this.store.nextAgentId.current++;
-    const agent = this.headlessState(id, look);
-    this.pointAt(agent, sessionId, cwd);
-    // A follow-up resumes the session: watch only what it appends.
-    try {
-      agent.fileOffset = fs.statSync(agent.jsonlFile).size;
-    } catch {
-      agent.fileOffset = 0;
-    }
-    assignPaletteIfNeeded(agent, this.store);
-    // No persist: it runs before the first connect restores the external agents.
-    this.store.set(id, agent);
-    this.finishHeadlessAgent(id, taskId);
-    return agent;
-  }
-
   // ── Resident cats of the cat office (server/src/orchestrator/catResidents.ts) ──
 
   /**

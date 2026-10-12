@@ -46,6 +46,26 @@ export class TaskStore {
   save(task: StoredTask): void {
     const tasks = this.readAll();
     tasks[task.id] = task;
+    this.write(tasks);
+  }
+
+  /**
+   * Drop every finished task. A task whose worktree is still on disk stays,
+   * so its folder is never orphaned. A running task stays.
+   */
+  removeFinished(): void {
+    const tasks = this.readAll();
+    let removed = false;
+    for (const [id, task] of Object.entries(tasks)) {
+      if (task.status === 'running') continue;
+      if (task.worktreePath && fs.existsSync(task.worktreePath)) continue;
+      delete tasks[id];
+      removed = true;
+    }
+    if (removed) this.write(tasks);
+  }
+
+  private write(tasks: Record<string, StoredTask>): void {
     const data: TasksFile = { version: 1, tasks };
     const tmp = `${this.filePath}.${process.pid}.tmp`;
     try {
