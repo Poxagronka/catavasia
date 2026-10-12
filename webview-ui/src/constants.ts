@@ -12,15 +12,29 @@ export const MAX_ROWS = 64;
 export const WALK_SPEED_PX_PER_SEC = 48;
 export const WALK_FRAME_DURATION_SEC = 0.15;
 export const TYPE_FRAME_DURATION_SEC = 0.3;
-export const WANDER_PAUSE_MIN_SEC = 2.0;
-export const WANDER_PAUSE_MAX_SEC = 20.0;
-export const WANDER_MOVES_BEFORE_REST_MIN = 3;
-export const WANDER_MOVES_BEFORE_REST_MAX = 6;
-export const SEAT_REST_MIN_SEC = 120.0;
-export const SEAT_REST_MAX_SEC = 240.0;
+export const WANDER_PAUSE_MIN_SEC = 8.0;
+export const WANDER_PAUSE_MAX_SEC = 80.0;
+export const WANDER_MOVES_BEFORE_REST_MIN = 2;
+export const WANDER_MOVES_BEFORE_REST_MAX = 4;
+export const SEAT_REST_MIN_SEC = 360.0;
+export const SEAT_REST_MAX_SEC = 720.0;
 /** Pause between two idle activities (coffee, nap, ...). */
-export const IDLE_ACTIVITY_PAUSE_MIN_SEC = 1.5;
-export const IDLE_ACTIVITY_PAUSE_MAX_SEC = 5.0;
+export const IDLE_ACTIVITY_PAUSE_MIN_SEC = 15.0;
+export const IDLE_ACTIVITY_PAUSE_MAX_SEC = 45.0;
+
+/**
+ * How long an idle cat stays at each activity: [min, max] seconds. Calmer
+ * pacing (owner, 2026-10-12): sleep, coffee and the desk about 3x longer,
+ * play about 1.8x.
+ */
+export const IDLE_SLEEP_SEC = [75, 180] as const;
+export const IDLE_COFFEE_SEC = [24, 48] as const;
+export const IDLE_COFFEE_SIP_SEC = [30, 54] as const;
+export const IDLE_GROOM_SEC = [15, 27] as const;
+export const IDLE_LOAF_SEC = [30, 60] as const;
+export const IDLE_TOY_SEC = [11, 21] as const;
+export const IDLE_TOY_BOX_SEC = [21, 44] as const;
+export const IDLE_TOY_TREE_SEC = [26, 52] as const;
 
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3;
@@ -303,13 +317,13 @@ export const PET_WALK_SEQUENCE = [0, 1, 0, 2] as const;
 /** Idle cycle: 4-step lookup into the 3-frame idleDown/idleUp arrays. */
 export const PET_IDLE_SEQUENCE = [0, 1, 2, 1] as const;
 /** Minimum seconds the pet stays in IDLE before making a new decision. */
-export const PET_WANDER_PAUSE_MIN_SEC = 3.0;
+export const PET_WANDER_PAUSE_MIN_SEC = 24.0;
 /** Maximum seconds the pet stays in IDLE before making a new decision. */
-export const PET_WANDER_PAUSE_MAX_SEC = 15.0;
+export const PET_WANDER_PAUSE_MAX_SEC = 140.0;
 /** Seconds between FOLLOW path re-computations. */
 export const PET_FOLLOW_RECALC_INTERVAL_SEC = 1.0;
 /** Probability that a pet enters FOLLOW (instead of WALK) when wanderTimer expires. */
-export const PET_FOLLOW_CHANCE = 0.3;
+export const PET_FOLLOW_CHANCE = 0.1;
 /** Maximum Manhattan distance (tiles) at which a character can become a follow target. */
 export const PET_FOLLOW_RADIUS_TILES = 3;
 /** Minimum seconds a FOLLOW episode lasts before timing out. */
@@ -331,11 +345,11 @@ export const SOCIAL_ACTIVITY_RADIUS_TILES = 4;
 /** How often idle cats are scanned for a chance meeting. */
 export const SOCIAL_CHECK_INTERVAL_SEC = 1.0;
 /** Chance that one scan starts an encounter for the closest eligible pair. */
-export const SOCIAL_ENCOUNTER_CHANCE = 0.2;
+export const SOCIAL_ENCOUNTER_CHANCE = 0.07;
 /** Seconds a cat waits after any social scene before the next one. */
-export const SOCIAL_CAT_COOLDOWN_SEC = 25;
+export const SOCIAL_CAT_COOLDOWN_SEC = 75;
 /** Seconds the same two cats wait before meeting again. */
-export const SOCIAL_PAIR_COOLDOWN_SEC = 60;
+export const SOCIAL_PAIR_COOLDOWN_SEC = 180;
 /** Chance an encounter turns into a fight (about 1 in 15). */
 export const SOCIAL_FIGHT_CHANCE = 1 / 15;
 /** Chance a non-fight encounter while wandering becomes chase play. */
@@ -404,13 +418,13 @@ export const SOCIAL_FIGHT_ANGER_SEC = 2;
 export const SOCIAL_FLEE_SPEED_MUL = 1.9;
 export const SOCIAL_FLEE_MIN_TILES = 4;
 /** Seconds a pair that fought avoids each other (no talk / play / fight). */
-export const SOCIAL_FIGHT_AVOID_SEC = 120;
+export const SOCIAL_FIGHT_AVOID_SEC = 360;
 /** Frame durations for the anger mark and the dust cloud. */
 export const SOCIAL_ANGER_FRAME_SEC = 0.25;
 export const SOCIAL_CLOUD_FRAME_SEC = 0.1;
 /** Wander pause given back to a cat when its scene ends. */
-export const SOCIAL_RESUME_PAUSE_MIN_SEC = 1;
-export const SOCIAL_RESUME_PAUSE_MAX_SEC = 3;
+export const SOCIAL_RESUME_PAUSE_MIN_SEC = 3;
+export const SOCIAL_RESUME_PAUSE_MAX_SEC = 9;
 /** Cloud anchor: world px below the cats' tile centre. */
 export const SOCIAL_CLOUD_FOOT_OFFSET_PX = 4;
 /** Social bubble bottom above the cat's anchor (world px): clears the ears. */
@@ -608,17 +622,17 @@ export const PET_TIRED_THRESHOLD = 35;
 /** Energy a sleeping pet gains per real second (a nap of ~40 s fills it). */
 export const PET_SLEEP_ENERGY_PER_SEC = 2.5;
 /** Nap length for a tired pet (s): [min, max]; it wakes early when energy is full. */
-export const PET_SLEEP_MIN_SEC = 20;
-export const PET_SLEEP_MAX_SEC = 60;
+export const PET_SLEEP_MIN_SEC = 40;
+export const PET_SLEEP_MAX_SEC = 120;
 /** Chance per decision that a content pet starts an idle activity (else it wanders). */
-export const PET_ACTIVITY_CHANCE = 0.3;
+export const PET_ACTIVITY_CHANCE = 0.02;
 /** Seconds a content pet spends on a toy, and the fun it gains. */
-export const PET_TOY_MIN_SEC = 6;
-export const PET_TOY_MAX_SEC = 14;
+export const PET_TOY_MIN_SEC = 11;
+export const PET_TOY_MAX_SEC = 25;
 export const PET_TOY_FUN_GAIN = 25;
 /** Cats in activities near each other: check interval (s) and chance per check. */
 export const ACTIVITY_SOCIAL_CHECK_SEC = 2;
-export const ACTIVITY_SOCIAL_CHANCE = 0.35;
+export const ACTIVITY_SOCIAL_CHANCE = 0.12;
 /** Of those encounters in the playroom: the share that becomes joint play. */
 export const ACTIVITY_JOINT_PLAY_CHANCE = 0.6;
 /** Seconds added to an activity when its cat starts a talk there (it stays for the talk). */

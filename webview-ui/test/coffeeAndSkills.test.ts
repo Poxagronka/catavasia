@@ -129,9 +129,9 @@ test('making coffee: brew at the machine, carry the cup to a seat and sip, bring
   runUntil(os, () => ch.state === CharacterState.ACTIVITY && ch.activity?.id === 'coffeeSip');
   assert.equal(machineSprite(os, 'f-coffee-espresso'), `ESPRESSO_MACHINE_${CUP_OUT_FRAME}`);
   // Then the cup goes back to the same machine.
-  runUntil(os, () => ch.activity?.id === 'coffeeReturn', 40);
+  runUntil(os, () => ch.activity?.id === 'coffeeReturn', 120);
   assert.equal(ch.activity?.spot?.itemUid, 'f-coffee-espresso');
-  runUntil(os, () => ch.lastActivityId === 'coffeeReturn', 40);
+  runUntil(os, () => ch.lastActivityId === 'coffeeReturn', 120);
   assert.equal(machineSprite(os, 'f-coffee-espresso'), 'ESPRESSO_MACHINE', 'the cup is back');
 });
 

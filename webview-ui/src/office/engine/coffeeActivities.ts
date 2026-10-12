@@ -13,6 +13,7 @@
  * take part (petActivities.ts names no coffee activity).
  */
 
+import { IDLE_COFFEE_SIP_SEC } from '../../constants.js';
 import { getOrientationInGroup } from '../layout/furnitureCatalog.js';
 import { Direction } from '../types.js';
 import type { AnimParts } from './activityAnim.js';
@@ -114,7 +115,7 @@ export const COFFEE_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'brew',
     // The most visible idle: cats making coffee was the user's ask (2026-10-06).
-    weight: 4,
+    weight: 1.5,
     durationSec: [0, 0],
     ...BREW,
     spots: machineSpots,
@@ -123,7 +124,7 @@ export const COFFEE_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'coffeeSip',
     weight: 0,
-    durationSec: [10, 18],
+    durationSec: IDLE_COFFEE_SIP_SEC,
     ...SIP,
     spots: (ctx) => [
       ...seatSpots(ctx, itemsOfType(ctx, SOFA_TYPES)),

@@ -5,6 +5,12 @@
  * join the same weighted pool as coffee and naps.
  */
 
+import {
+  IDLE_SLEEP_SEC,
+  IDLE_TOY_BOX_SEC,
+  IDLE_TOY_SEC,
+  IDLE_TOY_TREE_SEC,
+} from '../../constants.js';
 import type { OnItemPose } from './activitySpots.js';
 import { adjacentSpots, itemsOfType, onItemSpots, throughSpots } from './activitySpots.js';
 import type { IdleActivityDef } from './idleActivities.js';
@@ -20,7 +26,7 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'scratch',
     weight: 1,
-    durationSec: [8, 14],
+    durationSec: IDLE_TOY_SEC,
     ...SCRATCH,
     spots: (ctx) =>
       adjacentSpots(ctx, itemsOfType(ctx, ['SCRATCHING_POST']), {
@@ -31,7 +37,7 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'yarn',
     weight: 1,
-    durationSec: [6, 12],
+    durationSec: IDLE_TOY_SEC,
     ...YARN,
     spots: (ctx) =>
       adjacentSpots(ctx, itemsOfType(ctx, ['YARN_BALL']), { sides: 'horizontal', nudgePx: 4 }),
@@ -40,14 +46,14 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'box',
     weight: 1,
-    durationSec: [12, 25],
+    durationSec: IDLE_TOY_BOX_SEC,
     ...BOX,
     spots: (ctx) => onItemSpots(itemsOfType(ctx, ['CARDBOARD_BOX']), IN_BOX),
   },
   {
     id: 'catTree',
     weight: 1,
-    durationSec: [15, 30],
+    durationSec: IDLE_TOY_TREE_SEC,
     ...CAT_TREE,
     spots: (ctx) => onItemSpots(itemsOfType(ctx, ['CAT_TREE']), TREE_TOP),
   },
@@ -62,7 +68,7 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'mouse',
     weight: 1,
-    durationSec: [6, 12],
+    durationSec: IDLE_TOY_SEC,
     ...MOUSE,
     spots: (ctx) =>
       adjacentSpots(ctx, itemsOfType(ctx, ['TOY_MOUSE']), { sides: 'horizontal', nudgePx: 4 }),
@@ -71,7 +77,7 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'teaser',
     weight: 1,
-    durationSec: [6, 12],
+    durationSec: IDLE_TOY_SEC,
     ...TEASER,
     spots: (ctx) =>
       // The wand bends to the item's left: the cat plays on that side, however it is turned.
@@ -81,7 +87,7 @@ export const TOY_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'catBed',
     weight: 1,
-    durationSec: [25, 50],
+    durationSec: IDLE_SLEEP_SEC,
     ...NAP,
     spots: (ctx) => onItemSpots(itemsOfType(ctx, ['CAT_BED']), ON_BED),
     zzz: true,
