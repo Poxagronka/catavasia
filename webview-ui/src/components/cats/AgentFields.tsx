@@ -50,8 +50,8 @@ function engineLabels(t: ReturnType<typeof useT<typeof cats>>): Record<string, s
   );
 }
 
-/** Agent-only fields: role, engine, model, effort, permissions, system prompt. */
-export function AgentFields({
+/** The "Other settings" tab of an agent cat: engine, model, effort, permissions. */
+export function AgentOtherFields({
   cat,
   onChange,
 }: {
@@ -71,16 +71,7 @@ export function AgentFields({
   };
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-8">
-        <label className="flex flex-col gap-2 text-xs text-text-muted">
-          {t('role')}
-          <input
-            className={`${FIELD} text-xs`}
-            value={cat.role}
-            placeholder={t('rolePlaceholder')}
-            onChange={(e) => onChange({ ...cat, role: e.target.value })}
-          />
-        </label>
+      <div className="grid grid-cols-3 gap-8">
         <Select
           label={t('engine')}
           value={cat.engine}
@@ -128,6 +119,30 @@ export function AgentFields({
         value={cat.permissionMode}
         onChange={(permissionMode) => onChange({ ...cat, permissionMode })}
       />
+    </div>
+  );
+}
+
+/** The "Prompt" tab of an agent cat: role, system prompt, Rules and Lessons. */
+export function AgentPromptFields({
+  cat,
+  onChange,
+}: {
+  cat: CatProfile;
+  onChange: (c: CatProfile) => void;
+}) {
+  const t = useT(cats);
+  return (
+    <div className="flex flex-col gap-6">
+      <label className="flex flex-col gap-2 text-xs text-text-muted">
+        {t('role')}
+        <input
+          className={`${FIELD} text-xs`}
+          value={cat.role}
+          placeholder={t('rolePlaceholder')}
+          onChange={(e) => onChange({ ...cat, role: e.target.value })}
+        />
+      </label>
       <label className="flex flex-col gap-2 text-xs text-text-muted">
         {t('systemPrompt')}
         <textarea
