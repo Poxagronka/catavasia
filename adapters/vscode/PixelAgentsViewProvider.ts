@@ -675,6 +675,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
               hooksEnabled: getHooksEnabled(provider.id),
               consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
               privileged: true,
+              language: getLanguage(this.adapter),
             },
             provider,
           );

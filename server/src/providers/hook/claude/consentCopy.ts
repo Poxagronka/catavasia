@@ -13,51 +13,48 @@
  *
  * The event count is interpolated from CLAUDE_HOOK_EVENTS, never written out:
  * a hardcoded number silently becomes a lie the next time the list changes.
+ *
+ * The text lives in server/src/i18n/consent/<language>.ts and follows the chosen UI language.
+ * The English exports below stay the default and the test reference.
  */
 
+import { consent } from '../../../i18n/consent/en.js';
+import { translate } from '../../../i18n/translate.js';
 import { CLAUDE_HOOK_EVENTS, SETTINGS_BACKUP_SUFFIX } from './constants.js';
 
 const SETTINGS_FILE = '~/.claude/settings.json';
 
-/** WHY we ask + WHAT we write. */
-export const CONSENT_FACT_WHAT =
-  `To bring your agents to life in real time, catavasia adds hooks for ` +
-  `${CLAUDE_HOOK_EVENTS.length} Claude Code events to ${SETTINGS_FILE}. ` +
-  `Note that your existing settings are kept, and a one-time backup is saved as settings.json${SETTINGS_BACKUP_SUFFIX}.`;
-
-/** WHAT data moves, and where it stops.
+/**
+ * The consent ask in one language. The HEADLINE titles the Intro's consent step and carries NO disclosure facts.
+ * The DISCLOSURE is its body: three facts as blank-line separated paragraphs, in order. WHY we ask and WHAT we
+ * write, WHAT data moves and where it stops, HOW to undo it. The IntroBubble renders every paragraph in full on the
+ * decision surface itself, with no "Details" affordance that would put the disclosure one click from the decision.
  *
- *  "Nothing leaves your machine" is not something this prompt can promise:
- *  `npx pixel-agents --host 0.0.0.0` binds the same server to every interface,
- *  and an accepted socket receives the store broadcasts
- *  (server/src/httpServer.ts). So it states the default and names the one
- *  thing that changes it, rather than making a promise the software can be
- *  asked to break. */
-export const CONSENT_FACT_DATA =
-  'Claude Code will send those events - including tool names and tool inputs - to a catavasia ' +
-  'server on this machine. Everything stays local - the server listens only on 127.0.0.1 - unless ' +
-  'you explicitly start it with --host to expose it on your network.';
-
-/** HOW to undo it. */
-export const CONSENT_FACT_REVERSIBLE =
-  'You can remove the hooks at any time from Settings → Instant Detection (Hooks).';
-
-/** Headline for the first-run gate — the only population that is asked. A user
- *  whose hooks a pre-consent version already installed is migrated silently
- *  (the migration only ever drops events), so there is no second headline.
- *  Title of the Intro's consent step ("Welcome to catavasia!" is the
- *  Intro's own opening-step title, owned by the webview). Carries NO
- *  disclosure facts by design: the facts all live in CONSENT_DISCLOSURE. */
-export const CONSENT_INSTALL_HEADLINE = 'One more thing: hooks!';
-
-/** The three disclosure facts, in order, as one block.
+ * "Nothing leaves your machine" is not something this prompt can promise: `npx pixel-agents --host 0.0.0.0` binds
+ * the same server to every interface, and an accepted socket receives the store broadcasts
+ * (server/src/httpServer.ts). So the data fact states the default and names the one thing that changes it.
  *
- *  This is the consent step's body. The IntroBubble splits it on the blank
- *  lines and renders every paragraph in full on the decision surface itself — no
- *  "Details" affordance, which would put the disclosure one click away from
- *  the decision it is there to inform. */
-export const CONSENT_DISCLOSURE = [
-  CONSENT_FACT_WHAT,
-  CONSENT_FACT_DATA,
-  CONSENT_FACT_REVERSIBLE,
-].join('\n\n');
+ * A user whose hooks a pre-consent version already installed is migrated silently (the migration only ever drops
+ * events), so there is a single headline.
+ */
+export function consentCopy(language?: unknown): { headline: string; disclosure: string } {
+  const params = {
+    count: CLAUDE_HOOK_EVENTS.length,
+    file: SETTINGS_FILE,
+    backup: `settings.json${SETTINGS_BACKUP_SUFFIX}`,
+  };
+  return {
+    headline: translate(consent, 'headline', language),
+    disclosure: [
+      translate(consent, 'what', language, params),
+      translate(consent, 'data', language),
+      translate(consent, 'reversible', language),
+    ].join('\n\n'),
+  };
+}
+
+/** The English headline: the first-run gate's default. */
+export const CONSENT_INSTALL_HEADLINE = consentCopy().headline;
+
+/** The English disclosure: the three facts as one block. */
+export const CONSENT_DISCLOSURE = consentCopy().disclosure;

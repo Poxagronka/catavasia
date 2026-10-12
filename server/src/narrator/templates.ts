@@ -9,34 +9,44 @@ import {
   type NarratorInput,
   type NarratorState,
 } from '../../../core/src/narrator.js';
+import { messages as en, narrator } from '../i18n/narrator/en.js';
+import { translate } from '../i18n/translate.js';
+
+type PhaseKey = keyof typeof en;
 
 interface Template {
   state: NarratorState;
+  /** The English line. Other languages come from the `narrator` namespace by `key`. */
   line: string;
+  key: PhaseKey;
+}
+
+function phase(state: NarratorState, key: PhaseKey): Template {
+  return { state, line: en[key], key };
 }
 
 /**
  * Work phases, each with one abstract cat-voice line (user, 2026-10-06).
  * Lines never name files, commands or tools: the raw tool status setting in
- * the webview shows those.
+ * the webview shows those. The text lives in server/src/i18n/narrator/<language>.ts.
  */
 export const PHASES = {
-  planning: { state: 'thinking', line: 'plotting the hunt' },
-  exploring: { state: 'reading', line: 'sniffing around' },
-  building: { state: 'editing', line: 'kneading the code' },
-  testing: { state: 'testing', line: 'batting at bugs' },
-  reviewing: { state: 'reading', line: 'grooming the code' },
-  delivering: { state: 'editing', line: 'bringing you a mouse' },
+  planning: phase('thinking', 'planning'),
+  exploring: phase('reading', 'exploring'),
+  building: phase('editing', 'building'),
+  testing: phase('testing', 'testing'),
+  reviewing: phase('reading', 'reviewing'),
+  delivering: phase('editing', 'delivering'),
   // A skill (Claude's Skill tool): the cat reads a book from the office shelf.
-  skill: { state: 'reading', line: 'reading the cat manual' },
-  briefing: { state: 'thinking', line: 'holding a cat meeting' },
-  delegating: { state: 'thinking', line: 'herding cats' },
-  teammate: { state: 'thinking', line: 'nosing a teammate' },
-  input: { state: 'waiting', line: 'meowing for you' },
-  permission: { state: 'waiting', line: 'pawing at the door' },
-  done: { state: 'done', line: 'purring, all done' },
-  error: { state: 'error', line: 'hissing at a bug' },
-} as const satisfies Record<string, Template>;
+  skill: phase('reading', 'skill'),
+  briefing: phase('thinking', 'briefing'),
+  delegating: phase('thinking', 'delegating'),
+  teammate: phase('thinking', 'teammate'),
+  input: phase('waiting', 'input'),
+  permission: phase('waiting', 'permission'),
+  done: phase('done', 'done'),
+  error: phase('error', 'error'),
+} satisfies Record<string, Template>;
 
 const EXPLORE_TOOLS = new Set([
   'Read',
@@ -54,7 +64,7 @@ const OFFICE_TOOLS: Record<string, Template> = {
   brief: PHASES.briefing,
   delegate: PHASES.delegating,
   report: PHASES.delivering,
-  ask: { state: 'waiting', line: PHASES.teammate.line },
+  ask: phase('waiting', 'teammate'),
   reply: PHASES.teammate,
   list_team: PHASES.planning,
 };
@@ -122,7 +132,10 @@ function toolTemplate(tool: string, text: string | undefined): Template {
  * Map one event to a status line. Returns null for an event that changes
  * nothing on its own (an unknown state token, a tool event without a name).
  */
-export function templateFor(input: NarratorInput): Template | null {
+export function templateFor(
+  input: NarratorInput,
+  language?: string,
+): { state: NarratorState; line: string } | null {
   let t: Template | null = null;
   switch (input.kind) {
     case 'tool':
@@ -138,5 +151,5 @@ export function templateFor(input: NarratorInput): Template | null {
       t = PHASES.done;
       break;
   }
-  return t && { state: t.state, line: clipLine(t.line) };
+  return t && { state: t.state, line: clipLine(translate(narrator, t.key, language)) };
 }

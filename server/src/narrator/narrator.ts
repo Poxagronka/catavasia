@@ -31,6 +31,8 @@ export interface NarratorOptions {
   broadcast: (message: NarratorServerMessage) => void;
   /** Read on every summary-worthy event, so a settings toggle applies at once. */
   aiSummariesEnabled: () => boolean;
+  /** The UI language code, read on every event so a language switch applies at once. Default English. */
+  language?: () => string;
   /** Batcher overrides (tests). */
   batcher?: Omit<HaikuBatcherOptions, 'onSummaries'>;
 }
@@ -54,6 +56,7 @@ export class Narrator {
       ...opts.batcher,
       // Turning the setting off drops queued material before the next call.
       shouldRun: () => opts.aiSummariesEnabled(),
+      language: () => opts.language?.() ?? '',
       onSummaries: (list) => {
         for (const s of list) {
           this.summaries.set(s.conversationId, s);
@@ -64,7 +67,7 @@ export class Narrator {
   }
 
   push(input: NarratorInput): void {
-    const t = templateFor(input);
+    const t = templateFor(input, this.opts.language?.());
     if (t) {
       this.beforeWait.delete(input.catId);
       this.show({ catId: input.catId, ...t });
