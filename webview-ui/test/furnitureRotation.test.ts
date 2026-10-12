@@ -301,6 +301,7 @@ test('every pet activity of an item works in every view: a claim, its pose, the 
           claim: () => 'ok',
           start: () => true,
           rng: () => 0.5,
+          owner: () => null,
         });
         for (const spot of got.get(id)!) {
           const where = `${view} pet ${id} @${spot.key}`;
