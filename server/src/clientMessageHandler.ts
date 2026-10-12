@@ -93,14 +93,12 @@ const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
 const KEY_SHOW_GUESTS = 'pixel-agents.showGuests';
 const KEY_TURN_CONCURRENCY = 'pixel-agents.turnConcurrency';
 export const KEY_NARRATOR_AI_SUMMARIES = 'pixel-agents.narratorAiSummaries';
-const KEY_NARRATOR_RAW_TOOL_STATUS = 'pixel-agents.narratorRawToolStatus';
 
 /** The narratorSettings message (core/asyncapi.yaml). */
 function narratorSettingsMessage(adapter: ReturnType<AgentStateStore['getAdapter']>) {
   return {
     type: 'narratorSettings',
     aiSummaries: adapter?.getSetting(KEY_NARRATOR_AI_SUMMARIES, true) ?? true,
-    rawToolStatus: adapter?.getSetting(KEY_NARRATOR_RAW_TOOL_STATUS, false) ?? false,
   };
 }
 
@@ -421,9 +419,6 @@ export function handleClientMessage(
     case 'setNarratorSettings': {
       if (typeof msg.aiSummaries === 'boolean') {
         adapter?.setSetting(KEY_NARRATOR_AI_SUMMARIES, msg.aiSummaries);
-      }
-      if (typeof msg.rawToolStatus === 'boolean') {
-        adapter?.setSetting(KEY_NARRATOR_RAW_TOOL_STATUS, msg.rawToolStatus);
       }
       store.broadcast(narratorSettingsMessage(adapter));
       break;
