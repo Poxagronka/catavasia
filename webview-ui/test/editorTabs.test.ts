@@ -20,15 +20,15 @@ describe('EditorTabs', () => {
     expect(html).toContain('look');
     expect(html).toContain('words');
     expect(html).toMatch(
-      /data-testid="editor-panel-prompt"[^>]*class="hidden"|class="hidden"[^>]*data-testid="editor-panel-prompt"/,
+      /data-testid="editor-panel-prompt"[^>]*class="[^"]*invisible"|class="[^"]*invisible"[^>]*data-testid="editor-panel-prompt"/,
     );
-    expect(html).not.toMatch(/data-testid="editor-panel-appearance"[^>]*class="hidden"/);
+    expect(html).not.toMatch(/data-testid="editor-panel-appearance"[^>]*class="[^"]*invisible"/);
   });
 
   it('opens the requested tab first', () => {
     const html = renderToStaticMarkup(createElement(EditorTabs, { tabs, initial: 'prompt' }));
     expect(html).toMatch(
-      /data-testid="editor-panel-appearance"[^>]*class="hidden"|class="hidden"[^>]*data-testid="editor-panel-appearance"/,
+      /data-testid="editor-panel-appearance"[^>]*class="[^"]*invisible"|class="[^"]*invisible"[^>]*data-testid="editor-panel-appearance"/,
     );
   });
 
@@ -53,7 +53,7 @@ describe('Tabs', () => {
     expect(html).toContain('data-testid="x-tab-two"');
     expect(html).toContain('role="tabpanel"');
     expect(html).toContain('Second');
-    expect(html).toMatch(/data-testid="x-panel-two"[^>]*class="hidden"/);
+    expect(html).toMatch(/data-testid="x-panel-two"[^>]*class="[^"]*invisible"/);
   });
 
   it('keeps every panel mounted and badges the error tab', () => {
