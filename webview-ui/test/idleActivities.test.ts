@@ -197,7 +197,7 @@ test('an idle cat goes on to a different activity after one ends', () => {
   assert.ok(os.forceIdleActivity(1, 'coffee'));
   // The order of activities, not their timing: a short next one may also end in the window.
   const seen: string[] = [];
-  for (let t = 0; t < 40; t += 0.05) {
+  for (let t = 0; t < 150; t += 0.05) {
     os.update(0.05);
     const id = ch.activity?.id;
     if (id && seen.at(-1) !== id) seen.push(id);
@@ -243,7 +243,7 @@ test('a right-click walk ends the activity, and the cat picks new ones later', (
   assert.equal(ch.activity, null, 'the sofa spot is free again');
   ch.lastActivityId = 'none';
   let picked = false;
-  for (let t = 0; t < 60 && !picked; t += 0.05) {
+  for (let t = 0; t < 150 && !picked; t += 0.05) {
     os.update(0.05);
     picked = ch.activity !== null;
   }

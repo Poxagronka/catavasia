@@ -9,6 +9,7 @@
  * cat lies on each bed, and where its ears or tail peek out of each house.
  */
 
+import { IDLE_SLEEP_SEC } from '../../constants.js';
 import { itemFrame, spriteX } from '../layout/itemFrame.js';
 import type { ActivitySpot, HousePeek } from '../types.js';
 import { TILE_SIZE } from '../types.js';
@@ -68,7 +69,7 @@ export const BED_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'bed',
     weight: 1,
-    durationSec: [25, 60],
+    durationSec: IDLE_SLEEP_SEC,
     ...NAP,
     spots: bedSpots,
     zzz: true,
@@ -77,7 +78,7 @@ export const BED_ACTIVITIES: IdleActivityDef[] = [
   {
     id: 'house',
     weight: 1,
-    durationSec: [25, 60],
+    durationSec: IDLE_SLEEP_SEC,
     ...HOUSE_NAP,
     spots: houseSpots,
     zzz: true,

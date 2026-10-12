@@ -293,8 +293,8 @@ export class PetCareSystem {
     if (anim.kind === 'sleep' || (isPetPlayAnim(anim.kind) && PET_PLAY_ANIMS[anim.kind].nap)) {
       const needs = this.world.entry(pet.id).needs;
       raiseNeed(needs, 'energy', PET_SLEEP_ENERGY_PER_SEC * dt);
-      // Wake early once rested (but nap at least a few seconds); a hop down still plays.
-      if (needs.energy >= PET_NEED_MAX && anim.t >= ANIM_SEC.sleep / 4)
+      // Wake early once rested (but nap at least half the minimum); a hop down still plays.
+      if (needs.energy >= PET_NEED_MAX && anim.t >= ANIM_SEC.sleep / 2)
         anim.t = Math.max(anim.t, petWakeAt(anim.kind, anim.dur));
     }
     if (anim.t < anim.dur) return;

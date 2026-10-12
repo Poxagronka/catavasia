@@ -10,7 +10,7 @@
  * item covers wins.
  */
 
-import { PET_SIDE_POSE_HALF_PX } from '../../constants.js';
+import { IDLE_SLEEP_SEC, PET_SIDE_POSE_HALF_PX } from '../../constants.js';
 import { furnitureKind, getCatalogEntry } from '../layout/furnitureCatalog.js';
 import { isWalkable } from '../layout/tileMap.js';
 import type { ActivitySpot, PetDeskAnim, PlacedFurniture } from '../types.js';
@@ -174,7 +174,7 @@ export const DESK_NAP_ACTIVITY: IdleActivityDef = {
   id: DESK_NAP_ID,
   // Pets only: agent cats work at desks, they never pick this.
   weight: 0,
-  durationSec: [25, 60],
+  durationSec: IDLE_SLEEP_SEC,
   ...NAP,
   spots: deskNapSpots,
   zzz: true,
