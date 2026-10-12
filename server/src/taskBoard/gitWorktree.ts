@@ -19,7 +19,7 @@ const FALLBACK_IDENTITY = ['-c', 'user.name=catavasia', '-c', 'user.email=catava
 export function git(
   cwd: string,
   args: string[],
-  opts: Pick<ExecFileOptions, 'env' | 'timeout'> = {},
+  opts: Pick<ExecFileOptions, 'env' | 'timeout' | 'signal'> = {},
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(

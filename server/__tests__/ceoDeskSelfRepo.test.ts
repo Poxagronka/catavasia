@@ -1,10 +1,11 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DESK_RULES } from '../src/ceoDesk/deskPrompt.js';
-import { ensureSelfRepo } from '../src/ceoDesk/selfRepo.js';
+import { abortSelfRepo, ensureSelfRepo } from '../src/ceoDesk/selfRepo.js';
 import { UPDATE_REPO } from '../src/update/updateChecker.js';
 import { waitFor } from './catOfficeHarness.js';
 import {
@@ -111,5 +112,40 @@ describe('CEO knows its own repo', () => {
     const [job] = env.tasks.list();
     expect(job.cwd).toBe(clone);
     await waitFor(() => (env!.tasks.get(job.id)?.status === 'done' ? true : undefined), 30_000);
+  });
+
+  it('does not clone when the desk starts, only when a turn opens', async () => {
+    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-self-')));
+    const src = upstream(tmp);
+    env = await startDeskOffice(async () => ({ text: 'noted' }), {
+      tmp,
+      selfRepoUrl: `file://${src}`,
+    });
+    const clone = path.join(env.stateDir, 'self-repo');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fs.existsSync(clone)).toBe(false);
+    env.desk.send('hello');
+    await deskIdle(env.desk);
+    await waitFor(() => (fs.existsSync(path.join(clone, '.git')) ? true : undefined), 15_000);
+  });
+
+  it('abortSelfRepo kills a hanging clone at once', async () => {
+    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-self-')));
+    // A server that accepts and never answers: the clone hangs until aborted.
+    const sockets: net.Socket[] = [];
+    const server = net.createServer((s) => sockets.push(s));
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    try {
+      const { port } = server.address() as net.AddressInfo;
+      const run = ensureSelfRepo(tmp, `http://127.0.0.1:${port}/x.git`);
+      const failed = expect(run).rejects.toThrow(/git clone failed/);
+      await waitFor(() => (sockets.length ? true : undefined), 10_000);
+      abortSelfRepo(tmp);
+      await failed;
+    } finally {
+      for (const s of sockets) s.destroy();
+      server.close();
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
