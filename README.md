@@ -78,9 +78,9 @@ The full guide is in [docs/catavasia/INSTALL.md](docs/catavasia/INSTALL.md): req
 
 ![The lounge: a cat on the sofa and a sleeping cat](docs/catavasia/screenshots/lounge.png)
 
-**Settings.** Turn hooks, guests, sounds, Cat CEO reviews and AI summaries on or off. Set how many cats work at once. Check for updates. **Reset everything** puts the default cats and layout back and saves a backup first.
+**Settings.** Five tabs (General, Office, Integrations, Updates, Advanced). Turn hooks, guests, sounds, Cat CEO reviews and AI summaries on or off. Set how many cats work at once. Check for updates. **Reset everything** puts the default cats and layout back and saves a backup first.
 
-![The Settings panel](docs/catavasia/screenshots/settings.png)
+![The Settings panel, General tab](docs/catavasia/screenshots/settings.png)
 
 All cat sprites are generated from hand-made pixel templates in `scripts/cats/` by `node scripts/generate-cat-sprites.mjs` (MIT, same as the repo). The 13 breeds: ginger tabby, grey tabby, black, odd-eyed white, tuxedo, calico, tortoiseshell, siamese, russian blue, cream tabby, bengal, sphynx (in a sweater) and maine coon.
 
