@@ -1,22 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-import { test } from '@playwright/test';
-
-import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants';
-
-/**
- * Call first in a test that asserts sub-agent or teammate characters. The
- * product draws one character per Claude session while
- * SUBAGENT_CHARACTERS_ENABLED is off, so such a test has nothing to check.
- */
-export function requireSubagentCharacters(): void {
-  test.skip(
-    !SUBAGENT_CHARACTERS_ENABLED,
-    'one character per session: sub-agent and teammate characters are off',
-  );
-}
-
 function claudeProjectDirName(workspaceDir: string): string {
   return workspaceDir.replace(/[^a-zA-Z0-9-]/g, '-');
 }
@@ -126,23 +110,6 @@ export function buildUserToolResultBatchRecord(
   };
 }
 
-/** Agent tool_result as newer harnesses write it: the spawn resolves in seconds
- *  with the spawned agent's identity (`agent_id: <name>@<team>`) while the agent
- *  runs on as an independent top-level session. This result line is the only
- *  lead-side team signal — the lead's own records carry no team tags. */
-export function buildTeammateSpawnResultRecord(
-  toolUseId: string,
-  teammateName: string,
-  teamName: string,
-): Record<string, unknown> {
-  return buildUserToolResultRecord(toolUseId, [
-    {
-      type: 'text',
-      text: `Spawned successfully.\nagent_id: ${teammateName}@${teamName}\nname: ${teammateName}`,
-    },
-  ]);
-}
-
 /** Setting record that opens new-harness teammate transcripts. Carries no team
  *  tags — those appear only on later user/assistant records. */
 export function buildAgentSettingRecord(agentType = 'general-purpose'): Record<string, unknown> {
@@ -216,26 +183,4 @@ export function seedTeamConfig(tmpHome: string, teamName: string, members: strin
   fs.writeFileSync(configPath, JSON.stringify(buildTeamConfig(members), null, 2));
 
   return configPath;
-}
-
-export function createTeammateTranscript(
-  projectDir: string,
-  leadSessionId: string,
-  teammateSlug: string,
-  teamName: string,
-  agentName: string,
-): string {
-  const subagentsDir = path.join(projectDir, leadSessionId, 'subagents');
-  fs.mkdirSync(subagentsDir, { recursive: true });
-
-  const transcriptPath = path.join(subagentsDir, `${teammateSlug}.jsonl`);
-  fs.writeFileSync(transcriptPath, '');
-  appendTeamMetadata(transcriptPath, teamName, agentName);
-
-  fs.writeFileSync(
-    transcriptPath.replace(/\.jsonl$/, '.meta.json'),
-    JSON.stringify({ agentType: agentName }, null, 2),
-  );
-
-  return transcriptPath;
 }

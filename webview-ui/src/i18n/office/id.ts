@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'Perlu persetujuan',
   toolWaitingInput: 'Menunggu masukan',
   toolIdle: 'Santai',
-  toolSubtask: 'Subtugas',
   toolChat: 'Obrolan',
   toolContextUsed: '{pct}% konteks terpakai ({used}k dari {max}k token)',
   projectPickingText: 'Jendela folder terbuka. Mungkin ada di belakang jendela browser ini.',

@@ -18,11 +18,11 @@ This file holds pointers and tripwires only. Read the linked doc before you work
 - `core/asyncapi.yaml` is the wire contract, pinned to AsyncAPI 3.0.0 (Modelina limit). `core/src/messages.ts` is generated: never edit it by hand.
 - `createTransport()` is the only transport branch in the UI. No module under `server/` calls a transport method directly: mutate `AgentStateStore`.
 - A new CLI integration is one folder under `server/src/providers/hook/<id>/`. The runtime dispatches on `AgentEvent.kind`, never on CLI tool names.
-- Teams: never link a teammate by the implicit team's `leadSessionId`. `removeTeammate` must not unregister a sidecar teammate's session (it shares the lead's). Detail: [runtime.md → TeamProvider](docs/architecture/runtime.md#teamprovider-lead--teammates).
+- Characters (owner, 2026-10-12): the office draws created cats and guests only. A sub-agent or a teammate is never a character. Its work shows in the parent's overlay and the debug view. A teammate's own session is never adopted as a guest while its lead is tracked. Detail: [runtime.md → TeamProvider](docs/architecture/runtime.md#teamprovider-sub-agents-and-teammates).
 - `/ws` privileged messages need the server token, never a network position (peer, `Host`, `Origin`). See [runtime.md → HTTP + WebSocket Server](docs/architecture/runtime.md#http--websocket-server).
 - Persist the hooks preference only after the install or uninstall settled and the disk agrees.
 - Hooks installer: hook identity is the anchored, case-insensitive `/.pixel-agents/hooks/claude-hook.js` suffix of the first token. Never rewrite a settings shape we did not author. See [key-decisions.md](docs/architecture/key-decisions.md).
-- Job store: a task always needs an explicit `cwd`, never `process.cwd()`. `.gitignore` ignores every `tasks/` folder, so folders are named `taskBoard`.
+- Job store: a task always needs an explicit `cwd`, never `process.cwd()`, and a `target` (a created cat or `team`). `POST /api/tasks` without one answers 400. `.gitignore` ignores every `tasks/` folder, so folders are named `taskBoard`.
 - Cat office: office MCP tools must return at once (60 s MCP timeout). Worker branches are `task/<id>-<cat>`.
 - Narrator WS messages are not in `core/asyncapi.yaml` yet. Every Haiku sentence must pass the server-side evidence check.
 - Self-update: the token reaches the new process only in the `CATAVASIA_RESTART_TOKEN` env, never argv. The only repo URL is `UPDATE_REPO`.
@@ -30,7 +30,7 @@ This file holds pointers and tripwires only. Read the linked doc before you work
 ## Agent tracking — [agent-tracking.md](docs/architecture/agent-tracking.md)
 
 - Context usage is a snapshot of the newest turn (input + both cache counters + output) against the provider's `contextWindowForModel`, never a sum of turns.
-- In the webview, `agentToolStart` with `runInBackground=true` makes a Subtask only when the parent has no `teamName`. `subagentToolStart` creates a missing sub lazily.
+- Sub-agent rows (`subagentToolStart/Done/Clear`) feed the debug view only. No code may create a character from them. `runInBackground=true` only keeps the rows alive past the parent's turn end.
 - A heuristic permission bubble lands 7 s after the sub-tool, not the parent Task. Give tests at least a 10 s budget.
 
 ## Office UI and assets — [office-ui.md](docs/architecture/office-ui.md)

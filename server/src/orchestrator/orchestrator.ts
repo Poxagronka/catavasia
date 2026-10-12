@@ -169,12 +169,12 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
   }
 
   /**
-   * Before a task spawns anything: the engine of its lead (`claude` for a
-   * plain run) must be installed and logged in. Returns what is wrong and
-   * how to fix it, or undefined when the task may start.
+   * Before a task spawns anything: the engine of its lead must be installed
+   * and logged in. Returns what is wrong and how to fix it, or undefined when
+   * the task may start.
    */
-  async preflight(target?: string): Promise<string | undefined> {
-    const engine = target === undefined ? 'claude' : this.resolveTarget(target)?.engine;
+  async preflight(target: string): Promise<string | undefined> {
+    const engine = this.resolveTarget(target)?.engine;
     if (!engine) return undefined;
     const status = await this.probes.get(engine)?.refresh();
     if (this.opts.adapters.find((a) => a.engine === engine)?.choices().unavailable)

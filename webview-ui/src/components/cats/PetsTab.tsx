@@ -120,15 +120,17 @@ function PetEditor({
         </div>
         {error && <div className="text-xs text-status-error">{error}</div>}
       </div>
-      <OwnerField
-        value={pet.ownerCatId}
-        owners={owners}
-        onChange={(ownerCatId) => onChange({ ...saved, ownerCatId })}
-      />
-      <PersonalityField
-        value={pet.personality}
-        onChange={(personality) => onChange({ ...saved, personality })}
-      />
+      <div className="grid grid-cols-2 gap-10 items-start">
+        <OwnerField
+          value={pet.ownerCatId}
+          owners={owners}
+          onChange={(ownerCatId) => onChange({ ...saved, ownerCatId })}
+        />
+        <PersonalityField
+          value={pet.personality}
+          onChange={(personality) => onChange({ ...saved, personality })}
+        />
+      </div>
       {/* Coats repaint the cat sheet only: a dog keeps its own look. */}
       {isCatPet(pet.petType) ? (
         <AppearanceEditor

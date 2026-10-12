@@ -202,11 +202,10 @@ export class SubagentWatch {
         break;
       }
       case 'agentToolPermission': {
-        this.mainStore.broadcast({
-          type: 'subagentToolPermission',
-          id: leadId,
-          parentToolId: spawnToolUseId,
-        });
+        // No sub-character exists: the parent cat shows the permission bubble.
+        const lead = this.mainStore.get(leadId);
+        if (lead) lead.permissionSent = true;
+        this.mainStore.broadcast({ type: 'agentToolPermission', id: leadId });
         break;
       }
       default:

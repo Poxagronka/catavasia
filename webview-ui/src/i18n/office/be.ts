@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'Патрэбны дазвол',
   toolWaitingInput: 'Чакае адказу',
   toolIdle: 'Вольны',
-  toolSubtask: 'Падзадача',
   toolChat: 'Чат',
   toolContextUsed: 'Выкарыстана {pct}% кантэксту ({used}k з {max}k токенаў)',
   projectPickingText: 'Акно выбару тэчкі адкрыта. Яно можа быць за акном браўзера.',

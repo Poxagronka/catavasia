@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'Onay gerekiyor',
   toolWaitingInput: 'Girdi bekliyor',
   toolIdle: 'Boşta',
-  toolSubtask: 'Alt görev',
   toolChat: 'Sohbet',
   toolContextUsed: 'Bağlamın %{pct} kadarı kullanıldı ({max}k tokenden {used}k)',
   projectPickingText: 'Bir klasör penceresi açık. Bu tarayıcı penceresinin arkasında olabilir.',

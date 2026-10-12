@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import type { TeamProvider } from '../../../../../core/src/teamProvider.js';
@@ -8,7 +7,7 @@ import type { TeamProvider } from '../../../../../core/src/teamProvider.js';
  * Claude Code implementation of the TeamProvider interface.
  *
  * Encapsulates every Claude-specific path, field name, and tool identifier
- * for the Agent Teams feature. Adding support for a new CLI means creating a
+ * for sub-agent and teammate transcripts. Adding support for a new CLI means creating a
  * sibling file; no changes to hookEventHandler.ts or fileWatcher.ts.
  */
 
@@ -19,35 +18,24 @@ function sidecarPath(jsonlPath: string): string {
   return jsonlPath.replace(/\.jsonl$/, '.meta.json');
 }
 
-/** Parse a sidecar's metadata: `agentType` (required), plus `toolUseId`,
- *  `description`, and `name` when present (background agents record the first
- *  three; a NAMED teamless spawn additionally records `name`). */
-function parseSidecarMeta(
-  jsonlPath: string,
-): { agentType: string; toolUseId?: string; description?: string; name?: string } | null {
+/** Parse a sidecar's metadata: `agentType` (required), plus `toolUseId` when present. */
+function parseSidecarMeta(jsonlPath: string): { agentType: string; toolUseId?: string } | null {
   const metaPath = sidecarPath(jsonlPath);
   try {
     const raw = fs.readFileSync(metaPath, 'utf-8');
-    const data = JSON.parse(raw) as {
-      agentType?: unknown;
-      toolUseId?: unknown;
-      description?: unknown;
-      name?: unknown;
-    };
+    const data = JSON.parse(raw) as { agentType?: unknown; toolUseId?: unknown };
     if (typeof data.agentType !== 'string') return null;
     return {
       agentType: data.agentType,
       toolUseId: typeof data.toolUseId === 'string' ? data.toolUseId : undefined,
-      description: typeof data.description === 'string' ? data.description : undefined,
-      name: typeof data.name === 'string' ? data.name : undefined,
     };
   } catch {
     return null;
   }
 }
 
-/** Claude stores teammate JSONL files at `<projectDir>/<leadSessionId>/subagents/`. */
-function teammateDir(projectDir: string, leadSessionId: string): string {
+/** Claude stores spawn JSONL files at `<projectDir>/<leadSessionId>/subagents/`. */
+function spawnDir(projectDir: string, leadSessionId: string): string {
   return path.join(projectDir, leadSessionId, 'subagents');
 }
 
@@ -123,17 +111,6 @@ function readTeamMetadata(
   return undefined;
 }
 
-/** Transcripts confirmed to have NO team tags (first user/assistant record was
- *  untagged). Definitive -- never re-read these on subsequent discovery scans.
- *  Indeterminate files (only setting records so far) are NOT cached and get
- *  re-checked until a conversational record lands. */
-const confirmedNonTeamFiles = new Set<string>();
-
-/** Session-transcript filename: `<uuid>.jsonl`. Anything else in the project dir
- *  (sidecars, editor droppings) is not a candidate teammate transcript. */
-const SESSION_FILE_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
-
 // ── Public TeamProvider implementation ──
 
 const TEAMMATE_SPAWN_TOOLS: ReadonlySet<string> = new Set(['Agent']);
@@ -143,12 +120,6 @@ export const claudeTeamProvider: TeamProvider = {
 
   teammateSpawnTools: TEAMMATE_SPAWN_TOOLS,
   withinTurnSubagentTools: new Set(['Task']),
-
-  isTeammateSpawnCall(toolName, toolInput) {
-    // Claude's Agent tool spawns a teammate ONLY when run_in_background is true.
-    // Agent without that flag is a basic within-turn subagent (identical UX to Task).
-    return toolName === 'Agent' && toolInput.run_in_background === true;
-  },
 
   extractTeammateNameFromEvent(event) {
     const teammateName = event.teammate_name;
@@ -164,69 +135,21 @@ export const claudeTeamProvider: TeamProvider = {
     return { teammateName: match[1], teamName: match[2] };
   },
 
-  discoverTeammates(projectDir, leadSessionId, teamName) {
-    const result: Array<{
-      jsonlPath: string;
-      teammateName: string;
-      sessionId?: string;
-      toolUseId?: string;
-      description?: string;
-      name?: string;
-    }> = [];
-
-    // Old-style: sidecar-tagged transcripts under <projectDir>/<leadSessionId>/subagents/.
-    const dir = teammateDir(projectDir, leadSessionId);
+  discoverSpawnTranscripts(projectDir, leadSessionId) {
+    const result: Array<{ jsonlPath: string; toolUseId?: string }> = [];
+    const dir = spawnDir(projectDir, leadSessionId);
     let entries: string[] = [];
     try {
       entries = fs.readdirSync(dir);
     } catch {
-      // directory missing -> no old-style teammates
+      return result; // directory missing -> no spawns
     }
     for (const entry of entries) {
       if (!entry.endsWith('.jsonl')) continue;
       const jsonlPath = path.join(dir, entry);
       const meta = parseSidecarMeta(jsonlPath);
-      if (meta) {
-        result.push({
-          jsonlPath,
-          teammateName: meta.agentType,
-          toolUseId: meta.toolUseId,
-          description: meta.description,
-          name: meta.name,
-        });
-      }
+      if (meta) result.push({ jsonlPath, toolUseId: meta.toolUseId });
     }
-
-    // New-style (implicit teams): teammates are independent TOP-LEVEL sessions in the
-    // same project dir, every user/assistant record tagged teamName/agentName. Only
-    // scannable once the lead's team is known.
-    if (teamName) {
-      let topLevel: string[] = [];
-      try {
-        topLevel = fs.readdirSync(projectDir);
-      } catch {
-        return result;
-      }
-      for (const entry of topLevel) {
-        if (!SESSION_FILE_PATTERN.test(entry)) continue;
-        const jsonlPath = path.join(projectDir, entry);
-        if (confirmedNonTeamFiles.has(jsonlPath)) continue;
-        if (jsonlPath === path.join(projectDir, `${leadSessionId}.jsonl`)) continue;
-        const meta = readTeamMetadata(jsonlPath);
-        if (meta === null) {
-          confirmedNonTeamFiles.add(jsonlPath);
-          continue;
-        }
-        if (meta === undefined) continue; // only setting records so far -- recheck next scan
-        if (meta.teamName !== teamName || !meta.agentName) continue;
-        result.push({
-          jsonlPath,
-          teammateName: meta.agentName,
-          sessionId: entry.slice(0, -'.jsonl'.length),
-        });
-      }
-    }
-
     return result;
   },
 
@@ -244,29 +167,5 @@ export const claudeTeamProvider: TeamProvider = {
       teamName,
       agentName: typeof agentName === 'string' ? agentName : undefined,
     };
-  },
-
-  getTeamMembers(teamName) {
-    const configPath = path.join(os.homedir(), '.claude', 'teams', teamName, 'config.json');
-    let raw: string;
-    try {
-      raw = fs.readFileSync(configPath, 'utf-8');
-    } catch {
-      return null; // config missing / unreadable -> team dissolved
-    }
-    try {
-      const data = JSON.parse(raw) as { members?: Array<{ name?: unknown; isActive?: unknown }> };
-      if (!Array.isArray(data.members)) return null;
-      const names = new Set<string>();
-      for (const m of data.members) {
-        // isActive:false = the CLI marked this one-shot teammate finished (newer
-        // harnesses keep finished members listed). Missing isActive = active
-        // (older configs never write the field).
-        if (m && typeof m.name === 'string' && m.isActive !== false) names.add(m.name);
-      }
-      return names;
-    } catch {
-      return null;
-    }
   },
 };

@@ -25,12 +25,6 @@ export const EDIT_RIGHTS_HINT = 'Open the office with `catavasia` to get edit ri
 export const BASH_COMMAND_DISPLAY_MAX_LENGTH = 30;
 export const TASK_DESCRIPTION_DISPLAY_MAX_LENGTH = 40;
 
-// ── Sub-agents ───────────────────────────────────────────────
-
-/** Render sub-agents and teammates as their own characters. Off: one session
- *  is one character, and the parent alone shows the session's activity. */
-export const SUBAGENT_CHARACTERS_ENABLED = false;
-
 // ── Transport ────────────────────────────────────────────────
 // Connection-state names for the MessageTransport state machine.
 

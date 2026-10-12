@@ -341,6 +341,7 @@ export function CatsModal({
       onClose={onClose}
       title={t('catsTitle')}
       className="w-[min(1180px,96vw)]"
+      pinTop
     >
       {/* Keep office shortcuts (R, T, Esc, Ctrl+Z...) out of the form fields. */}
       <div className="flex flex-col gap-8 px-10 pb-10" onKeyDown={(e) => e.stopPropagation()}>
@@ -352,7 +353,7 @@ export function CatsModal({
             {t('tabPets', { count: roster.rows.length })}
           </TabButton>
         </div>
-        <div className="flex gap-12 max-h-[78vh] overflow-y-auto">
+        <div className="flex gap-12">
           {tab === 'agents' ? (
             <>
               <ProfileList

@@ -281,10 +281,6 @@ export interface Character {
   bubbleTimer: number;
   /** Timer to stay seated while inactive after seat reassignment (counts down to 0) */
   seatTimer: number;
-  /** Whether this character represents a sub-agent (spawned by Task tool) */
-  isSubagent: boolean;
-  /** Parent agent ID if this is a sub-agent, null otherwise */
-  parentAgentId: number | null;
   /** Active matrix spawn/despawn effect, or null */
   matrixEffect: 'spawn' | 'despawn' | null;
   /** Timer counting up from 0 to MATRIX_EFFECT_DURATION */
@@ -294,8 +290,7 @@ export interface Character {
   /** Workspace folder name (only set for multi-root workspaces) */
   folderName?: string;
   /** Headless agent: adopted from outside the office, so there is no terminal to
-   *  focus. Rendered translucent. Teammates and sub-agents are never headless —
-   *  clicking them reaches their lead's / parent's terminal. */
+   *  focus. Rendered translucent. */
   isHeadless?: boolean;
   /** Idle behaviour preset of a resident cat (absent: the default behaviour). */
   personality?: CatPersonality;
@@ -320,17 +315,8 @@ export interface Character {
   /** Seconds left of a grimace face over the head (an overflowing box, a floor poop). */
   grimaceSec?: number;
 
-  // -- Agent Teams --
-  /** Team name this agent belongs to */
-  teamName?: string;
-  /** Role name within the team (null for lead) */
+  /** Display name of a cat of the cat office (the guest keeps its folder name). */
   agentName?: string;
-  /** Whether this agent is the team lead */
-  isTeamLead?: boolean;
-  /** ID of the lead agent (set on teammates) */
-  leadAgentId?: number;
-  /** True when lead spawns teammates via tmux (run_in_background Agent calls) */
-  teamUsesTmux?: boolean;
 
   // -- Context gauge --
   /** Tokens in the agent's context as of its newest turn; 0 until reported.

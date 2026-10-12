@@ -13,11 +13,9 @@ import {
   CONTEXT_GAUGE_HEIGHT_PX,
   CONTEXT_GAUGE_WIDTH_PX,
   CONTEXT_WARN_THRESHOLD,
-  TEAM_LEAD_COLOR,
   TEAM_ROLE_COLOR,
   TOOL_OVERLAY_VERTICAL_OFFSET,
 } from '../../constants.js';
-import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
 import type { MessageKey } from '../../i18n/core.js';
 import type { Params } from '../../i18n/core.js';
 import { translate } from '../../i18n/dictionaries.js';
@@ -43,8 +41,6 @@ interface ToolOverlayProps {
   officeState: OfficeState;
   agents: number[];
   agentTools: Record<number, ToolActivity[]>;
-  subagentTools: Record<number, Record<string, ToolActivity[]>>;
-  subagentCharacters: SubagentCharacter[];
   containerRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
@@ -116,8 +112,6 @@ export function ToolOverlay({
   officeState,
   agents,
   agentTools,
-  subagentTools,
-  subagentCharacters,
   containerRef,
   zoom,
   panRef,
@@ -148,18 +142,14 @@ export function ToolOverlay({
   const selectedId = officeState.selectedAgentId;
   const hoveredId = officeState.hoveredAgentId;
 
-  // All character IDs
-  const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
-
   return (
     <>
-      {allIds.map((id) => {
+      {agents.map((id) => {
         const ch = officeState.characters.get(id);
         if (!ch) return null;
 
         const isSelected = selectedId === id;
         const isHovered = hoveredId === id;
-        const isSub = ch.isSubagent;
 
         // Only show for hovered or selected agents (unless always-show is on)
         if (!alwaysShowOverlay && !isSelected && !isHovered) return null;
@@ -191,10 +181,9 @@ export function ToolOverlay({
 
         // Get activity text
         const hasWaitingBubble = ch.bubbleType === 'waiting';
-        const subHasPermission = isSub && ch.bubbleType === 'permission';
         // The narrator's line wins over the raw tool status (unless the
-        // "raw tool status" debug setting is on). Sub-agents keep their own text.
-        const narrated = isSub ? undefined : narratorHover(id, ch);
+        // "raw tool status" debug setting is on).
+        const narrated = narratorHover(id, ch);
         let activityText: string;
         if (narrated) {
           activityText = narrated.line;
@@ -202,18 +191,6 @@ export function ToolOverlay({
           // Idle, waiting on the user -> dedicated label. A finished turn (Stop)
           // shows only the checkmark and falls through to the normal idle text.
           activityText = tr('toolWaitingInput');
-        } else if (isSub) {
-          if (subHasPermission) {
-            activityText = tr('toolNeedsApproval');
-          } else {
-            // Hover shows the subtask title; SELECTING the sub reveals its live
-            // tool activity (watched sub-agents stream it via subagentToolStart).
-            const sub = subagentCharacters.find((s) => s.id === id);
-            const rows = sub ? subagentTools[sub.parentAgentId]?.[sub.parentToolId] : undefined;
-            const activeRow =
-              isSelected && rows ? [...rows].reverse().find((t) => !t.done) : undefined;
-            activityText = activeRow?.status ?? (sub?.label || tr('toolSubtask'));
-          }
         } else {
           activityText = getActivityText(
             id,
@@ -226,7 +203,7 @@ export function ToolOverlay({
 
         // Determine dot color
         const tools = agentTools[id];
-        const hasPermission = subHasPermission || tools?.some((t) => t.permissionWait && !t.done);
+        const hasPermission = tools?.some((t) => t.permissionWait && !t.done);
         const hasActiveTools = tools?.some((t) => !t.done);
         const isActive = ch.isActive;
         const hasWaiting = ch.bubbleType === 'waiting';
@@ -238,15 +215,14 @@ export function ToolOverlay({
           dotColor = 'var(--color-status-active)';
         }
 
-        // Team info
-        const teamRoleLabel = ch.isTeamLead ? 'LEAD' : ch.agentName || null;
-        const hasExtraLines = !!(ch.folderName || teamRoleLabel);
+        // Cat name (cats of the office carry one, guests show their folder)
+        const nameLabel = ch.agentName || null;
+        const hasExtraLines = !!(ch.folderName || nameLabel);
 
-        // Context gauge. Every agent gets one — lead, teammate, adopted,
-        // headless — as soon as it has taken a turn. Sub-agents never do: they
-        // have no session of their own, so contextTokens stays 0.
+        // Context gauge. Every agent gets one — cat, adopted, headless — as soon
+        // as it has taken a turn.
         const contextRatio = ch.contextTokens / ch.maxContextTokens;
-        const showContextGauge = !isSub && ch.contextTokens > 0;
+        const showContextGauge = ch.contextTokens > 0;
 
         return (
           <div
@@ -256,7 +232,7 @@ export function ToolOverlay({
               left: screenX,
               top: screenY - (hasExtraLines ? 34 : 28),
               pointerEvents: isSelected ? 'auto' : 'none',
-              opacity: alwaysShowOverlay && !isSelected && !isHovered ? (isSub ? 0.5 : 0.75) : 1,
+              opacity: alwaysShowOverlay && !isSelected && !isHovered ? 0.75 : 1,
               zIndex: isSelected ? 42 : 41,
             }}
             data-testid="agent-overlay"
@@ -270,24 +246,17 @@ export function ToolOverlay({
                 />
               )}
               <div className="flex flex-col gap-0 overflow-hidden">
-                {teamRoleLabel && (
+                {nameLabel && (
                   <span
                     className="overflow-hidden text-ellipsis block leading-none"
-                    style={{
-                      fontSize: '18px',
-                      color: ch.isTeamLead ? TEAM_LEAD_COLOR : TEAM_ROLE_COLOR,
-                      fontWeight: ch.isTeamLead ? 'bold' : undefined,
-                    }}
+                    style={{ fontSize: '18px', color: TEAM_ROLE_COLOR }}
                   >
-                    {teamRoleLabel}
+                    {nameLabel}
                   </span>
                 )}
                 <span
                   className="overflow-hidden text-ellipsis block leading-none"
-                  style={{
-                    fontSize: isSub ? '20px' : '22px',
-                    fontStyle: isSub ? 'italic' : undefined,
-                  }}
+                  style={{ fontSize: '22px' }}
                 >
                   {activityText}
                 </span>
@@ -307,7 +276,7 @@ export function ToolOverlay({
               </div>
               {/* The label has no close/delete button: cats are deleted only
                   from the Cats menu. */}
-              {isSelected && !isSub && onOpenChat && (
+              {isSelected && onOpenChat && (
                 <Button
                   variant="ghost"
                   size="icon"

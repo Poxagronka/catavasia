@@ -22,8 +22,6 @@ export type ServerMessage =
   | SubagentToolStart
   | SubagentToolDone
   | SubagentClear
-  | SubagentToolPermission
-  | AgentTeamInfo
   | AgentTaskFinished
   | CatProfilesLoaded
   | CatProfileSaved
@@ -170,7 +168,6 @@ export interface AgentToolStart {
   toolName?: string;
   permissionActive?: boolean;
   runInBackground?: boolean;
-  isTeammateSpawn?: boolean;
 }
 
 export interface AgentToolDone {
@@ -213,22 +210,6 @@ export interface SubagentClear {
   type: 'subagentClear';
   id: number;
   parentToolId: string;
-}
-
-export interface SubagentToolPermission {
-  type: 'subagentToolPermission';
-  id: number;
-  parentToolId: string;
-}
-
-export interface AgentTeamInfo {
-  type: 'agentTeamInfo';
-  id: number;
-  teamName?: string;
-  agentName?: string;
-  isTeamLead?: boolean;
-  leadAgentId?: number;
-  teamUsesTmux?: boolean;
 }
 
 export interface AgentTaskFinished {
@@ -568,15 +549,15 @@ export interface ResetAllResult {
 
 export interface HelpChatEvent {
   type: 'helpChatEvent';
-  event: AnonymousSchema_242;
+  event: AnonymousSchema_231;
   text?: string;
-  code?: AnonymousSchema_244;
+  code?: AnonymousSchema_233;
   exitCode?: number;
 }
 
-export type AnonymousSchema_242 = 'draft' | 'reply' | 'error' | 'unavailable';
+export type AnonymousSchema_231 = 'draft' | 'reply' | 'error' | 'unavailable';
 
-export type AnonymousSchema_244 =
+export type AnonymousSchema_233 =
   'notInstalled' | 'notLoggedIn' | 'replaced' | 'noAnswer' | 'exited';
 
 export interface FeedbackResult {
@@ -891,11 +872,11 @@ export interface SetOnboardingDone {
 export interface HelpChatSend {
   type: 'helpChatSend';
   text: string;
-  context?: AnonymousSchema_440;
+  context?: AnonymousSchema_429;
   language?: string;
 }
 
-export type AnonymousSchema_440 = 'onboarding' | 'settings';
+export type AnonymousSchema_429 = 'onboarding' | 'settings';
 
 export interface HelpChatStop {
   type: 'helpChatStop';

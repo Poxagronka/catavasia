@@ -4,7 +4,6 @@ import path from 'path';
 import { expect, test } from '../../../fixtures/pixel-agents';
 import {
   idlePrompt,
-  notificationPermissionPrompt,
   permissionRequest,
   preToolUseAgent,
   preToolUseBash,
@@ -16,18 +15,9 @@ import {
   sessionStartResume,
   sessionStartStartup,
   subagentStart,
-  taskCompleted,
-  teammateIdle,
   waitForHookServer,
 } from '../../../helpers/hooks';
 import { spawnInternalAgentAndWait } from '../../../helpers/internal-agent';
-import {
-  INLINE_TEAMMATE_ALIAS,
-  INLINE_TEAMMATE_ROLE,
-  uniqueTeamName,
-  withInlineTeammateSession,
-  withInlineTeammateSessions,
-} from '../../../helpers/lifecycle';
 import {
   arrangeNextClaudeInvocation,
   claudeScenario,
@@ -39,26 +29,18 @@ import {
   closeAgent,
   expectAgentOverlayGone,
   expectNoOverlay,
-  expectNoOverlayWithTexts,
   expectOverlayCount,
   expectOverlayVisible,
   expectOverlayVisibleForAgent,
-  expectOverlayVisibleWithTexts,
   expectSingleAgentOverlay,
   getOverlayByAgentId,
   readAgentOverlayIds,
 } from '../../../helpers/office';
 import {
-  buildAssistantToolUseBatchRecord,
   buildAssistantToolUseRecord,
-  buildTeamConfig,
-  buildTeamMetadataRecord,
   buildTurnDurationRecord,
-  buildUserToolResultBatchRecord,
   buildUserToolResultRecord,
   getClaudeProjectDir,
-  seedTeamConfig,
-  requireSubagentCharacters,
 } from '../../../helpers/team';
 import {
   closeBottomPanel,
@@ -67,10 +49,6 @@ import {
   openPixelAgentsPanel,
   setSettings,
 } from '../../../helpers/webview';
-
-const PARALLEL_PARENT_TOOL_ID = 'toolu-b5-parent';
-const SECOND_TEAMMATE_ALIAS = 'reviewer';
-const SECOND_TEAMMATE_ROLE = 'reviewer';
 
 function otherOverlayId(ids: number[], knownId: number): number {
   const otherId = ids.find((id) => id !== knownId);
@@ -386,226 +364,6 @@ test.describe('Hooks ON / lifecycle', () => {
     narrator.check('late-resumed session gets a NEW character; the old one is gone');
   });
 
-  test('three parallel Task subagents in one turn render distinct sub-characters @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
-
-    await waitForClaudeHookSetup(tmpHome);
-    narrator.step('arranging one turn with three parallel Task tool_uses');
-    await arrangeNextClaudeInvocation(
-      tmpHome,
-      claudeScenario('three parallel Task subagents in one turn hooks on')
-        .at(300)
-        .emitHook(
-          sessionStartStartup('{{sessionId}}', '{{cwd}}', '{{transcriptPath}}') as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(2_500)
-        .appendJsonl(
-          buildAssistantToolUseBatchRecord([
-            {
-              toolId: `${PARALLEL_PARENT_TOOL_ID}-1`,
-              toolName: 'Task',
-              input: { description: 'Parallel task 1' },
-            },
-            {
-              toolId: `${PARALLEL_PARENT_TOOL_ID}-2`,
-              toolName: 'Task',
-              input: { description: 'Parallel task 2' },
-            },
-            {
-              toolId: `${PARALLEL_PARENT_TOOL_ID}-3`,
-              toolName: 'Task',
-              input: { description: 'Parallel task 3' },
-            },
-          ]),
-        )
-        .at(9_000)
-        .appendJsonl(
-          buildUserToolResultBatchRecord([
-            { toolUseId: `${PARALLEL_PARENT_TOOL_ID}-1` },
-            { toolUseId: `${PARALLEL_PARENT_TOOL_ID}-2` },
-            { toolUseId: `${PARALLEL_PARENT_TOOL_ID}-3` },
-          ]),
-        )
-        .at(10_200)
-        .appendJsonl(buildTurnDurationRecord())
-        .holdOpenFor(13_000)
-        .build(),
-    );
-
-    await spawnInternalAgentAndWait(frame, tmpHome, mockLogFile);
-    await openPixelAgentsPanel(window);
-    const panelFrame = await getPixelAgentsFrame(window);
-
-    narrator.step('waiting for all three parallel Subtask sub-characters to appear');
-    await expectOverlayVisible(panelFrame, 'Subtask: Parallel task 3');
-    await expectOverlayVisible(panelFrame, 'Parallel task 1');
-    await expectOverlayVisible(panelFrame, 'Parallel task 2');
-    await expectOverlayVisible(panelFrame, 'Parallel task 3');
-    await expectOverlayCount(panelFrame, 4, 10_000);
-    expect(await readAgentOverlayIds(panelFrame)).toHaveLength(4);
-    narrator.check('parent + 3 subtasks on screen (count → 4)');
-
-    narrator.step('after the batched tool_results + turn_duration, the subtasks should collapse');
-    await expectOverlayCount(panelFrame, 1, 16_000);
-    narrator.check('everything collapses back to just the parent (count → 1)');
-  });
-
-  test('inline teammate removed from team config disappears within one second @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
-    const teamName = uniqueTeamName('teammate-removal-hooks-on');
-    narrator.step('seeding a team config with a lead + one inline teammate');
-    const configPath = seedTeamConfig(tmpHome, teamName, ['lead', INLINE_TEAMMATE_ROLE]);
-
-    await waitForClaudeHookSetup(tmpHome);
-    narrator.step('the scenario rewrites the config to lead-only at t+8s');
-    await arrangeNextClaudeInvocation(
-      tmpHome,
-      withInlineTeammateSession(claudeScenario('inline teammate removed from config hooks on'))
-        .at(300)
-        .emitHook(
-          sessionStartStartup('{{sessionId}}', '{{cwd}}', '{{transcriptPath}}') as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(500)
-        .appendJsonl(buildTeamMetadataRecord(teamName))
-        .at(1_500)
-        .appendJsonl(buildTeamMetadataRecord(teamName, INLINE_TEAMMATE_ROLE), {
-          session: INLINE_TEAMMATE_ALIAS,
-        })
-        .at(2_500)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b6-teammate-search', 'WebSearch', {
-            query: 'pixel agents lifecycle regressions',
-          }),
-          { session: INLINE_TEAMMATE_ALIAS },
-        )
-        .at(8_000)
-        .writeJson(configPath, buildTeamConfig(['lead']))
-        .holdOpenFor(14_000)
-        .build(),
-    );
-
-    await spawnInternalAgentAndWait(frame, tmpHome, mockLogFile);
-    await openPixelAgentsPanel(window);
-    const panelFrame = await getPixelAgentsFrame(window);
-
-    await expectOverlayVisibleWithTexts(panelFrame, [INLINE_TEAMMATE_ROLE], 10_000);
-    await expectOverlayVisible(panelFrame, 'Searching the web');
-    await expectOverlayCount(panelFrame, 2, 10_000);
-    narrator.check('lead + teammate on screen; teammate shows "Searching the web" (count 2)');
-
-    narrator.step('waiting for the 1s config poll to drop the removed teammate');
-    await expectOverlayCount(panelFrame, 1, 12_000);
-    await expectNoOverlayWithTexts(panelFrame, [INLINE_TEAMMATE_ROLE], 2_000);
-    narrator.check('teammate gone within a second (count 2 → 1)');
-
-    // Stability check: after cascade removal, the teammate must not reappear
-    // (zombie cleanup race). Polling alone cannot test this; we have to wait.
-    narrator.step('holding to confirm the teammate never reappears');
-    await panelFrame.waitForTimeout(8_000);
-    await expectOverlayCount(panelFrame, 1);
-    await expectNoOverlayWithTexts(panelFrame, [INLINE_TEAMMATE_ROLE], 2_000);
-    narrator.check('teammate stays gone through the stability window (count 1)');
-  });
-
-  test('lead SessionEnd cascade-removes active inline teammates @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
-    const teamName = uniqueTeamName('lead-cascade-hooks-on');
-
-    narrator.step('enabling Watch All Sessions so the external lead session is adopted');
-    await setSettings(frame, {
-      watchAllSessions: true,
-    });
-
-    narrator.step('seeding a team of lead + two inline teammates');
-    seedTeamConfig(tmpHome, teamName, ['lead', INLINE_TEAMMATE_ROLE, SECOND_TEAMMATE_ROLE]);
-    await waitForClaudeHookSetup(tmpHome);
-    await spawnExternalClaudeScenario({
-      tmpHome,
-      workspaceDir,
-      mockLogFile,
-      sessionId: 'lead-cascade-session-hooks-on',
-      scenario: withInlineTeammateSessions(claudeScenario('lead SessionEnd cascade hooks on'), [
-        { alias: INLINE_TEAMMATE_ALIAS, role: INLINE_TEAMMATE_ROLE },
-        { alias: SECOND_TEAMMATE_ALIAS, role: SECOND_TEAMMATE_ROLE },
-      ])
-        .at(200)
-        .emitHook(
-          sessionStartStartup(
-            'lead-cascade-session-hooks-on',
-            '{{cwd}}',
-            '{{transcriptPath}}',
-          ) as Record<string, unknown>,
-        )
-        .at(900)
-        .emitHook(
-          preToolUseAgent('lead-cascade-session-hooks-on', 'Delegate teammates') as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(1_100)
-        .appendJsonl(buildTeamMetadataRecord(teamName))
-        .at(1_300)
-        .appendJsonl(buildTeamMetadataRecord(teamName, INLINE_TEAMMATE_ROLE), {
-          session: INLINE_TEAMMATE_ALIAS,
-        })
-        .at(1_300)
-        .appendJsonl(buildTeamMetadataRecord(teamName, SECOND_TEAMMATE_ROLE), {
-          session: SECOND_TEAMMATE_ALIAS,
-        })
-        .at(1_500)
-        .emitHook(
-          subagentStart('lead-cascade-session-hooks-on', INLINE_TEAMMATE_ROLE) as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(2_200)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b7-search', 'WebSearch', {
-            query: 'pixel agents cascade removal',
-          }),
-          { session: INLINE_TEAMMATE_ALIAS },
-        )
-        .at(2_400)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b7-review', 'Bash', {
-            command: 'npm run review',
-          }),
-          { session: SECOND_TEAMMATE_ALIAS },
-        )
-        .at(5_000)
-        .emitHook(sessionEndExit('lead-cascade-session-hooks-on') as Record<string, unknown>)
-        .holdOpenFor(8_000)
-        .build(),
-    });
-
-    narrator.step('waiting for the lead + both teammates on screen (count → 3)');
-    await expectOverlayCount(frame, 3, 12_000);
-    await expectOverlayVisibleWithTexts(frame, [INLINE_TEAMMATE_ROLE]);
-    await expectOverlayVisibleWithTexts(frame, [SECOND_TEAMMATE_ROLE]);
-    narrator.check('lead + both teammates on screen, each mid-tool (count 3)');
-
-    narrator.step('lead emits SessionEnd — the whole trio should cascade away');
-    await expectOverlayCount(frame, 0, 8_000);
-    narrator.check('closing the lead cascades: all three gone (count → 0)');
-  });
-
   test('external basic subagent with run_in_background routes to basic path @area:lifecycle', async ({
     pixelAgents,
   }) => {
@@ -673,211 +431,6 @@ test.describe('Hooks ON / lifecycle', () => {
     await frame.waitForTimeout(5_000);
     await expectOverlayCount(frame, 1);
     narrator.check('still just the basic subtask (count 1) — runInBackground gate holds');
-  });
-
-  test('lead permission_prompt routes bubble to teammate not lead when teammates exist @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
-    const teamName = uniqueTeamName('teammate-permission-hooks-on');
-
-    narrator.step('enabling Watch All Sessions so the external lead session is adopted');
-    await setSettings(frame, {
-      watchAllSessions: true,
-    });
-
-    narrator.step('seeding a team of lead + one inline teammate');
-    seedTeamConfig(tmpHome, teamName, ['lead', INLINE_TEAMMATE_ROLE]);
-    await waitForClaudeHookSetup(tmpHome);
-    await spawnExternalClaudeScenario({
-      tmpHome,
-      workspaceDir,
-      mockLogFile,
-      sessionId: 'teammate-permission-session-hooks-on',
-      scenario: withInlineTeammateSession(claudeScenario('teammate permission routing hooks on'))
-        .at(200)
-        .emitHook(
-          sessionStartStartup(
-            'teammate-permission-session-hooks-on',
-            '{{cwd}}',
-            '{{transcriptPath}}',
-          ) as Record<string, unknown>,
-        )
-        .at(900)
-        .emitHook(
-          preToolUseAgent(
-            'teammate-permission-session-hooks-on',
-            'Delegate teammate work',
-          ) as Record<string, unknown>,
-        )
-        .at(1_100)
-        .appendJsonl(buildTeamMetadataRecord(teamName))
-        .at(1_300)
-        .appendJsonl(buildTeamMetadataRecord(teamName, INLINE_TEAMMATE_ROLE), {
-          session: INLINE_TEAMMATE_ALIAS,
-        })
-        .at(1_500)
-        .emitHook(
-          subagentStart('teammate-permission-session-hooks-on', INLINE_TEAMMATE_ROLE) as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(2_200)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b9-search', 'WebSearch', {
-            query: 'permission routing',
-          }),
-          { session: INLINE_TEAMMATE_ALIAS },
-        )
-        .at(3_500)
-        .emitHook(
-          notificationPermissionPrompt('teammate-permission-session-hooks-on') as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(5_200)
-        .emitHook(
-          taskCompleted('teammate-permission-session-hooks-on', INLINE_TEAMMATE_ROLE) as Record<
-            string,
-            unknown
-          >,
-        )
-        .holdOpenFor(8_000)
-        .build(),
-    });
-
-    narrator.step('waiting for the teammate on screen doing the WebSearch');
-    await expectOverlayVisibleWithTexts(frame, [INLINE_TEAMMATE_ROLE], 12_000);
-    narrator.check('teammate is up and working');
-
-    narrator.step(
-      'a permission_prompt arrives on the LEAD — the bubble should land on the working teammate',
-    );
-    await expectOverlayVisibleWithTexts(frame, [INLINE_TEAMMATE_ROLE, 'Needs approval'], 8_000);
-    await expectNoOverlayWithTexts(frame, ['LEAD', 'Needs approval']);
-    narrator.check('"Needs approval" is on the teammate; the lead has no bubble');
-
-    narrator.step('waiting for the teammate to finish its task');
-    await expectNoOverlayWithTexts(frame, [INLINE_TEAMMATE_ROLE, 'Needs approval'], 8_000);
-    narrator.check('bubble clears when the teammate completes');
-  });
-
-  test('TeammateIdle marks only the targeted teammate done and leaves lead unchanged @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, tmpHome, workspaceDir, mockLogFile, narrator } = pixelAgents;
-    const teamName = uniqueTeamName('targeted-teammate-idle-hooks-on');
-
-    narrator.step('enabling Watch All Sessions so the external lead session is adopted');
-    await setSettings(frame, {
-      watchAllSessions: true,
-    });
-
-    narrator.step('seeding a team of lead + two inline teammates');
-    seedTeamConfig(tmpHome, teamName, ['lead', INLINE_TEAMMATE_ROLE, SECOND_TEAMMATE_ROLE]);
-    await waitForClaudeHookSetup(tmpHome);
-    await spawnExternalClaudeScenario({
-      tmpHome,
-      workspaceDir,
-      mockLogFile,
-      sessionId: 'targeted-teammate-idle-session-hooks-on',
-      scenario: withInlineTeammateSessions(claudeScenario('targeted teammate idle hooks on'), [
-        { alias: INLINE_TEAMMATE_ALIAS, role: INLINE_TEAMMATE_ROLE },
-        { alias: SECOND_TEAMMATE_ALIAS, role: SECOND_TEAMMATE_ROLE },
-      ])
-        .at(200)
-        .emitHook(
-          sessionStartStartup(
-            'targeted-teammate-idle-session-hooks-on',
-            '{{cwd}}',
-            '{{transcriptPath}}',
-          ) as Record<string, unknown>,
-        )
-        .at(900)
-        .emitHook(
-          preToolUseAgent(
-            'targeted-teammate-idle-session-hooks-on',
-            'Delegate teammates',
-          ) as Record<string, unknown>,
-        )
-        .at(1_100)
-        .appendJsonl(buildTeamMetadataRecord(teamName))
-        .at(1_300)
-        .appendJsonl(buildTeamMetadataRecord(teamName, INLINE_TEAMMATE_ROLE), {
-          session: INLINE_TEAMMATE_ALIAS,
-        })
-        .at(1_300)
-        .appendJsonl(buildTeamMetadataRecord(teamName, SECOND_TEAMMATE_ROLE), {
-          session: SECOND_TEAMMATE_ALIAS,
-        })
-        .at(1_500)
-        .emitHook(
-          subagentStart('targeted-teammate-idle-session-hooks-on', INLINE_TEAMMATE_ROLE) as Record<
-            string,
-            unknown
-          >,
-        )
-        .at(2_200)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b10-search', 'WebSearch', {
-            query: 'specific teammate idle',
-          }),
-          { session: INLINE_TEAMMATE_ALIAS },
-        )
-        .at(2_400)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b10-review', 'Bash', {
-            command: 'npm run reviewer',
-          }),
-          { session: SECOND_TEAMMATE_ALIAS },
-        )
-        .at(4_000)
-        .emitHook(
-          teammateIdle('targeted-teammate-idle-session-hooks-on', INLINE_TEAMMATE_ROLE) as Record<
-            string,
-            unknown
-          >,
-        )
-        .holdOpenFor(8_000)
-        .build(),
-    });
-
-    narrator.step('waiting for the lead + two teammates on screen (count → 3)');
-    await expectOverlayCount(frame, 3, 12_000);
-    narrator.check('lead + two teammates on screen (count 3)');
-
-    narrator.step('a TeammateIdle hook targets only the first teammate and marks it Done');
-    await expect
-      .poll(
-        async () =>
-          frame.evaluate((agentName) => {
-            const w = window as Window & {
-              __pixelAgentsTestHooks?: {
-                getCharacters?: () => Array<{
-                  agentName?: string;
-                  bubbleType: 'permission' | 'waiting' | null;
-                  waitingAwaitingInput?: boolean;
-                }>;
-              };
-            };
-            return w.__pixelAgentsTestHooks
-              ?.getCharacters?.()
-              .find((ch) => ch.agentName === agentName);
-          }, INLINE_TEAMMATE_ROLE),
-        { timeout: 8_000 },
-      )
-      .toMatchObject({ bubbleType: 'waiting', waitingAwaitingInput: false });
-    await expectOverlayVisibleWithTexts(frame, [SECOND_TEAMMATE_ROLE, 'Running: npm run reviewer']);
-    await expectNoOverlayWithTexts(frame, [INLINE_TEAMMATE_ROLE, 'Waiting for input']);
-    await expectNoOverlayWithTexts(frame, [SECOND_TEAMMATE_ROLE, 'Waiting for input']);
-    await expectNoOverlayWithTexts(frame, ['LEAD', 'Waiting for input']);
-    narrator.check(
-      'first teammate exposes the Done checkmark; second still "Running: npm run reviewer"; lead unaffected',
-    );
   });
 
   test('rapid /clear then new tool within 500ms lands on the reassigned agent @area:lifecycle', async ({

@@ -78,6 +78,10 @@
   --color-code-removed: #f07178;
   --measure-body: 680px;
 
+  /* Pinned modals (Modal pinTop): top edge, and the bottom space that keeps them off the toolbar. */
+  --modal-top: 16px;
+  --modal-bottom-clear: 80px;
+
   /* Non-utility values */
   --vignette: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
   --btn-disabled-opacity: 0.35;

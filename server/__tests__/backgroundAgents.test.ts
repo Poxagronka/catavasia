@@ -4,7 +4,6 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StateAdapter } from '../../core/src/adapter.js';
-import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import { AgentRuntime } from '../src/agentRuntime.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import {
@@ -25,8 +24,6 @@ import {
 import type { AgentState } from '../src/types.js';
 
 const LEAD_SESSION = 'lead-session-1';
-/** Named spawns become teammate characters only while those are enabled. */
-const itTm = it.skipIf(!SUBAGENT_CHARACTERS_ENABLED);
 const SPAWN_TOOL_ID = 'toolu_01LMvN98KN4sn1fmvftm7vhk';
 const SUB_TOOL_ID = 'toolu_sub_01';
 
@@ -71,26 +68,6 @@ function agentSpawnRecord(): string {
           id: SPAWN_TOOL_ID,
           name: 'Agent',
           input: { description: 'Say hello', subagent_type: 'general-purpose' },
-        },
-      ],
-    },
-  });
-}
-
-function namedAgentSpawnRecord(): string {
-  return JSON.stringify({
-    type: 'assistant',
-    message: {
-      content: [
-        {
-          type: 'tool_use',
-          id: SPAWN_TOOL_ID,
-          name: 'Agent',
-          input: {
-            description: 'ghost writer probe',
-            name: 'ghost-writer',
-            subagent_type: 'general-purpose',
-          },
         },
       ],
     },
@@ -148,7 +125,7 @@ function subTurnDurationLine(): string {
   return JSON.stringify({ type: 'system', subtype: 'turn_duration' });
 }
 
-describe('background spawns (teams OFF) classified by sidecar name', () => {
+describe('background spawns are watched, never seated', () => {
   let tmpRoot: string;
   let agents: AgentStateStore;
   let watch: SubagentWatch;
@@ -158,31 +135,14 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
   const waitingTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const permissionTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const pollingTimers = new Map<number, ReturnType<typeof setInterval>>();
-  const fileWatchers = new Map<number, fs.FSWatcher>();
 
   /** Mirrors the agentRuntime wiring for the two transcriptParser callbacks. */
   function wireCallbacks() {
     setBackgroundAgentDetectedCallback((leadId) => {
-      scanForBackgroundAgentFiles(
-        leadId,
-        agents,
-        { current: 100 },
-        fileWatchers,
-        pollingTimers,
-        waitingTimers,
-        permissionTimers,
-        () => {},
-        undefined,
-      );
+      scanForBackgroundAgentFiles(leadId, agents);
     });
     setBackgroundAgentCompletedCallback((leadId, toolUseId) => {
       completed.push({ leadId, toolUseId });
-      for (const [id, a] of agents) {
-        if (a.leadAgentId === leadId && a.spawnToolUseId === toolUseId) {
-          agents.delete(id);
-          break;
-        }
-      }
       watch.removeBySpawn(leadId, toolUseId);
     });
   }
@@ -238,39 +198,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 
-  // ── Unnamed spawn = Sub-agent (shadow-watched) ──────────────────────
-
-  it('flags a NAMED spawn as isTeammateSpawn so the webview never creates a Subtask ghost', () => {
-    processTranscriptLine(1, namedAgentSpawnRecord(), agents, waitingTimers, permissionTimers);
-
-    const start = messages.find((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID);
-    expect(start).toBeDefined();
-    expect(start!.isTeammateSpawn).toBe(true);
-
-    // The async re-broadcast and the turn-end re-send must carry the flag too
-    // (a turn can end before the teammate character is discovered).
-    processTranscriptLine(1, asyncLaunchResultRecord(), agents, waitingTimers, permissionTimers);
-    messages.length = 0;
-    processTranscriptLine(
-      1,
-      JSON.stringify({ type: 'system', subtype: 'turn_duration' }),
-      agents,
-      waitingTimers,
-      permissionTimers,
-    );
-    for (const m of messages) {
-      if (m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID) {
-        expect(m.isTeammateSpawn).toBe(true);
-      }
-    }
-  });
-
-  it('does not flag an unnamed spawn as isTeammateSpawn', () => {
-    processTranscriptLine(1, agentSpawnRecord(), agents, waitingTimers, permissionTimers);
-    const start = messages.find((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID);
-    expect(start).toBeDefined();
-    expect(start!.isTeammateSpawn).toBeUndefined();
-  });
+  // ── Background spawn (shadow-watched) ───────────────────────────────
 
   it('re-broadcasts the spawn tool flagged runInBackground when the async result lands', () => {
     // The tool_use input OMITS run_in_background on current harnesses, so the
@@ -323,6 +251,18 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     // Nothing leaks through untranslated: the shadow agent's own lifecycle
     // messages must not reach the webview with a shadow id.
     expect(messages.some((m) => (m.id as number) >= 1_000_000)).toBe(false);
+  });
+
+  it('raises the parent permission bubble when a watched sub-agent waits on approval', () => {
+    vi.useFakeTimers();
+    seedSidecar();
+    spawnAndLaunch();
+    const shadowId = [...watch.store.keys()][0];
+    watch.store.broadcast({ type: 'agentToolPermission', id: shadowId });
+
+    expect(messages.find((m) => m.type === 'agentToolPermission' && m.id === 1)).toBeDefined();
+    expect(lead.permissionSent).toBe(true);
+    expect(messages.some((m) => m.type === 'subagentToolPermission')).toBe(false);
   });
 
   it('marks sub tools done when the watched transcript ends its turn cleanly', () => {
@@ -419,17 +359,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     spawnAndLaunch();
     expect(watch.store.size).toBe(1);
 
-    scanForBackgroundAgentFiles(
-      1,
-      agents,
-      { current: 200 },
-      fileWatchers,
-      pollingTimers,
-      waitingTimers,
-      permissionTimers,
-      () => {},
-      undefined,
-    );
+    scanForBackgroundAgentFiles(1, agents);
 
     expect(watch.store.size).toBe(1);
     expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(false);
@@ -454,17 +384,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     const jsonlPath = seedSidecar({ name: 'ghost-writer' });
     processTranscriptLine(1, agentSpawnRecord(), agents, waitingTimers, permissionTimers);
     // No async launch result: the tool is a live FOREGROUND spawn.
-    scanForBackgroundAgentFiles(
-      1,
-      agents,
-      { current: 300 },
-      fileWatchers,
-      pollingTimers,
-      waitingTimers,
-      permissionTimers,
-      () => {},
-      undefined,
-    );
+    scanForBackgroundAgentFiles(1, agents);
 
     expect(watch.isWatching(jsonlPath)).toBe(true);
     expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(false);
@@ -473,17 +393,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
   it('stops the foreground watch when the spawn tool completes', () => {
     const jsonlPath = seedSidecar();
     processTranscriptLine(1, agentSpawnRecord(), agents, waitingTimers, permissionTimers);
-    scanForBackgroundAgentFiles(
-      1,
-      agents,
-      { current: 300 },
-      fileWatchers,
-      pollingTimers,
-      waitingTimers,
-      permissionTimers,
-      () => {},
-      undefined,
-    );
+    scanForBackgroundAgentFiles(1, agents);
     expect(watch.isWatching(jsonlPath)).toBe(true);
 
     processTranscriptLine(1, foregroundResultRecord(), agents, waitingTimers, permissionTimers);
@@ -494,122 +404,23 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
     ).toBe(true);
   });
 
-  // ── Named spawn = Teammate ──────────────────────────────────────────
+  // ── Named spawn = Teammate: no character either ────────────────────
 
-  itTm('creates a teammate named from the sidecar name and badges the lead', () => {
+  it('watches a named background spawn like any other and seats no teammate', () => {
     const jsonlPath = seedSidecar({ name: 'ghost-writer' });
+    const created: number[] = [];
+    agents.on('agentAdded', (id) => created.push(id));
     spawnAndLaunch();
 
-    const teammate = [...agents.values()].find((a) => a.leadAgentId === 1);
-    expect(teammate).toBeDefined();
-    // The sidecar `name` wins over description/agentType.
-    expect(teammate!.agentName).toBe('ghost-writer');
-    expect(teammate!.spawnToolUseId).toBe(SPAWN_TOOL_ID);
-    expect(teammate!.jsonlFile).toBe(jsonlPath);
-    // Derived team: NO teamName (config polling must stay away), but the
-    // spawner becomes a Lead.
-    expect(teammate!.teamName).toBeUndefined();
-    expect(lead.isTeamLead).toBe(true);
-    expect(
-      messages.some((m) => m.type === 'agentTeamInfo' && m.id === 1 && m.isTeamLead === true),
-    ).toBe(true);
-    // The transient Subtask sub-character is superseded by the real character.
-    expect(
-      messages.some((m) => m.type === 'subagentClear' && m.parentToolId === SPAWN_TOOL_ID),
-    ).toBe(true);
-    expect(watch.isWatching(jsonlPath)).toBe(false);
-  });
-
-  itTm('does not create a second teammate when the sidecar path is spelled differently', () => {
-    // Windows only: the same transcript reaches the runtime spelled two ways
-    // (hooks carry Claude's `process.cwd()` casing, scanners build from
-    // Uri.fsPath's lowercased drive letter). An exact-string already-tracked
-    // check missed and adopted the same background agent twice.
-    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
-    try {
-      const jsonlPath = seedSidecar({ name: 'ghost-writer' });
-      spawnAndLaunch();
-      const teammates = [...agents.values()].filter((a) => a.leadAgentId === 1);
-      expect(teammates).toHaveLength(1);
-
-      // Re-scan with the agent's path stored under the other spelling.
-      teammates[0].jsonlFile = jsonlPath.toUpperCase();
-      scanForBackgroundAgentFiles(
-        1,
-        agents,
-        { current: 200 },
-        fileWatchers,
-        pollingTimers,
-        waitingTimers,
-        permissionTimers,
-        () => {},
-        undefined,
-      );
-
-      expect([...agents.values()].filter((a) => a.leadAgentId === 1)).toHaveLength(1);
-    } finally {
-      platformSpy.mockRestore();
-    }
-  });
-
-  itTm(
-    'does not re-send the spawn tool at turn end for a named teammate (no ghost Subtask)',
-    () => {
-      seedSidecar({ name: 'ghost-writer' });
-      spawnAndLaunch();
-      // Add a foreground tool so the turn_duration cleanup branch runs.
-      processTranscriptLine(
-        1,
-        JSON.stringify({
-          type: 'assistant',
-          message: {
-            content: [{ type: 'tool_use', id: 'toolu_fg', name: 'Bash', input: { command: 'ls' } }],
-          },
-        }),
-        agents,
-        waitingTimers,
-        permissionTimers,
-      );
-      messages.length = 0;
-      processTranscriptLine(
-        1,
-        JSON.stringify({ type: 'system', subtype: 'turn_duration' }),
-        agents,
-        waitingTimers,
-        permissionTimers,
-      );
-      expect(messages.some((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID)).toBe(
-        false,
-      );
-    },
-  );
-
-  itTm('does not re-send the spawn tool on a new user prompt once a teammate exists', () => {
-    seedSidecar({ name: 'ghost-writer' });
-    spawnAndLaunch();
-    messages.length = 0;
-    processTranscriptLine(
-      1,
-      JSON.stringify({ type: 'user', message: { content: 'now do something else' } }),
-      agents,
-      waitingTimers,
-      permissionTimers,
-    );
-    expect(messages.some((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID)).toBe(
+    expect(agents.size).toBe(1);
+    expect(created).toEqual([]);
+    expect(watch.isWatching(jsonlPath)).toBe(true);
+    expect(messages.some((m) => m.type === 'agentTeamInfo' || m.type === 'agentCreated')).toBe(
       false,
     );
-  });
-
-  itTm('removes the teammate when the completion queue-operation lands', () => {
-    seedSidecar({ name: 'ghost-writer' });
-    spawnAndLaunch();
-    expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(true);
-
-    processTranscriptLine(1, queueOpCompletionRecord(), agents, waitingTimers, permissionTimers);
-
-    expect(completed).toEqual([{ leadId: 1, toolUseId: SPAWN_TOOL_ID }]);
-    expect([...agents.values()].some((a) => a.leadAgentId === 1)).toBe(false);
-    expect(lead.backgroundAgentToolIds.size).toBe(0);
+    // The spawn tool is no teammate-to-be flag: nothing is hidden from the overlay.
+    const start = messages.find((m) => m.type === 'agentToolStart' && m.toolId === SPAWN_TOOL_ID);
+    expect(start?.isTeammateSpawn).toBeUndefined();
   });
 
   // ── Shared gate ─────────────────────────────────────────────────────
@@ -629,7 +440,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
   });
 });
 
-describe('background spawn persistence & derived team lifecycle', () => {
+describe('background spawn persistence', () => {
   function fakeAdapter(initial: unknown[] = []): StateAdapter & { saved: unknown[][] } {
     const saved: unknown[][] = [];
     return {
@@ -645,7 +456,7 @@ describe('background spawn persistence & derived team lifecycle', () => {
     };
   }
 
-  it('persists the lead backgroundAgentToolIds and never the spawned children', () => {
+  it('persists the lead backgroundAgentToolIds', () => {
     const store = new AgentStateStore();
     const adapter = fakeAdapter();
     store.setAdapter(adapter);
@@ -654,74 +465,12 @@ describe('background spawn persistence & derived team lifecycle', () => {
     lead.backgroundAgentToolIds.add(SPAWN_TOOL_ID);
     store.set(1, lead);
 
-    const child = createLeadAgent('/tmp/proj');
-    child.id = 2;
-    child.agentName = 'ghost-writer';
-    child.leadAgentId = 1;
-    child.spawnToolUseId = SPAWN_TOOL_ID;
-    store.set(2, child);
-
     store.persist();
 
     const persisted = adapter.saved.at(-1) as Array<Record<string, unknown>>;
     expect(persisted).toHaveLength(1);
     expect(persisted[0].id).toBe(1);
     expect(persisted[0].backgroundAgentToolIds).toEqual([SPAWN_TOOL_ID]);
-  });
-
-  it('drops the LEAD badge when the last teammate leaves', () => {
-    const store = new AgentStateStore();
-    const runtime = new AgentRuntime(store, claudeProvider);
-    try {
-      const lead = createLeadAgent('/tmp/proj');
-      lead.isTeamLead = true;
-      store.set(1, lead);
-      const teammate = createLeadAgent('/tmp/proj');
-      teammate.id = 2;
-      teammate.agentName = 'ghost-writer';
-      teammate.leadAgentId = 1;
-      teammate.spawnToolUseId = SPAWN_TOOL_ID;
-      store.set(2, teammate);
-      const broadcasts: Array<Record<string, unknown>> = [];
-      store.on('broadcast', (m) => broadcasts.push(m as Record<string, unknown>));
-
-      runtime.removeTeammate(2, 'test');
-
-      expect(store.has(2)).toBe(false);
-      expect(store.get(1)!.isTeamLead).toBeUndefined();
-      const demote = broadcasts.find((m) => m.type === 'agentTeamInfo' && m.id === 1);
-      expect(demote).toBeDefined();
-      expect(demote!.isTeamLead).toBeUndefined();
-    } finally {
-      runtime.dispose();
-    }
-  });
-
-  it('keeps the LEAD badge while other teammates remain', () => {
-    const store = new AgentStateStore();
-    const runtime = new AgentRuntime(store, claudeProvider);
-    try {
-      const lead = createLeadAgent('/tmp/proj');
-      lead.isTeamLead = true;
-      store.set(1, lead);
-      for (const [id, name] of [
-        [2, 'ghost-writer'],
-        [3, 'researcher'],
-      ] as const) {
-        const teammate = createLeadAgent('/tmp/proj');
-        teammate.id = id;
-        teammate.agentName = name;
-        teammate.leadAgentId = 1;
-        teammate.spawnToolUseId = `${SPAWN_TOOL_ID}-${id}`;
-        store.set(id, teammate);
-      }
-
-      runtime.removeTeammate(2, 'test');
-
-      expect(store.get(1)!.isTeamLead).toBe(true);
-    } finally {
-      runtime.dispose();
-    }
   });
 
   it('restores the lead set and skips stale child entries (leadAgentId, no teamName)', () => {

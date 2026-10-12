@@ -224,11 +224,3 @@ test('greeter camera target: per-frame updates land until a manual pan cancels t
   os.setGreeterCameraTarget({ x: 5, y: 6 });
   assert.deepEqual(os.greeterCameraTarget, { x: 5, y: 6 });
 });
-
-test('GREETER_ID cannot collide with sub-agent ids', () => {
-  const os = new OfficeState(floorLayout());
-  os.spawnGreeter();
-  const subId = os.addSubagent(1, 'tool-1');
-  assert.ok(subId > GREETER_ID, 'sub-agent ids count down from -1, far above the greeter');
-  assert.equal(os.greeter!.isGreeter, true);
-});

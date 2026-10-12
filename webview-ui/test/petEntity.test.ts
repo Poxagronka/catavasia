@@ -79,8 +79,6 @@ function makeChar(id: number, col: number, row: number): Character {
     bubbleType: null,
     bubbleTimer: 0,
     seatTimer: 0,
-    isSubagent: false,
-    parentAgentId: null,
     matrixEffect: null,
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],

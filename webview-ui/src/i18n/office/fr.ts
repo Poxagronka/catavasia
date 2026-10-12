@@ -66,7 +66,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'Approbation requise',
   toolWaitingInput: 'En attente de réponse',
   toolIdle: 'Au repos',
-  toolSubtask: 'Sous-tâche',
   toolChat: 'Chat',
   toolContextUsed: '{pct} % du contexte utilisé ({used}k sur {max}k jetons)',
   projectPickingText:

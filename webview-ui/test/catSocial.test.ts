@@ -77,11 +77,10 @@ function run(
 /** An rng that never starts random encounters (the scan roll fails). */
 const quietRng = () => 0.99;
 
-test('canSocialize: only idle / walking cats that are not working, sub-agents or spawning', () => {
+test('canSocialize: only idle / walking cats that are not working or spawning', () => {
   const ch = idleCat(1, 2, 2);
   assert.equal(canSocialize(ch), true);
   assert.equal(canSocialize({ ...ch, isActive: true }), false);
-  assert.equal(canSocialize({ ...ch, isSubagent: true }), false);
   assert.equal(canSocialize({ ...ch, matrixEffect: 'despawn' }), false);
   assert.equal(canSocialize({ ...ch, state: CharacterState.TYPE }), false);
   assert.equal(canSocialize({ ...ch, state: CharacterState.WALK }), true);

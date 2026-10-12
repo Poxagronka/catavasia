@@ -22,9 +22,8 @@ export interface PersistedAgent {
   folderName?: string;
   teamName?: string;
   agentName?: string;
-  isTeamLead?: boolean;
+  /** Legacy: entries written by older builds that persisted teammates. Skipped on restore. */
   leadAgentId?: number;
-  teamUsesTmux?: boolean;
   /** Live background-spawn tool ids on a lead. Persisted so the spawns'
    *  transcripts are re-adopted after a reload; the spawned children
    *  themselves are derived state and never persisted. */

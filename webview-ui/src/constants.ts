@@ -262,8 +262,7 @@ export const CONTEXT_GAUGE_COLOR_DANGER = '#ff8800';
 export const CONTEXT_GAUGE_COLOR_CRITICAL = '#ff2222';
 export const CONTEXT_GAUGE_BG = '#222';
 
-// ── Agent Teams ─────────────────────────────────────────────
-export const TEAM_LEAD_COLOR = '#ffd700';
+// ── Cat name label ──────────────────────────────────────────
 export const TEAM_ROLE_COLOR = '#66aaff';
 
 // ── Pets ────────────────────────────────────────────────────────
@@ -459,8 +458,6 @@ export const CAT_CEO_MAX_WALKS = 4;
 // ── Task Board ───────────────────────────────────────────────
 /** How often the open board re-reads GET /api/tasks. */
 export const TASK_POLL_INTERVAL_MS = 1500;
-/** Pixel scale of the cat avatar on a task card. */
-export const TASK_AVATAR_ZOOM = 2;
 
 // ── Cats menu (profile editor) ───────────────────────────────
 /** Frame time of the animated cat preview in the Cats menu. */
