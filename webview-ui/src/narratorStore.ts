@@ -19,7 +19,7 @@ import { transport } from './transport/index.js';
 /** Latest line per cat, with the time it arrived (epoch ms). */
 const lines = new Map<number, NarratorLine & { at: number }>();
 const summaries = new Map<number, string>();
-let settings: NarratorSettings = { aiSummaries: true, rawToolStatus: false };
+let settings: NarratorSettings = { aiSummaries: true };
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -44,7 +44,7 @@ transport.onMessage((msg) => {
       for (const id of msg.catIds) summaries.set(id, msg.summary);
       break;
     case 'narratorSettings':
-      settings = { aiSummaries: msg.aiSummaries, rawToolStatus: msg.rawToolStatus };
+      settings = { aiSummaries: msg.aiSummaries };
       emit();
       break;
     case 'agentClosed':
@@ -62,7 +62,6 @@ export function narratorHover(
   catId: number,
   ch: Pick<Character, 'isActive' | 'activity' | 'social'>,
 ): { line: string; summary?: string } | undefined {
-  if (settings.rawToolStatus) return undefined;
   const line = lines.get(catId);
   if (!line) return undefined;
   const text = showsIdleLine(line, ch.isActive, Date.now()) ? idleLine(ch) : line.line;

@@ -483,6 +483,39 @@ export async function openSettingsModal(frame: WebviewSurface): Promise<Locator>
   return settingsModal;
 }
 
+/** The Settings tab that holds each toggle, by its English label. */
+const SETTINGS_TAB_OF_LABEL: Record<string, string> = {
+  Language: 'general',
+  'Sound Notifications': 'general',
+  'Always Show Labels': 'general',
+  'Display Headless as Ghosts': 'office',
+  'Show Areas': 'office',
+  'Show Guests': 'office',
+  'Cats Working at Once': 'office',
+  'Export Layout': 'office',
+  'Import Layout': 'office',
+  'Watch All Sessions': 'integrations',
+  'Instant Detection (Hooks)': 'integrations',
+  'AI summaries (Haiku)': 'integrations',
+  'Open Sessions Folder': 'integrations',
+  'Debug View': 'advanced',
+  'Reset everything': 'advanced',
+};
+
+/** Show a Settings tab (panels stay mounted but hidden, so a toggle needs its tab shown first). */
+export async function openSettingsTab(settingsModal: Locator, tab: string): Promise<void> {
+  const button = settingsModal.getByTestId(`settings-tab-${tab}`);
+  await expect(button).toBeVisible({ timeout: WEBVIEW_TIMEOUT_MS });
+  await button.click();
+}
+
+/** Show the tab that holds the toggle with this label. */
+export async function openSettingsTabOf(settingsModal: Locator, label: string): Promise<void> {
+  const tab = SETTINGS_TAB_OF_LABEL[label];
+  if (!tab) throw new Error(`No Settings tab is mapped for "${label}"`);
+  await openSettingsTab(settingsModal, tab);
+}
+
 async function closeSettingsModal(settingsModal: Locator): Promise<void> {
   const closeButton = settingsModal.getByRole('button', { name: 'Close', exact: true });
   await expect(closeButton).toBeVisible({ timeout: WEBVIEW_TIMEOUT_MS });
@@ -496,6 +529,7 @@ async function closeSettingsModal(settingsModal: Locator): Promise<void> {
  */
 export async function getSettingChecked(frame: WebviewSurface, label: string): Promise<boolean> {
   const settingsModal = await openSettingsModal(frame);
+  await openSettingsTabOf(settingsModal, label);
   const button = settingsModal.locator('button', { hasText: label });
   await expect(button).toBeVisible({ timeout: WEBVIEW_TIMEOUT_MS });
   const indicator = button.locator('span').last();
@@ -508,21 +542,27 @@ export async function setSettings(frame: WebviewSurface, settings: WebviewSettin
   const settingsModal = await openSettingsModal(frame);
 
   if (settings.watchAllSessions !== undefined) {
+    await openSettingsTabOf(settingsModal, 'Watch All Sessions');
     await setCheckbox(settingsModal, 'Watch All Sessions', settings.watchAllSessions);
   }
   if (settings.hooksEnabled !== undefined) {
+    await openSettingsTabOf(settingsModal, 'Instant Detection (Hooks)');
     await setCheckbox(settingsModal, 'Instant Detection (Hooks)', settings.hooksEnabled);
   }
   if (settings.alwaysShowLabels !== undefined) {
+    await openSettingsTabOf(settingsModal, 'Always Show Labels');
     await setCheckbox(settingsModal, 'Always Show Labels', settings.alwaysShowLabels);
   }
   if (settings.ghostHeadlessAgents !== undefined) {
+    await openSettingsTabOf(settingsModal, 'Display Headless as Ghosts');
     await setCheckbox(settingsModal, 'Display Headless as Ghosts', settings.ghostHeadlessAgents);
   }
   if (settings.debugView !== undefined) {
+    await openSettingsTabOf(settingsModal, 'Debug View');
     await setCheckbox(settingsModal, 'Debug View', settings.debugView);
   }
   if (settings.showGuests !== undefined) {
+    await openSettingsTabOf(settingsModal, 'Show Guests');
     await setCheckbox(settingsModal, 'Show Guests', settings.showGuests);
   }
 

@@ -290,6 +290,20 @@ export const PET_FOLLOW_RADIUS_TILES = 3;
 export const PET_FOLLOW_DURATION_MIN_SEC = 5.0;
 /** Maximum seconds a FOLLOW episode lasts before timing out. */
 export const PET_FOLLOW_DURATION_MAX_SEC = 15.0;
+/** Owned pet: probability that a wander decision is a follow of its owner. */
+export const PET_OWNER_FOLLOW_CHANCE = 0.5;
+/** Owned pet: the owner is a follow target at any distance up to this (tiles). */
+export const PET_OWNER_FOLLOW_RADIUS_TILES = 40;
+/** Owned pet: weight multiplier of the desk-top nap (a bare weight of 1 is the unowned pet). */
+export const PET_OWNER_DESK_WEIGHT_MUL = 8;
+/** Owned pet: extra desk-top weight multiplier while the owner works at the computer. */
+export const PET_OWNER_WORKING_MUL = 2.5;
+/** Owned pet: a desk-top nap spot within this many tiles of the owner's seat is "the owner's desk". */
+export const PET_OWNER_DESK_RADIUS_TILES = 2;
+/** Owned pet: chance that a spot pick takes the free spot nearest the owner instead of a random one. */
+export const PET_OWNER_NEAR_SPOT_CHANCE = 0.7;
+/** Owned pet: chance that a tired pet looks for a nap spot by the owner's seat first. */
+export const PET_OWNER_NAP_NEAR_CHANCE = 0.8;
 /** Hit-box half-width (world px) for pet click detection. */
 export const PET_HIT_HALF_WIDTH = 8;
 /** Hit-box height (world px) measured upward from the bottom-center anchor. */

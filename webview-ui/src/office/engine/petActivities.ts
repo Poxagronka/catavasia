@@ -9,11 +9,21 @@
  *
  * Desks and tables are a pet-only nap (deskNap): agent cats work there.
  *
+ * A pet with an owner (Pet.ownerCatId) prefers the owner's side: it lounges
+ * on the owner's desk more (most while the owner works), picks spots near the
+ * owner's seat and naps close to it. These are weights, not a leash: the same
+ * activities stay possible everywhere.
+ *
  * Spots come from the same spot sets the agent cats use, and every claim
  * reserves its tile through the shared service before the pet walks.
  */
 import {
   PET_ACTIVITY_CHANCE,
+  PET_OWNER_DESK_RADIUS_TILES,
+  PET_OWNER_DESK_WEIGHT_MUL,
+  PET_OWNER_NAP_NEAR_CHANCE,
+  PET_OWNER_NEAR_SPOT_CHANCE,
+  PET_OWNER_WORKING_MUL,
   PET_SLEEP_MAX_SEC,
   PET_SLEEP_MIN_SEC,
   PET_TOY_FUN_GAIN,
@@ -80,10 +90,15 @@ export interface PetActivityHost {
   /** Walk the pet to a claim (used to resume after a won fight). */
   start(pet: Pet, claim: PetActivityClaim): boolean;
   rng: () => number;
+  /** Where the pet's owner sits (its seat, else where it stands), or null: no owner in the office. */
+  owner(pet: Pet): { col: number; row: number; working: boolean } | null;
 }
 
 const dist = (pet: Pet, s: ActivitySpot) =>
   Math.abs(s.col - pet.tileCol) + Math.abs(s.row - pet.tileRow);
+
+const spotDist = (to: { col: number; row: number }, s: ActivitySpot) =>
+  Math.abs(s.col - to.col) + Math.abs(s.row - to.row);
 
 export class PetActivities implements PetActivityProvider {
   private readonly host: PetActivityHost;
@@ -99,9 +114,15 @@ export class PetActivities implements PetActivityProvider {
     // A rested cat mostly plays; a drowsy one is likelier to nap.
     const napWeight = (needs.energy < 70 ? 1.5 : 0.4) * personalityMul(mood, 'sleep');
     const toyWeight = personalityMul(mood, 'play');
+    const owner = h.owner(pet);
+    // On the owner's desk: a bigger share, and bigger still while the owner works.
+    const deskMul = (id: string) =>
+      owner && id === DESK_NAP_ID && this.nearOwner(pet, id, owner).length > 0
+        ? PET_OWNER_DESK_WEIGHT_MUL * (owner.working ? PET_OWNER_WORKING_MUL : 1)
+        : 1;
     const options: Array<{ id: string; weight: number }> = [
       ...PET_TOY_IDS.map((id) => ({ id, weight: toyWeight })),
-      ...PET_NAP_IDS.map((id) => ({ id, weight: napWeight })),
+      ...PET_NAP_IDS.map((id) => ({ id, weight: napWeight * deskMul(id) })),
       { id: SOFA_NAP_ID, weight: napWeight / 2 },
     ].filter((o) => this.freeSpots(pet, o.id).length > 0);
     const total = options.reduce((s, o) => s + o.weight, 0);
@@ -109,9 +130,14 @@ export class PetActivities implements PetActivityProvider {
     const pick = options.find((o) => (roll -= o.weight) < 0) ?? options[options.length - 1];
     if (!pick) return null;
     const spots = this.freeSpots(pet, pick.id);
-    // Random free spot; on a re-pick try another one.
+    // The owner's desk first, else a random free spot (an owned pet often takes the nearest one);
+    // on a re-pick try another one.
+    const near = owner && pick.id === DESK_NAP_ID ? this.nearOwner(pet, pick.id, owner) : [];
+    if (owner && near.length > 0) spots.splice(0, spots.length, ...near);
     for (let i = 0; i < SPOT_CLAIM_RETRIES && spots.length > 0; i++) {
-      const spot = spots.splice(Math.floor(h.rng() * spots.length), 1)[0];
+      const byOwner = owner && h.rng() < PET_OWNER_NEAR_SPOT_CHANCE;
+      if (byOwner) spots.sort((a, b) => spotDist(owner, a) - spotDist(owner, b));
+      const spot = spots.splice(byOwner ? 0 : Math.floor(h.rng() * spots.length), 1)[0];
       const out = this.claimAt(pet, pick.id, spot);
       if (out !== 'repick') return out === 'fight' ? null : out;
     }
@@ -119,11 +145,19 @@ export class PetActivities implements PetActivityProvider {
   }
 
   claimSleep(pet: Pet): PetActivityClaim | null {
+    const owner = this.host.owner(pet);
+    // A tired owned pet mostly naps by the owner's seat; unowned ones draw nothing extra.
+    const by = owner && this.host.rng() < PET_OWNER_NAP_NEAR_CHANCE ? owner : null;
     const byDist = (ids: readonly string[], fallback = false) =>
       ids
         .flatMap((id) => this.freeSpots(pet, id, fallback).map((spot) => ({ id, spot })))
-        .sort((a, b) => dist(pet, a.spot) - dist(pet, b.spot));
+        .sort((a, b) =>
+          by ? spotDist(by, a.spot) - spotDist(by, b.spot) : dist(pet, a.spot) - dist(pet, b.spot),
+        );
     const tiers = [
+      ...(by
+        ? [byDist([DESK_NAP_ID]).filter((c) => spotDist(by, c.spot) <= PET_OWNER_DESK_RADIUS_TILES)]
+        : []),
       byDist(PET_NAP_IDS.filter((id) => id !== DESK_NAP_ID)),
       byDist([DESK_NAP_ID]),
       byDist([SOFA_NAP_ID]),
@@ -139,6 +173,11 @@ export class PetActivities implements PetActivityProvider {
       }
     }
     return null;
+  }
+
+  /** Free spots of an activity within the owner's desk radius. */
+  private nearOwner(pet: Pet, id: string, owner: { col: number; row: number }): ActivitySpot[] {
+    return this.freeSpots(pet, id).filter((s) => spotDist(owner, s) <= PET_OWNER_DESK_RADIUS_TILES);
   }
 
   /** Spots of an activity this pet may target (`fallback`: the sofa's floor spots). */

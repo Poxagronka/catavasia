@@ -17,6 +17,8 @@ export interface PetRow {
   kind: string;
   appearance?: Appearance;
   personality?: CatPersonality;
+  /** Cat id of the owner agent cat (absent: no owner). */
+  ownerCatId?: string;
 }
 
 /** Every pet in the office (cats and dogs), in layout order. */
@@ -28,6 +30,7 @@ export function petRows(os: OfficeState): PetRow[] {
     kind: getPetName(p.petType),
     appearance: p.appearance,
     personality: p.personality,
+    ownerCatId: p.ownerCatId,
   }));
 }
 

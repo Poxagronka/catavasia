@@ -64,6 +64,7 @@ export class CatOfficeFeed {
         this.world()?.setResidentCats(
           msg.characters.map((c) => ({
             id: c.id,
+            catId: c.catId,
             name: c.name,
             appearance: c.appearance as Appearance,
             working: c.working,

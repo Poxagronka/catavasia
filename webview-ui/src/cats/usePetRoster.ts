@@ -8,10 +8,12 @@ const POLL_MS = 500;
 
 interface Roster {
   rows: PetRow[];
+  /** The agent cats that can own a pet. */
+  owners: Array<{ catId: string; name: string }>;
 }
 
 function readRoster(os: OfficeState): Roster {
-  return { rows: petRows(os) };
+  return { rows: petRows(os), owners: os.ownerChoices() };
 }
 
 /** Live pet roster of the office while `active`: polled, and re-read right after our own edits. */

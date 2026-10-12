@@ -526,7 +526,6 @@ export interface NarratorSummary {
 export interface NarratorSettings {
   type: 'narratorSettings';
   aiSummaries: boolean;
-  rawToolStatus: boolean;
 }
 
 export interface AgentContextUsage {
@@ -550,15 +549,15 @@ export interface ResetAllResult {
 
 export interface HelpChatEvent {
   type: 'helpChatEvent';
-  event: AnonymousSchema_232;
+  event: AnonymousSchema_231;
   text?: string;
-  code?: AnonymousSchema_234;
+  code?: AnonymousSchema_233;
   exitCode?: number;
 }
 
-export type AnonymousSchema_232 = 'draft' | 'reply' | 'error' | 'unavailable';
+export type AnonymousSchema_231 = 'draft' | 'reply' | 'error' | 'unavailable';
 
-export type AnonymousSchema_234 =
+export type AnonymousSchema_233 =
   'notInstalled' | 'notLoggedIn' | 'replaced' | 'noAnswer' | 'exited';
 
 export interface FeedbackResult {
@@ -873,11 +872,11 @@ export interface SetOnboardingDone {
 export interface HelpChatSend {
   type: 'helpChatSend';
   text: string;
-  context?: AnonymousSchema_430;
+  context?: AnonymousSchema_429;
   language?: string;
 }
 
-export type AnonymousSchema_430 = 'onboarding' | 'settings';
+export type AnonymousSchema_429 = 'onboarding' | 'settings';
 
 export interface HelpChatStop {
   type: 'helpChatStop';
@@ -890,7 +889,6 @@ export interface HelpChatReset {
 export interface SetNarratorSettings {
   type: 'setNarratorSettings';
   aiSummaries?: boolean;
-  rawToolStatus?: boolean;
 }
 
 export interface SetCatCeoSettings {

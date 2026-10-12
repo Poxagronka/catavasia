@@ -102,6 +102,8 @@ export interface ResidentCat {
   lead?: boolean;
   /** Idle behaviour preset (absent: the default behaviour). */
   personality?: CatPersonality;
+  /** Stable cat (profile) id: the key a pet's `ownerCatId` names. */
+  catId?: string;
 }
 
 export class OfficeState {
@@ -670,6 +672,26 @@ export class OfficeState {
   setResidentCats(list: ResidentCat[]): void {
     this.residents = new Map(list.map((r) => [r.id, r]));
     for (const r of list) this.applyResident(r.id);
+    // The list is the whole roster: a pet whose owner left it has no owner.
+    const known = new Set(list.map((r) => r.catId));
+    const orphans = this.pets.filter((p) => p.ownerCatId && !known.has(p.ownerCatId));
+    for (const p of orphans) p.ownerCatId = undefined;
+    if (orphans.length > 0) this.syncLayoutPets();
+  }
+
+  /** The resident cats that can own a pet: [cat id, name]. */
+  ownerChoices(): Array<{ catId: string; name: string }> {
+    return [...this.residents.values()].flatMap((r) =>
+      r.catId ? [{ catId: r.catId, name: r.name }] : [],
+    );
+  }
+
+  /** The owner's character, or undefined (no owner, owner not in the office). */
+  ownerOf(pet: Pet): Character | undefined {
+    if (!pet.ownerCatId) return undefined;
+    for (const r of this.residents.values())
+      if (r.catId === pet.ownerCatId) return this.characters.get(r.id);
+    return undefined;
   }
 
   /** Cats whose turn waits for a free slot, oldest first: they line up by the coffee. */
@@ -1210,7 +1232,12 @@ export class OfficeState {
   /** Rename / recolour a placed pet (Cats menu). Invalid values are dropped. */
   updatePetProfile(
     id: string,
-    profile: { name?: string; appearance?: Appearance; personality?: CatPersonality },
+    profile: {
+      name?: string;
+      appearance?: Appearance;
+      personality?: CatPersonality;
+      ownerCatId?: string;
+    },
   ): void {
     const pet = this.pets.find((p) => p.id === id);
     if (!pet) return;
@@ -1318,6 +1345,7 @@ export class OfficeState {
       ...(p.customName ? { name: p.customName } : {}),
       ...(p.appearance ? { appearance: p.appearance } : {}),
       ...(p.personality ? { personality: p.personality } : {}),
+      ...(p.ownerCatId ? { ownerCatId: p.ownerCatId } : {}),
     }));
   }
 
@@ -1556,7 +1584,15 @@ export class OfficeState {
     this.petCare.update(dt, this.petCareEnv());
     for (const pet of this.pets) {
       if (!this.petCare.isBusy(pet.id) && !this.life.inScene(pet)) {
-        updatePet(pet, dt, this.walkableTiles, this.characters, this.tileMap, this.blockedTiles);
+        updatePet(
+          pet,
+          dt,
+          this.walkableTiles,
+          this.characters,
+          this.tileMap,
+          this.blockedTiles,
+          this.ownerOf(pet),
+        );
       }
 
       // Tick heart bubble timer (mirrors character waiting-bubble pattern)
@@ -1619,13 +1655,24 @@ export class OfficeState {
 }
 
 /**
- * Copy a layout entry's name, coat and personality onto the runtime pet. The layout file is
+ * Copy a layout entry's name, coat, personality and owner onto the runtime pet. The layout file is
  * user-editable: a bad name or coat falls back to the manifest name / template.
  */
 function applyPetProfile(
   pet: Pet,
-  placed: { petType: number; name?: unknown; appearance?: unknown; personality?: unknown },
+  placed: {
+    petType: number;
+    name?: unknown;
+    appearance?: unknown;
+    personality?: unknown;
+    ownerCatId?: unknown;
+  },
 ): void {
+  const owner = placed.ownerCatId;
+  pet.ownerCatId =
+    typeof owner === 'string' && owner.length > 0 && owner.length <= MAX_PET_ID_LENGTH
+      ? owner
+      : undefined;
   pet.personality = isCatPersonality(placed.personality) ? placed.personality : undefined;
   const name = typeof placed.name === 'string' ? placed.name.trim() : '';
   pet.customName = name && nameErrors(name).length === 0 ? name : undefined;

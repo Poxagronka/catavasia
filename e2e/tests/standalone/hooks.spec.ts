@@ -11,7 +11,7 @@ import {
 import { advanceIntroToConsentStep, finishIntro } from '../../helpers/intro';
 import { expectOverlayCount, expectOverlayVisible, getAgentOverlays } from '../../helpers/office';
 import type { RecordedServerMessage } from '../../helpers/standalone';
-import { openSettingsModal, setSettings } from '../../helpers/webview';
+import { openSettingsModal, openSettingsTab, setSettings } from '../../helpers/webview';
 
 test.describe('Standalone / hooks', () => {
   test('propagates hook-driven lifecycle into the browser UI @area:standalone', async ({
@@ -223,6 +223,7 @@ test.describe('Standalone / hooks consent', () => {
     // ever raced ahead, that would click nothing and every assertion below
     // would pass vacuously over a state this test never caused.
     const settingsModal = await openSettingsModal(page);
+    await openSettingsTab(settingsModal, 'integrations');
     const hooksCheckbox = settingsModal.locator('button', {
       hasText: 'Instant Detection (Hooks)',
     });

@@ -1393,13 +1393,11 @@ components:
       description: Narrator settings (standalone), sent on connect and after a change.
       type: object
       additionalProperties: false
-      required: [type, aiSummaries, rawToolStatus]
+      required: [type, aiSummaries]
       properties:
         type:
           const: narratorSettings
         aiSummaries:
-          type: boolean
-        rawToolStatus:
           type: boolean
 
     # ── Client message variants ────────────────────────────────────
@@ -1993,8 +1991,6 @@ components:
         type:
           const: setNarratorSettings
         aiSummaries:
-          type: boolean
-        rawToolStatus:
           type: boolean
 
     SubmitFeedback:
