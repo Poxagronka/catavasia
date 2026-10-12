@@ -625,7 +625,7 @@ export const PET_SLEEP_ENERGY_PER_SEC = 2.5;
 export const PET_SLEEP_MIN_SEC = 40;
 export const PET_SLEEP_MAX_SEC = 120;
 /** Chance per decision that a content pet starts an idle activity (else it wanders). */
-export const PET_ACTIVITY_CHANCE = 0.02;
+export const PET_ACTIVITY_CHANCE = 0.03;
 /** Seconds a content pet spends on a toy, and the fun it gains. */
 export const PET_TOY_MIN_SEC = 11;
 export const PET_TOY_MAX_SEC = 25;
