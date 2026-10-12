@@ -57,6 +57,8 @@ export interface CatLifeWorld {
   meetingSeats(): Array<[string, number]>;
   /** Start an idle activity for an agent (own seat unblocked for the path). */
   beginActivity(ch: Character, choice: IdleChoice): void;
+  /** The pet's owner cat in the office, if any. */
+  ownerOf(pet: Pet): Character | undefined;
 }
 
 export class CatLife {
@@ -86,6 +88,16 @@ export class CatLife {
       claim: (pet, keys, resume) => this.broker.claim(pet, keys, resume),
       start: (pet, claim) => world.petCare.startClaim(pet, claim, world.petCareEnv()),
       rng: () => this.rng(),
+      owner: (pet) => {
+        const ch = world.ownerOf(pet);
+        if (!ch) return null;
+        const seat = ch.seatId ? world.seats.get(ch.seatId) : undefined;
+        return {
+          col: seat?.seatCol ?? ch.tileCol,
+          row: seat?.seatRow ?? ch.tileRow,
+          working: ch.isActive,
+        };
+      },
     });
   }
 

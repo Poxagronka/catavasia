@@ -430,6 +430,8 @@ export interface Pet {
   appearance?: Appearance;
   /** Idle behaviour preset from the Cats menu (persisted), else absent. */
   personality?: CatPersonality;
+  /** Cat id of the owner agent cat (persisted), else absent. */
+  ownerCatId?: string;
   /** Zoomies: the pet dashes at a sprint (set by PetCareSystem, cleared on arrival). */
   sprint?: boolean;
   /** Seconds left of a grimace face over the head (an overflowing box, a floor poop). */
@@ -474,4 +476,6 @@ export interface PlacedPet {
   appearance?: Appearance;
   /** Idle behaviour preset from the Cats menu. Absent = the default behaviour. */
   personality?: CatPersonality;
+  /** Stable cat id (profile id) of the agent cat that owns this pet. Absent = no owner. */
+  ownerCatId?: string;
 }

@@ -96,6 +96,7 @@ function host(rng: () => number): PetActivityHost {
     claim: () => 'ok',
     start: () => true,
     rng,
+    owner: () => null,
   };
 }
 
