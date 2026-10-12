@@ -443,7 +443,8 @@ export class CatStore {
       const backup = `${this.filePath}.bad-${Date.now()}`;
       fs.copyFileSync(this.filePath, backup);
       console.warn(`[catavasia] Cats: ${this.filePath} unreadable (${err}); copied to ${backup}`);
-      this.commit(firstRunSeed());
+      // The user already has a team on record (onboardingDone settled to true): restore the default team, not an empty office.
+      this.commit(legacyDefaultTeam());
       this.syncPrompts();
       return;
     }

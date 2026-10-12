@@ -19,6 +19,7 @@ export const HELP_MODEL = 'sonnet';
 const HELP_DIR_NAME = 'catavasia-help';
 const EMPTY_MCP_CONFIG = JSON.stringify({ mcpServers: {} });
 
+const REPLACED_TEXT = 'Another window asked a new question. Ask again.';
 const NOT_INSTALLED = { installed: false } as EngineStatus;
 const NOT_LOGGED_IN = { installed: true, loggedIn: false } as EngineStatus;
 
@@ -39,6 +40,8 @@ export class HelpDesk {
   private sessionId = crypto.randomUUID();
   private started = false;
   private turn: TurnHandle | undefined;
+  /** Sender of the running turn: a replaced turn tells its own client, which waits for an answer. */
+  private turnEmit: ((e: HelpEvent) => void) | undefined;
 
   constructor(
     private readonly adapter: EngineAdapter,
@@ -58,6 +61,7 @@ export class HelpDesk {
     if (down) return emit({ event: 'unavailable', text: down });
     const text = msg.text.trim();
     if (!text) return;
+    if (this.turn) this.turnEmit?.({ event: 'error', text: REPLACED_TEXT });
     this.stop();
     const context: HelpContext = msg.context === 'settings' ? 'settings' : 'onboarding';
     fs.mkdirSync(this.dir, { recursive: true });
@@ -90,6 +94,7 @@ export class HelpDesk {
       message: this.started ? text : `${hint}${text}`,
     });
     this.turn = turn;
+    this.turnEmit = emit;
     void turn.done.then((outcome) => {
       if (this.turn !== turn) return; // stopped or replaced: stay silent
       this.turn = undefined;

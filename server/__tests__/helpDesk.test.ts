@@ -54,6 +54,16 @@ describe('HelpDesk', () => {
     expect(m.requests[1].sessionId).toBe(req.sessionId);
   });
 
+  it('tells the first client when another client replaces its running turn', () => {
+    const m = mockAdapter();
+    const first: Array<Parameters<HelpSend>[0]> = [];
+    const desk = new HelpDesk(m.adapter, dir);
+    desk.send({ text: 'one' }, (e) => first.push(e));
+    desk.send({ text: 'two' }, () => undefined);
+    expect(first).toHaveLength(1);
+    expect(first[0].event).toBe('error');
+  });
+
   it('says Claude Code is missing without starting a turn', () => {
     const m = mockAdapter('Claude Code CLI not found');
     const sent: Array<Parameters<HelpSend>[0]> = [];

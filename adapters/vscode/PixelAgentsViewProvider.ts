@@ -394,6 +394,29 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
     await this.reportHooksStatus(claudeProvider);
   }
 
+  /** The first-run consent ask for one provider, or null when consentGate says do not ask. An embedded webview is privileged. */
+  private consentAsk(provider: HookProvider, installed: boolean) {
+    return hooksConsentRequest(
+      {
+        installed,
+        hooksEnabled: getHooksEnabled(provider.id),
+        consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
+        privileged: true,
+        language: getLanguage(this.adapter),
+      },
+      provider,
+    );
+  }
+
+  /** Send the open consent asks again, after a language change: the text is written in the stored language. */
+  private async resendConsentAsks(): Promise<void> {
+    for (const provider of hookProviders) {
+      const installed = await provider.areHooksInstalled().catch(() => false);
+      const request = this.consentAsk(provider, installed);
+      if (request) this.webview?.postMessage(request);
+    }
+  }
+
   /** This surface's half of carrying out a consent answer for one provider. The choice→action rule and the write
    *  order live in the shared consent modules, so the surfaces cannot drift on what counts as approval or on what a
    *  revised answer undoes; only these effects are VS Code-specific. */
@@ -541,7 +564,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
       ) {
         handleHelpMessage(sharedHelpDesk(), message, (m) => this.webview?.postMessage(m));
       } else if (message.type === 'setLanguage') {
-        setLanguage(this.adapter, message.language);
+        if (setLanguage(this.adapter, message.language)) void this.resendConsentAsks();
       } else if (message.type === 'setOnboardingDone') {
         if (typeof message.done === 'boolean') {
           this.adapter.setSetting(KEY_ONBOARDING_DONE, message.done);
@@ -677,16 +700,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
             providerId: provider.id,
             installed,
           });
-          const consentRequest = hooksConsentRequest(
-            {
-              installed,
-              hooksEnabled: getHooksEnabled(provider.id),
-              consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
-              privileged: true,
-              language: getLanguage(this.adapter),
-            },
-            provider,
-          );
+          const consentRequest = this.consentAsk(provider, installed);
           if (consentRequest) this.webview?.postMessage(consentRequest);
         }
 

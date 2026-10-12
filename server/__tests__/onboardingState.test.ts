@@ -59,6 +59,20 @@ describe('onboardingDone', () => {
     expect(isOnboardingDone(a)).toBe(true);
   });
 
+  it('is done for a VS Code user who has a layout.json but no cats.json', () => {
+    fs.writeFileSync(path.join(home, '.pixel-agents', 'layout.json'), '{}');
+    const a = adapter();
+    settleOnboardingState(a);
+    expect(isOnboardingDone(a)).toBe(true);
+  });
+
+  it('is done for a user who has seen a version', () => {
+    const a = adapter();
+    a.setSetting('pixel-agents.lastSeenVersion', '1.4.0');
+    settleOnboardingState(a);
+    expect(isOnboardingDone(a)).toBe(true);
+  });
+
   it('never overrides a decided value', () => {
     fs.writeFileSync(path.join(home, '.pixel-agents', 'cats.json'), '{}');
     const a = adapter();

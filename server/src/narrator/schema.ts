@@ -102,18 +102,14 @@ const CHECKMARK_RE = /[✓✔✅☑]/;
 const NUMBER_RE = /\d+(?:[.,]\d+)?/g;
 const FILE_RE = /[\w-]+\.[a-z]{1,5}\b/gi;
 const LATIN_RE = /[a-z]/i;
-const ANY_LETTER_RE = /\p{L}/u;
 /** Any letter outside the Latin script (Cyrillic, CJK, ...). */
 const NON_LATIN_RE = /(?!\p{Script=Latin})\p{L}/u;
 
-/**
- * True when every claim, number and file name in the sentence is in the source. The claim stems are English, so
- * they only apply to an English summary. Other languages keep the checkmark, number and file name checks.
- */
-function isSupported(sentence: string, source: string, english: boolean): boolean {
+/** True when every claim, number and file name in the sentence is in the source. */
+function isSupported(sentence: string, source: string): boolean {
   const s = sentence.toLowerCase();
   if (CHECKMARK_RE.test(s)) return false;
-  for (const { claim, evidence } of english ? CLAIMS : []) {
+  for (const { claim, evidence } of CLAIMS) {
     if (claim.test(s) && !evidence.test(source)) return false;
   }
   for (const n of s.match(NUMBER_RE) ?? []) if (!source.includes(n)) return false;
@@ -123,18 +119,19 @@ function isSupported(sentence: string, source: string, english: boolean): boolea
 
 /**
  * Keep only the supported sentences of a summary. Returns '' when nothing is
- * left or the text is not in the chosen script (English: Latin only; other languages: any letter). Cuts to NARRATOR_SUMMARY_MAX_CHARS with an ellipsis.
+ * left or the text is not Latin. The claim stems are English, so a non-English summary cannot be verified: it
+ * is dropped and the translated templates stay. Cuts to NARRATOR_SUMMARY_MAX_CHARS with an ellipsis.
  */
 export function filterSummary(summary: string, sourceLines: string[], language?: unknown): string {
-  const english = toLanguage(language) === DEFAULT_LANGUAGE;
+  if (toLanguage(language) !== DEFAULT_LANGUAGE) return '';
   const source = sourceLines.join('\n').toLowerCase();
   const sentences = summary.split(/(?<=[.!?…])\s+/);
   const kept = sentences
     .map((x) => x.trim())
-    .filter((x) => x && isSupported(x, source, english))
+    .filter((x) => x && isSupported(x, source))
     .join(' ');
   if (!kept) return '';
-  if (english ? !LATIN_RE.test(kept) || NON_LATIN_RE.test(kept) : !ANY_LETTER_RE.test(kept)) {
+  if (!LATIN_RE.test(kept) || NON_LATIN_RE.test(kept)) {
     return '';
   }
   return kept.length > NARRATOR_SUMMARY_MAX_CHARS

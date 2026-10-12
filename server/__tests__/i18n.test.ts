@@ -74,14 +74,12 @@ describe('language follows the setting', () => {
     expect(summarySystemPrompt('ru')).not.toContain('in English');
   });
 
-  it('the validator accepts the chosen script and still drops invented numbers', () => {
-    const lines = ['Мурка → Барсик: проверь тесты'];
-    expect(filterSummary('Мурка просит Барсика проверить тесты.', lines, 'ru')).toBe(
-      'Мурка просит Барсика проверить тесты.',
-    );
-    expect(filterSummary('Мурка просит Барсика проверить тесты.', lines)).toBe('');
-    expect(filterSummary('Мурка проверила 42 теста.', lines, 'ru')).toBe('');
-    expect(filterSummary('猫咪检查了测试 ✓', lines, 'zh-Hans')).toBe('');
+  it('the validator drops every non-English summary: its claims cannot be checked', () => {
+    const lines = ['Read server.ts'];
+    expect(filterSummary('Тесты прошли, изменения закоммичены.', lines, 'ru')).toBe('');
+    expect(filterSummary('Todas las pruebas pasaron.', lines, 'es')).toBe('');
+    expect(filterSummary('Мурка читает файл.', lines)).toBe('');
+    expect(filterSummary('Mochi reads the file.', lines, 'en')).toBe('Mochi reads the file.');
   });
 
   it('the CEO persona names the chosen language and English stays unchanged', () => {

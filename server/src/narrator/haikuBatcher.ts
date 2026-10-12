@@ -10,6 +10,8 @@
 
 import { spawn } from 'child_process';
 
+import { DEFAULT_LANGUAGE } from '../../../core/src/languages.js';
+import { toLanguage } from '../i18n/translate.js';
 import {
   buildSummaryPrompt,
   parseSummaryOutput,
@@ -117,9 +119,11 @@ export class HaikuBatcher {
     const batch = [...this.queue.values()];
     this.queue.clear();
     if (this.opts.shouldRun && !this.opts.shouldRun()) return;
+    const language = this.opts.language?.();
+    // A non-English summary cannot pass the English claim check: skip the call, the templates speak.
+    if (toLanguage(language) !== DEFAULT_LANGUAGE) return;
     this.inFlight = true;
     try {
-      const language = this.opts.language?.();
       const stdout = await this.run(buildSummaryPrompt(batch), language);
       const summaries = parseSummaryOutput(stdout, batch, language);
       this.delayMs = this.intervalMs;

@@ -297,14 +297,23 @@ export function handleClientMessage(
     case 'helpChatReset':
       // The chat spends the operator's Claude Code quota: the server token gates it.
       if (ctx.privileged) handleHelpMessage(sharedHelpDesk(), msg, send);
+      // The panel waits for an answer after a send: an unprivileged client gets a terminal event.
+      else if (msg.type === 'helpChatSend') {
+        send({ type: 'helpChatEvent', event: 'unavailable', text: EDIT_RIGHTS_HINT });
+      }
       break;
 
     case 'setLanguage':
-      setLanguage(adapter, msg.language);
+      // Persisted settings need the server token, like setShowGuests.
+      if (!ctx.privileged) break;
+      // The consent text is written in the stored language: a fresh choice asks again, in the new one.
+      if (setLanguage(adapter, msg.language)) resendConsentAsks(send, ctx);
       break;
 
     case 'setOnboardingDone':
-      if (typeof msg.done === 'boolean') adapter?.setSetting(KEY_ONBOARDING_DONE, msg.done);
+      if (typeof msg.done === 'boolean' && ctx.privileged) {
+        adapter?.setSetting(KEY_ONBOARDING_DONE, msg.done);
+      }
       break;
 
     case 'setTurnConcurrency': {
@@ -505,6 +514,37 @@ function standaloneConsentEffects(
   };
 }
 
+/** The first-run consent ask for one provider, or null when consentGate says do not ask. */
+function consentAsk(
+  provider: (typeof hookProviders)[number],
+  installed: boolean,
+  ctx: ClientMessageContext,
+) {
+  return hooksConsentRequest(
+    {
+      installed,
+      hooksEnabled: getHooksEnabled(provider.id),
+      consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
+      privileged: ctx.privileged === true,
+      language: getLanguage(ctx.store.getAdapter()),
+    },
+    provider,
+  );
+}
+
+/** Send the open consent asks again, after a language change. The webview replaces a queued ask of the same provider. */
+function resendConsentAsks(send: WsSend, ctx: ClientMessageContext): void {
+  for (const provider of hookProviders) {
+    void provider
+      .areHooksInstalled()
+      .catch(() => false)
+      .then((installed) => {
+        const request = consentAsk(provider, installed, ctx);
+        if (request) send({ ...request });
+      });
+  }
+}
+
 function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   const { store, runtime, cache } = ctx;
   const adapter = store.getAdapter();
@@ -605,16 +645,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
         // rides the handshake and consentGate owns every condition (VS Code calls the same function). The record is
         // re-read here rather than taken from startup — another tab may have answered while this one loaded.
         // Dismissing sends nothing, so the ask returns on the next connect: fail-closed, never nagging in-session.
-        const request = hooksConsentRequest(
-          {
-            installed,
-            hooksEnabled: getHooksEnabled(provider.id),
-            consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
-            privileged: ctx.privileged === true,
-            language: getLanguage(adapter),
-          },
-          provider,
-        );
+        const request = consentAsk(provider, installed, ctx);
         if (request) send({ ...request }); // spread: WsSend takes an index-signature shape
       });
   }
