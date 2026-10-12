@@ -77,20 +77,21 @@ const ABOVE: readonly [number, number] = [2, -20];
 const ON_TOP = 1;
 /** Pets stand on the tile centre line; a pose at a floor toy settles onto the toy's base. */
 const ON_FLOOR = 5;
+/** The upright scratch pose sits higher in its canvas: extra px down to put its feet on the floor row. */
+const SCRATCH_SINK = 6;
 
 export const PET_PLAY_ANIMS: Readonly<Record<PetPlayAnim, PetAnim>> = {
   scratch: {
-    base: { dx: -5, dy: ON_FLOOR },
-    intro: [s('stand', 0.4), s('rear', 0.5)],
+    base: { dx: 1, dy: ON_FLOOR + SCRATCH_SINK },
+    intro: [s('stand', 0.4), s('scratchB', 0.5)],
     loop: [
       s('scratchA', 0.15, { fx: 'scratch', fxAt: CLAWS }),
-      s('scratchB', 0.15, { dy: 1, fx: 'scratch', fxAt: CLAWS }),
+      s('scratchB', 0.15, { fx: 'scratch', fxAt: CLAWS }),
       s('scratchA', 0.15, { fx: 'scratch', fxAt: CLAWS }),
-      s('scratchB', 0.15, { dy: 1, fx: 'scratch', fxAt: CLAWS }),
+      s('scratchB', 0.15, { fx: 'scratch', fxAt: CLAWS }),
       s('scratchA', 0.15, { fx: 'scratch', fxAt: CLAWS }),
-      s('scratchB', 0.2, { dy: 1, fx: 'scratch', fxAt: CLAWS }),
-      s('rear', 0.6, { fx: 'fur', fxAt: [6, -10] }),
-      s('reach', 0.5),
+      s('scratchB', 0.2, { fx: 'scratch', fxAt: CLAWS }),
+      s('scratchB', 0.6, { fx: 'fur', fxAt: [6, -10] }),
     ],
     outro: [s('stand', 0.6)],
   },
