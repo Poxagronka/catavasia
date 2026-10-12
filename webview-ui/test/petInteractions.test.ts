@@ -41,7 +41,7 @@ import type {
   SpriteData,
   TileType as TileTypeVal,
 } from '../src/office/types.js';
-import { Direction, TileType } from '../src/office/types.js';
+import { Direction, TILE_SIZE, TileType } from '../src/office/types.js';
 
 // Color names, not hex: the poses only move pixels around (like petCare.test.ts).
 const C = 'ink';
@@ -185,6 +185,21 @@ test('a side pose flips for LEFT; a front pose flips with a mirrored item', () =
   };
   const rolled = [...Array(200).keys()].map((i) => step(i * 0.05)).find((m) => m.dx !== 0)!;
   assert.ok(rolled.dx < 0, 'facing left, the ball rolls left');
+});
+
+test('a scratching pet stands on the floor row and stays inside its own tile', () => {
+  const poses = buildPlayPoses(sheet(blob));
+  const rows = (s: SpriteData) => s.map((r, y) => (r.some(Boolean) ? y : -1)).filter((y) => y >= 0);
+  const cols = (s: SpriteData) =>
+    s[0].map((_, x) => (s.some((r) => r[x]) ? x : -1)).filter((x) => x >= 0);
+  const floor = Math.max(...rows(poses.stand.side));
+  for (const name of ['scratchA', 'scratchB'] as const) {
+    const side = poses[name].side;
+    assert.equal(Math.max(...rows(side)), floor, `${name}: feet on the floor row`);
+    // Two scratchers take the post's two sides (distinct tiles): neither pose may spill past a tile.
+    const c = cols(side);
+    assert.ok(c[c.length - 1] - c[0] + 1 <= 2 * TILE_SIZE, `${name}: fits beside the post`);
+  }
 });
 
 test('blank, tiny or odd frames never crash a pose, a play or its effects', () => {
