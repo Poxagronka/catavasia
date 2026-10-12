@@ -9,7 +9,6 @@ import * as fs from 'fs';
 import { EDIT_RIGHTS_HINT } from '../../core/src/constants.js';
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
-import { TaskBoardCatSource } from './catTerminal/catSessionSource.js';
 import { registerCatTerminalRoutes } from './catTerminal/catTerminalRoutes.js';
 import { OfficeCatSource } from './catTerminal/officeCatSource.js';
 import { ptyModule } from './catTerminal/ptyModule.js';
@@ -135,16 +134,13 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     registerConnectorRoutes(app, options.ceoDesk, options.orchestrator.stateDir, isPrivileged);
   }
   if (options.update) registerUpdateRoutes(app, options.update, isPrivileged);
-  if (options.tasks) {
+  if (options.tasks && options.orchestrator) {
     registerCatTerminalRoutes(app, {
-      // Profile cats (cat office) first; task-board cats fall through.
-      source: options.orchestrator
-        ? new OfficeCatSource(options.orchestrator, options.tasks, options.ceoDesk)
-        : new TaskBoardCatSource(options.tasks),
+      source: new OfficeCatSource(options.orchestrator, options.tasks, options.ceoDesk),
       isPrivileged,
       isSameOrigin: (req) => isAllowedWebSocketOrigin(req.headers.origin, req.headers.host),
       pty: ptyModule,
-      ...(options.orchestrator ? { engineLogin: options.orchestrator.engineLogin } : {}),
+      engineLogin: options.orchestrator.engineLogin,
     });
   }
 

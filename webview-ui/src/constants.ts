@@ -445,8 +445,6 @@ export const CAT_CEO_MAX_WALKS = 4;
 // ── Task Board ───────────────────────────────────────────────
 /** How often the open board re-reads GET /api/tasks. */
 export const TASK_POLL_INTERVAL_MS = 1500;
-/** Pixel scale of the cat avatar on a task card. */
-export const TASK_AVATAR_ZOOM = 2;
 
 // ── Cats menu (profile editor) ───────────────────────────────
 /** Frame time of the animated cat preview in the Cats menu. */

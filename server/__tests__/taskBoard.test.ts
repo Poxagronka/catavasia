@@ -4,9 +4,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { NarratorInput } from '../../core/src/narrator.js';
+import { AgentRuntime } from '../src/agentRuntime.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { createHttpServer } from '../src/httpServer.js';
+import { claudeProvider } from '../src/providers/hook/claude/claude.js';
 import { createWorktree, finalizeWorktree, inspectRepo } from '../src/taskBoard/gitWorktree.js';
 import { parseStreamLine } from '../src/taskBoard/streamJson.js';
 import { type TaskAgentHost, TaskManager } from '../src/taskBoard/taskManager.js';
@@ -49,18 +50,10 @@ function makeRepo(): string {
 }
 
 class FakeHost implements TaskAgentHost {
-  launched: Array<{ sessionId: string; cwd: string }> = [];
-  finished: number[] = [];
-  finishedTasks: string[] = [];
-  launchHeadlessAgent(sessionId: string, cwd: string) {
-    this.launched.push({ sessionId, cwd });
-    return { id: this.launched.length, palette: 4, hueShift: 0 };
+  muted: Array<{ sessionId: string; cwd: string }> = [];
+  ignoreHeadlessSession(sessionId: string, cwd: string) {
+    this.muted.push({ sessionId, cwd });
   }
-  finishHeadlessAgent(id: number, taskId: string) {
-    this.finished.push(id);
-    this.finishedTasks.push(taskId);
-  }
-  resumeHeadlessAgent() {}
 }
 
 async function waitSettled(manager: TaskManager, id: string) {
@@ -202,7 +195,7 @@ describe('TaskManager', () => {
     const manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
 
     const created = await manager.create('create meow.txt\nwith the word meow', repo);
-    expect(created).toMatchObject({ status: 'running', title: 'create meow.txt', palette: 4 });
+    expect(created).toMatchObject({ status: 'running', title: 'create meow.txt' });
     const task = await waitSettled(manager, created.id);
 
     expect(task.status).toBe('done');
@@ -214,12 +207,10 @@ describe('TaskManager', () => {
     expect(task.log.map((e) => e.kind)).toEqual(['tool', 'text']);
     // The agent ran inside the worktree, which is gone now; the main checkout is untouched.
     const wt = path.join(stateDir, 'worktrees', created.id);
-    expect(host.launched[0].cwd).toBe(wt);
+    expect(host.muted[0].cwd).toBe(wt);
     expect(fs.existsSync(wt)).toBe(false);
     expect(fs.existsSync(path.join(repo, 'meow.txt'))).toBe(false);
     expect(git(repo, 'show', `task/${created.id}:meow.txt`)).toContain('with the word meow');
-    expect(host.finished).toEqual([1]);
-    expect(host.finishedTasks).toEqual([created.id]);
     // Persisted for the next server start.
     const stored = JSON.parse(fs.readFileSync(path.join(stateDir, 'tasks.json'), 'utf-8'));
     expect(stored.tasks[created.id].status).toBe('done');
@@ -229,26 +220,34 @@ describe('TaskManager', () => {
     const folder = path.join(tmp, 'plain');
     fs.mkdirSync(folder);
     const host = new FakeHost();
-    const narrated: NarratorInput[] = [];
-    const manager = new TaskManager({
-      host,
-      stateDir,
-      claudeBin: fakeBin,
-      narrate: (input) => narrated.push(input),
-    });
+    const manager = new TaskManager({ host, stateDir, claudeBin: fakeBin });
 
     const task = await waitSettled(manager, (await manager.create('hello', folder)).id);
 
     expect(task.status).toBe('done');
     expect(task.branch).toBeUndefined();
-    // The stream feeds the narrator: tool, assistant text, final result.
-    expect(narrated.map(({ ts: _ts, ...rest }) => rest)).toEqual([
-      { catId: 1, kind: 'tool', tool: 'Write', file: 'meow.txt', text: 'meow.txt' },
-      { catId: 1, kind: 'state', text: 'thinking' },
-      { catId: 1, kind: 'result', text: 'Done: meow.txt' },
-    ]);
-    expect(host.launched[0].cwd).toBe(folder);
+    expect(host.muted[0].cwd).toBe(folder);
     expect(fs.readFileSync(path.join(folder, 'meow.txt'), 'utf-8')).toBe('hello');
+  });
+
+  it('never puts a character in the office: a run is no cat and no guest', async () => {
+    const folder = path.join(tmp, 'plain');
+    fs.mkdirSync(folder);
+    const store = new AgentStateStore();
+    const broadcasts: Array<Record<string, unknown>> = [];
+    store.on('broadcast', (m) => broadcasts.push(m));
+    const runtime = new AgentRuntime(store, claudeProvider);
+    try {
+      const manager = new TaskManager({ host: runtime, stateDir, claudeBin: fakeBin });
+      const created = await manager.create('hello', folder);
+      await waitSettled(manager, created.id);
+
+      expect(store.size).toBe(0);
+      expect(broadcasts.filter((m) => /^agent/.test(String(m.type)))).toEqual([]);
+      expect(manager.get(created.id)).toMatchObject({ status: 'done', result: 'Done: meow.txt' });
+    } finally {
+      runtime.dispose();
+    }
   });
 
   it('marks a failing run as error with the stderr tail', async () => {
@@ -260,7 +259,6 @@ describe('TaskManager', () => {
     expect(task.status).toBe('error');
     expect(task.error).toContain('Exit code 3');
     expect(task.error).toContain('boom: something broke');
-    expect(host.finished).toEqual([1]);
   });
 
   it('marks a missing CLI binary as error', async () => {

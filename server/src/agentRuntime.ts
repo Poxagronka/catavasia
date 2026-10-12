@@ -310,28 +310,18 @@ export class AgentRuntime {
     this.hookEventHandler.unregisterAgent(sessionId);
   }
 
-  // ── Headless agents launched by this server (task board) ──
+  // ── Task-board runs: never a character ──
 
   /**
-   * Create the character for a headless session this server is about to start
-   * itself (`--session-id` known up front). Works for any cwd: the agent is
-   * registered directly, so no project scan or Watch All Sessions gate is
-   * involved. Its transcript is watched once the CLI creates it.
+   * A task-board run is a headless `claude -p` session this server starts
+   * itself. It is no cat and no guest: mute its transcript, so the project
+   * scan and the hook path never adopt it.
    */
-  launchHeadlessAgent(
-    sessionId: string,
-    cwd: string,
-    look?: { palette?: number; hueShift?: number },
-  ): AgentState {
-    const id = this.store.nextAgentId.current++;
-    const agent = this.headlessState(id, look);
-    this.pointAt(agent, sessionId, cwd);
-    assignPaletteIfNeeded(agent, this.store);
-    this.store.set(id, agent);
-    this.store.persist();
-    this.registerAgent(sessionId, id);
-    this.watchWhenCreated(id, agent.jsonlFile);
-    return agent;
+  ignoreHeadlessSession(sessionId: string, cwd: string): void {
+    const projectDir = this.provider.getSessionDirs?.(cwd)[0] ?? cwd;
+    const jsonlFile = path.join(projectDir, `${sessionId}.jsonl`);
+    this.knownJsonlFiles.add(jsonlFile);
+    this.dismissalTracker.permanentlyDismiss(jsonlFile);
   }
 
   // ── Resident cats of the cat office (server/src/orchestrator/catResidents.ts) ──
@@ -429,7 +419,7 @@ export class AgentRuntime {
       sessionId: '',
       terminalRef: undefined,
       // Not external: nothing to restore after a restart (the run dies with
-      // the server) and sessionEnd must not remove it -- finishHeadlessAgent does.
+      // the server) and sessionEnd must not remove it -- removeResidentAgent does.
       isExternal: false,
       projectDir: '',
       jsonlFile: '',
@@ -510,60 +500,6 @@ export class AgentRuntime {
         .map((p) => p.id) ?? [];
     const next = Math.max(0, ...ids) + 1;
     if (this.store.nextAgentId.current < next) this.store.nextAgentId.current = next;
-  }
-
-  /**
-   * The headless run ended. The character stays in the office as an idle cat
-   * (until the server restarts) and links to its task; the transcript is never
-   * re-adopted and nothing watches it any more.
-   */
-  finishHeadlessAgent(id: number, taskId: string): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-    this.dismissalTracker.dismiss(agent.jsonlFile);
-    this.unregisterAgent(agent.sessionId);
-    this.stopWatching(id);
-    this.clearActivity(agent);
-    agent.isWaiting = true;
-    agent.finishedTaskId = taskId;
-    this.store.broadcast({ type: 'agentToolsClear', id });
-    this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
-    this.store.broadcast({ type: 'agentTaskFinished', id, taskId });
-  }
-
-  /**
-   * A cat turn (one short CLI process) started or ended. Between turns the cat
-   * idles; the transcript watcher adds the tool activity during a turn.
-   */
-  setHeadlessAgentActive(id: number, active: boolean): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-    agent.isWaiting = !active;
-    this.store.broadcast({ type: 'agentStatus', id, status: active ? 'active' : 'waiting' });
-  }
-
-  /**
-   * A finished headless cat works on its session again (a follow-up message
-   * from the cat console, or the user took the wheel). Watch the transcript
-   * from where it stopped; finishHeadlessAgent ends it again.
-   */
-  resumeHeadlessAgent(id: number): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-    this.registerAgent(agent.sessionId, id);
-    agent.isWaiting = false;
-    if (fs.existsSync(agent.jsonlFile) && !this.fileWatchers.has(id)) {
-      startFileWatching(
-        id,
-        agent.jsonlFile,
-        this.store,
-        this.fileWatchers,
-        this.pollingTimers,
-        this.waitingTimers,
-        this.permissionTimers,
-      );
-    }
-    this.store.broadcast({ type: 'agentStatus', id, status: 'active' });
   }
 
   /** Stop the transcript watchers and status timers of one agent. */

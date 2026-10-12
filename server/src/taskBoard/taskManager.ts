@@ -1,9 +1,10 @@
 /**
  * Task board runtime: each task is one headless `claude -p` run with no
  * permission prompts, in its own git worktree (or directly in the folder when
- * it is not a git repo), shown in the office as a headless agent.
+ * it is not a git repo). A run is never an office character: the office
+ * holds only created cats and guests.
  *
- * Lifecycle: create -> worktree + agent + spawn -> stream-json log -> exit ->
+ * Lifecycle: create -> worktree + spawn -> stream-json log -> exit ->
  * commit + diff + worktree remove (branch kept) -> done | error.
  */
 
@@ -12,16 +13,13 @@ import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import * as path from 'path';
 
-import type { NarratorInput } from '../../../core/src/narrator.js';
-import type { TaskDetail, TaskLogEntry, TaskSummary, TaskTarget } from '../../../core/src/tasks.js';
-import { acquireSessionLock } from '../catTerminal/sessionLocks.js';
+import type { TaskDetail, TaskSummary, TaskTarget } from '../../../core/src/tasks.js';
 import {
   TASK_LOG_MAX_ENTRIES,
   TASK_STDERR_TAIL_CHARS,
   TASK_WORKTREES_DIR,
   TASKS_FILE_NAME,
 } from '../constants.js';
-import { taskLogInput } from '../narrator/narrator.js';
 import { isAuthError } from '../orchestrator/engineStatus.js';
 import { claudeProvider } from '../providers/index.js';
 import { isProcessRunning } from '../server.js';
@@ -30,32 +28,22 @@ import {
   createWorktree,
   finalizeWorktree,
   inspectRepo,
-  reopenWorktree,
   type RepoInfo,
   revParse,
 } from './gitWorktree.js';
-import { type ParsedStreamLine, parseStreamLine, type StreamResult } from './streamJson.js';
+import { parseStreamLine, type StreamResult } from './streamJson.js';
 import { type StoredTask, TaskStore } from './taskStore.js';
 
 const TITLE_MAX_CHARS = 80;
 
-/** The part of AgentRuntime a task needs: one character per run. */
+/** The part of AgentRuntime a task needs: mute the run's session, so it never becomes a guest. */
 export interface TaskAgentHost {
-  launchHeadlessAgent(
-    sessionId: string,
-    cwd: string,
-  ): { id: number; palette?: number; hueShift?: number };
-  /** The run ended: the character stays as an idle cat linked to the task. */
-  finishHeadlessAgent(id: number, taskId: string): void;
-  /** A follow-up turn or the wheel works on the session again. */
-  resumeHeadlessAgent(id: number): void;
+  ignoreHeadlessSession(sessionId: string, cwd: string): void;
 }
 
-/** What TaskManager.events emits, for the cat console (catTerminal/). */
+/** What TaskManager.events emits. */
 export interface TaskEvents {
-  /** New activity-log rows of a task. */
-  log: [taskId: string, entries: TaskLogEntry[]];
-  /** A task started or ended a turn, or the wheel was taken or released. */
+  /** A task started, changed or ended. */
   status: [taskId: string];
 }
 
@@ -88,8 +76,6 @@ export interface TaskManagerOptions {
   claudeBin?: string;
   /** Runs tasks that target the team or one cat. */
   flows?: TaskFlowRunner;
-  /** Receives the run's events as narrator input (English status lines). */
-  narrate?: (input: NarratorInput) => void;
 }
 
 interface RunningTask {
@@ -97,20 +83,13 @@ interface RunningTask {
   child: ChildProcess;
   result?: StreamResult;
   stderr: string;
-  releaseLock: () => void;
 }
 
 /** Thrown for a request the caller must fix (HTTP 400). */
 export class TaskInputError extends Error {}
 
-/** Thrown when the session is in use: a turn runs or the wheel is held (HTTP 409). */
+/** Thrown when a request clashes with the task's state (HTTP 409). */
 export class TaskBusyError extends Error {}
-
-/** Where a resumed session runs, for the wheel's PTY. */
-export interface TaskSessionHandle {
-  sessionId: string;
-  cwd: string;
-}
 
 /** Strip server-only bookkeeping. */
 function toDetail(task: StoredTask): TaskDetail {
@@ -145,8 +124,6 @@ export class TaskManager {
   private readonly running = new Map<string, RunningTask>();
   /** Live team tasks (the orchestrator owns their runs). */
   private readonly flowTasks = new Map<string, StoredTask>();
-  /** Release functions of held wheels, by task id. */
-  private readonly wheels = new Map<string, () => void>();
   readonly events = new EventEmitter<TaskEvents>();
 
   constructor(private readonly opts: TaskManagerOptions) {
@@ -265,16 +242,11 @@ export class TaskManager {
     }
 
     const sessionId = crypto.randomUUID();
-    // A fresh uuid is always free; the lock only makes the turn visible to the wheel.
-    const releaseLock = acquireSessionLock(sessionId, 'turn')!;
-    const agent = this.opts.host.launchHeadlessAgent(sessionId, agentCwd);
-    task.agentId = agent.id;
-    task.palette = agent.palette;
-    task.hueShift = agent.hueShift;
+    this.opts.host.ignoreHeadlessSession(sessionId, agentCwd);
     task.sessionId = sessionId;
     task.agentCwd = agentCwd;
     this.store.save(task);
-    this.spawnRun(task, task.prompt, false, releaseLock);
+    this.spawnRun(task, task.prompt);
     return toSummary(task);
   }
 
@@ -349,107 +321,6 @@ export class TaskManager {
     };
   }
 
-  /** The newest task whose office character is `agentId`. Only tasks this
-   *  process owns: agent ids start at 1 again after a restart. */
-  findByAgent(agentId: number): TaskDetail | undefined {
-    const tasks = Object.values(this.allTasks()).filter(
-      (t) => t.agentId === agentId && t.ownerPid === process.pid,
-    );
-    const task = tasks.sort((a, b) => b.createdAt - a.createdAt)[0];
-    return task ? toDetail(task) : undefined;
-  }
-
-  isRunning(id: string): boolean {
-    return this.running.has(id);
-  }
-
-  isWheelHeld(id: string): boolean {
-    return this.wheels.has(id);
-  }
-
-  /** Why the task's session cannot be resumed at all, or undefined when it can. */
-  resumeBlocker(id: string): string | undefined {
-    const task = this.allTasks()[id];
-    if (!task) return 'No such task';
-    if (!task.sessionId || !task.agentCwd) return 'This task was created before sessions were kept';
-    if (task.ownerPid !== process.pid && isProcessRunning(task.ownerPid)) {
-      return 'Another catavasia server owns this task';
-    }
-    return undefined;
-  }
-
-  /** Send the cat a message: one more headless turn on the same session. */
-  async followUp(id: string, text: string): Promise<void> {
-    const { stored, release } = await this.claimSession(id, 'turn');
-    const entry: TaskLogEntry = { kind: 'user', text };
-    stored.log.push(entry);
-    this.events.emit('log', id, [entry]);
-    try {
-      this.spawnRun(stored, text, true, release);
-    } catch (err) {
-      this.running.delete(id);
-      release();
-      this.fail(stored, `Could not start claude: ${errorText(err)}`);
-      this.events.emit('status', id);
-      throw err;
-    }
-  }
-
-  /** Lock the session for an interactive PTY and return where to run it. */
-  async beginWheel(id: string): Promise<TaskSessionHandle> {
-    const { stored, release } = await this.claimSession(id, 'wheel');
-    this.wheels.set(id, release);
-    this.events.emit('status', id);
-    return { sessionId: stored.sessionId!, cwd: stored.agentCwd! };
-  }
-
-  /** The PTY ended: commit what the user did and free the session. */
-  async endWheel(id: string): Promise<void> {
-    const release = this.wheels.get(id);
-    if (!release) return;
-    const task = this.allTasks()[id];
-    if (task.agentId !== undefined) this.opts.host.finishHeadlessAgent(task.agentId, id);
-    const worktreeError = await this.finalize(task);
-    if (worktreeError) task.error = worktreeError;
-    this.store.save(task);
-    this.wheels.delete(id);
-    release();
-    this.events.emit('status', id);
-  }
-
-  /** Take the session lock, check the worktree out again and wake the cat. */
-  private async claimSession(
-    id: string,
-    holder: 'turn' | 'wheel',
-  ): Promise<{ stored: StoredTask; release: () => void }> {
-    const blocker = this.resumeBlocker(id);
-    if (blocker) throw new TaskInputError(blocker);
-    const stored = this.allTasks()[id];
-    if (this.running.has(id) || this.wheels.has(id)) {
-      throw new TaskBusyError('The cat is busy with its session');
-    }
-    const release = acquireSessionLock(stored.sessionId!, holder);
-    if (!release) throw new TaskBusyError('The session is in use');
-    try {
-      if (stored.worktreePath && stored.repoRoot && stored.branch) {
-        const subdir = (await inspectRepo(stored.cwd))?.subdir;
-        await reopenWorktree(stored.repoRoot, stored.worktreePath, stored.branch, subdir);
-      }
-    } catch (err) {
-      release();
-      throw new TaskInputError(`Could not reopen the worktree: ${errorText(err)}`);
-    }
-    stored.ownerPid = process.pid;
-    if (holder === 'turn') {
-      stored.status = 'running';
-      stored.error = undefined;
-      stored.finishedAt = undefined;
-    }
-    if (stored.agentId !== undefined) this.opts.host.resumeHeadlessAgent(stored.agentId);
-    this.store.save(stored);
-    return { stored, release };
-  }
-
   /** Server shutdown: stop every run this process owns and record why. */
   dispose(): void {
     for (const run of this.running.values()) {
@@ -470,27 +341,18 @@ export class TaskManager {
     return tasks;
   }
 
-  private spawnRun(
-    task: StoredTask,
-    prompt: string,
-    resume: boolean,
-    releaseLock: () => void,
-  ): void {
+  private spawnRun(task: StoredTask, prompt: string): void {
     const cwd = task.agentCwd!;
     const launch = claudeProvider.buildLaunchCommand!(task.sessionId!, cwd, {
       bypassPermissions: true,
     });
-    // A follow-up continues the same session: `--resume <id>` in place of `--session-id <id>`.
-    const launchArgs = resume
-      ? launch.args.map((a) => (a === '--session-id' ? '--resume' : a))
-      : launch.args;
-    const args = [...launchArgs, '-p', '--output-format', 'stream-json', '--verbose'];
+    const args = [...launch.args, '-p', '--output-format', 'stream-json', '--verbose'];
     const child = spawn(this.opts.claudeBin ?? launch.command, args, {
       cwd,
       env: { ...process.env, ...launch.env },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    const run: RunningTask = { task, child, stderr: '', releaseLock };
+    const run: RunningTask = { task, child, stderr: '' };
     this.running.set(task.id, run);
     this.events.emit('status', task.id);
 
@@ -524,25 +386,13 @@ export class TaskManager {
     // "Not logged in" lines: the error row at the end says it once, with the fix.
     parsed.log = parsed.log.filter((e) => e.kind === 'tool' || !isAuthError(e.text));
     if (parsed.result) run.result = parsed.result;
-    this.narrateLine(run.task.agentId, parsed);
     const log = run.task.log;
     log.push(...parsed.log);
     if (log.length > TASK_LOG_MAX_ENTRIES) log.splice(0, log.length - TASK_LOG_MAX_ENTRIES);
-    if (parsed.log.length > 0) this.events.emit('log', run.task.id, parsed.log);
-  }
-
-  private narrateLine(catId: number | undefined, parsed: ParsedStreamLine): void {
-    const narrate = this.opts.narrate;
-    if (!narrate || catId === undefined) return;
-    const ts = Date.now();
-    for (const entry of parsed.log) narrate(taskLogInput(catId, entry, ts));
-    if (parsed.result?.isError) narrate({ catId, ts, kind: 'state', text: 'error' });
-    else if (parsed.result) narrate({ catId, ts, kind: 'result', text: parsed.result.text });
   }
 
   private async finishRun(run: RunningTask, code: number | null): Promise<void> {
     const { task, result } = run;
-    if (task.agentId !== undefined) this.opts.host.finishHeadlessAgent(task.agentId, task.id);
     task.result = result?.text;
     task.costUsd = result?.costUsd;
     task.durationMs = result?.durationMs;
@@ -563,11 +413,6 @@ export class TaskManager {
     task.finishedAt = Date.now();
     this.running.delete(task.id);
     this.store.save(task);
-    run.releaseLock();
-    // The error row is not in the log; the console shows it once, here.
-    if (task.status === 'error' && task.error) {
-      this.events.emit('log', task.id, [{ kind: 'error', text: task.error }]);
-    }
     this.events.emit('status', task.id);
     console.log(`[catavasia] Task ${task.id} ${task.status}`);
   }

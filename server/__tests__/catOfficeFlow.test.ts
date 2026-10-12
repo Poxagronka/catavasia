@@ -183,7 +183,6 @@ describe('team task (1 boss + 2 workers)', () => {
     expect(host.linked.map((l) => l.id).sort()).toEqual([1, 2, 3]);
     expect(host.linked.every((l) => l.taskId === task.id)).toBe(true);
     expect(host.removed).toEqual([]);
-    expect(task.palette).toBe(0);
 
     // The narrator hears tool calls, office messages and the final result.
     expect(narrated.some((n) => n.kind === 'tool' && n.tool === 'Write')).toBe(true);

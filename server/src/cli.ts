@@ -273,14 +273,9 @@ async function main(): Promise<void> {
     });
     runtime.showGuests.current = adapter.getSetting('pixel-agents.showGuests', false);
 
-    // Task board: each task runs as a headless agent of this runtime, or as a
-    // team task of the cat office when it targets the team or one cat.
-    const tasks = new TaskManager({
-      host: runtime,
-      stateDir,
-      flows: orchestrator,
-      narrate: (input) => narrator.push(input),
-    });
+    // Task board: a task runs as a headless session (no office character), or
+    // as a team task of the cat office when it targets the team or one cat.
+    const tasks = new TaskManager({ host: runtime, stateDir, flows: orchestrator });
 
     // CEO desk: the user's chat with the CEO, which starts team tasks as jobs.
     const ceoDesk = new CeoDesk({

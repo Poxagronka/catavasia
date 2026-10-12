@@ -3,7 +3,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { resendAgentActivity } from '../src/agentActivityResend.js';
 import { AgentRuntime } from '../src/agentRuntime.js';
 import { AgentStateStore } from '../src/agentStateStore.js';
 import { claudeProvider } from '../src/providers/hook/claude/claude.js';
@@ -78,38 +77,18 @@ describe('AgentRuntime -- D5 foreign-session gate', () => {
   });
 });
 
-describe('AgentRuntime -- headless agents launched by the server', () => {
-  it('creates a character for any cwd and keeps it as an idle cat when the run finishes', () => {
+describe('AgentRuntime -- task-board runs', () => {
+  it('creates no character and mutes the run session for the scanner and hooks', () => {
     const store = new AgentStateStore();
-    const sent: Array<Record<string, unknown>> = [];
-    store.on('broadcast', (m) => sent.push(m));
     const runtime = new AgentRuntime(store, claudeProvider);
     const cwd = path.join(os.tmpdir(), `pxl-task-${crypto.randomUUID()}`);
     try {
-      const agent = runtime.launchHeadlessAgent('task-session-1', cwd);
+      runtime.ignoreHeadlessSession('task-session-1', cwd);
 
-      expect(store.get(agent.id)).toBe(agent);
-      expect(agent.isExternal).toBe(false);
-      expect(agent.palette).toBeTypeOf('number');
-      expect(path.basename(agent.jsonlFile)).toBe('task-session-1.jsonl');
-      expect(runtime.jsonlPollTimers.has(agent.id)).toBe(true);
-
-      runtime.finishHeadlessAgent(agent.id, 'task-42');
-
-      // Stays in the pool, idle, linked to its task; nothing watches it.
-      expect(store.get(agent.id)).toBe(agent);
-      expect(agent.finishedTaskId).toBe('task-42');
-      expect(agent.isWaiting).toBe(true);
-      expect(runtime.jsonlPollTimers.has(agent.id)).toBe(false);
-      expect(runtime.dismissalTracker.isDismissed(agent.jsonlFile)).toBe(true);
-      expect(sent).toContainEqual({ type: 'agentStatus', id: agent.id, status: 'waiting' });
-      expect(sent).toContainEqual({ type: 'agentTaskFinished', id: agent.id, taskId: 'task-42' });
-
-      // A webview that connects later learns the link too.
-      const resent: Array<Record<string, unknown>> = [];
-      resendAgentActivity((m) => resent.push(m), store);
-      expect(resent).toContainEqual({ type: 'agentTaskFinished', id: agent.id, taskId: 'task-42' });
-      expect(resent).toContainEqual({ type: 'agentStatus', id: agent.id, status: 'waiting' });
+      expect(store.size).toBe(0);
+      const projectDir = claudeProvider.getSessionDirs?.(cwd)[0] ?? cwd;
+      const file = path.join(projectDir, 'task-session-1.jsonl');
+      expect(runtime.dismissalTracker.isPermanentlyDismissed(file)).toBe(true);
     } finally {
       runtime.dispose();
     }

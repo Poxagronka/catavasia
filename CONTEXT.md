@@ -23,7 +23,7 @@ An AI coding session tracked by Pixel Agents, whether spawned from the office or
 _Avoid_: bot, terminal (as a synonym), session (as a synonym)
 
 **Headless agent**:
-An agent with no terminal — a non-interactive run adopted from outside the office, for example. A full citizen: it has a seat and can be selected, but there is no terminal to focus. Agents it spawns are sub-agents or teammates like anyone else's. Optionally drawn as a Ghost.
+An agent with no terminal — a non-interactive run adopted from outside the office, for example. A task-board run is never one: tasks create no characters. A full citizen: it has a seat and can be selected, but there is no terminal to focus. Agents it spawns are sub-agents or teammates like anyone else's. Optionally drawn as a Ghost.
 
 **Character**:
 The animated pixel-art figure representing an agent in the office. An agent has a status and a session; its character has a position and an animation state.

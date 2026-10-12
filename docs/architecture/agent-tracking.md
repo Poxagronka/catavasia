@@ -6,6 +6,10 @@ JSONL transcripts at `~/.claude/projects/<project-hash>/<session-id>.jsonl`. Pro
 
 **File watching**: 500 ms polling with partial-line buffering for mid-write reads. Tool-done messages delayed 300 ms to prevent React batching from hiding brief active states.
 
+### Who is a character
+
+Office characters = created cats (resident agents, `catResidents.ts`) + guests (external sessions, hidden unless "show guests" is on) + their sub-agents and teammates. Nothing else spawns one. A task-board run is no character: `ignoreHeadlessSession` dismisses its transcript permanently, so the scanner and the hook path skip it.
+
 ### Dual-mode detection
 
 | Mode                     | Source                                                 | Detection                                                                                                                                                                                                                                                                         |

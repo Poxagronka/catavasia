@@ -38,10 +38,6 @@ export interface TaskSummary {
   status: TaskStatus;
   createdAt: number;
   finishedAt?: number;
-  /** Office agent id while the task runs. */
-  agentId?: number;
-  palette?: number;
-  hueShift?: number;
   /** `task/<id>`; absent when the folder is not a git repo. */
   branch?: string;
   error?: string;
