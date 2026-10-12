@@ -16,6 +16,8 @@ import {
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
 import { feedbackEnvironment, submitFeedback } from './feedback/githubFeedback.js';
 import { applyShowGuests } from './guests.js';
+import { handleHelpMessage } from './helpDesk/helpDesk.js';
+import { sharedHelpDesk } from './helpDesk/sharedHelpDesk.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import type { Narrator } from './narrator/narrator.js';
 import {
@@ -289,6 +291,13 @@ export function handleClientMessage(
       if (runtime) applyShowGuests(store, runtime.showGuests, msg.enabled);
       break;
     }
+
+    case 'helpChatSend':
+    case 'helpChatStop':
+    case 'helpChatReset':
+      // The chat spends the operator's Claude Code quota: the server token gates it.
+      if (ctx.privileged) handleHelpMessage(sharedHelpDesk(), msg, send);
+      break;
 
     case 'setLanguage':
       setLanguage(adapter, msg.language);

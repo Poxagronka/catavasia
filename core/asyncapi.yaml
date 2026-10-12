@@ -128,6 +128,8 @@ components:
         # Layout
         - $ref: '#/components/schemas/LayoutLoaded'
         - $ref: '#/components/schemas/ResetAllResult'
+        # Help chat
+        - $ref: '#/components/schemas/HelpChatEvent'
         # Feedback
         - $ref: '#/components/schemas/FeedbackResult'
         # Pet care
@@ -185,6 +187,9 @@ components:
         - $ref: '#/components/schemas/SetShowGuests'
         - $ref: '#/components/schemas/SetLanguage'
         - $ref: '#/components/schemas/SetOnboardingDone'
+        - $ref: '#/components/schemas/HelpChatSend'
+        - $ref: '#/components/schemas/HelpChatStop'
+        - $ref: '#/components/schemas/HelpChatReset'
         - $ref: '#/components/schemas/SetNarratorSettings'
         - $ref: '#/components/schemas/SetCatCeoSettings'
         - $ref: '#/components/schemas/GetPromptHistory'
@@ -508,6 +513,24 @@ components:
           type: integer
         maxContextTokens:
           type: integer
+
+    HelpChatEvent:
+      description: |
+        Progress of the help chat turn, sent to the client that asked. `draft`:
+        the reply so far (`text`). `reply`: the final reply. `error`: the turn
+        failed (`text` says why). `unavailable`: Claude Code is missing or logged
+        out (`text` says why).
+      type: object
+      additionalProperties: false
+      required: [type, event]
+      properties:
+        type:
+          const: helpChatEvent
+        event:
+          type: string
+          enum: [draft, reply, error, unavailable]
+        text:
+          type: string
 
     ResetAllResult:
       description: |
@@ -1957,6 +1980,43 @@ components:
           const: setOnboardingDone
         done:
           type: boolean
+
+    HelpChatSend:
+      description: |
+        Send a message to the onboarding help chat (Claude Code, read-only tools).
+        `context` tells the guide where the user is. `language` is the UI language
+        code, a hint for the first reply; the guide follows the language the user writes in.
+      type: object
+      additionalProperties: false
+      required: [type, text]
+      properties:
+        type:
+          const: helpChatSend
+        text:
+          type: string
+        context:
+          type: string
+          enum: [onboarding, settings]
+        language:
+          type: string
+
+    HelpChatStop:
+      description: Stop the running help chat turn (the chat panel closed or the user pressed Stop).
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: helpChatStop
+
+    HelpChatReset:
+      description: Stop the running turn and forget the help chat conversation.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          const: helpChatReset
 
     SetNarratorSettings:
       description: Change narrator settings (standalone). Absent fields keep their value.
