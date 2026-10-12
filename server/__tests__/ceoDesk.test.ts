@@ -542,6 +542,8 @@ describe('desk rules delegation', () => {
     expect(DESK_RULES).not.toMatch(/lookups and links yourself/i);
     expect(DESK_RULES).toMatch(/Delegate every project task/);
     expect(DESK_RULES).toMatch(/investigation, review/);
+    expect(DESK_RULES).toContain('list_team');
+    expect(DESK_RULES).toContain('Cat edits:');
     expect(DESK_RULES).toMatch(/to: "team"/);
   });
 });
