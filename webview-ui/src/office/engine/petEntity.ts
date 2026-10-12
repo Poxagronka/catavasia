@@ -6,6 +6,8 @@ import {
   PET_FOLLOW_RECALC_INTERVAL_SEC,
   PET_IDLE_FRAME_DURATION_SEC,
   PET_IDLE_SEQUENCE,
+  PET_OWNER_FOLLOW_CHANCE,
+  PET_OWNER_FOLLOW_RADIUS_TILES,
   PET_WALK_FRAME_DURATION_SEC,
   PET_WALK_SEQUENCE,
   PET_WALK_SPEED_PX_PER_SEC,
@@ -171,6 +173,7 @@ export function createPet(id: string, petType: number, col: number, row: number)
 /**
  * Tick the pet's FSM by `dt` seconds. Mutates `pet` in place.
  * `walkableTiles`/`characters`/`tileMap`/`blockedTiles` are read-only inputs.
+ * `owner`: the pet's owner cat, when it has one in the office: the pet follows it more often.
  */
 export function updatePet(
   pet: Pet,
@@ -179,6 +182,7 @@ export function updatePet(
   characters: Map<number, Character>,
   tileMap: TileTypeVal[][],
   blockedTiles: Set<string>,
+  owner?: Character,
 ): void {
   switch (pet.state) {
     case PetState.IDLE: {
@@ -187,8 +191,14 @@ export function updatePet(
       if (pet.wanderTimer > 0) break;
 
       // Roll for follow first
-      if (Math.random() < PET_FOLLOW_CHANCE) {
-        const target = findNearbyCharacter(pet, characters);
+      if (Math.random() < (owner ? PET_OWNER_FOLLOW_CHANCE : PET_FOLLOW_CHANCE)) {
+        const target =
+          owner &&
+          owner.matrixEffect !== 'despawn' &&
+          manhattanDistance(pet.tileCol, pet.tileRow, owner.tileCol, owner.tileRow) <=
+            PET_OWNER_FOLLOW_RADIUS_TILES
+            ? owner
+            : findNearbyCharacter(pet, characters);
         if (target) {
           pet.state = PetState.FOLLOW;
           pet.followTargetId = target.id;

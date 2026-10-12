@@ -6,6 +6,7 @@ import { addPet, deletePet, type PetRow, type Species } from '../../cats/petRost
 import type { PetRosterState } from '../../cats/usePetRoster.js';
 import { PET_EDITOR_ZOOM, PET_LIST_ZOOM, PET_PRESET_ZOOM } from '../../constants.js';
 import { cats } from '../../i18n/cats/en.js';
+import { pets } from '../../i18n/pets/en.js';
 import { useT } from '../../i18n/useT.js';
 import type { OfficeState } from '../../office/engine/officeState.js';
 import { isCatPet } from '../../office/sprites/petSpriteData.js';
@@ -25,14 +26,46 @@ function lookName(pet: PetRow, t: ReturnType<typeof useT<typeof cats>>): string 
   return preset ? preset.name : t('lookCustom');
 }
 
-type Profile = Pick<PetRow, 'name' | 'appearance' | 'personality'>;
+type Profile = Pick<PetRow, 'name' | 'appearance' | 'personality' | 'ownerCatId'>;
+
+/** The owner of a pet: one of the agent cats, or none (the default). */
+function OwnerField({
+  value,
+  owners,
+  onChange,
+}: {
+  value: string | undefined;
+  owners: PetRosterState['owners'];
+  onChange: (catId: string | undefined) => void;
+}) {
+  const t = useT(pets);
+  return (
+    <label className="flex flex-col gap-2 text-xs text-text-muted" title={t('ownerHint')}>
+      {t('owner')}
+      <select
+        className={`${FIELD} text-xs`}
+        value={owners.some((o) => o.catId === value) ? value : ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      >
+        <option value="">{t('ownerNone')}</option>
+        {owners.map((o) => (
+          <option key={o.catId} value={o.catId}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 function PetEditor({
   pet,
+  owners,
   onChange,
   onDelete,
 }: {
   pet: PetRow;
+  owners: PetRosterState['owners'];
   onChange: (profile: Profile) => void;
   onDelete: () => void;
 }) {
@@ -44,6 +77,7 @@ function PetEditor({
     name: pet.name,
     appearance: pet.appearance,
     personality: pet.personality,
+    ownerCatId: pet.ownerCatId,
   };
   const error = nameErrors(name)[0] ?? null;
   const preview: PreviewFn = (a, size, dir) => (
@@ -86,6 +120,11 @@ function PetEditor({
         </div>
         {error && <div className="text-xs text-status-error">{error}</div>}
       </div>
+      <OwnerField
+        value={pet.ownerCatId}
+        owners={owners}
+        onChange={(ownerCatId) => onChange({ ...saved, ownerCatId })}
+      />
       <PersonalityField
         value={pet.personality}
         onChange={(personality) => onChange({ ...saved, personality })}
@@ -107,7 +146,7 @@ function PetEditor({
 
 /** The Cats menu "Pets" tab: the pets (cats and dogs) that live in the office layout. */
 export function PetsTab({
-  roster: { rows, refresh },
+  roster: { rows, owners, refresh },
   getOfficeState,
   onCommit,
 }: {
@@ -169,6 +208,7 @@ export function PetsTab({
         <PetEditor
           key={pet.id}
           pet={pet}
+          owners={owners}
           onChange={(profile) => {
             getOfficeState().updatePetProfile(pet.id, profile);
             commit();
