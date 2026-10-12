@@ -12,6 +12,7 @@ import {
   CEO_IMAGE_TYPES,
   formatSize,
 } from '../../../core/src/ceoDesk.js';
+import { ceoText } from './ceoText.js';
 
 /** A file in the composer, ready to send. */
 export interface DraftAttachment {
@@ -55,12 +56,19 @@ export function attachError(
   incoming: Array<{ name: string; size: number; image: boolean }>,
 ): string | null {
   if (current.length + incoming.length > CEO_ATTACH_MAX_COUNT)
-    return `At most ${CEO_ATTACH_MAX_COUNT} files per message`;
+    return ceoText('attachMaxCount', { count: CEO_ATTACH_MAX_COUNT });
   const big = incoming.find((f) => f.image && f.size > CEO_IMAGE_MAX_BYTES);
   if (big)
-    return `${big.name} is ${formatSize(big.size)}: an image can be at most ${formatSize(CEO_IMAGE_MAX_BYTES)}`;
+    return ceoText('attachImageTooBig', {
+      name: big.name,
+      size: formatSize(big.size),
+      max: formatSize(CEO_IMAGE_MAX_BYTES),
+    });
   const total = [...current, ...incoming].reduce((sum, f) => sum + f.size, 0);
   if (total > CEO_ATTACH_MAX_TOTAL_BYTES)
-    return `The files are ${formatSize(total)}: at most ${formatSize(CEO_ATTACH_MAX_TOTAL_BYTES)} per message`;
+    return ceoText('attachTotalTooBig', {
+      size: formatSize(total),
+      max: formatSize(CEO_ATTACH_MAX_TOTAL_BYTES),
+    });
   return null;
 }

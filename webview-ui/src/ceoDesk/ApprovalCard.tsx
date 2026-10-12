@@ -2,7 +2,9 @@ import { useState } from 'react';
 
 import type { CeoApproval, CeoApprovalAnswer } from '../../../core/src/ceoDesk.js';
 import { Button } from '../components/ui/Button.js';
-import { deadline } from './approvalState.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
+import { deadline, splitWho, WHO_MARK } from './approvalState.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
 
 type Answer = CeoApprovalAnswer['answer'];
@@ -13,6 +15,7 @@ type Answer = CeoApprovalAnswer['answer'];
  * engine offers a rule). The server closes the card when it is answered.
  */
 export function ApprovalCard({ approval }: { approval: CeoApproval }) {
+  const t = useT(ceoDesk);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const answer = async (value: Answer) => {
@@ -36,13 +39,16 @@ export function ApprovalCard({ approval }: { approval: CeoApproval }) {
       {label}
     </Button>
   );
+  const [before, after] = splitWho(t('approvalWants', { who: WHO_MARK, action: approval.action }));
   return (
     <div
       className="self-stretch pixel-panel bg-bg-dark! border-status-permission! px-10 py-8 flex flex-col gap-6"
       data-testid="approval-card"
     >
       <div className="prose-body">
-        <span className="text-status-permission">{approval.who}</span> wants to {approval.action}
+        {before}
+        <span className="text-status-permission">{approval.who}</span>
+        {after}
       </div>
       {approval.detail && (
         <code className="prose-code text-text break-all whitespace-pre-wrap">
@@ -50,12 +56,12 @@ export function ApprovalCard({ approval }: { approval: CeoApproval }) {
         </code>
       )}
       <div className="flex gap-6 items-center flex-wrap">
-        {button('allow', 'Allow', 'accent')}
-        {approval.canAlwaysAllow && button('always', 'Always allow', 'default')}
-        {button('deny', 'Deny', 'default')}
+        {button('allow', t('allow'), 'accent')}
+        {approval.canAlwaysAllow && button('always', t('alwaysAllow'), 'default')}
+        {button('deny', t('deny'), 'default')}
       </div>
       <span className="text-2xs text-text-muted">
-        No answer by {deadline(approval.expiresAt)} counts as Deny.
+        {t('deadlineDeny', { time: deadline(approval.expiresAt) })}
       </span>
       {error && <span className="prose-body prose-small text-status-error">{error}</span>}
     </div>

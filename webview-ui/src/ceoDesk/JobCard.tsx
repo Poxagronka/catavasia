@@ -3,6 +3,8 @@ import { useState } from 'react';
 import type { JobCard as Job } from '../../../core/src/ceoDesk.js';
 import { taskAction } from '../components/taskBoard/taskApi.js';
 import { Button } from '../components/ui/Button.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { isLiveJob, jobActions, shortFolder } from './dockState.js';
 
 export interface JobCardActions {
@@ -29,13 +31,20 @@ const NODE_CLASS = {
   failed: 'text-status-error',
 } as const;
 
+const NODE_LABEL = {
+  working: 'nodeWorking',
+  reported: 'nodeReported',
+  failed: 'nodeFailed',
+} as const;
+
 function CatLink({ id, name, onOpen }: { id: string; name: string; onOpen: (id: string) => void }) {
+  const t = useT(ceoDesk);
   return (
     <button
       type="button"
       className="text-accent-bright underline cursor-pointer bg-transparent border-0 p-0"
       onClick={() => onOpen(id)}
-      title={`Open ${name}'s chat`}
+      title={t('openCatChat', { name })}
     >
       {name}
     </button>
@@ -44,6 +53,7 @@ function CatLink({ id, name, onOpen }: { id: string; name: string; onOpen: (id: 
 
 /** A job the CEO started: one card, updated in place by the server's `job` frames. */
 export function JobCard({ job, actions }: { job: Job; actions: JobCardActions }) {
+  const t = useT(ceoDesk);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const buttons = actions.canControl ? jobActions(job) : [];
@@ -60,7 +70,7 @@ export function JobCard({ job, actions }: { job: Job; actions: JobCardActions })
   };
   const team = job.target === 'team';
   const facts = [
-    `${job.turns} ${job.turns === 1 ? 'turn' : 'turns'}`,
+    t(job.turns === 1 ? 'jobTurn' : 'jobTurns', { count: job.turns }),
     ...(actions.showMoney && job.costUsd !== undefined ? [`$${job.costUsd.toFixed(2)}`] : []),
   ];
   return (
@@ -80,26 +90,28 @@ export function JobCard({ job, actions }: { job: Job; actions: JobCardActions })
         </span>
       </div>
       <div className="prose-body prose-small text-text-muted flex gap-6 min-w-0">
-        <span className="shrink-0">{team ? `${job.leadName}'s team` : job.leadName} ·</span>
+        <span className="shrink-0">
+          {team ? t('teamOf', { name: job.leadName }) : job.leadName} ·
+        </span>
         <span className="truncate" title={job.folder ?? ''}>
           {shortFolder(job.folder)}
         </span>
         <span className="shrink-0">· {facts.join(' · ')}</span>
         <span className="flex-1" />
-        <span className="shrink-0 text-[11px] opacity-60" title="Job id">
+        <span className="shrink-0 text-[11px] opacity-60" title={t('jobId')}>
           {job.jobId}
         </span>
       </div>
       {job.branch && <code className="prose-code text-text break-all">{job.branch}</code>}
       {job.nodes.length > 0 && (
-        <div className="prose-body prose-small flex flex-col gap-2 border-l-2 border-border pl-8">
+        <div className="prose-body prose-small flex flex-col gap-2 border-s-2 border-border ps-8">
           {job.nodes.map((n, i) => (
             <div key={`${n.catId}-${i}`} className="break-words">
               <CatLink id={n.fromId} name={n.fromName} onOpen={actions.onOpenCat} />
               {' → '}
               <CatLink id={n.catId} name={n.catName} onOpen={actions.onOpenCat} />
               <span className="text-text-muted">: “{n.goal}” </span>
-              <span className={NODE_CLASS[n.status]}>{n.status}</span>
+              <span className={NODE_CLASS[n.status]}>{t(NODE_LABEL[n.status])}</span>
             </div>
           ))}
         </div>
@@ -109,7 +121,7 @@ export function JobCard({ job, actions }: { job: Job; actions: JobCardActions })
       )}
       <div className="flex gap-6 items-center flex-wrap">
         <Button size="sm" onClick={() => actions.onDetails(job.jobId)}>
-          Details
+          {t('details')}
         </Button>
         {buttons.map((action) => (
           <Button
@@ -120,7 +132,7 @@ export function JobCard({ job, actions }: { job: Job; actions: JobCardActions })
             onClick={() => void run(action)}
             data-testid={`job-${action}`}
           >
-            {action === 'resume' ? 'Resume' : 'Cancel'}
+            {action === 'resume' ? t('resume') : t('cancel')}
           </Button>
         ))}
         {error && <span className="prose-body prose-small text-status-error">{error}</span>}

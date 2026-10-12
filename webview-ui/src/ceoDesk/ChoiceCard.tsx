@@ -1,5 +1,7 @@
 import type { DeskCommand } from '../../../core/src/ceoDesk.js';
 import { Button } from '../components/ui/Button.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 
 /**
  * A list of choices in a composer menu (the Claude app look): a name, an
@@ -31,7 +33,7 @@ export function Choices({
           onClick={() => onPick(o.value)}
           data-testid={`${testId}-${o.value}`}
         >
-          <span className="flex-1 flex flex-col text-left">
+          <span className="flex-1 flex flex-col text-start">
             <span className="composer-choice-label">{o.label}</span>
             {o.hint && <span className="composer-choice-hint">{o.hint}</span>}
           </span>
@@ -57,6 +59,7 @@ export function ChoiceCard({
   onPick(text: string): void;
   onClose(): void;
 }) {
+  const t = useT(ceoDesk);
   return (
     <div
       className="self-stretch pixel-panel bg-bg-dark! px-10 py-8 flex flex-col gap-8"
@@ -65,7 +68,13 @@ export function ChoiceCard({
       <div className="flex items-center gap-8">
         <span className="prose-body text-text">/{command.name}</span>
         <span className="flex-1" />
-        <Button size="icon" variant="ghost" onClick={onClose} title="Close" aria-label="Close">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onClose}
+          title={t('close')}
+          aria-label={t('close')}
+        >
           x
         </Button>
       </div>

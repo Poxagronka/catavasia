@@ -19,6 +19,7 @@ import type {
 } from '../../../core/src/catSession.js';
 import type { JobCard } from '../../../core/src/ceoDesk.js';
 import { applyFrame, type CatConsoleState, EMPTY_CONSOLE } from '../catTerminal/consoleState.js';
+import { ceoText } from './ceoText.js';
 
 export interface DockState {
   chat: CatConsoleState;
@@ -144,11 +145,17 @@ export function statusPill(chat: CatConsoleState): StatusPill {
   const queued = chat.status.queued ?? 0;
   const jobs = liveJobCount(chat.entries);
   if (chat.status.busy) {
-    return { label: queued ? `thinking · ${queued} queued` : 'thinking', tone: 'busy' };
+    const label = queued
+      ? ceoText('pillThinkingQueued', { count: queued })
+      : ceoText('pillThinking');
+    return { label, tone: 'busy' };
   }
-  if (queued) return { label: `queued ${queued}`, tone: 'busy' };
-  if (jobs) return { label: `waiting on ${jobs} ${jobs === 1 ? 'job' : 'jobs'}`, tone: 'waiting' };
-  return { label: 'idle', tone: 'idle' };
+  if (queued) return { label: ceoText('pillQueued', { count: queued }), tone: 'busy' };
+  if (jobs) {
+    const label = ceoText(jobs === 1 ? 'pillWaitingJob' : 'pillWaitingJobs', { count: jobs });
+    return { label, tone: 'waiting' };
+  }
+  return { label: ceoText('pillIdle'), tone: 'idle' };
 }
 
 /**
@@ -225,13 +232,13 @@ export function dockGeometry(viewportWidth: number): DockGeometry {
 
 /** `/Users/me/proj` -> `~/proj` (the webview does not know the home folder). */
 export function shortFolder(folder: string | null | undefined): string {
-  if (!folder) return 'Sandbox';
+  if (!folder) return ceoText('sandbox');
   return folder.replace(/^\/(Users|home)\/[^/]+/, '~');
 }
 
 /** The project's name for the bottom bar: the folder's last part, or "No project". */
 export function projectName(folder: string | null | undefined): string {
-  if (!folder) return 'No project';
+  if (!folder) return ceoText('noProject');
   return (
     folder
       .replace(/[\\/]+$/, '')
@@ -245,7 +252,7 @@ export function projectName(folder: string | null | undefined): string {
  * a full model name with its version "claude-opus-5-5" -> "Opus 5.5".
  */
 export function settingLabel(value: string): string {
-  if (value === 'xhigh') return 'Extra high';
+  if (value === 'xhigh') return ceoText('effortExtraHigh');
   const full = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(value);
   if (full) return `${settingLabel(full[1])} ${full[2]}.${full[3]}`;
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -260,14 +267,16 @@ export function percent(part: number): string {
 /** "Context: 42% used", or that it is not known yet. */
 export function contextText(context: ContextUse | undefined): string {
   return context
-    ? `Context: ${percent(context.used / context.window)} used`
-    : 'Context: shown after the first answer';
+    ? ceoText('contextPercent', { percent: percent(context.used / context.window) })
+    : ceoText('contextUnknown');
 }
 
 /** "resets at 17:00" (5-hour) or "resets Mon" (weekly). */
 export function resetText(window: LimitWindow, weekly: boolean, locale?: string): string {
   const at = new Date(window.resetsAt * 1000);
   return weekly
-    ? `resets ${at.toLocaleDateString(locale, { weekday: 'short' })}`
-    : `resets at ${at.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}`;
+    ? ceoText('resetsOn', { day: at.toLocaleDateString(locale, { weekday: 'short' }) })
+    : ceoText('resetsAt', {
+        time: at.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }),
+      });
 }

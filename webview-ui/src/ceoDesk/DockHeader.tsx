@@ -1,5 +1,7 @@
 import type { Appearance } from '../cats/catsApi.js';
 import { CatSprite } from '../components/cats/CatSprite.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { ChatHistoryMenu } from './ChatHistoryMenu.js';
 import { projectName, type StatusPill } from './dockState.js';
 
@@ -43,7 +45,14 @@ interface DockHeaderProps {
 /** The collapse chevron: points right, toward the edge the dock folds into. */
 function ChevronIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden
+      className="rtl:rotate-180"
+    >
       <path
         d="M6 3.5L10.5 8L6 12.5"
         stroke="currentColor"
@@ -61,6 +70,7 @@ function ChevronIcon() {
  * history) and the chat actions.
  */
 export function DockHeader(props: DockHeaderProps) {
+  const t = useT(ceoDesk);
   const { pill, privileged } = props;
   return (
     <div className="relative flex flex-col gap-8 px-16 py-12 border-b-2 border-border">
@@ -72,19 +82,19 @@ export function DockHeader(props: DockHeaderProps) {
         </span>
         {/* Read only: the Project button of the bottom bar picks it. */}
         <span
-          className="dock-label truncate min-w-0 ml-8"
-          title={props.folder ?? 'No project folder: the cats work in a sandbox'}
+          className="dock-label truncate min-w-0 ms-8"
+          title={props.folder ?? t('noProjectTitle')}
           data-testid="dock-project"
         >
-          Project: {projectName(props.folder)}
+          {t('projectLabel', { name: projectName(props.folder) })}
         </span>
         <span className="flex-1" />
         <button
           type="button"
           className="dock-ctl is-icon"
           onClick={props.onCollapse}
-          title="Collapse"
-          aria-label="Collapse"
+          title={t('collapse')}
+          aria-label={t('collapse')}
           data-testid="dock-collapse"
         >
           <ChevronIcon />
@@ -93,7 +103,7 @@ export function DockHeader(props: DockHeaderProps) {
       <div className="flex items-center gap-8 min-w-0 h-28">
         {privileged && <ChatHistoryMenu chat={props.chat} busy={props.busy} />}
         {props.costUsd !== undefined && (
-          <span className="dock-label shrink-0" title="What this chat has cost">
+          <span className="dock-label shrink-0" title={t('chatCost')}>
             ${props.costUsd.toFixed(2)}
           </span>
         )}
@@ -105,7 +115,7 @@ export function DockHeader(props: DockHeaderProps) {
             onClick={props.onStop}
             data-testid="dock-stop"
           >
-            Stop
+            {t('stop')}
           </button>
         )}
         {privileged && (
@@ -113,10 +123,10 @@ export function DockHeader(props: DockHeaderProps) {
             type="button"
             className="dock-ctl"
             onClick={props.onConnectors}
-            title="Tools Claude can use, like your mail or files (also /mcp)"
+            title={t('connectorsHint')}
             data-testid="dock-connectors"
           >
-            Connectors
+            {t('connectors')}
           </button>
         )}
         {privileged && (
@@ -126,7 +136,7 @@ export function DockHeader(props: DockHeaderProps) {
             onClick={props.onNewChat}
             data-testid="dock-new-chat"
           >
-            New chat
+            {t('newChat')}
           </button>
         )}
       </div>
