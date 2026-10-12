@@ -7,7 +7,7 @@
 import type { JobCard } from '../../../core/src/ceoDesk.js';
 import type { CatProfile } from '../../../core/src/messages.js';
 import type { TaskDetail, TaskSummary } from '../../../core/src/tasks.js';
-import { CEO_DESK_MAX_LIVE_JOBS, CEO_DESK_MAX_REWORKS } from '../constants.js';
+import { CEO_DESK_MAX_LIVE_JOBS, CEO_DESK_MAX_REWORKS, SELF_REPO_WAIT_MS } from '../constants.js';
 import { bossOf } from '../orchestrator/catTree.js';
 import { type McpTool, type OfficeToolResult, str } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
@@ -41,6 +41,9 @@ export const DESK_TOOLS: McpTool[] = [
         task: str('What to do, with every detail the team needs.'),
         to: str('"team" (the lead splits the work) or a cat id from list_team. Default: team.'),
         from: str("Job id to correct: the new job starts from that job's branch."),
+        project: str(
+          'Set to "catavasia" to change Catavasia itself (this office, its cats, UI, prompts, server) in its own repo instead of the work folder.',
+        ),
       },
       required: ['task'],
     },
@@ -98,6 +101,8 @@ export interface DeskToolHost {
   tasks: TaskManager;
   chatId(): string;
   folder(): string | null;
+  /** The checkout of Catavasia's own repo (cloned or updated first): where project "catavasia" runs. */
+  selfRepo(): Promise<string>;
   /** The chat's sandbox: where folderless jobs run. */
   sandbox(): string;
   /** The project folder of a job's cwd, or null for a sandbox. */
@@ -190,6 +195,21 @@ async function startJob(
   const fromId = arg(args, 'from');
   let baseRef: string | undefined;
   let folder = host.folder();
+  if (arg(args, 'project') === 'catavasia') {
+    try {
+      let timer: NodeJS.Timeout | undefined;
+      const wait = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Catavasia repo is still being fetched, retry in a minute.')),
+          SELF_REPO_WAIT_MS,
+        );
+      });
+      // The clone keeps running when the wait ends.
+      folder = await Promise.race([host.selfRepo(), wait]).finally(() => clearTimeout(timer));
+    } catch (err) {
+      return fail(`Cannot get the Catavasia repo: ${err instanceof Error ? err.message : err}`);
+    }
+  }
   if (fromId) {
     if (host.reworks() >= CEO_DESK_MAX_REWORKS) {
       return fail(
