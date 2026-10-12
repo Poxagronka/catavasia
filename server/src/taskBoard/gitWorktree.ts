@@ -16,7 +16,7 @@ const GIT_MAX_BUFFER = 64 * 1024 * 1024;
 /** Identity used only when the repo has no user.email configured. */
 const FALLBACK_IDENTITY = ['-c', 'user.name=catavasia', '-c', 'user.email=catavasia@localhost'];
 
-function git(cwd: string, args: string[]): Promise<string> {
+export function git(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile('git', ['-C', cwd, ...args], { maxBuffer: GIT_MAX_BUFFER }, (err, stdout, stderr) => {
       if (err) {

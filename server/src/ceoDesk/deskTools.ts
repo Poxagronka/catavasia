@@ -41,6 +41,9 @@ export const DESK_TOOLS: McpTool[] = [
         task: str('What to do, with every detail the team needs.'),
         to: str('"team" (the lead splits the work) or a cat id from list_team. Default: team.'),
         from: str("Job id to correct: the new job starts from that job's branch."),
+        project: str(
+          'Set to "catavasia" to change Catavasia itself (this office, its cats, UI, prompts, server) in its own repo instead of the work folder.',
+        ),
       },
       required: ['task'],
     },
@@ -98,6 +101,8 @@ export interface DeskToolHost {
   tasks: TaskManager;
   chatId(): string;
   folder(): string | null;
+  /** The checkout of Catavasia's own repo (cloned or updated first): where project "catavasia" runs. */
+  selfRepo(): Promise<string>;
   /** The chat's sandbox: where folderless jobs run. */
   sandbox(): string;
   /** The project folder of a job's cwd, or null for a sandbox. */
@@ -190,6 +195,13 @@ async function startJob(
   const fromId = arg(args, 'from');
   let baseRef: string | undefined;
   let folder = host.folder();
+  if (arg(args, 'project') === 'catavasia') {
+    try {
+      folder = await host.selfRepo();
+    } catch (err) {
+      return fail(`Cannot get the Catavasia repo: ${err instanceof Error ? err.message : err}`);
+    }
+  }
   if (fromId) {
     if (host.reworks() >= CEO_DESK_MAX_REWORKS) {
       return fail(

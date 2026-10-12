@@ -242,7 +242,7 @@ export function makeRepo(dir: string): string {
 /** A fresh office with a CEO desk; `seed` may write state files before the desk starts. */
 export async function startDeskOffice(
   script: FakeCeoAdapter['script'],
-  opts: { tmp?: string; seed?: (stateDir: string) => void } = {},
+  opts: { tmp?: string; seed?: (stateDir: string) => void; selfRepoUrl?: string } = {},
 ): Promise<DeskOffice> {
   const tmp = opts.tmp ?? fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-desk-')));
   const stateDir = path.join(tmp, 'state');
@@ -273,7 +273,13 @@ export async function startDeskOffice(
   });
   const tasks = new TaskManager({ host, stateDir, flows: office });
   const ceo = new FakeCeoAdapter(script);
-  const desk = new CeoDesk({ stateDir, office, tasks, adapter: ceo });
+  const desk = new CeoDesk({
+    stateDir,
+    office,
+    tasks,
+    adapter: ceo,
+    selfRepoUrl: opts.selfRepoUrl,
+  });
   const server = await createHttpServer({
     embedded: true,
     token: 'tok',
