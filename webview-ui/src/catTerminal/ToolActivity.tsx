@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import type { CeoAttachment } from '../../../core/src/ceoDesk.js';
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
 import { attachmentHref } from '../sessionToken.js';
 import { type ActivityEntry, activityLine, activitySummary, stepIndex } from './activityWords.js';
 import type { SubCalls } from './consoleState.js';
@@ -16,6 +18,7 @@ type OpenPicture = (images: CeoAttachment[], index: number) => void;
 
 /** Small pictures a tool returned; a click opens the lightbox on the call's pictures. */
 function Thumbs({ images, onOpen }: { images: CeoAttachment[]; onOpen: OpenPicture }) {
+  const t = useT(terminal);
   return (
     <div className="flex flex-wrap gap-6" data-testid="tool-images">
       {images.map((f, n) => (
@@ -23,7 +26,7 @@ function Thumbs({ images, onOpen }: { images: CeoAttachment[]; onOpen: OpenPictu
           key={n}
           type="button"
           onClick={() => onOpen(images, n)}
-          title="Click to enlarge"
+          title={t('clickEnlarge')}
           className="p-0 bg-transparent border-0 cursor-zoom-in"
         >
           <img
@@ -51,6 +54,7 @@ function ActivityItem({
   onOpen: OpenPicture;
   subs?: SubCalls;
 }) {
+  const t = useT(terminal);
   const { verb, target } = activityLine(entry);
   const calls = entry.at !== undefined ? subs?.get(entry.at) : undefined;
   const line = (
@@ -58,7 +62,7 @@ function ActivityItem({
       {verb}
       {target && <span className="prose-code text-text-soft break-all"> {target}</span>}
       {entry.kind === 'tool' && entry.isError && (
-        <span className="text-status-error"> (did not work)</span>
+        <span className="text-status-error"> {t('didNotWork')}</span>
       )}
     </>
   );
@@ -105,6 +109,7 @@ function ActivityItem({
  * tools returned also show under the closed line.
  */
 export function ToolRow({ tools, subs }: { tools: ActivityEntry[]; subs?: SubCalls }) {
+  useT(terminal); // re-render when the language changes: the summary words are not React state
   const [open, setOpen] = useState(false);
   const [gallery, setGallery] = useState<Gallery | null>(null);
   const openPicture = (images: CeoAttachment[], index: number) => setGallery({ images, index });
@@ -144,7 +149,7 @@ export function ToolRow({ tools, subs }: { tools: ActivityEntry[]; subs?: SubCal
           <summary className="cursor-pointer hover:text-text list-none" data-testid="tool-summary">
             {activitySummary(tools)} <span className="tool-row-chevron">&gt;</span>
           </summary>
-          <div className="flex flex-col gap-4 mt-4 pl-8 border-l-2 border-border">
+          <div className="flex flex-col gap-4 mt-4 ps-8 border-s-2 border-border">
             {tools.map((t, n) => (
               <ActivityItem key={n} entry={t} onOpen={openPicture} subs={subs} />
             ))}

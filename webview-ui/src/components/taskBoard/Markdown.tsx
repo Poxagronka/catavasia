@@ -3,6 +3,8 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
 
+import { terminal } from '../../i18n/terminal/en.js';
+import { useT } from '../../i18n/useT.js';
 import { CopyButton } from '../ui/CopyButton.js';
 
 /**
@@ -41,14 +43,15 @@ function SafeLink({ href, children }: { href?: string; children: ReactNode }) {
 
 /** A fenced code block with a Copy button in its corner. */
 function CodeBlock({ children }: { children: ReactNode }) {
+  const t = useT(terminal);
   const pre = useRef<HTMLPreElement>(null);
   return (
     <div className="markdown-code">
       <pre ref={pre}>{children}</pre>
       <CopyButton
         text={() => pre.current?.textContent ?? ''}
-        title="Copy the code"
-        label="Copy"
+        title={t('copyCode')}
+        label={t('copyLabel')}
         className="markdown-code-copy"
         testId="code-copy"
       />

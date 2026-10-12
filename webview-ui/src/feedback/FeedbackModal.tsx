@@ -19,6 +19,8 @@ import { FIELD } from '../components/cats/fields.js';
 import { Button } from '../components/ui/Button.js';
 import { Modal } from '../components/ui/Modal.js';
 import { FEEDBACK_REPLY_TIMEOUT_MS } from '../constants.js';
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
 import { transport } from '../transport/index.js';
 import { captureOffice, copyImage } from './feedbackImages.js';
 import { feedbackAttachError } from './feedbackLimits.js';
@@ -30,6 +32,7 @@ const LINK = 'text-accent-bright underline break-all';
 let nextId = 1;
 
 export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose(): void }) {
+  const t = useT(terminal);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<DraftAttachment[]>([]);
@@ -61,7 +64,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
   const addFiles = async (list: File[]) => {
     if (!list.length) return;
     // One add at a time: two at once would both check the limits against the old list.
-    if (busyRef.current) return setError('Wait until the images are ready');
+    if (busyRef.current) return setError(t('waitImages'));
     busyRef.current = true;
     setError(null);
     setBusy(true);
@@ -83,7 +86,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
   const screenshot = async () => {
     const shot = await captureOffice();
     if (shot) await addFiles([shot]);
-    else setError('Could not capture the office');
+    else setError(t('captureFailed'));
   };
 
   const remove = (id: number) => {
@@ -112,14 +115,11 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
     // The server answers a submitFeedback with one feedbackResult. Listen before the send.
     // A lost answer (socket drop, server restart) must not lock the form.
     stopListening();
-    const timer = setTimeout(
-      () => fail('No answer from the server. Check GitHub before you send again.'),
-      FEEDBACK_REPLY_TIMEOUT_MS,
-    );
+    const timer = setTimeout(() => fail(t('noAnswer')), FEEDBACK_REPLY_TIMEOUT_MS);
     const off = transport.onMessage((msg) => {
       if (msg.type !== 'feedbackResult') return;
       stopListening();
-      if (msg.status === 'error') fail(msg.error ?? 'The server refused the feedback');
+      if (msg.status === 'error') fail(msg.error ?? t('serverRefused'));
       else setPhase({ kind: 'done', result: msg });
     });
     unsubscribe.current = () => {
@@ -160,7 +160,12 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
   const result = phase.kind === 'done' ? phase.result : null;
 
   return (
-    <Modal isOpen={isOpen} onClose={close} title="Feedback" className="w-[min(560px,94vw)]">
+    <Modal
+      isOpen={isOpen}
+      onClose={close}
+      title={t('feedbackTitle')}
+      className="w-[min(560px,94vw)]"
+    >
       {/* Keep office shortcuts (R, T, Esc, Ctrl+Z...) out of the form fields. */}
       <div
         className="flex flex-col gap-8 px-10 pb-10"
@@ -170,7 +175,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
       >
         {result?.status === 'created' && (
           <p className="prose-body" data-testid="feedback-created">
-            Thank you! The issue is on GitHub:{' '}
+            {t('thanksIssue')}{' '}
             <a href={result.url} target="_blank" rel="noopener noreferrer" className={LINK}>
               {result.url}
             </a>
@@ -179,7 +184,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
         {result?.status === 'fallback' && (
           <div className="flex flex-col gap-6 prose-body" data-testid="feedback-fallback">
             <span className="text-text-muted prose-small">{result.error}</span>
-            <span>Send it from the GitHub form in your browser instead:</span>
+            <span>{t('sendFromGithub')}</span>
             <a
               href={result.url}
               target="_blank"
@@ -187,14 +192,12 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
               className={LINK}
               onClick={openFallback}
             >
-              Open the GitHub issue form
+              {t('openIssueForm')}
             </a>
             {files.length > 0 && (
               <>
                 <span className="prose-small text-text-muted">
-                  {copied
-                    ? 'An image is on the clipboard: paste it into the form (Cmd/Ctrl+V).'
-                    : 'Paste your images into the GitHub form: a link cannot carry them.'}
+                  {copied ? t('imageOnClipboard') : t('pasteImages')}
                 </span>
                 <div className="flex flex-wrap gap-4">
                   {files.map((f, i) => (
@@ -203,7 +206,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
                       size="sm"
                       onClick={() => void copyImage(f.blob).then(setCopied)}
                     >
-                      Copy image {i + 1}
+                      {t('copyImageN', { n: i + 1 })}
                     </Button>
                   ))}
                 </div>
@@ -215,7 +218,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
           <>
             <input
               className={FIELD}
-              placeholder="Title"
+              placeholder={t('titlePlaceholder')}
               value={title}
               maxLength={FEEDBACK_TITLE_MAX_CHARS}
               onChange={(e) => setTitle(e.target.value)}
@@ -224,7 +227,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
             />
             <textarea
               className={`${FIELD} text-xs h-120 resize-y`}
-              placeholder="What happened? What did you expect? Paste images with Cmd/Ctrl+V."
+              placeholder={t('descriptionPlaceholder')}
               value={description}
               maxLength={FEEDBACK_DESCRIPTION_MAX_CHARS}
               onChange={(e) => setDescription(e.target.value)}
@@ -239,14 +242,14 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
                 disabled={busy || phase.kind === 'sending'}
                 data-testid="feedback-screenshot"
               >
-                Screenshot office
+                {t('screenshotOffice')}
               </Button>
               <Button
                 size="md"
                 onClick={() => picker.current?.click()}
                 disabled={busy || phase.kind === 'sending'}
               >
-                Add images
+                {t('addImages')}
               </Button>
               <input
                 ref={picker}
@@ -260,9 +263,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
                 }}
               />
             </div>
-            <span className="prose-small text-text-muted">
-              Your catavasia version, host and OS are added to the issue.
-            </span>
+            <span className="prose-small text-text-muted">{t('versionNote')}</span>
           </>
         )}
         {error && (
@@ -273,12 +274,12 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
         <div className="flex justify-end gap-4">
           {result ? (
             <Button size="md" onClick={close}>
-              Close
+              {t('closeButton')}
             </Button>
           ) : (
             <>
               <Button size="md" variant="ghost" onClick={close}>
-                Cancel
+                {t('cancel')}
               </Button>
               <Button
                 size="md"
@@ -287,7 +288,7 @@ export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose():
                 disabled={!title.trim() || busy || phase.kind !== 'editing'}
                 data-testid="feedback-send"
               >
-                {phase.kind === 'sending' ? 'Sending...' : 'Send'}
+                {phase.kind === 'sending' ? t('sending') : t('send')}
               </Button>
             </>
           )}

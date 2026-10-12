@@ -5,6 +5,8 @@ import { catsApi } from '../cats/catsClient.js';
 import { useCats } from '../cats/useCats.js';
 import { WheelTerminal } from '../catTerminal/WheelTerminal.js';
 import { Button } from '../components/ui/Button.js';
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
 import { engineUi, useEngineUi } from './engineStore.js';
 
 /**
@@ -19,6 +21,7 @@ export function EngineLoginPanel() {
 }
 
 function LoginPanel({ engine }: { engine: Engine }) {
+  const t = useT(terminal);
   useCats(); // re-render when the probe answers
   const { checking } = useEngineUi();
   const [ended, setEnded] = useState<string | null>(null);
@@ -32,41 +35,40 @@ function LoginPanel({ engine }: { engine: Engine }) {
       data-testid="engine-login-panel"
     >
       <div className="flex items-center gap-8 px-10 py-4 border-b-2 border-border">
-        <span className="text-accent-bright text-lg truncate flex-1">Log in to {label}</span>
+        <span className="text-accent-bright text-lg truncate flex-1">
+          {t('loginTo', { label })}
+        </span>
         <span
           className={`text-xs shrink-0 ${ready ? 'text-status-success' : 'text-status-permission'}`}
         >
-          {ready ? 'logged in' : 'not logged in'}
+          {ready ? t('loggedIn') : t('notLoggedIn')}
         </span>
-        <Button variant="ghost" size="icon" onClick={engineUi.closeLogin} title="Close">
+        <Button variant="ghost" size="icon" onClick={engineUi.closeLogin} title={t('closeButton')}>
           x
         </Button>
       </div>
       <div className="flex items-center gap-8 px-10 py-4 text-xs text-text-muted">
-        <span className="flex-1">
-          Finish the login in the browser window that opens (or follow the steps below). Then press
-          Check again.
-        </span>
+        <span className="flex-1">{t('finishLogin')}</span>
         <Button
           size="sm"
           variant={checking ? 'disabled' : 'default'}
           disabled={checking}
           onClick={engineUi.checkAgain}
         >
-          {checking ? 'Checking...' : 'Check again'}
+          {checking ? t('checking') : t('checkAgain')}
         </Button>
       </div>
       {ended === null ? (
         <WheelTerminal
           catId={`login-${engine}`}
           engine={engine}
-          onEnded={(message) => setEnded(message ?? 'The login finished.')}
+          onEnded={(message) => setEnded(message ?? t('loginFinished'))}
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center gap-12 p-16 text-center">
           <span className="text-sm text-text-muted">{ended}</span>
           <Button size="md" variant="default" onClick={() => setEnded(null)}>
-            Run the login again
+            {t('runLoginAgain')}
           </Button>
         </div>
       )}
