@@ -773,26 +773,3 @@ export const CAT_PERSONALITY_TUNING: Record<
   social: { encounter: 2.5, fight: 0.3, greetRub: 1.8 },
   zoomie: { wander: 3, zoomies: 2, sleep: 0.5 },
 };
-
-export const CAT_PERSONALITY_LABELS: Record<CatPersonality, string> = {
-  scrappy: 'Scrappy',
-  playful: 'Playful',
-  pooper: 'Pooper',
-  sleepy: 'Sleepy',
-  social: 'Social',
-  zoomie: 'Zoomie',
-};
-
-export const CAT_PERSONALITY_BLURBS: Record<CatPersonality, string> = {
-  scrappy: 'Picks fights with other cats and contests every spot.',
-  playful: 'Lives in the playroom: toys, tail chases and chase games.',
-  pooper: 'Visits the litter box far more often than the others.',
-  sleepy: 'Naps on every bed, sofa and loaf spot, and walks little.',
-  social: 'Meets every cat, rubs heads, and rarely fights.',
-  zoomie: 'Always on the move, with extra zoomies and short naps.',
-};
-
-/** Picker label when a cat has no personality. */
-export const CAT_PERSONALITY_NONE_LABEL = 'None';
-/** Picker hint when a cat has no personality. */
-export const CAT_PERSONALITY_NONE_BLURB = 'The default office cat behaviour.';

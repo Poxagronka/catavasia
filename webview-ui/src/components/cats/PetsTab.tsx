@@ -5,6 +5,8 @@ import { nameErrors } from '../../cats/catsApi.js';
 import { addPet, deletePet, type PetRow, type Species } from '../../cats/petRoster.js';
 import type { PetRosterState } from '../../cats/usePetRoster.js';
 import { PET_EDITOR_ZOOM, PET_LIST_ZOOM, PET_PRESET_ZOOM } from '../../constants.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import type { OfficeState } from '../../office/engine/officeState.js';
 import { isCatPet } from '../../office/sprites/petSpriteData.js';
 import { Button } from '../ui/Button.js';
@@ -13,14 +15,14 @@ import { FIELD } from './fields.js';
 import { PersonalityField } from './PersonalityField.js';
 import { PetSprite } from './PetSprite.js';
 
-function lookName(pet: PetRow): string {
+function lookName(pet: PetRow, t: ReturnType<typeof useT<typeof cats>>): string {
   const a = pet.appearance;
   if (!isCatPet(pet.petType)) return pet.kind;
-  if (!a) return 'original';
+  if (!a) return t('lookOriginal');
   const preset = [...BREED_PRESETS, ...COAT_PRESETS].find(
     (p) => JSON.stringify(p.appearance) === JSON.stringify(a),
   );
-  return preset ? preset.name : 'custom coat';
+  return preset ? preset.name : t('lookCustom');
 }
 
 type Profile = Pick<PetRow, 'name' | 'appearance' | 'personality'>;
@@ -34,6 +36,7 @@ function PetEditor({
   onChange: (profile: Profile) => void;
   onDelete: () => void;
 }) {
+  const t = useT(cats);
   const [name, setName] = useState(pet.name);
   const [confirming, setConfirming] = useState(false);
   // Every change carries the whole profile: updatePetProfile replaces it.
@@ -58,7 +61,7 @@ function PetEditor({
           <input
             className={`${FIELD} text-lg flex-1`}
             value={name}
-            placeholder="Name"
+            placeholder={t('name')}
             spellCheck={false}
             onChange={(e) => {
               setName(e.target.value);
@@ -69,15 +72,15 @@ function PetEditor({
           {confirming ? (
             <>
               <Button size="md" className="bg-danger! border-danger" onClick={onDelete}>
-                Remove {pet.name} from the office?
+                {t('removePetConfirm', { name: pet.name })}
               </Button>
               <Button size="md" variant="ghost" onClick={() => setConfirming(false)}>
-                Keep
+                {t('keep')}
               </Button>
             </>
           ) : (
             <Button size="md" variant="ghost" onClick={() => setConfirming(true)}>
-              Delete
+              {t('delete')}
             </Button>
           )}
         </div>
@@ -113,6 +116,7 @@ export function PetsTab({
   /** Saves the layout after a change (useEditorActions.commitPets). */
   onCommit: () => void;
 }) {
+  const t = useT(cats);
   const [petId, setPetId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const pet = rows.find((p) => p.id === petId) ?? rows[0];
@@ -123,7 +127,7 @@ export function PetsTab({
   };
   const add = (species: Species) => {
     const id = addPet(getOfficeState(), species);
-    setNotice(id ? null : `No ${species} sprite is loaded, or the office has no free floor.`);
+    setNotice(id ? null : t(species === 'cat' ? 'noSpriteCat' : 'noSpriteDog'));
     if (!id) return;
     setPetId(id);
     commit();
@@ -134,19 +138,19 @@ export function PetsTab({
       <div className="flex flex-col gap-4 w-200 shrink-0">
         <div className="flex gap-4">
           <Button size="md" variant="accent" className="flex-1" onClick={() => add('cat')}>
-            + Pet cat
+            {t('addPetCat')}
           </Button>
           <Button size="md" variant="accent" className="flex-1" onClick={() => add('dog')}>
-            + Pet dog
+            {t('addPetDog')}
           </Button>
         </div>
         {notice && <div className="text-2xs text-status-error">{notice}</div>}
-        <div className="flex flex-col gap-2 overflow-y-auto max-h-[60vh] pr-2">
+        <div className="flex flex-col gap-2 overflow-y-auto max-h-[60vh] pe-2">
           {rows.map((p) => (
             <button
               key={p.id}
               onClick={() => setPetId(p.id)}
-              className={`flex gap-6 items-center text-left p-4 border-2 rounded-none cursor-pointer text-text ${
+              className={`flex gap-6 items-center text-start p-4 border-2 rounded-none cursor-pointer text-text ${
                 p.id === pet?.id
                   ? 'bg-active-bg border-accent'
                   : 'bg-btn-bg border-transparent hover:bg-btn-hover'
@@ -155,7 +159,7 @@ export function PetsTab({
               <PetSprite petType={p.petType} appearance={p.appearance} zoom={PET_LIST_ZOOM} />
               <span className="flex flex-col min-w-0">
                 <span className="text-sm truncate">{p.name}</span>
-                <span className="text-2xs text-text-muted truncate">{lookName(p)}</span>
+                <span className="text-2xs text-text-muted truncate">{lookName(p, t)}</span>
               </span>
             </button>
           ))}
@@ -176,7 +180,7 @@ export function PetsTab({
           }}
         />
       ) : (
-        <div className="text-sm text-text-muted">No pets in the office. Add one above.</div>
+        <div className="text-sm text-text-muted">{t('noPets')}</div>
       )}
     </>
   );

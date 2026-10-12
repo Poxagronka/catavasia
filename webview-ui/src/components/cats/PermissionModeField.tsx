@@ -1,10 +1,11 @@
 import type { CatEngine, PermissionMode } from '../../../../core/src/messages.js';
 import {
   DEFAULT_PERMISSION_MODE,
-  PERMISSION_MODE_LABELS,
   PERMISSION_MODES,
   permissionHint,
 } from '../../../../core/src/permissionModes.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Select } from './AgentFields.js';
 
 /**
@@ -23,13 +24,14 @@ export function PermissionModeField({
   value?: PermissionMode;
   onChange: (mode: PermissionMode) => void;
 }) {
+  const t = useT(cats);
   return (
     <div className="flex flex-col gap-2" data-testid="permission-mode">
       <Select
-        label="Permissions"
+        label={t('permissions')}
         value={value}
         options={[...PERMISSION_MODES]}
-        labels={PERMISSION_MODE_LABELS}
+        labels={Object.fromEntries(PERMISSION_MODES.map((m) => [m, t(`permission_${m}` as const)]))}
         onChange={(v) => onChange(v as PermissionMode)}
       />
       <span className="text-2xs text-text-muted" data-testid="permission-hint">

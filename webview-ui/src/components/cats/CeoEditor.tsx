@@ -4,6 +4,8 @@ import { catCeo, type CeoSettings } from '../../cats/catCeoClient.js';
 import { catsApi } from '../../cats/catsClient.js';
 import { useCats } from '../../cats/useCats.js';
 import { CAT_CEO_ID } from '../../constants.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Select } from './AgentFields.js';
 import { AppearanceEditor } from './AppearanceEditor.js';
 import { FIELD } from './fields.js';
@@ -30,6 +32,7 @@ function useBlurDraft(saved: string, save: (v: string) => void) {
  * It is not a cat of the tree: it cannot be deleted, only turned off.
  */
 export function CeoEditor({ settings }: { settings: CeoSettings }) {
+  const t = useT(cats);
   const { rejected } = useCats();
   const options = catsApi.engineOptions('claude');
   const set = (patch: Partial<CeoSettings>) => catCeo.setSettings(patch);
@@ -52,19 +55,14 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
             checked={settings.enabled}
             onChange={(e) => set({ enabled: e.target.checked })}
           />
-          Cat CEO reviews
+          {t('ceoReviews')}
         </label>
       </div>
       {error && <div className="text-xs text-status-error">{error}</div>}
-      <div className="text-xs text-text-muted">
-        Sits above the boss. After each finished team task it scores every cat and may add, replace
-        or remove Rules and Lessons items (never Role & conduct). It also tidies each cat&apos;s
-        items (merge, rewrite, remove) near the caps, every 10 reviews, weekly, or on &quot;Tidy
-        now&quot;. Turn it off to stop the reviews; it cannot be deleted while it is on.
-      </div>
+      <div className="text-xs text-text-muted">{t('ceoExplain')}</div>
       <div className="grid grid-cols-3 gap-8">
         <Select
-          label="Model"
+          label={t('model')}
           value={settings.model}
           options={
             options.models.includes(settings.model)
@@ -74,13 +72,13 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
           onChange={(model) => set({ model })}
         />
         <Select
-          label="Effort"
+          label={t('effort')}
           value={settings.effort}
           options={options.efforts}
           onChange={(effort) => set({ effort })}
         />
         <label className="flex flex-col gap-2 text-xs text-text-muted">
-          Edits per cat per day
+          {t('ceoEditsPerDay')}
           <input
             type="number"
             min={0}
@@ -106,11 +104,10 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
           checked={settings.tidyUserItems}
           onChange={(e) => set({ tidyUserItems: e.target.checked })}
         />
-        CEO may tidy my items (merge and rewrite the Rules and Lessons you wrote; it never removes
-        them, it only marks them)
+        {t('ceoTidyMine')}
       </label>
       <label className="flex flex-col gap-2 text-xs text-text-muted">
-        Role & conduct (only you edit it)
+        {t('ceoRoleConduct')}
         <textarea
           className={`${FIELD} text-xs h-80 resize-y`}
           value={role.value}
@@ -128,7 +125,7 @@ export function CeoEditor({ settings }: { settings: CeoSettings }) {
         onChange={(appearance) => set({ appearance })}
       />
       <div className="flex flex-col gap-4">
-        <span className="text-xs text-text-muted">Prompt history of the Cat CEO</span>
+        <span className="text-xs text-text-muted">{t('ceoHistory')}</span>
         <PromptHistory catId={CAT_CEO_ID} />
       </div>
     </div>

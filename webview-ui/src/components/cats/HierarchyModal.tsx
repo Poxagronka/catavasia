@@ -8,6 +8,8 @@ import { buildTree, draftReport, isInSubtree, leadHint } from '../../cats/hierar
 import { layoutOrgChart } from '../../cats/orgLayout.js';
 import { useCats } from '../../cats/useCats.js';
 import { CAT_CEO_ID, CAT_LIST_ZOOM, CAT_NAMES } from '../../constants.js';
+import { cats as catsText } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Button } from '../ui/Button.js';
 import { Modal } from '../ui/Modal.js';
 import { CatSprite } from './CatSprite.js';
@@ -57,6 +59,7 @@ export function HierarchyModal({
   /** Open the Cats menu on this cat. */
   onEditCat: (id: string) => void;
 }) {
+  const t = useT(catsText);
   const { cats, rejected } = useCats();
   const ceo = useCatCeo().settings;
   const [drag, setDrag] = useState<DragState>({ dragId: null, overId: null });
@@ -155,18 +158,20 @@ export function HierarchyModal({
   paths.sort((a, b) => Number(a.hot) - Number(b.hot));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Hierarchy" className="w-[min(1180px,96vw)]">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('hierarchyTitle')}
+      className="w-[min(1180px,96vw)]"
+    >
       {/* Keep office shortcuts (R, T, Esc, Ctrl+Z...) out of the inline fields. */}
       <div className="flex flex-col gap-8 px-10 pb-10" onKeyDown={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-8">
-          <div className="text-xs text-text-muted flex-1">
-            + adds a report, × deletes. Drag a cat onto another to re-link it. Double-click opens it
-            in Cats.
-          </div>
-          <Button size="sm" onClick={fit} title="Zoom out until the whole chart fits">
-            Fit
+          <div className="text-xs text-text-muted flex-1">{t('hierarchyHelp')}</div>
+          <Button size="sm" onClick={fit} title={t('fitTitle')}>
+            {t('fit')}
           </Button>
-          <Button size="sm" onClick={() => setScale(1)} title="Actual size">
+          <Button size="sm" onClick={() => setScale(1)} title={t('actualSize')}>
             1:1
           </Button>
         </div>
@@ -176,7 +181,7 @@ export function HierarchyModal({
         {hint && (
           // Non-blocking: the office seats the root at the lead desk, whatever the roles say.
           <div className="text-xs text-status-permission" data-testid="lead-hint">
-            Team lead is not at the top. <span className="text-text-muted">{hint}</span>
+            {t('leadNotTop')} <span className="text-text-muted">{hint}</span>
           </div>
         )}
         {ceo && (
@@ -185,7 +190,7 @@ export function HierarchyModal({
             data-testid="org-ceo"
             className="self-center flex gap-8 items-center px-10 py-2 border-2 border-status-permission bg-bg-dark text-text cursor-pointer"
             onDoubleClick={() => onEditCat(CAT_CEO_ID)}
-            title="Reviews every finished team task. Double-click opens it in Cats."
+            title={t('ceoNodeTitle')}
           >
             <CatSprite
               appearance={ceo.appearance as Appearance}
@@ -196,7 +201,7 @@ export function HierarchyModal({
             <span className="flex flex-col text-left">
               <span className="text-sm">{ceo.name}</span>
               <span className="text-2xs text-text-muted">
-                Cat CEO · {ceo.enabled ? `reviews every task · ${ceo.model}` : 'reviews off'}
+                {ceo.enabled ? t('ceoNodeOn', { model: ceo.model }) : t('ceoNodeOff')}
               </span>
             </span>
           </button>
@@ -282,7 +287,7 @@ export function HierarchyModal({
               </div>
             </div>
           ) : (
-            <div className="p-12 text-sm text-text-muted">No agent cats yet. Add them in Cats.</div>
+            <div className="p-12 text-sm text-text-muted">{t('noCatsHierarchy')}</div>
           )}
         </div>
       </div>

@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { catCeo, useCatCeo } from '../../cats/catCeoClient.js';
 import type { PromptItem } from '../../cats/catsApi.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Button } from '../ui/Button.js';
 import { FIELD } from './fields.js';
 
@@ -20,6 +22,7 @@ function ItemRow({
   item: PromptItem;
   editable: boolean;
 }) {
+  const t = useT(cats);
   const [draft, setDraft] = useState<string | null>(null);
   if (draft !== null) {
     const save = () => {
@@ -42,7 +45,7 @@ function ItemRow({
           }}
         />
         <Button size="sm" onClick={save}>
-          Save
+          {t('save')}
         </Button>
       </div>
     );
@@ -58,15 +61,15 @@ function ItemRow({
             size="sm"
             variant="ghost"
             onClick={() => setDraft(item.text)}
-            title="Edit this item"
+            title={t('editItem')}
           >
-            Edit
+            {t('edit')}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => catCeo.removeItem(catId, item.id)}
-            title={`Delete ${item.id} (one commit)`}
+            title={t('deleteItemTitle', { id: item.id })}
           >
             ×
           </Button>
@@ -77,6 +80,7 @@ function ItemRow({
 }
 
 function AddItem({ catId, section }: { catId: string; section: Section }) {
+  const t = useT(cats);
   const [text, setText] = useState('');
   const add = () => {
     if (!text.trim()) return;
@@ -89,12 +93,12 @@ function AddItem({ catId, section }: { catId: string; section: Section }) {
         className={`${FIELD} text-xs flex-1`}
         value={text}
         maxLength={ITEM_MAX_CHARS}
-        placeholder={section === 'Rules' ? 'New rule: how to behave' : 'New lesson: a fact'}
+        placeholder={section === 'Rules' ? t('newRule') : t('newLesson')}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && add()}
       />
       <Button size="sm" onClick={add} disabled={!text.trim()}>
-        Add
+        {t('add')}
       </Button>
     </div>
   );
@@ -115,6 +119,7 @@ export function PromptItemsEditor({
   lessons?: PromptItem[];
   promptError?: string;
 }) {
+  const t = useT(cats);
   const editable = useCatCeo().settings !== null;
   if (!rules && !lessons && !promptError) return null;
   const sections: Array<[Section, PromptItem[]]> = [
@@ -126,8 +131,8 @@ export function PromptItemsEditor({
       {promptError && <span className="text-status-error">{promptError}</span>}
       {sections.map(([title, items]) => (
         <div key={title} className="flex flex-col gap-2" data-section={title}>
-          <span>{title}</span>
-          {items.length === 0 && <span className="opacity-60">None yet.</span>}
+          <span>{title === 'Rules' ? t('rules') : t('lessons')}</span>
+          {items.length === 0 && <span className="opacity-60">{t('noneYet')}</span>}
           {items.map((item) => (
             <ItemRow key={item.id} catId={catId} section={title} item={item} editable={editable} />
           ))}

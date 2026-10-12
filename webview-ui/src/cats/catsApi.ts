@@ -4,6 +4,7 @@
 // server office answers (VS Code, Vite dev). See docs/catavasia/ROADMAP.md.
 
 import type { CatPersonality, EngineStatus, PermissionMode } from '../../../core/src/messages.js';
+import { catsText } from './catsText.js';
 
 export type Engine = 'claude' | 'codex';
 
@@ -121,21 +122,22 @@ export const MAX_NAME_LENGTH = 40;
 export function appearanceErrors(a: Appearance, knownBreeds: readonly string[]): string[] {
   const errors: string[] = [];
   if (a.breed !== undefined && !knownBreeds.includes(a.breed))
-    errors.push(`unknown breed "${a.breed}"`);
+    errors.push(catsText('errUnknownBreed', { breed: a.breed }));
   if (a.pattern !== undefined && !PATTERN_IDS.includes(a.pattern))
-    errors.push(`unknown pattern "${a.pattern}"`);
+    errors.push(catsText('errUnknownPattern', { pattern: a.pattern }));
   for (const [layer, value] of Object.entries(a.colors ?? {}))
-    if (value !== undefined && !HEX_RE.test(value)) errors.push(`${layer} is not #rrggbb`);
-  if (a.eyes !== undefined && !HEX_RE.test(a.eyes)) errors.push('eyes is not #rrggbb');
+    if (value !== undefined && !HEX_RE.test(value))
+      errors.push(catsText('errLayerNotHex', { layer }));
+  if (a.eyes !== undefined && !HEX_RE.test(a.eyes)) errors.push(catsText('errEyesNotHex'));
   if (a.collar !== undefined && a.collar !== 'none' && !HEX_RE.test(a.collar))
-    errors.push('collar is not #rrggbb or none');
+    errors.push(catsText('errCollarNotHex'));
   return errors;
 }
 
 export function nameErrors(name: string): string[] {
   const trimmed = name.trim();
-  if (!trimmed) return ['name is empty'];
-  if (trimmed.length > MAX_NAME_LENGTH) return [`name is longer than ${MAX_NAME_LENGTH}`];
+  if (!trimmed) return [catsText('errNameEmpty')];
+  if (trimmed.length > MAX_NAME_LENGTH) return [catsText('errNameLong', { max: MAX_NAME_LENGTH })];
   return [];
 }
 
@@ -145,12 +147,14 @@ export function validateCatProfile(
   knownBreeds: readonly string[],
 ): string[] {
   const errors = [...nameErrors(cat.name), ...appearanceErrors(cat.appearance, knownBreeds)];
-  if (!(cat.engine in ENGINE_LABELS)) errors.push(`unknown engine "${cat.engine}"`);
+  if (!(cat.engine in ENGINE_LABELS))
+    errors.push(catsText('errUnknownEngine', { engine: cat.engine }));
   if (options.unavailable) errors.push(options.unavailable);
   const fullName = options.fullModelPattern?.test(cat.model) ?? false;
   if (!options.models.includes(cat.model) && !fullName)
-    errors.push(`model "${cat.model}" is not offered`);
-  if (!options.efforts.includes(cat.effort)) errors.push(`effort "${cat.effort}" is not offered`);
-  if (cat.parentId === cat.id) errors.push('a cat cannot report to itself');
+    errors.push(catsText('errModelNotOffered', { model: cat.model }));
+  if (!options.efforts.includes(cat.effort))
+    errors.push(catsText('errEffortNotOffered', { effort: cat.effort }));
+  if (cat.parentId === cat.id) errors.push(catsText('errSelfReport'));
   return errors;
 }
