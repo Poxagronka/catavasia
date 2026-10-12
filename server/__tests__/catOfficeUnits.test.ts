@@ -10,8 +10,8 @@ import { FLOW_LOG_RETENTION_MS } from '../src/constants.js';
 import {
   CAT_BREED_IDS,
   CatStore,
-  defaultTeam,
   type EngineCatalog,
+  legacyDefaultTeam,
   validateCat,
 } from '../src/orchestrator/catProfiles.js';
 import {
@@ -225,7 +225,7 @@ describe('CatStore', () => {
 
   /** cats.json of an older build: the default team, the lead and the CEO on the given values. */
   const oldFile = (boss: [string, string], ceo: [string, string]) => {
-    const cats = defaultTeam().map((c) =>
+    const cats = legacyDefaultTeam().map((c) =>
       c.id === 'boss' ? { ...c, model: boss[0], effort: boss[1] } : c,
     );
     const catCeo = { ...CEO_DEFAULTS, model: ceo[0], effort: ceo[1] };
@@ -275,7 +275,7 @@ describe('CatStore', () => {
     delete catCeo.permissionMode;
     fs.writeFileSync(
       file(),
-      JSON.stringify({ version: 1, cats: defaultTeam(), catCeo, modelDefaults: 2 }),
+      JSON.stringify({ version: 1, cats: legacyDefaultTeam(), catCeo, modelDefaults: 2 }),
     );
     const store = new CatStore(file(), () => CATALOG, prompts());
     const saved = JSON.parse(fs.readFileSync(file(), 'utf-8'));
@@ -294,14 +294,14 @@ describe('CatStore', () => {
   });
 
   it('gives default cats their personality once; a later "None" sticks', () => {
-    expect(defaultTeam().map((c) => [c.id, c.personality])).toEqual([
+    expect(legacyDefaultTeam().map((c) => [c.id, c.personality])).toEqual([
       ['boss', 'scrappy'],
       ['murka', 'sleepy'],
       ['pushok', 'playful'],
       ['ryzhik', 'pooper'],
     ]);
     // cats.json of a build before personalities: no field, no `personalities` flag.
-    const cats = defaultTeam().map(({ personality: _p, ...c }) => c);
+    const cats = legacyDefaultTeam().map(({ personality: _p, ...c }) => c);
     const mine = { ...cats[1], id: 'mine', name: 'Mine', isDefault: false };
     fs.writeFileSync(
       file(),

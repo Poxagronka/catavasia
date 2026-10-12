@@ -10,7 +10,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { ClientMessage, ServerMessage } from '../../core/src/messages.js';
 import type { CatProfile } from '../src/cats/catsApi.js';
-import { createLocalCatsAdapter, localSeed, STORAGE_KEY } from '../src/cats/localCatsAdapter.js';
+import {
+  createLocalCatsAdapter,
+  legacyLocalSeed,
+  localSeed,
+  STORAGE_KEY,
+} from '../src/cats/localCatsAdapter.js';
 import { createServerCatsAdapter, MIGRATED_KEY } from '../src/cats/serverCatsAdapter.js';
 
 const cat = (id: string, parentId: string | null, extra: Partial<CatProfile> = {}): CatProfile => ({
@@ -173,11 +178,11 @@ describe('server cats adapter', () => {
     const b = setup({ store: memoryStore({ [STORAGE_KEY]: edited }) });
     b.load([cat('boss', null)]);
     const c = setup({
-      store: memoryStore({ [STORAGE_KEY]: JSON.stringify(localSeed()) }),
+      store: memoryStore({ [STORAGE_KEY]: JSON.stringify(legacyLocalSeed()) }),
     });
     c.load(defaults());
     // The seed of an older build (lead effort high) is untouched too.
-    const oldSeed = localSeed().cats.map((x) =>
+    const oldSeed = legacyLocalSeed().cats.map((x) =>
       x.parentId === null ? { ...x, effort: 'high' } : x,
     );
     const d = setup({ store: memoryStore({ [STORAGE_KEY]: JSON.stringify({ cats: oldSeed }) }) });

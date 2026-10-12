@@ -83,8 +83,9 @@ webview-ui/                          React 19 + Canvas UI (depends only on core/
       useExtensionMessages.ts        Message handler — translates ServerMessage into OfficeState mutations
       useEditorActions.ts            Editor state + callbacks
       useEditorKeyboard.ts           Keyboard shortcuts (R, T, Esc, Ctrl+Z/Y)
-      introTourState.ts              Intro tour wire-state machine (pure reducer, Node-runner tested)
+      introTourState.ts              Hooks consent ask wire-state machine (pure reducer, Node-runner tested)
       useIntroTour.ts                Wires the reducer to React + transport (snapshot, verdict, choices)
+    onboarding/                      First-run onboarding: Onboarding.tsx (shell), onboardingFlow.ts (step reducer), CatBuilder, TemplatePicker, ConsentStep, HelpChat, onboardingStore
     office/
       types.ts                       OfficeLayout, Character, etc. + re-exports constants
       toolUtils.ts                   STATUS_TO_TOOL mapping, extractToolName (DOM-free; defaultZoom lives in useEditorActions)

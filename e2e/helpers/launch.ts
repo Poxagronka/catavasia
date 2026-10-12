@@ -96,9 +96,10 @@ export async function launchVSCode(
   // dialog pops up inside the webview on open, gating hook installation and
   // overlaying the office UI no test expects to be covered. The consent specs
   // opt out via opts.seedConfig — they are the only ones that want the dialog.
+  // onboardingDone is part of the baseline too: the first-run onboarding would cover the office.
   const seedConfig = opts.seedConfig ?? {
-    vscode: { alwaysShowLabels: true },
-    standalone: { alwaysShowLabels: true },
+    vscode: { alwaysShowLabels: true, onboardingDone: true },
+    standalone: { alwaysShowLabels: true, onboardingDone: true },
     hooksConsent: { claude: 'granted' },
   };
   fs.writeFileSync(path.join(paDir, 'config.json'), JSON.stringify(seedConfig, null, 2));

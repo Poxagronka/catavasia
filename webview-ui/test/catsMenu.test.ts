@@ -174,12 +174,15 @@ describe('local adapter', () => {
     };
   };
 
-  it('seeds a boss, persists saves and notifies subscribers', () => {
+  it('starts empty, persists saves and notifies subscribers', () => {
     const store = memoryStore();
     const api = createLocalCatsAdapter(store);
-    expect(findBoss(api.getSnapshot().cats)).toBeDefined();
+    expect(api.getSnapshot().cats).toEqual([]);
     let calls = 0;
     api.subscribe(() => calls++);
+    api.saveCat({ ...cat('boss', null), name: 'Chief' });
+    expect(findBoss(api.getSnapshot().cats)?.name).toBe('Chief');
+    calls = 0;
     api.saveCat({ ...cat('new', 'boss'), name: 'Newbie' });
     expect(calls).toBe(1);
     const reloaded = createLocalCatsAdapter(store);
@@ -189,6 +192,8 @@ describe('local adapter', () => {
 
   it('throws on invalid input and leaves the state unchanged', () => {
     const api = createLocalCatsAdapter(memoryStore());
+    api.saveCat(cat('boss', null));
+    api.saveCat(cat('dev', 'boss'));
     const before = api.getSnapshot();
     expect(() => api.saveCat({ ...cat('x', 'boss'), name: '' })).toThrow();
     expect(() => api.setParent('boss', 'dev')).toThrow(HierarchyError);
