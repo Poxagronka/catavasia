@@ -124,7 +124,6 @@ export const TASK_PROMPT_MAX_CHARS = 20_000;
 export const TASK_DIFF_MAX_BYTES = 200_000;
 export const TASK_LOG_MAX_ENTRIES = 500;
 export const TASK_LOG_TEXT_MAX_CHARS = 300;
-export const TASK_STDERR_TAIL_CHARS = 2000;
 
 // ── Cat office (orchestrator) ───────────────────────────────
 /** ~/.pixel-agents/<name>: cat profiles and hierarchy. */
@@ -246,8 +245,6 @@ export const CEO_MENTION_QUERY_MAX = 200;
 export const CEO_MENTION_CACHE_MS = 5_000;
 /** stdout limit of `git ls-files` for the `@` menu (a big repo lists many files). */
 export const CEO_MENTION_GIT_MAX_BUFFER = 64 * 1024 * 1024;
-/** After a restart, this many newest finished one-cat board tasks get their idle cat back. */
-export const TASK_RESTORE_MAX_CATS = 6;
 /** Self-update: how long the old server stays up after spawning the new one,
  *  so the open tab reads the `restarting` phase. */
 export const UPDATE_RESTART_GRACE_MS = 1500;

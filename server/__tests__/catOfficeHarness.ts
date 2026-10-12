@@ -119,7 +119,6 @@ export class FakeCatHost implements CatAgentHost {
   activity: Array<{ id: number; activity: ToolActivity }> = [];
   linked: Array<{ id: number; taskId: string }> = [];
   removed: number[] = [];
-  restored: Array<{ sessionId: string; taskId: string }> = [];
   spawnResidentAgent(look?: { palette?: number }) {
     const id = this.spawned.length + 1;
     this.spawned.push({ id, palette: look?.palette });
@@ -139,16 +138,6 @@ export class FakeCatHost implements CatAgentHost {
   }
   removeResidentAgent(id: number) {
     this.removed.push(id);
-  }
-  // Task board host (plain runs).
-  launchHeadlessAgent() {
-    return { id: 99 };
-  }
-  finishHeadlessAgent() {}
-  resumeHeadlessAgent() {}
-  restoreFinishedAgent(sessionId: string, _cwd: string, taskId: string) {
-    this.restored.push({ sessionId, taskId });
-    return { id: 98 };
   }
 }
 

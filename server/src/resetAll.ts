@@ -2,7 +2,7 @@
  * Settings "Reset everything" (resetAllToDefault): back up the user's state,
  * then put back the default layout, a fresh pet-care state and, with a cat
  * office, the first-run state: no cats and the onboarding on again
- * (resetOnboardingState). Shared by the standalone server and VS Code.
+ * (resetOnboardingState). Finished tasks leave tasks.json. Shared by the standalone server and VS Code.
  */
 
 import * as fs from 'fs';
@@ -22,6 +22,7 @@ import { writeLayoutToFile } from './layoutPersistence.js';
 import { resetOnboardingState } from './onboardingState.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { clearPetCareState } from './petCarePersistence.js';
+import { TaskStore } from './taskBoard/taskStore.js';
 
 /** The resetAllResult message without its type (core/asyncapi.yaml). */
 export interface ResetAllOutcome {
@@ -71,6 +72,7 @@ export function resetAll(
     writeLayoutToFile(defaultLayout);
     clearPetCareState();
     resetOnboardingState();
+    new TaskStore(path.join(os.homedir(), LAYOUT_FILE_DIR, TASKS_FILE_NAME)).removeFinished();
   } catch (err) {
     return { error: `Reset failed part-way: ${String(err)} (backup: ${backupDir})` };
   }

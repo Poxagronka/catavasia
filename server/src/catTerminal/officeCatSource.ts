@@ -14,7 +14,7 @@
  * The webview opens the desk dock for the CEO character. Its agent id shows
  * the review and tidy log, and a message there points to the desk chat.
  *
- * Any other cat id falls through to the task-board source.
+ * Any other id is no cat of the office: no session (404).
  */
 
 import type {
@@ -31,18 +31,17 @@ import {
   CatSessionError,
   type CatSessionSnapshot,
   type CatSessionSource,
-  TaskBoardCatSource,
   type WheelSession,
 } from './catSessionSource.js';
 import { acquireSessionLock, sessionLockHolder } from './sessionLocks.js';
 
+const NO_SESSION = 'No session for this cat';
 const NO_LIVE_SESSION = 'The wheel needs a live task session: give the cat a task first';
 const CEO_NO_WHEEL = 'The Cat CEO has no terminal session: talk to it in the chat';
 const NO_FOLDER = 'Ask the CEO in the chat to give this cat work';
 const CEO_USE_DESK = 'Talk to the CEO in the CEO chat on the right';
 
 export class OfficeCatSource implements CatSessionSource {
-  private readonly board: TaskBoardCatSource;
   /** Release functions of held wheels, by cat id (profile id). */
   private readonly wheels = new Map<string, () => void>();
 
@@ -50,14 +49,12 @@ export class OfficeCatSource implements CatSessionSource {
     private readonly office: Orchestrator,
     private readonly tasks: TaskManager,
     private readonly desk?: CeoDesk,
-  ) {
-    this.board = new TaskBoardCatSource(tasks);
-  }
+  ) {}
 
   snapshot(agentId: string): CatSessionSnapshot | undefined {
     if (this.isDesk(agentId)) return this.desk!.snapshot();
     const cat = this.catOf(agentId);
-    if (!cat) return this.board.snapshot(agentId);
+    if (!cat) return undefined;
     const profile = this.office.cats.get(cat);
     return {
       title:
@@ -74,7 +71,7 @@ export class OfficeCatSource implements CatSessionSource {
   subscribe(agentId: string, listener: (frame: CatSessionFrame) => void): () => void {
     if (this.isDesk(agentId)) return this.desk!.subscribe(listener);
     const cat = this.catOf(agentId);
-    if (!cat) return this.board.subscribe(agentId, listener);
+    if (!cat) return () => {};
     const { events } = this.office.consoles;
     const onEntries = (id: string, entries: CatSessionEntry[]) => {
       if (id === cat) listener({ type: 'entries', entries });
@@ -94,7 +91,7 @@ export class OfficeCatSource implements CatSessionSource {
       return;
     }
     const cat = this.catOf(agentId);
-    if (!cat) return this.board.send(agentId, text);
+    if (!cat) throw new CatSessionError(404, NO_SESSION);
     if (cat === CAT_CEO_ID) throw new CatSessionError(400, CEO_USE_DESK);
     if (this.wheels.has(cat)) throw new CatSessionError(409, 'You hold the wheel of this cat');
     if (this.office.sendUserMessage(cat, text)) return;
@@ -115,7 +112,7 @@ export class OfficeCatSource implements CatSessionSource {
   async beginWheel(agentId: string): Promise<WheelSession> {
     if (this.isDesk(agentId)) throw new CatSessionError(400, CEO_NO_WHEEL);
     const cat = this.catOf(agentId);
-    if (!cat) return this.board.beginWheel(agentId);
+    if (!cat) throw new CatSessionError(404, NO_SESSION);
     if (cat === CAT_CEO_ID) throw new CatSessionError(400, CEO_NO_WHEEL);
     if (this.office.hasPendingTurn(cat) || this.wheels.has(cat)) {
       throw new CatSessionError(409, 'The cat is busy with its session');
@@ -141,7 +138,7 @@ export class OfficeCatSource implements CatSessionSource {
 
   async endWheel(agentId: string): Promise<void> {
     const cat = this.catOf(agentId);
-    if (!cat) return this.board.endWheel(agentId);
+    if (!cat) return;
     this.wheels.get(cat)?.();
     this.wheels.delete(cat);
     this.office.consoles.statusChanged();

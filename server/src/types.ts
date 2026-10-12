@@ -46,11 +46,6 @@ export interface AgentState {
   /** Tool name from the most recent PreToolUse, used to correlate a later SubagentStart
    *  event with the parent tool that launched it. */
   currentHookToolName?: string;
-  /** True if the CURRENT PreToolUse tool call is a teammate spawn (per the provider's
-   *  `team.isTeammateSpawnCall`). Authoritative source for teammate vs basic-subagent
-   *  routing in SubagentStart. Set in PreToolUse, NOT cleared in PostToolUse (survives
-   *  the PostToolUse-before-SubagentStart race); overwritten on the next PreToolUse. */
-  currentHookIsTeammateSpawn?: boolean;
 
   // -- Context window usage (server/src/contextUsage.ts) --
   /** Tokens in the agent's context as of its newest turn; 0 until one is seen.
@@ -71,19 +66,11 @@ export interface AgentState {
    *  result re-latching (implicit-team generations on resume) only applies to
    *  tag-less leads. Transient — not persisted. */
   teamNameFromTags?: boolean;
-  isTeamLead?: boolean;
+  /** Shadow store only (server/src/subagentWatch.ts): the lead whose spawn this
+   *  watched transcript belongs to. Never set on a main-store agent. */
   leadAgentId?: number;
-  /** True when lead spawns teammates via tmux (run_in_background Agent calls) */
-  teamUsesTmux?: boolean;
-  /** For a promoted anonymous background agent (teams OFF): the lead's Agent
-   *  tool_use id that spawned it. Links this character to the lead's
-   *  backgroundAgentToolIds entry so the queue-operation completion removes it. */
+  /** Shadow store only: the lead's spawn tool_use id of this watched transcript. */
   spawnToolUseId?: string;
-  /** Tool ids of spawn calls whose input carried a `name` — teammates-to-be.
-   *  Every agentToolStart (re-)broadcast for these carries isTeammateSpawn so
-   *  the webview never creates a Subtask ghost for them. Transient, lazily
-   *  created, never persisted. */
-  teammateSpawnToolIds?: Set<string>;
 
   // -- Avatar customization --
   /** Preferred character palette (0-12). If undefined, auto-assigned for diversity. */
@@ -107,9 +94,8 @@ export interface PersistedAgent {
   // -- Agent Teams --
   teamName?: string;
   agentName?: string;
-  isTeamLead?: boolean;
+  /** Legacy: entries written by older builds that persisted teammates. Skipped on restore. */
   leadAgentId?: number;
-  teamUsesTmux?: boolean;
   /** Live background-spawn tool ids on a lead. Persisted so the spawns'
    *  transcripts are re-adopted after a reload; the spawned children
    *  themselves are derived state and never persisted. */

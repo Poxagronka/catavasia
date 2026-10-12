@@ -330,14 +330,12 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
   hooks.getAgentSeats = () => {
     const os = officeStateRef.current;
     if (!os) return [];
-    return Array.from(os.characters.values())
-      .filter((ch) => !ch.isSubagent)
-      .map((ch) => ({
-        id: ch.id,
-        seatId: ch.seatId,
-        areaLabel: ch.seatId ? os.seatZone(ch.seatId) : null,
-        folderName: ch.folderName,
-      }));
+    return Array.from(os.characters.values()).map((ch) => ({
+      id: ch.id,
+      seatId: ch.seatId,
+      areaLabel: ch.seatId ? os.seatZone(ch.seatId) : null,
+      folderName: ch.folderName,
+    }));
   };
 
   hooks.getSeats = () => {
@@ -360,7 +358,6 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
     preferredSeatId,
     skipSpawnEffect,
     folderName,
-    nearAgentId,
   ) {
     origAddAgent.call(
       this,
@@ -370,7 +367,6 @@ export function installTestHooks(officeStateRef: { current: OfficeState | null }
       preferredSeatId,
       skipSpawnEffect,
       folderName,
-      nearAgentId,
     );
     const ch = this.characters.get(id);
     hooks.addAgentLog?.push({

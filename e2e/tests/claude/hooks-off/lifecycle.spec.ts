@@ -4,12 +4,6 @@ import {
   spawnInternalAgentAndWaitForInvocation,
 } from '../../../helpers/internal-agent';
 import {
-  INLINE_TEAMMATE_ALIAS,
-  INLINE_TEAMMATE_ROLE,
-  uniqueTeamName,
-  withInlineTeammateSession,
-} from '../../../helpers/lifecycle';
-import {
   arrangeNextClaudeInvocation,
   claudeScenario,
   mockClaudeInitRecord,
@@ -18,26 +12,18 @@ import {
 import {
   closeAgent,
   expectNoOverlay,
-  expectNoOverlayWithTexts,
   expectOverlayCount,
   expectOverlayVisible,
   expectOverlayVisibleForAgent,
-  expectOverlayVisibleWithTexts,
   expectSingleAgentOverlay,
   readAgentOverlayIds,
   readAgentOverlayTexts,
 } from '../../../helpers/office';
 import {
-  buildAssistantToolUseBatchRecord,
   buildAssistantToolUseRecord,
   buildClearCommandRecord,
-  buildTeamConfig,
-  buildTeamMetadataRecord,
   buildTurnDurationRecord,
-  buildUserToolResultBatchRecord,
   buildUserToolResultRecord,
-  seedTeamConfig,
-  requireSubagentCharacters,
 } from '../../../helpers/team';
 import {
   getPixelAgentsFrame,
@@ -45,8 +31,6 @@ import {
   runCommand,
   setSettings,
 } from '../../../helpers/webview';
-
-const PARALLEL_PARENT_TOOL_ID = 'toolu-b5-parent';
 
 function otherOverlayId(ids: number[], knownId: number): number {
   const otherId = ids.find((id) => id !== knownId);
@@ -408,138 +392,6 @@ test.describe('Hooks OFF / lifecycle', () => {
     narrator.check('fresh character with a NEW id — the resume did not resurrect the old one');
   });
 
-  test('three parallel Task subagents in one turn render distinct sub-characters via polling @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
-
-    narrator.step('hooks OFF — three parallel Task subagents detected by JSONL polling alone');
-    await setSettings(frame, {
-      hooksEnabled: false,
-    });
-
-    narrator.step(
-      'arranging one batch record with three Task tool_uses, then results + turn_duration',
-    );
-    await arrangeNextClaudeInvocation(
-      tmpHome,
-      claudeScenario('three parallel Task subagents in one turn hooks off')
-        .at(2_500)
-        .appendJsonl(
-          buildAssistantToolUseBatchRecord([
-            {
-              toolId: `${PARALLEL_PARENT_TOOL_ID}-1`,
-              toolName: 'Task',
-              input: { description: 'Parallel task 1' },
-            },
-            {
-              toolId: `${PARALLEL_PARENT_TOOL_ID}-2`,
-              toolName: 'Task',
-              input: { description: 'Parallel task 2' },
-            },
-            {
-              toolId: `${PARALLEL_PARENT_TOOL_ID}-3`,
-              toolName: 'Task',
-              input: { description: 'Parallel task 3' },
-            },
-          ]),
-        )
-        .at(9_000)
-        .appendJsonl(
-          buildUserToolResultBatchRecord([
-            { toolUseId: `${PARALLEL_PARENT_TOOL_ID}-1` },
-            { toolUseId: `${PARALLEL_PARENT_TOOL_ID}-2` },
-            { toolUseId: `${PARALLEL_PARENT_TOOL_ID}-3` },
-          ]),
-        )
-        .at(10_200)
-        .appendJsonl(buildTurnDurationRecord())
-        .holdOpenFor(13_000)
-        .build(),
-    );
-
-    await spawnInternalAgentAndWait(frame, tmpHome, mockLogFile);
-    await openPixelAgentsPanel(window);
-    const panelFrame = await getPixelAgentsFrame(window);
-
-    narrator.step('waiting for all three Subtask sub-characters to appear');
-    await expectOverlayVisible(panelFrame, 'Subtask: Parallel task 3');
-    await expectOverlayVisible(panelFrame, 'Parallel task 1');
-    await expectOverlayVisible(panelFrame, 'Parallel task 2');
-    await expectOverlayVisible(panelFrame, 'Parallel task 3');
-    await expectOverlayCount(panelFrame, 4, 10_000);
-    expect(await readAgentOverlayIds(panelFrame)).toHaveLength(4);
-    narrator.check('all three parallel tasks render — count 4 (lead + 3 subtasks)');
-
-    narrator.step('after the tool_results + turn_duration, the subtasks should collapse');
-    await expectOverlayCount(panelFrame, 1, 16_000);
-    narrator.check('back to a single character — count 1');
-  });
-
-  test('inline teammate removed from team config disappears within one second via polling @area:lifecycle', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
-    const teamName = uniqueTeamName('teammate-removal-hooks-off');
-    narrator.step('seeding a team config: lead + one inline teammate');
-    const configPath = seedTeamConfig(tmpHome, teamName, ['lead', INLINE_TEAMMATE_ROLE]);
-
-    narrator.step('hooks OFF — teammate lifecycle driven by JSONL metadata + 1s config polling');
-    await setSettings(frame, {
-      hooksEnabled: false,
-    });
-
-    narrator.step(
-      'arranging: teammate joins and searches the web, then config is rewritten to lead-only at t+8s',
-    );
-    await arrangeNextClaudeInvocation(
-      tmpHome,
-      withInlineTeammateSession(claudeScenario('inline teammate removed from config hooks off'))
-        .at(500)
-        .appendJsonl(buildTeamMetadataRecord(teamName))
-        .at(1_500)
-        .appendJsonl(buildTeamMetadataRecord(teamName, INLINE_TEAMMATE_ROLE), {
-          session: INLINE_TEAMMATE_ALIAS,
-        })
-        .at(2_500)
-        .appendJsonl(
-          buildAssistantToolUseRecord('toolu-b6-teammate-search', 'WebSearch', {
-            query: 'pixel agents lifecycle regressions',
-          }),
-          { session: INLINE_TEAMMATE_ALIAS },
-        )
-        .at(8_000)
-        .writeJson(configPath, buildTeamConfig(['lead']))
-        .holdOpenFor(14_000)
-        .build(),
-    );
-
-    await spawnInternalAgentAndWait(frame, tmpHome, mockLogFile);
-    await openPixelAgentsPanel(window);
-    const panelFrame = await getPixelAgentsFrame(window);
-
-    narrator.step('waiting for the teammate to be discovered from the team metadata');
-    await expectOverlayVisibleWithTexts(panelFrame, [INLINE_TEAMMATE_ROLE], 10_000);
-    await expectOverlayVisible(panelFrame, 'Searching the web');
-    await expectOverlayCount(panelFrame, 2, 10_000);
-    narrator.check('teammate present and "Searching the web" — count 2');
-
-    narrator.step('config now lead-only — the 1s poll should drop the teammate');
-    await expectOverlayCount(panelFrame, 1, 12_000);
-    await expectNoOverlayWithTexts(panelFrame, [INLINE_TEAMMATE_ROLE], 2_000);
-    narrator.check('teammate gone within a second — back to count 1');
-
-    // Stability check (heuristic mode): after the 1s team-config polling
-    // removes the teammate, ensure it stays removed under continued polling.
-    narrator.step('holding through an 8s stability window — the teammate must stay gone');
-    await panelFrame.waitForTimeout(8_000);
-    await expectOverlayCount(panelFrame, 1);
-    await expectNoOverlayWithTexts(panelFrame, [INLINE_TEAMMATE_ROLE], 2_000);
-    narrator.check('still count 1 after 8s — teammate did not flicker back');
-  });
-
   test('rapid /clear then new tool within 500ms lands on the reassigned agent via polling @area:lifecycle', async ({
     pixelAgents,
   }) => {
@@ -865,90 +717,5 @@ test.describe('Hooks OFF / lifecycle', () => {
     expect(playedKinds).not.toContain('permission');
     expect(playedKinds).not.toContain('done');
     narrator.check('count still 0 and no "permission"/"done" sound recorded — timer was cancelled');
-  });
-
-  // Sub-agent permission bubble fires when a sub-agent runs a non-exempt
-  // tool with no follow-up data for ~5s. The heuristic permission timer is
-  // active for sub-agents in hooks-OFF mode (same path as parent agents).
-  //
-  // Trigger sequence:
-  // 1. Parent agent does Task tool_use -> sub-character appears.
-  // 2. A progress record arrives with a sub-agent tool_use for a non-exempt
-  //    tool (Bash). transcriptParser registers the sub-tool and starts the
-  //    permission timer.
-  // 3. ~5s with no further sub-agent data -> permission bubble appears on
-  //    both parent and sub-character (per CLAUDE.md "Sub-agent permission
-  //    detection" note).
-  test('sub-agent permission bubble fires on stalled non-exempt sub-tool via heuristic timer @area:cross-cutting', async ({
-    pixelAgents,
-  }) => {
-    requireSubagentCharacters();
-    const { frame, window, tmpHome, mockLogFile, narrator } = pixelAgents;
-
-    narrator.step('hooks OFF — sub-agent permission handled by the heuristic timer');
-    await setSettings(frame, {
-      hooksEnabled: false,
-    });
-
-    const parentToolId = 'toolu-c14-task';
-    const subToolId = 'toolu-c14-bash-sub';
-
-    narrator.step('arranging: a Task, then a sub-agent Bash that stalls with no further data');
-    await arrangeNextClaudeInvocation(
-      tmpHome,
-      claudeScenario('sub-agent permission bubble hooks off')
-        .at(2_000)
-        .appendJsonl(
-          buildAssistantToolUseRecord(parentToolId, 'Task', {
-            description: 'permission subtask',
-          }),
-        )
-        .at(3_000)
-        .appendJsonl({
-          type: 'progress',
-          parentToolUseID: parentToolId,
-          data: {
-            type: 'agent_progress',
-            message: {
-              type: 'assistant',
-              message: {
-                content: [
-                  {
-                    type: 'tool_use',
-                    id: subToolId,
-                    name: 'Bash',
-                    input: { command: 'npm test' },
-                  },
-                ],
-              },
-            },
-          },
-        })
-        // Hold open WAY past the 5s heuristic permission timer so the bubble
-        // has time to appear before mock-claude exits and the terminal closes.
-        .holdOpenFor(15_000)
-        .build(),
-    );
-
-    const spawned = await spawnInternalAgentAndWait(frame, tmpHome, mockLogFile);
-    expect(spawned.sessionId).toBeTruthy();
-    await openPixelAgentsPanel(window);
-    const panelFrame = await getPixelAgentsFrame(window);
-
-    // Sub-character appears once the Task tool_use is parsed.
-    narrator.step('waiting for the Subtask sub-character to appear');
-    await expectOverlayCount(panelFrame, 2, 12_000);
-    await expectOverlayVisible(panelFrame, 'Subtask: permission subtask');
-    narrator.check('"Subtask: permission subtask" on screen — count 2');
-
-    // The "Subtask: permission subtask" overlay above already resolves the
-    // moment the Task tool_use is parsed (scenario t=2s), but the heuristic
-    // permission timer only starts when the sub-tool tool_use lands in the
-    // progress record (scenario t=3s). The timer is PERMISSION_TIMER_DELAY_MS
-    // (7s), and broadcast-to-DOM takes another ~300ms (transport + React
-    // render). So this wait must cover: 1s scenario gap + 7s timer + slop.
-    narrator.step('waiting out the 7s permission timer for the stalled sub-tool (~8–10s)');
-    await expectOverlayVisible(panelFrame, 'Needs approval', 10_000);
-    narrator.check('"Needs approval" bubble fired on the stalled sub-tool');
   });
 });

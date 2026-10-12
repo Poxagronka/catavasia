@@ -85,7 +85,7 @@ async function startOffice(): Promise<void> {
     orchestrator: office,
   });
   office.setServerUrl(`http://127.0.0.1:${server.port}`);
-  tasks = new TaskManager({ host, stateDir, flows: office });
+  tasks = new TaskManager({ stateDir, flows: office });
 }
 
 async function settled(id: string) {
@@ -183,7 +183,6 @@ describe('team task (1 boss + 2 workers)', () => {
     expect(host.linked.map((l) => l.id).sort()).toEqual([1, 2, 3]);
     expect(host.linked.every((l) => l.taskId === task.id)).toBe(true);
     expect(host.removed).toEqual([]);
-    expect(task.palette).toBe(0);
 
     // The narrator hears tool calls, office messages and the final result.
     expect(narrated.some((n) => n.kind === 'tool' && n.tool === 'Write')).toBe(true);
@@ -346,7 +345,7 @@ describe('persistence', () => {
         tasks: { dead: { ...stale, ownerPid: 2 ** 22, log: [], flow } },
       }),
     );
-    const restarted = new TaskManager({ host, stateDir, flows: office });
+    const restarted = new TaskManager({ stateDir, flows: office });
     expect(restarted.get('dead')?.flow?.state).toBe('interrupted');
   });
 });

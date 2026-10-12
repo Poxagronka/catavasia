@@ -40,14 +40,6 @@ export type AgentEvent =
       runInBackground?: boolean;
     }
   | { kind: 'subagentEnd'; parentToolId: string; toolId: string }
-  | {
-      kind: 'subagentTurnEnd';
-      parentToolId: string;
-      /** 'idle' = subagent is idle and ready for more work; 'completed' = subagent
-       *  reported its task done. Some providers emit only one; both route to the
-       *  same handler but with different downstream cleanup. */
-      reason: 'idle' | 'completed';
-    }
   | { kind: 'progress'; toolId: string; data: unknown }
   | { kind: 'permissionRequest' }
   | {

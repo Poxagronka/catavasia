@@ -65,7 +65,7 @@ async function startOffice(mode: string): Promise<void> {
     orchestrator: office,
   });
   office.setServerUrl(`http://127.0.0.1:${server.port}`);
-  tasks = new TaskManager({ host, stateDir, flows: office });
+  tasks = new TaskManager({ stateDir, flows: office });
   await office.checkEngines();
 }
 
@@ -99,13 +99,6 @@ describe('engine preflight', () => {
     expect(detail.error).toContain('`claude auth login`');
     expect(detail.target).toBe('team');
     expect(readFakeLog(fakeLog)).toEqual([]);
-  });
-
-  it('fails a plain run at once too', async () => {
-    await startOffice('loggedout');
-    const summary = await tasks.create('hello', tmp);
-    expect(summary.status).toBe('error');
-    expect(tasks.get(summary.id)!.error).toContain('Claude Code is not logged in');
   });
 
   it('tells every client the engine status', async () => {

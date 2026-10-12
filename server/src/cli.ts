@@ -273,16 +273,9 @@ async function main(): Promise<void> {
     });
     runtime.showGuests.current = adapter.getSetting('pixel-agents.showGuests', false);
 
-    // Task board: each task runs as a headless agent of this runtime, or as a
-    // team task of the cat office when it targets the team or one cat.
-    const tasks = new TaskManager({
-      host: runtime,
-      stateDir,
-      flows: orchestrator,
-      narrate: (input) => narrator.push(input),
-    });
-    // Finished one-cat runs keep their idle cat across restarts.
-    tasks.restoreFinishedCats();
+    // Task board: a task runs as a headless session (no office character), or
+    // as a team task of the cat office when it targets the team or one cat.
+    const tasks = new TaskManager({ stateDir, flows: orchestrator });
 
     // CEO desk: the user's chat with the CEO, which starts team tasks as jobs.
     const ceoDesk = new CeoDesk({
@@ -444,9 +437,10 @@ async function main(): Promise<void> {
       if (!consent && (await claudeProvider.areHooksInstalled())) {
         // Our hooks are already installed and already firing — a pre-consent
         // version put them there. Grant and continue with NO prompt: the
-        // install below is the 14 -> 12 migration, and it only ever REDUCES
-        // scope (it drops UserPromptSubmit and TaskCreated, the two events that
-        // forwarded prompt text and were consumed by nothing). Asking would buy
+        // install below is the 14 -> 10 migration, and it only ever REDUCES
+        // scope (it drops UserPromptSubmit, TaskCreated, TeammateIdle and
+        // TaskCompleted: events that forwarded prompt or task text and were
+        // consumed by nothing). Asking would buy
         // this user no protection they do not already have, so they are not
         // asked. A fresh install still is, in full — in the browser UI, when a
         // tokened client connects (clientMessageHandler's webviewReady).

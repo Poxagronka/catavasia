@@ -66,7 +66,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'Braucht Freigabe',
   toolWaitingInput: 'Wartet auf Eingabe',
   toolIdle: 'Untätig',
-  toolSubtask: 'Teilaufgabe',
   toolChat: 'Chat',
   toolContextUsed: '{pct} % Kontext genutzt ({used}k von {max}k Tokens)',
   projectPickingText: 'Ein Ordnerfenster ist offen. Es kann hinter diesem Browserfenster liegen.',

@@ -105,7 +105,7 @@ beforeEach(async () => {
     orchestrator: office,
   });
   office.setServerUrl(`http://127.0.0.1:${server.port}`);
-  tasks = new TaskManager({ host, stateDir, flows: office });
+  tasks = new TaskManager({ stateDir, flows: office });
 });
 
 afterEach(async () => {

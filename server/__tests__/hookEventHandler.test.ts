@@ -103,7 +103,7 @@ describe('HookEventHandler', () => {
     expect(permissionTimers.has(1)).toBe(false);
   });
 
-  it('PermissionRequest notifies sub-agents', () => {
+  it('PermissionRequest bubbles on the parent only, with no sub-agent message', () => {
     const agent = createTestAgent({ id: 1 });
     agent.activeSubagentToolNames.set('tool-parent', new Map([['sub-1', 'Read']]));
     agents.set(1, agent);
@@ -114,9 +114,10 @@ describe('HookEventHandler', () => {
       session_id: 'sess-1',
     });
 
-    const subMsg = mockWebview.messages.find((m) => m.type === 'subagentToolPermission');
-    expect(subMsg).toBeTruthy();
-    expect(subMsg?.parentToolId).toBe('tool-parent');
+    expect(mockWebview.messages.some((m) => m.type === 'agentToolPermission' && m.id === 1)).toBe(
+      true,
+    );
+    expect(mockWebview.messages.some((m) => m.type === 'subagentToolPermission')).toBe(false);
   });
 
   // ── Notification ────────────────────────────────────────────
@@ -763,97 +764,34 @@ describe('HookEventHandler', () => {
     expect(onSessionResume).not.toHaveBeenCalled();
   });
 
-  // ── Basic subagent regression (Agent Teams feature OFF) ─────────────
-  // These tests pin down the behavior that must NOT change for basic subagents.
-  // Basic subagents use Agent or Task tool WITHOUT run_in_background=true.
-
-  // PreToolUse(Agent) sets currentHookIsTeammateSpawn iff run_in_background === true.
+  // ── Sub-agents and teammates are never characters ─────────────────────
+  // SubagentStart only adds a row for the sub-agent to the parent's tool; it
+  // never creates an agent, whatever the spawn flags and team of the parent.
   describe.each([
-    { label: 'run_in_background=true', toolInput: { run_in_background: true }, expected: true },
-    { label: 'run_in_background=false', toolInput: { run_in_background: false }, expected: false },
-  ])('PreToolUse(Agent, $label)', ({ toolInput, expected }) => {
-    it(`sets currentHookIsTeammateSpawn=${expected}`, () => {
-      const agent = createTestAgent({ id: 1 });
+    { label: 'teamed parent, background spawn', teamName: 'research', seedActiveTool: true },
+    { label: 'plain parent, real tool id known', teamName: undefined, seedActiveTool: true },
+    { label: 'plain parent, no real tool id yet', teamName: undefined, seedActiveTool: false },
+  ])('SubagentStart: $label', ({ teamName, seedActiveTool }) => {
+    it('adds no agent and only an overlay row when the parent tool is known', () => {
+      const agent = createTestAgent({ id: 1, ...(teamName ? { teamName } : {}) });
+      if (seedActiveTool) agent.activeToolNames.set('toolu_real', 'Agent');
       agents.set(1, agent);
       handler.registerAgent('sess-1', 1);
-
-      handler.handleEvent('claude', {
-        hook_event_name: 'PreToolUse',
-        session_id: 'sess-1',
-        tool_name: 'Agent',
-        tool_input: { description: 'Code review', ...toolInput },
-      });
-
-      expect(agent.currentHookIsTeammateSpawn).toBe(expected);
-    });
-  });
-
-  // SubagentStart routes to teammate discovery ONLY when both conditions hold:
-  // currentHookIsTeammateSpawn === true AND agent.teamName is set (JSONL-confirmed lead).
-  // Basic subagents (no spawn flag) or the external-session false-positive case
-  // (spawn flag set but no teamName) fall through to the basic subagent path.
-  describe.each([
-    {
-      label: 'teammate (spawn flag + teamName)',
-      spawn: true,
-      teamName: 'research',
-      seedActiveTool: false,
-      expectTeammateDetected: true,
-    },
-    {
-      label: 'false-positive guard (spawn flag, no teamName)',
-      spawn: true,
-      teamName: undefined,
-      seedActiveTool: true,
-      expectTeammateDetected: false,
-    },
-    {
-      label: 'basic subagent from hook before JSONL (no activeToolNames parent)',
-      spawn: false,
-      teamName: undefined,
-      seedActiveTool: false,
-      expectTeammateDetected: false,
-    },
-  ])('SubagentStart: $label', ({ spawn, teamName, seedActiveTool, expectTeammateDetected }) => {
-    it(`onTeammateDetected called=${expectTeammateDetected}`, () => {
-      const agent = createTestAgent({
-        id: 1,
-        currentHookIsTeammateSpawn: spawn,
-        ...(teamName ? { teamName } : {}),
-      });
-      if (seedActiveTool) {
-        agent.activeToolNames.set('toolu_real', 'Agent');
-      } else if (!spawn) {
-        agent.currentHookToolId = 'hook-XXX';
-        agent.currentHookToolName = 'Agent';
-      }
-      agents.set(1, agent);
-      handler.registerAgent('sess-1', 1);
-
-      const onTeammateDetected = vi.fn();
-      handler.setLifecycleCallbacks({ onTeammateDetected });
 
       handler.handleEvent('claude', {
         hook_event_name: 'SubagentStart',
         session_id: 'sess-1',
-        agent_type: expectTeammateDetected ? 'web-researcher' : 'general-purpose',
+        agent_type: 'general-purpose',
       });
 
-      if (expectTeammateDetected) {
-        expect(onTeammateDetected).toHaveBeenCalledWith(1, 'sess-1', 'web-researcher');
-        // Teammate path skips subagentToolStart (no ghost sub-agent character).
-        expect(mockWebview.messages.find((m) => m.type === 'subagentToolStart')).toBeUndefined();
+      expect(agents.size).toBe(1);
+      expect(mockWebview.messages.find((m) => m.type === 'agentCreated')).toBeUndefined();
+      const msg = mockWebview.messages.find((m) => m.type === 'subagentToolStart');
+      if (seedActiveTool) {
+        expect(msg?.parentToolId).toBe('toolu_real');
       } else {
-        expect(onTeammateDetected).not.toHaveBeenCalled();
-        const msg = mockWebview.messages.find((m) => m.type === 'subagentToolStart');
-        if (seedActiveTool) {
-          // Basic path with real tool id available.
-          expect(msg).toBeTruthy();
-          expect(msg?.parentToolId).toBe('toolu_real');
-        } else {
-          // No real tool id yet -- JSONL will create the sub-agent character.
-          expect(msg).toBeUndefined();
-        }
+        // No real tool id yet -- JSONL adds the row later.
+        expect(msg).toBeUndefined();
       }
     });
   });

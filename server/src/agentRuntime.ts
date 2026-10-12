@@ -12,7 +12,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { DEFAULT_MAX_CONTEXT_TOKENS, JSONL_POLL_INTERVAL_MS } from './constants.js';
@@ -24,13 +23,10 @@ import {
   readNewLines,
   reassignAgentToFile,
   scanForBackgroundAgentFiles,
-  scanForTeammateFiles,
   setAgentRemovalCallback,
   setDismissalTracker,
   setHookProvider as setFileWatcherHookProvider,
   setSubagentWatch,
-  setTeammateRegisterCallback,
-  setTeammateRemovalCallback,
   setTeamProvider,
   startExternalSessionScanning,
   startFileWatching,
@@ -40,7 +36,7 @@ import type { HookEvent } from './hookEventHandler.js';
 import { HookEventHandler } from './hookEventHandler.js';
 import type { ToolActivity } from './orchestrator/engineAdapter.js';
 import { assignPaletteIfNeeded } from './paletteAssigner.js';
-import { PathSet, pathsMatch } from './pathKey.js';
+import { PathSet } from './pathKey.js';
 import { SessionRouter } from './sessionRouter.js';
 import { SubagentWatch } from './subagentWatch.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from './timerManager.js';
@@ -48,7 +44,6 @@ import {
   setBackgroundAgentCompletedCallback,
   setBackgroundAgentDetectedCallback,
   setHookProvider,
-  setTeamSwitchCallback,
 } from './transcriptParser.js';
 import type { AgentState } from './types.js';
 
@@ -56,8 +51,6 @@ import type { AgentState } from './types.js';
 export interface RuntimeLifecycleCallbacks {
   /** Called after an agent is removed. Adapters use this to dismiss JSONL files, etc. */
   onAgentRemoved?: (agentId: number, agent: AgentState) => void;
-  /** Called when a teammate is removed. */
-  onTeammateRemoved?: (teammateId: number, agent: AgentState, source: string) => void;
 }
 
 export class AgentRuntime {
@@ -105,49 +98,14 @@ export class AgentRuntime {
       setTeamProvider(provider.team);
     }
     setAgentRemovalCallback((id) => this.removeAgent(id));
-    setTeammateRemovalCallback((id) => this.removeTeammate(id, 'team-config'));
-    // New-style teammates run their own sessions; registering routes their hook
-    // events (PreToolUse, Stop, SessionEnd) directly to the teammate agent.
-    setTeammateRegisterCallback((sessionId, agentId) => this.registerAgent(sessionId, agentId));
-    // Background spawns (teams OFF): classify by sidecar name on spawn (named
-    // -> teammate character, unnamed -> shadow-watched sub-agent), remove when
-    // the completion queue-operation lands on the lead.
+    // Background spawns: watch their transcripts in the shadow store on spawn,
+    // stop when the completion queue-operation lands on the lead.
     setBackgroundAgentDetectedCallback((leadId) => {
-      scanForBackgroundAgentFiles(
-        leadId,
-        this.store,
-        this.store.nextAgentId,
-        this.fileWatchers,
-        this.pollingTimers,
-        this.waitingTimers,
-        this.permissionTimers,
-        () => this.store.persist(),
-        undefined,
-      );
+      scanForBackgroundAgentFiles(leadId, this.store);
     });
     setBackgroundAgentCompletedCallback((leadId, toolUseId) => {
-      for (const [id, agent] of this.store) {
-        if (agent.leadAgentId === leadId && agent.spawnToolUseId === toolUseId) {
-          this.removeTeammate(id, 'background-complete');
-          break;
-        }
-      }
-      // Unnamed spawns live in the shadow store; the webview sub-character is
-      // cleared by the lead-side queue-op subagentClear, not by this call.
       this.subagentWatch.removeBySpawn(leadId, toolUseId);
     });
-    // A resumed lead that spawns again belongs to a freshly minted implicit
-    // team; its previous team's teammates are defunct. Promoted anonymous
-    // background agents (leadAgentId but no teamName) are left untouched.
-    setTeamSwitchCallback((leadId, previousTeamName) => {
-      const stale = [...this.store].filter(
-        ([, a]) => a.leadAgentId === leadId && a.teamName === previousTeamName,
-      );
-      for (const [id] of stale) {
-        this.removeTeammate(id, 'team-switch');
-      }
-    });
-
     this.hookEventHandler = new HookEventHandler(
       store,
       this.waitingTimers,
@@ -161,42 +119,16 @@ export class AgentRuntime {
     this.hookEventHandler.setLifecycleCallbacks({
       onExternalSessionDetected: (sessionId, transcriptPath, cwd) => {
         const projectDir = transcriptPath ? path.dirname(transcriptPath) : cwd;
-        // Teammate session of a tracked lead? Attach it as a teammate character
-        // instead of adopting a generic external agent -- and regardless of the
-        // Watch All Sessions setting: tracking the lead is the opt-in for its
-        // team. (Newer harnesses run every spawned agent as an independent
-        // top-level session that fires its own hooks.)
+        // Teammate session of a tracked lead? It is no guest: the lead's overlay
+        // shows its work. This holds regardless of the Watch All Sessions
+        // setting. (Newer harnesses run every spawned agent as an independent
+        // top-level session that fires its own hooks.) An orphan team session
+        // falls through to normal external adoption.
         if (transcriptPath) {
           const teamMeta = provider.team?.getTeamMetadataForSession(transcriptPath);
           if (teamMeta?.teamName && teamMeta.agentName) {
-            for (const [leadId, lead] of this.store) {
-              if (lead.teamName !== teamMeta.teamName || lead.leadAgentId !== undefined) continue;
-              // The lead's character stands for its whole team.
-              if (!SUBAGENT_CHARACTERS_ENABLED) return;
-              console.log(
-                `[catavasia] Hook: session ${sessionId.slice(0, 8)}... is teammate "${teamMeta.agentName}" of Agent ${leadId}, attaching`,
-              );
-              scanForTeammateFiles(
-                lead.projectDir,
-                lead.sessionId,
-                leadId,
-                this.store.nextAgentId,
-                this.store,
-                this.fileWatchers,
-                this.pollingTimers,
-                this.waitingTimers,
-                this.permissionTimers,
-                () => this.store.persist(),
-                undefined,
-              );
-              break;
-            }
-            // Done only if discovery actually adopted this transcript. Old-style
-            // tmux teammates (non-UUID transcript names outside discovery's scan)
-            // fall through to normal external adoption and self-identify from
-            // their record tags.
-            for (const a of this.store.values()) {
-              if (pathsMatch(a.jsonlFile, transcriptPath)) return;
+            for (const lead of this.store.values()) {
+              if (lead.teamName === teamMeta.teamName && !lead.agentName) return;
             }
           }
         }
@@ -248,37 +180,12 @@ export class AgentRuntime {
         this.dismissalTracker.clearSeededMtime(transcriptPath);
         this.knownJsonlFiles.delete(transcriptPath);
       },
-      onTeammateDetected: (parentAgentId, sessionId, _agentType) => {
-        const parentAgent = this.store.get(parentAgentId);
-        if (!parentAgent) return;
-        scanForTeammateFiles(
-          parentAgent.projectDir,
-          sessionId,
-          parentAgentId,
-          this.store.nextAgentId,
-          this.store,
-          this.fileWatchers,
-          this.pollingTimers,
-          this.waitingTimers,
-          this.permissionTimers,
-          () => this.store.persist(),
-          // Don't register inline teammates: they share the lead's sessionId
-          // and registering them would overwrite the lead in the session router.
-          undefined,
-        );
-      },
-      onTeammateRemoved: (teammateAgentId) => {
-        this.removeTeammate(teammateAgentId, 'hooks');
-      },
       onSessionEnd: (agentId) => {
         const agent = this.store.get(agentId);
         if (!agent) return;
         this.dismissalTracker.clearSeededMtime(agent.jsonlFile);
         this.dismissalTracker.dismiss(agent.jsonlFile);
-        // Covers real team leads AND leads of background teammates (which
-        // have children but no teamName). No-op when childless.
-        this.removeTeammates(agentId);
-        // Unnamed background spawns die with their lead's session too.
+        // Background spawns die with their lead's session too.
         this.subagentWatch.removeByLead(agentId);
         if (agent.isExternal) {
           this.unregisterAgent(agent.sessionId);
@@ -308,57 +215,6 @@ export class AgentRuntime {
   /** Unregister an agent from the hook event handler. */
   unregisterAgent(sessionId: string): void {
     this.hookEventHandler.unregisterAgent(sessionId);
-  }
-
-  // ── Headless agents launched by this server (task board) ──
-
-  /**
-   * Create the character for a headless session this server is about to start
-   * itself (`--session-id` known up front). Works for any cwd: the agent is
-   * registered directly, so no project scan or Watch All Sessions gate is
-   * involved. Its transcript is watched once the CLI creates it.
-   */
-  launchHeadlessAgent(
-    sessionId: string,
-    cwd: string,
-    look?: { palette?: number; hueShift?: number },
-  ): AgentState {
-    const id = this.store.nextAgentId.current++;
-    const agent = this.headlessState(id, look);
-    this.pointAt(agent, sessionId, cwd);
-    assignPaletteIfNeeded(agent, this.store);
-    this.store.set(id, agent);
-    this.store.persist();
-    this.registerAgent(sessionId, id);
-    this.watchWhenCreated(id, agent.jsonlFile);
-    return agent;
-  }
-
-  /**
-   * A task-board cat of a finished run, restored after a server restart: an
-   * idle character that still opens its task. Nothing watches its transcript.
-   */
-  restoreFinishedAgent(
-    sessionId: string,
-    cwd: string,
-    taskId: string,
-    look?: { palette?: number; hueShift?: number },
-  ): AgentState {
-    this.reserveRestoredIds();
-    const id = this.store.nextAgentId.current++;
-    const agent = this.headlessState(id, look);
-    this.pointAt(agent, sessionId, cwd);
-    // A follow-up resumes the session: watch only what it appends.
-    try {
-      agent.fileOffset = fs.statSync(agent.jsonlFile).size;
-    } catch {
-      agent.fileOffset = 0;
-    }
-    assignPaletteIfNeeded(agent, this.store);
-    // No persist: it runs before the first connect restores the external agents.
-    this.store.set(id, agent);
-    this.finishHeadlessAgent(id, taskId);
-    return agent;
   }
 
   // ── Resident cats of the cat office (server/src/orchestrator/catResidents.ts) ──
@@ -456,7 +312,7 @@ export class AgentRuntime {
       sessionId: '',
       terminalRef: undefined,
       // Not external: nothing to restore after a restart (the run dies with
-      // the server) and sessionEnd must not remove it -- finishHeadlessAgent does.
+      // the server) and sessionEnd must not remove it -- removeResidentAgent does.
       isExternal: false,
       projectDir: '',
       jsonlFile: '',
@@ -539,60 +395,6 @@ export class AgentRuntime {
     if (this.store.nextAgentId.current < next) this.store.nextAgentId.current = next;
   }
 
-  /**
-   * The headless run ended. The character stays in the office as an idle cat
-   * (until the server restarts) and links to its task; the transcript is never
-   * re-adopted and nothing watches it any more.
-   */
-  finishHeadlessAgent(id: number, taskId: string): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-    this.dismissalTracker.dismiss(agent.jsonlFile);
-    this.unregisterAgent(agent.sessionId);
-    this.stopWatching(id);
-    this.clearActivity(agent);
-    agent.isWaiting = true;
-    agent.finishedTaskId = taskId;
-    this.store.broadcast({ type: 'agentToolsClear', id });
-    this.store.broadcast({ type: 'agentStatus', id, status: 'waiting' });
-    this.store.broadcast({ type: 'agentTaskFinished', id, taskId });
-  }
-
-  /**
-   * A cat turn (one short CLI process) started or ended. Between turns the cat
-   * idles; the transcript watcher adds the tool activity during a turn.
-   */
-  setHeadlessAgentActive(id: number, active: boolean): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-    agent.isWaiting = !active;
-    this.store.broadcast({ type: 'agentStatus', id, status: active ? 'active' : 'waiting' });
-  }
-
-  /**
-   * A finished headless cat works on its session again (a follow-up message
-   * from the cat console, or the user took the wheel). Watch the transcript
-   * from where it stopped; finishHeadlessAgent ends it again.
-   */
-  resumeHeadlessAgent(id: number): void {
-    const agent = this.store.get(id);
-    if (!agent) return;
-    this.registerAgent(agent.sessionId, id);
-    agent.isWaiting = false;
-    if (fs.existsSync(agent.jsonlFile) && !this.fileWatchers.has(id)) {
-      startFileWatching(
-        id,
-        agent.jsonlFile,
-        this.store,
-        this.fileWatchers,
-        this.pollingTimers,
-        this.waitingTimers,
-        this.permissionTimers,
-      );
-    }
-    this.store.broadcast({ type: 'agentStatus', id, status: 'active' });
-  }
-
   /** Stop the transcript watchers and status timers of one agent. */
   private stopWatching(id: number): void {
     // Stop JSONL poll timer
@@ -633,66 +435,6 @@ export class AgentRuntime {
     this.store.persist();
   }
 
-  /** Remove a single teammate agent. */
-  removeTeammate(teammateId: number, source: string): void {
-    const agent = this.store.get(teammateId);
-    if (!agent) return;
-    console.log(`[catavasia] Removing teammate ${teammateId} (source: ${source})`);
-    this.dismissalTracker.dismiss(agent.jsonlFile);
-    // Background teammates (spawnToolUseId set) share the LEAD's session id;
-    // unregistering it would knock the lead itself out of the session router.
-    if (!agent.spawnToolUseId) {
-      this.unregisterAgent(agent.sessionId);
-    }
-    this.lifecycleCallbacks.onTeammateRemoved?.(teammateId, agent, source);
-    this.removeAgent(teammateId);
-    if (agent.leadAgentId !== undefined) {
-      this.demoteLeadIfTeamEmpty(agent.leadAgentId);
-    }
-  }
-
-  /** Drop the LEAD badge when the last teammate leaves. teamName is kept: it
-   *  still routes discovery of late-arriving teammates of the same generation
-   *  (and linkTeammates / the derived-team path re-badge on the next spawn). */
-  private demoteLeadIfTeamEmpty(leadId: number): void {
-    const lead = this.store.get(leadId);
-    if (!lead || !lead.isTeamLead) return;
-    for (const a of this.store.values()) {
-      if (a.leadAgentId === leadId) return;
-    }
-    lead.isTeamLead = undefined;
-    this.store.broadcast({
-      type: 'agentTeamInfo',
-      id: leadId,
-      teamName: lead.teamName,
-      agentName: lead.agentName,
-      isTeamLead: undefined,
-      leadAgentId: lead.leadAgentId,
-    });
-    this.store.persist();
-  }
-
-  /** Remove all teammates of a lead agent. */
-  removeTeammates(leadId: number): void {
-    const teammates: number[] = [];
-    for (const [id, agent] of this.store) {
-      if (agent.leadAgentId === leadId) {
-        teammates.push(id);
-      }
-    }
-    for (const id of teammates) {
-      const agent = this.store.get(id);
-      if (agent) {
-        console.log(`[catavasia] Removing teammate ${id} (lead ${leadId} closed)`);
-        this.dismissalTracker.dismiss(agent.jsonlFile);
-        if (!agent.spawnToolUseId) {
-          this.unregisterAgent(agent.sessionId);
-        }
-        this.removeAgent(id);
-      }
-    }
-  }
-
   // ── Scanning ──
 
   /** Start project-level scanning for a directory. */
@@ -730,7 +472,6 @@ export class AgentRuntime {
       this.jsonlPollTimers,
       () => this.store.persist(),
       this.watchAllSessions,
-      this.hooksEnabled,
     );
   }
 
@@ -763,12 +504,9 @@ export class AgentRuntime {
 
     for (const p of persisted) {
       if (!p.isExternal) continue;
-      // Background-spawn children (a leadAgentId but no teamName) are derived
-      // state: the 1s scan re-materializes them from sidecars while their spawn
-      // is live. Restoring them directly would resurrect immortal characters
-      // (also skips stale entries written by older builds that persisted them).
-      if (p.leadAgentId !== undefined && !p.teamName) continue;
-      if (p.leadAgentId !== undefined && !SUBAGENT_CHARACTERS_ENABLED) continue;
+      // Sub-agents and teammates are never characters: skip stale entries
+      // written by older builds that persisted them.
+      if (p.leadAgentId !== undefined) continue;
       try {
         if (!fs.existsSync(p.jsonlFile)) continue;
       } catch {
@@ -809,9 +547,6 @@ export class AgentRuntime {
         maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
         teamName: p.teamName,
         agentName: p.agentName,
-        isTeamLead: p.isTeamLead,
-        leadAgentId: p.leadAgentId,
-        teamUsesTmux: p.teamUsesTmux,
         palette: p.palette,
         hueShift: p.hueShift,
       };

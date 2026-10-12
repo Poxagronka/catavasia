@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: '承認が必要',
   toolWaitingInput: '入力待ち',
   toolIdle: '待機中',
-  toolSubtask: 'サブタスク',
   toolChat: 'チャット',
   toolContextUsed: 'コンテキスト使用率 {pct}%({max}k トークン中 {used}k)',
   projectPickingText:

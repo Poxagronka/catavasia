@@ -231,7 +231,7 @@ describe('/ws connection gate', () => {
 /**
  * The CONNECTION gate above is necessary but not sufficient: what it admits can
  * still reach `grantHooksConsent()` — durable, machine-wide approval to modify
- * ~/.claude/settings.json plus a 12-event hook install.
+ * ~/.claude/settings.json plus a 10-event hook install.
  *
  * Privilege is therefore decided by the server token carried in the handshake's
  * `?token=` query (httpServer's standaloneTokenValid), never by a network
@@ -239,7 +239,7 @@ describe('/ws connection gate', () => {
  * and it fell to a dumb LAN-bound TCP forwarder piping bytes verbatim to
  * 127.0.0.1, which presents the server exactly what the local SPA presents.
  * Reproduced against the real `dist/cli.js`: a client on another machine got
- * `consent=true` and 12 installed hook events. The forwarded attacker never has
+ * `consent=true` and 10 installed hook events. The forwarded attacker never has
  * the token, because the token reaches the SPA only through the URL the CLI
  * printed in the operator's own terminal.
  *
@@ -318,7 +318,7 @@ describe('/ws privileged-message gate', () => {
   // previous peer-address model. A dumb LAN-bound TCP proxy piping bytes to
   // 127.0.0.1 makes the server see a loopback peer, and the remote client
   // forges a loopback Host — the exact pair the old gate accepted, reproduced
-  // against the real dist/cli.js (consent=true, 12 events installed). No token
+  // against the real dist/cli.js (consent=true, 10 events installed). No token
   // rides the handshake, because the operator's URL never left their terminal.
   it('refuses setHooksEnabled from a loopback-terminating forwarder', async () => {
     const { port } = await startStandalone();
