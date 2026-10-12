@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { CeoChatSummary } from '../../../core/src/ceoDesk.js';
 import { CEO_CHAT_TITLE_MAX } from '../../../core/src/ceoDesk.js';
 import { relativeTime } from '../catTerminal/consoleState.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { ceoDeskApi } from './ceoDeskApi.js';
-import { groupChats, NEW_CHAT_TITLE } from './chatHistoryState.js';
+import { groupChats, newChatTitle } from './chatHistoryState.js';
 
 interface ChatHistoryMenuProps {
   /** The open chat (the server status); absent until the dock connects. */
@@ -63,6 +65,7 @@ function TrashIcon() {
  * on a chat opens it; each row can be renamed or deleted (after a question).
  */
 export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
+  const t = useT(ceoDesk);
   const [open, setOpen] = useState(false);
   const [chats, setChats] = useState<CeoChatSummary[] | null>(null);
   const [query, setQuery] = useState('');
@@ -73,7 +76,7 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
   const [now, setNow] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const title = chat?.title || NEW_CHAT_TITLE;
+  const title = chat?.title || newChatTitle();
 
   const reload = () =>
     ceoDeskApi.chats().then(
@@ -138,7 +141,7 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
           {yes}
         </button>
         <button type="button" className="dock-ctl" onClick={() => setMode(null)}>
-          Cancel
+          {t('cancel')}
         </button>
       </span>
     </div>
@@ -148,15 +151,15 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
     const current = c.id === chat?.id;
     if (mode?.id === c.id && mode.kind === 'delete')
       return confirm(
-        `Delete "${c.title}"? Its messages and files go away for good.`,
-        'Delete',
+        t('deleteChatConfirm', { title: c.title }),
+        t('delete'),
         () => remove(c.id),
         'chat-delete-confirm',
       );
     if (mode?.id === c.id && mode.kind === 'open')
       return confirm(
-        `The CEO is still answering in this chat. Stop the answer and open "${c.title}"?`,
-        'Stop and open',
+        t('openChatConfirm', { title: c.title }),
+        t('stopAndOpen'),
         () => run(ceoDeskApi.openChat(c.id), close),
         'chat-open-confirm',
       );
@@ -175,7 +178,7 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
             }
           }}
           onBlur={() => setMode(null)}
-          aria-label="Chat name"
+          aria-label={t('chatNameLabel')}
           className="w-full h-28 bg-bg border-2 border-border focus:border-accent outline-none px-8 rounded-[6px] prose-body"
           data-testid="chat-rename-input"
         />
@@ -184,7 +187,7 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
       <div className={`chat-row group ${current ? 'is-current' : ''}`}>
         <button
           type="button"
-          className="flex-1 min-w-0 flex items-center gap-8 h-28 px-10 text-left cursor-pointer"
+          className="flex-1 min-w-0 flex items-center gap-8 h-28 px-10 text-start cursor-pointer"
           aria-current={current || undefined}
           onClick={() => openChat(c.id)}
           title={c.title}
@@ -192,15 +195,15 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
         >
           <span className="flex-1 truncate composer-choice-label">{c.title}</span>
           <span className="shrink-0 composer-choice-hint group-hover:hidden group-focus-within:hidden">
-            {current ? 'Open now' : relativeTime(c.updatedAt, now)}
+            {current ? t('openNow') : relativeTime(c.updatedAt, now)}
           </span>
         </button>
         <span className="hidden group-hover:flex group-focus-within:flex shrink-0">
           <button
             type="button"
             className="dock-ctl is-icon"
-            title="Rename"
-            aria-label={`Rename ${c.title}`}
+            title={t('rename')}
+            aria-label={t('renameChat', { title: c.title })}
             onClick={() => {
               setName(c.title);
               setMode({ id: c.id, kind: 'rename' });
@@ -212,8 +215,8 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
           <button
             type="button"
             className="dock-ctl is-icon"
-            title="Delete"
-            aria-label={`Delete ${c.title}`}
+            title={t('delete')}
+            aria-label={t('deleteChat', { title: c.title })}
             onClick={() => setMode({ id: c.id, kind: 'delete' })}
             data-testid="chat-delete"
           >
@@ -231,7 +234,7 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
         type="button"
         className="dock-ctl chat-title"
         aria-expanded={open}
-        title="Chat history"
+        title={t('chatHistory')}
         onClick={() => {
           if (open) return close();
           setNow(Date.now());
@@ -246,15 +249,15 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
         <div
           className="chat-menu"
           role="dialog"
-          aria-label="Chat history"
+          aria-label={t('chatHistory')}
           data-testid="chat-history"
         >
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search chats"
-            aria-label="Search chats"
+            placeholder={t('searchChats')}
+            aria-label={t('searchChats')}
             className="w-full h-28 bg-bg border-2 border-border focus:border-accent outline-none px-8 rounded-[6px] prose-body"
             data-testid="chat-search"
           />
@@ -262,7 +265,7 @@ export function ChatHistoryMenu({ chat, busy }: ChatHistoryMenuProps) {
           <div className="flex-1 min-h-0 overflow-y-auto pixel-scrollbar flex flex-col">
             {chats && groups.length === 0 && (
               <span className="composer-note" data-testid="chat-history-empty">
-                {query.trim() ? 'No chats match.' : 'No chats yet. Your chats show here.'}
+                {query.trim() ? t('noChatsMatch') : t('noChatsYet')}
               </span>
             )}
             {groups.map((g) => (

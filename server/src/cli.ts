@@ -48,6 +48,7 @@ import { defaultPort, planLaunch, readOwnServers } from './launch/portChoice.js'
 import { createShortcut, removeShortcut } from './launch/shortcut.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
 import { Narrator } from './narrator/narrator.js';
+import { getLanguage, settleOnboardingState } from './onboardingState.js';
 import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
 import { CodexAdapter } from './orchestrator/codexAdapter.js';
 import { Orchestrator } from './orchestrator/orchestrator.js';
@@ -237,6 +238,8 @@ async function main(): Promise<void> {
   const store = new AgentStateStore();
   const adapter = new FileStateAdapter({ namespace: 'standalone' });
   store.setAdapter(adapter);
+  // Before the Orchestrator can seed cats.json: an existing cats.json means an existing user (no forced onboarding).
+  settleOnboardingState(adapter);
 
   // ── Create server ──
   const server = new PixelAgentsServer();
@@ -249,6 +252,7 @@ async function main(): Promise<void> {
     const narrator = new Narrator({
       broadcast: (m) => store.broadcast({ ...m }),
       aiSummariesEnabled: () => adapter.getSetting(KEY_NARRATOR_AI_SUMMARIES, true),
+      language: () => getLanguage(adapter),
     });
     store.on('broadcast', (m: Record<string, unknown>) => narrator.observeBroadcast(m));
     store.on('agentRemoved', (id: number) => narrator.forget(id));
@@ -286,6 +290,7 @@ async function main(): Promise<void> {
       office: orchestrator,
       tasks,
       adapter: claude,
+      language: () => getLanguage(adapter),
     });
 
     // Wire hook events: HTTP POST -> runtime -> hookEventHandler -> agents

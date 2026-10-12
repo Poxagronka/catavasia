@@ -63,6 +63,8 @@ export interface CeoDeskOptions {
   tasks: TaskManager;
   /** The Claude Code adapter: the CEO always runs on Claude, in a live session. */
   adapter: SessionEngine;
+  /** The UI language code, read when the persona is built, so the CEO replies in it. Default English. */
+  language?: () => string;
   /** Git URL of Catavasia's own repo; tests pass a local repo. Default UPDATE_REPO_GIT_URL. */
   selfRepoUrl?: string;
 }
@@ -370,7 +372,8 @@ export class CeoDesk implements OfficeToolHandler {
     const { adapter, office } = this.opts;
     let turn = this.turn;
     // A changed persona (name, Role & conduct) also needs a new process.
-    if (turn && !turn.busy && turn.persona !== currentPersona(office)) turn.stale = true;
+    if (turn && !turn.busy && turn.persona !== currentPersona(office, this.opts.language?.()))
+      turn.stale = true;
     if (turn?.stale) {
       // A busy session ends its turn first: its idle pumps again.
       if (!turn.busy) this.teardown();
@@ -418,7 +421,7 @@ export class CeoDesk implements OfficeToolHandler {
     });
     // A resumed session goes on with the chat's to-do list (TaskUpdate names its items).
     for (const row of this.log.rows) if (row.kind === 'tool' && row.todos) stream.todos = row.todos;
-    const persona = currentPersona(office);
+    const persona = currentPersona(office, this.opts.language?.());
     const live = () => this.turn === turn && !this.disposed;
     const session = openDeskSession({
       adapter,

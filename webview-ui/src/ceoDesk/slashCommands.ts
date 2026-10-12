@@ -7,21 +7,18 @@
  */
 
 import type { DeskCommand } from '../../../core/src/ceoDesk.js';
+import { ceoText } from './ceoText.js';
 
 /** Terminal-only commands the dock answers itself (the SDK does not list them). */
-export const DOCK_COMMANDS: DeskCommand[] = [
-  { name: 'help', description: 'Show the commands you can type', argumentHint: '' },
-  {
-    name: 'permissions',
-    description: 'Choose what the CEO may do without asking',
-    argumentHint: '',
-  },
+export const dockCommands = (): DeskCommand[] => [
+  { name: 'help', description: ceoText('cmdHelp'), argumentHint: '' },
+  { name: 'permissions', description: ceoText('cmdPermissions'), argumentHint: '' },
 ];
 
 /** The CLI's list plus the dock's own commands it lacks. */
 export function withDockCommands(cli: DeskCommand[]): DeskCommand[] {
   const known = new Set(cli.map((c) => c.name));
-  return [...cli, ...DOCK_COMMANDS.filter((c) => !known.has(c.name))];
+  return [...cli, ...dockCommands().filter((c) => !known.has(c.name))];
 }
 
 /** The command name typed so far ("mo" of "/mo"), or null when the menu is not for this draft. */

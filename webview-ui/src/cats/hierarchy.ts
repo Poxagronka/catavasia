@@ -2,6 +2,7 @@
 // parentId === null. Every function returns a new array and keeps that rule.
 
 import type { CatProfile, EngineOptions } from './catsApi.js';
+import { catsText } from './catsText.js';
 
 export interface TreeNode {
   cat: CatProfile;
@@ -28,9 +29,9 @@ export function leadHint(cats: readonly CatProfile[]): string | null {
   const boss = findBoss(cats);
   if (!boss) return null;
   const other = cats.find((c) => c.id !== boss.id && LEAD_ROLE.test(c.role));
-  if (other) return `${other.name} has a lead role, but ${boss.name} is at the top.`;
+  if (other) return catsText('leadHintOther', { other: other.name, boss: boss.name });
   if (!ROOT_ROLE.test(boss.role)) {
-    return `${boss.name} is at the top, but its role "${boss.role}" is not a lead.`;
+    return catsText('leadHintRole', { boss: boss.name, role: boss.role });
   }
   return null;
 }
@@ -70,16 +71,15 @@ export function normalizeHierarchy(cats: readonly CatProfile[]): CatProfile[] {
 /** Make `id` report to `parentId`. Rejects self, unknown cats and cycles. */
 export function moveCat(cats: readonly CatProfile[], id: string, parentId: string): CatProfile[] {
   if (!cats.some((c) => c.id === id) || !cats.some((c) => c.id === parentId))
-    throw new HierarchyError('unknown cat');
-  if (isInSubtree(cats, id, parentId))
-    throw new HierarchyError('a cat cannot report to itself or to one of its reports');
+    throw new HierarchyError(catsText('errUnknownCat'));
+  if (isInSubtree(cats, id, parentId)) throw new HierarchyError(catsText('errCycle'));
   return cats.map((c) => (c.id === id ? { ...c, parentId } : c));
 }
 
 /** `id` becomes the boss, the old boss reports to it. Other links stay. */
 export function promoteToBoss(cats: readonly CatProfile[], id: string): CatProfile[] {
   const boss = findBoss(cats);
-  if (!cats.some((c) => c.id === id)) throw new HierarchyError('unknown cat');
+  if (!cats.some((c) => c.id === id)) throw new HierarchyError(catsText('errUnknownCat'));
   if (!boss || boss.id === id) return cats.slice();
   return cats.map((c) => {
     if (c.id === id) return { ...c, parentId: null };

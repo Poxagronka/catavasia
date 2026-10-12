@@ -5,6 +5,7 @@
  */
 
 import type { CeoChatSummary } from '../../../core/src/ceoDesk.js';
+import { ceoText } from './ceoText.js';
 
 export interface ChatGroup {
   label: string;
@@ -12,7 +13,7 @@ export interface ChatGroup {
 }
 
 /** The name of a chat with no message yet. */
-export const NEW_CHAT_TITLE = 'New chat';
+export const newChatTitle = () => ceoText('newChatTitle');
 
 /**
  * Today, Yesterday, Previous 7 days and Older (local calendar days), newest
@@ -28,15 +29,15 @@ export function groupChats(chats: CeoChatSummary[], now: number, query: string):
     return day.setDate(day.getDate() - back);
   };
   const bounds: Array<[string, number]> = [
-    ['Today', dayStart(0)],
-    ['Yesterday', dayStart(1)],
-    ['Previous 7 days', dayStart(7)],
-    ['Older', -Infinity],
+    [ceoText('groupToday'), dayStart(0)],
+    [ceoText('groupYesterday'), dayStart(1)],
+    [ceoText('groupPrevious7'), dayStart(7)],
+    [ceoText('groupOlder'), -Infinity],
   ];
   const groups = bounds.map(([label]) => ({ label, chats: [] as CeoChatSummary[] }));
   const sorted = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
   for (const chat of sorted) {
-    const title = chat.title || NEW_CHAT_TITLE;
+    const title = chat.title || newChatTitle();
     if (!words.every((w) => title.toLowerCase().includes(w))) continue;
     const at = bounds.findIndex(([, from]) => chat.updatedAt >= from);
     groups[at].chats.push({ ...chat, title });

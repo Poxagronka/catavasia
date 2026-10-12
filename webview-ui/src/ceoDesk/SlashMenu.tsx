@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import type { MentionMenuState } from './useMentionMenu.js';
 import type { SlashMenuState } from './useSlashMenu.js';
 
@@ -41,12 +43,12 @@ function MenuRow({
     >
       {/* A row without a hint (a file path) gives the label the whole width. */}
       <span
-        className={`composer-choice-label ${hint === undefined ? 'flex-1 min-w-0 truncate text-left' : 'shrink-0'}`}
+        className={`composer-choice-label ${hint === undefined ? 'flex-1 min-w-0 truncate text-start' : 'shrink-0'}`}
       >
         {label}
       </span>
       {hint !== undefined && (
-        <span className="composer-choice-hint flex-1 min-w-0 truncate text-left">{hint}</span>
+        <span className="composer-choice-hint flex-1 min-w-0 truncate text-start">{hint}</span>
       )}
     </button>
   );
@@ -54,12 +56,13 @@ function MenuRow({
 
 /** The "/" menu above the message box, in the look of the composer menus (useSlashMenu has its keys). */
 export function SlashMenu({ menu }: { menu: SlashMenuState }) {
+  const t = useT(ceoDesk);
   if (!menu.items.length) return null;
   return (
     <div
       className="slash-menu composer-list pixel-scrollbar prose-body"
       role="listbox"
-      aria-label="Commands"
+      aria-label={t('commands')}
       data-testid="slash-menu"
     >
       {menu.items.map((command, n) => (
@@ -80,12 +83,13 @@ export function SlashMenu({ menu }: { menu: SlashMenuState }) {
 
 /** The "@" menu: files of the chat's folder (useMentionMenu has its keys). */
 export function MentionMenu({ menu }: { menu: MentionMenuState }) {
+  const t = useT(ceoDesk);
   if (!menu.items.length) return null;
   return (
     <div
       className="slash-menu composer-list pixel-scrollbar prose-body"
       role="listbox"
-      aria-label="Files"
+      aria-label={t('files')}
       data-testid="mention-menu"
     >
       {menu.items.map((file, n) => (

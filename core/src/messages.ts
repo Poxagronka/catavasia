@@ -48,6 +48,7 @@ export type ServerMessage =
   | AgentContextUsage
   | LayoutLoaded
   | ResetAllResult
+  | HelpChatEvent
   | FeedbackResult
   | PetCareLoaded
   | FurnitureAssetsLoaded
@@ -96,6 +97,11 @@ export type ClientMessage =
   | PromoteCatToBoss
   | SetTurnConcurrency
   | SetShowGuests
+  | SetLanguage
+  | SetOnboardingDone
+  | HelpChatSend
+  | HelpChatStop
+  | HelpChatReset
   | SetNarratorSettings
   | SetCatCeoSettings
   | GetPromptHistory
@@ -561,6 +567,19 @@ export interface ResetAllResult {
   error?: string;
 }
 
+export interface HelpChatEvent {
+  type: 'helpChatEvent';
+  event: AnonymousSchema_243;
+  text?: string;
+  code?: AnonymousSchema_245;
+  exitCode?: number;
+}
+
+export type AnonymousSchema_243 = 'draft' | 'reply' | 'error' | 'unavailable';
+
+export type AnonymousSchema_245 =
+  'notInstalled' | 'notLoggedIn' | 'replaced' | 'noAnswer' | 'exited';
+
 export interface FeedbackResult {
   type: 'feedbackResult';
   status: FeedbackStatus;
@@ -659,6 +678,8 @@ export interface SettingsLoaded {
   showAreas: boolean;
   showGuests?: boolean;
   turnConcurrency?: number;
+  language?: string;
+  onboardingDone?: boolean;
 }
 
 export interface HooksStatus {
@@ -856,6 +877,33 @@ export interface SetTurnConcurrency {
 export interface SetShowGuests {
   type: 'setShowGuests';
   enabled: boolean;
+}
+
+export interface SetLanguage {
+  type: 'setLanguage';
+  language: string;
+}
+
+export interface SetOnboardingDone {
+  type: 'setOnboardingDone';
+  done: boolean;
+}
+
+export interface HelpChatSend {
+  type: 'helpChatSend';
+  text: string;
+  context?: AnonymousSchema_441;
+  language?: string;
+}
+
+export type AnonymousSchema_441 = 'onboarding' | 'settings';
+
+export interface HelpChatStop {
+  type: 'helpChatStop';
+}
+
+export interface HelpChatReset {
+  type: 'helpChatReset';
 }
 
 export interface SetNarratorSettings {

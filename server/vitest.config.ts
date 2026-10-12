@@ -16,7 +16,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 10_000,
     include: ['__tests__/**/*.test.ts'],
-    setupFiles: ['allure-vitest/setup'],
+    setupFiles: ['allure-vitest/setup', './__tests__/setup/legacyTeam.ts'],
     reporters: [
       'default',
       [

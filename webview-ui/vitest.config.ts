@@ -16,7 +16,7 @@ export default defineConfig({
     // global `window.postMessage` listener in browser-transport. Serial run
     // avoids port collisions and listener crosstalk.
     fileParallelism: false,
-    setupFiles: ['allure-vitest/setup'],
+    setupFiles: ['allure-vitest/setup', './test/setupLanguage.ts'],
     reporters: [
       'default',
       [

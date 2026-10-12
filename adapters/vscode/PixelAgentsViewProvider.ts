@@ -37,12 +37,21 @@ import {
 } from '../../server/src/configPersistence.js';
 import { feedbackEnvironment, submitFeedback } from '../../server/src/feedback/githubFeedback.js';
 import { setFolderNameResolver, setTerminalAdapter } from '../../server/src/fileWatcher.js';
+import { handleHelpMessage } from '../../server/src/helpDesk/helpDesk.js';
+import { sharedHelpDesk } from '../../server/src/helpDesk/sharedHelpDesk.js';
 import type { LayoutWatcher } from '../../server/src/layoutPersistence.js';
 import {
   readLayoutFromFile,
   watchLayoutFile,
   writeLayoutToFile,
 } from '../../server/src/layoutPersistence.js';
+import {
+  getLanguage,
+  isOnboardingDone,
+  KEY_ONBOARDING_DONE,
+  setLanguage,
+  settleOnboardingState,
+} from '../../server/src/onboardingState.js';
 import { PathSet } from '../../server/src/pathKey.js';
 import { writePetCareState } from '../../server/src/petCarePersistence.js';
 import type { ConsentEffects } from '../../server/src/providers/hook/consentExecutor.js';
@@ -385,6 +394,29 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
     await this.reportHooksStatus(claudeProvider);
   }
 
+  /** The first-run consent ask for one provider, or null when consentGate says do not ask. An embedded webview is privileged. */
+  private consentAsk(provider: HookProvider, installed: boolean) {
+    return hooksConsentRequest(
+      {
+        installed,
+        hooksEnabled: getHooksEnabled(provider.id),
+        consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
+        privileged: true,
+        language: getLanguage(this.adapter),
+      },
+      provider,
+    );
+  }
+
+  /** Send the open consent asks again, after a language change: the text is written in the stored language. */
+  private async resendConsentAsks(): Promise<void> {
+    for (const provider of hookProviders) {
+      const installed = await provider.areHooksInstalled().catch(() => false);
+      const request = this.consentAsk(provider, installed);
+      if (request) this.webview?.postMessage(request);
+    }
+  }
+
   /** This surface's half of carrying out a consent answer for one provider. The choice→action rule and the write
    *  order live in the shared consent modules, so the surfaces cannot drift on what counts as approval or on what a
    *  revised answer undoes; only these effects are VS Code-specific. */
@@ -525,6 +557,18 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (message.type === 'setHooksInfoShown') {
         this.adapter.setSetting(GLOBAL_KEY_HOOKS_INFO_SHOWN, true);
+      } else if (
+        message.type === 'helpChatSend' ||
+        message.type === 'helpChatStop' ||
+        message.type === 'helpChatReset'
+      ) {
+        handleHelpMessage(sharedHelpDesk(), message, (m) => this.webview?.postMessage(m));
+      } else if (message.type === 'setLanguage') {
+        if (setLanguage(this.adapter, message.language)) void this.resendConsentAsks();
+      } else if (message.type === 'setOnboardingDone') {
+        if (typeof message.done === 'boolean') {
+          this.adapter.setSetting(KEY_ONBOARDING_DONE, message.done);
+        }
       } else if (message.type === 'setShowAreas') {
         const enabled = message.enabled as boolean;
         this.adapter.setSetting(GLOBAL_KEY_SHOW_AREAS, enabled);
@@ -617,6 +661,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         const hooksInfoShown = this.adapter.getSetting<boolean>(GLOBAL_KEY_HOOKS_INFO_SHOWN, false);
         const showAreas = this.adapter.getSetting<boolean>(GLOBAL_KEY_SHOW_AREAS, false);
         const config = readConfig();
+        // An existing user (cats.json on disk) never gets the onboarding forced.
+        settleOnboardingState(this.adapter);
         this.webview?.postMessage({
           type: 'settingsLoaded',
           soundEnabled,
@@ -629,6 +675,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           hooksInfoShown,
           externalAssetDirectories: config.externalAssetDirectories,
           showAreas,
+          language: getLanguage(this.adapter),
+          onboardingDone: isOnboardingDone(this.adapter),
         });
 
         // One status + at most one consent ask PER PROVIDER. Install state is distinct from the hooksEnabled
@@ -652,15 +700,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
             providerId: provider.id,
             installed,
           });
-          const consentRequest = hooksConsentRequest(
-            {
-              installed,
-              hooksEnabled: getHooksEnabled(provider.id),
-              consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
-              privileged: true,
-            },
-            provider,
-          );
+          const consentRequest = this.consentAsk(provider, installed);
           if (consentRequest) this.webview?.postMessage(consentRequest);
         }
 

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { CatProfile } from '../src/cats/catsApi.js';
 import { buildTree, draftReport, HierarchyError } from '../src/cats/hierarchy.js';
-import { createLocalCatsAdapter } from '../src/cats/localCatsAdapter.js';
+import {
+  createLocalCatsAdapter,
+  legacyLocalSeed,
+  STORAGE_KEY,
+} from '../src/cats/localCatsAdapter.js';
 import {
   type LaidOutNode,
   layoutOrgChart,
@@ -104,7 +108,8 @@ describe('org chart layout', () => {
 
 describe('chart edits', () => {
   const memoryStore = () => {
-    const data = new Map<string, string>();
+    // A fresh browser has no cats now: these tests start from the legacy seed (boss + two reports).
+    const data = new Map<string, string>([[STORAGE_KEY, JSON.stringify(legacyLocalSeed())]]);
     return { getItem: (k: string) => data.get(k) ?? null, setItem: data.set.bind(data) };
   };
   const parentOf = (api: ReturnType<typeof createLocalCatsAdapter>, id: string) =>

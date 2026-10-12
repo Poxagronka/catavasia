@@ -91,8 +91,8 @@ export interface HookProvider {
   /** First-run consent copy for THIS provider's hook install: the headline titles the ask, the disclosure is its body
    *  (what is written, what data moves, how to undo; paragraphs split on blank lines). Required, not optional — a
    *  provider that installs anything must state its terms, and the gate ships these verbatim so no client copy can
-   *  drift. */
-  consentDisclosure(): { headline: string; disclosure: string };
+   *  drift. `language` is the chosen UI language code; '' or unknown means English. */
+  consentDisclosure(language?: string): { headline: string; disclosure: string };
 
   /** Format tool status for display (e.g., "Read" -> "Reading foo.ts") */
   formatToolStatus(toolName: string, input?: unknown): string;

@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { type LanguageCode, LANGUAGES } from '../../../core/src/languages.js';
 import { catCeo, useCatCeo } from '../cats/catCeoClient.js';
 import type { CatOfficeSettings } from '../hooks/useExtensionMessages.js';
+import { chrome } from '../i18n/chrome/en.js';
+import { common } from '../i18n/common/en.js';
+import { useLanguage } from '../i18n/languageStore.js';
+import { chooseLanguage } from '../i18n/languageSync.js';
+import { useT } from '../i18n/useT.js';
 import { setNarratorSettings, useNarratorSettings } from '../narratorStore.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
+import { restartOnboarding } from '../onboarding/onboardingStore.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
 import { UpdateSettings } from '../update/UpdateSettings.js';
@@ -78,6 +85,9 @@ export function SettingsModal({
   onResetLayoutToDefault,
   onResetAll,
 }: SettingsModalProps) {
+  const t = useT(common);
+  const tc = useT(chrome);
+  const language = useLanguage();
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assetDirDraft, setAssetDirDraft] = useState('');
@@ -109,8 +119,31 @@ export function SettingsModal({
         setResetAllResult(null);
         onClose();
       }}
-      title="Settings"
+      title={t('settings')}
+      className="max-h-[96vh] overflow-y-auto"
     >
+      <label className="flex items-center justify-between w-full py-6 px-10">
+        <span>{t('language')}</span>
+        <select
+          value={language}
+          onChange={(e) => chooseLanguage(e.target.value as LanguageCode)}
+          className="bg-bg border-2 border-border rounded-none text-text text-xs py-2 px-4"
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.endonym}
+            </option>
+          ))}
+        </select>
+      </label>
+      <MenuItem
+        onClick={() => {
+          restartOnboarding();
+          onClose();
+        }}
+      >
+        {t('runOnboardingAgain')}
+      </MenuItem>
       {/* Open Sessions Folder opens an OS file manager — impossible in the browser. */}
       {!isBrowserRuntime && (
         <MenuItem
@@ -119,7 +152,7 @@ export function SettingsModal({
             onClose();
           }}
         >
-          Open Sessions Folder
+          {tc('openSessionsFolder')}
         </MenuItem>
       )}
       <MenuItem
@@ -132,7 +165,7 @@ export function SettingsModal({
           onClose();
         }}
       >
-        Export Layout
+        {tc('exportLayout')}
       </MenuItem>
       <MenuItem
         onClick={() => {
@@ -145,11 +178,11 @@ export function SettingsModal({
           }
         }}
       >
-        Import Layout
+        {tc('importLayout')}
       </MenuItem>
       <div className="py-4 px-10">
         <DefaultLayoutReset
-          label="Reset layout to default"
+          label={tc('resetLayoutToDefault')}
           confirming={resetConfirming}
           onConfirmingChange={setResetConfirming}
           onReset={() => {
@@ -194,7 +227,7 @@ export function SettingsModal({
           <input
             type="text"
             value={assetDirDraft}
-            placeholder="Absolute asset directory path"
+            placeholder={tc('assetDirPlaceholder')}
             onChange={(e) => setAssetDirDraft(e.target.value)}
             className="flex-1 min-w-0 text-xs py-2 px-4 bg-bg border-2 border-border rounded-none text-text"
           />
@@ -209,7 +242,7 @@ export function SettingsModal({
             }}
             className="shrink-0"
           >
-            Add
+            {tc('add')}
           </Button>
         </div>
       ) : (
@@ -219,7 +252,7 @@ export function SettingsModal({
             onClose();
           }}
         >
-          Add Asset Directory
+          {tc('addAssetDirectory')}
         </MenuItem>
       )}
       {externalAssetDirectories.map((dir) => (
@@ -241,7 +274,7 @@ export function SettingsModal({
         </div>
       ))}
       <Checkbox
-        label="Sound Notifications"
+        label={tc('soundNotifications')}
         checked={soundLocal}
         onChange={() => {
           const newVal = !isSoundEnabled();
@@ -251,17 +284,17 @@ export function SettingsModal({
         }}
       />
       <Checkbox
-        label="Watch All Sessions"
+        label={tc('watchAllSessions')}
         checked={watchAllSessions}
         onChange={onToggleWatchAllSessions}
       />
       <Checkbox
-        label="Instant Detection (Hooks)"
+        label={tc('instantDetection')}
         checked={hooksInstalled}
         onChange={onToggleHooksEnabled}
       />
       <Checkbox
-        label="Always Show Labels"
+        label={tc('alwaysShowLabels')}
         checked={alwaysShowOverlay}
         onChange={onToggleAlwaysShowOverlay}
       />
@@ -269,23 +302,23 @@ export function SettingsModal({
           Standalone has no terminals at all, so nothing there would ever ghost. */}
       {!isBrowserRuntime && (
         <Checkbox
-          label="Display Headless as Ghosts"
+          label={tc('headlessAsGhosts')}
           checked={ghostHeadlessAgents}
           onChange={onToggleGhostHeadlessAgents}
         />
       )}
       {showAreasAvailable && (
-        <Checkbox label="Show Areas" checked={showAreas} onChange={onToggleShowAreas} />
+        <Checkbox label={tc('showAreas')} checked={showAreas} onChange={onToggleShowAreas} />
       )}
       {catOffice && (
         <>
           <Checkbox
-            label="Show Guests"
+            label={tc('showGuests')}
             checked={catOffice.showGuests}
             onChange={() => onChangeCatOffice({ ...catOffice, showGuests: !catOffice.showGuests })}
           />
           <label className="flex items-center justify-between w-full py-6 px-10">
-            <span>Cats Working at Once</span>
+            <span>{tc('catsAtOnce')}</span>
             <select
               value={catOffice.turnConcurrency}
               onChange={(e) =>
@@ -302,7 +335,7 @@ export function SettingsModal({
           </label>
           {ceo && (
             <Checkbox
-              label="Cat CEO Reviews"
+              label={tc('catCeoReviews')}
               checked={ceo.enabled}
               onChange={() => catCeo.setSettings({ enabled: !ceo.enabled })}
             />
@@ -313,18 +346,18 @@ export function SettingsModal({
       {isBrowserRuntime && (
         <>
           <Checkbox
-            label="AI summaries (Haiku)"
+            label={tc('aiSummaries')}
             checked={narrator.aiSummaries}
             onChange={() => setNarratorSettings({ aiSummaries: !narrator.aiSummaries })}
           />
           <Checkbox
-            label="Raw tool status"
+            label={tc('rawToolStatus')}
             checked={narrator.rawToolStatus}
             onChange={() => setNarratorSettings({ rawToolStatus: !narrator.rawToolStatus })}
           />
         </>
       )}
-      <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
+      <Checkbox label={tc('debugView')} checked={isDebugMode} onChange={onToggleDebugMode} />
       {isBrowserRuntime && <UpdateSettings />}
     </Modal>
   );

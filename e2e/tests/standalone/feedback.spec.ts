@@ -56,7 +56,7 @@ test.describe('Standalone / Feedback', () => {
     expect(params.get('title')).toBe('The cat sits on the keyboard');
     expect(params.get('body')).toContain('- host: standalone CLI');
 
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await form.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(form).toHaveCount(0);
   });
 });

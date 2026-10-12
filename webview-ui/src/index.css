@@ -6,6 +6,10 @@
   font-weight: 400;
   font-display: swap;
   src: url('/fonts/FSPixelSansUnicode-Regular.ttf') format('truetype');
+  /* Latin, Greek, Cyrillic, Hebrew and symbols only. The font holds raw Arabic, Devanagari and Bengali
+     letters without joining or conjunct shaping: those scripts use --font-script-fallback instead. */
+  unicode-range:
+    U+0000-05FF, U+1E00-1FFF, U+2000-2BFF, U+A720-A7FF, U+FB00-FB4F, U+FE00-FE0F, U+FFFD;
 }
 
 :root {
@@ -42,7 +46,15 @@
 
   /* Reading text: chats, results, notices (TYPOGRAPHY spec in docs/catavasia/ROADMAP.md,
      "CEO desk replaces the task board"). The pixel font stays on headings and labels. */
-  --font-body: -apple-system, system-ui, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --font-body:
+    -apple-system, system-ui, 'SF Pro Text', 'Segoe UI', Roboto, var(--font-script-fallback),
+    sans-serif;
+  /* System fonts for scripts FS Pixel Sans lacks (owner decision 2026-10-12: no new pixel font):
+     CJK, Devanagari, Bengali, Arabic and Urdu. Listed after FS Pixel Sans, so Latin and Cyrillic keep the pixel look. */
+  --font-script-fallback:
+    system-ui, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC',
+    'Apple SD Gothic Neo', 'Malgun Gothic', 'Kohinoor Devanagari', 'Bangla Sangam MN', 'Nirmala UI',
+    'Geeza Pro', 'Noto Nastaliq Urdu', 'Noto Sans Arabic', 'Segoe UI';
   --font-code: 'SF Mono', ui-monospace, Menlo, monospace;
   --text-body-size: 15px;
   --text-body-small: 14px;
@@ -75,7 +87,7 @@
   /* 1px base so Tailwind spacing maps directly to pixels (pixel-art project) */
   --spacing: 1px;
 
-  --font-pixel: 'FS Pixel Sans', sans-serif;
+  --font-pixel: 'FS Pixel Sans', var(--font-script-fallback), sans-serif;
 
   /* Text sizes (pixel-art scale, base = 22px) */
   --text-*: initial;

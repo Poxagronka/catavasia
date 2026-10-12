@@ -4,8 +4,10 @@
  * message (work folder line, user messages, job notices).
  */
 
+import { DEFAULT_LANGUAGE } from '../../../core/src/languages.js';
 import type { TaskDetail } from '../../../core/src/tasks.js';
 import { CEO_DESK_MAX_LIVE_JOBS, CEO_DESK_NOTICE_MAX_CHARS } from '../constants.js';
+import { languageEndonym, toLanguage } from '../i18n/translate.js';
 import { TURN_PART_SEPARATOR } from '../orchestrator/flowPrompts.js';
 import { UPDATE_REPO } from '../update/updateChecker.js';
 
@@ -23,9 +25,21 @@ export const DESK_RULES = `# CEO desk rules (fixed by the office)
 - Your final answer is complete: what changed, the branch, and how to merge it (the office never merges for the user).
 - Reply in the language of the user.`;
 
-/** The persona file: the CEO's Role & conduct, then the desk rules. */
-export function deskPersona(name: string, role: string): string {
-  return [`You are ${name}, the CEO of a pixel office of AI cats.`, role.trim(), DESK_RULES]
+/** The chosen UI language as a reply rule. English (the default) adds nothing, so its persona stays unchanged. */
+function languageRule(language: unknown): string {
+  const code = toLanguage(language);
+  if (code === DEFAULT_LANGUAGE) return '';
+  return `The user chose ${languageEndonym(code)} (language code ${code}) as the interface language. Reply in that language, unless the user writes to you in another one.`;
+}
+
+/** The persona file: the CEO's Role & conduct, then the desk rules, then the language rule. */
+export function deskPersona(name: string, role: string, language?: unknown): string {
+  return [
+    `You are ${name}, the CEO of a pixel office of AI cats.`,
+    role.trim(),
+    DESK_RULES,
+    languageRule(language),
+  ]
     .filter(Boolean)
     .join('\n\n');
 }

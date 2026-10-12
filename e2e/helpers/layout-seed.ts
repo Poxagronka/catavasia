@@ -90,6 +90,7 @@ const DEFAULT_ADAPTER_SETTINGS = {
   soundEnabled: true,
   lastSeenVersion: '',
   alwaysShowLabels: true,
+  onboardingDone: true,
   watchAllSessions: false,
   hooksInfoShown: false,
   showAreas: false,

@@ -7,6 +7,8 @@ import {
   ZOOM_MAX,
   ZOOM_MIN,
 } from '../constants.js';
+import { chrome } from '../i18n/chrome/en.js';
+import { useT } from '../i18n/useT.js';
 import { Button } from './ui/Button.js';
 
 interface ZoomControlsProps {
@@ -15,6 +17,7 @@ interface ZoomControlsProps {
 }
 
 export function ZoomControls({ zoom, onZoomChange }: ZoomControlsProps) {
+  const t = useT(chrome);
   const [showLevel, setShowLevel] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,7 +78,7 @@ export function ZoomControls({ zoom, onZoomChange }: ZoomControlsProps) {
           onClick={() => onZoomChange(zoom + 1)}
           disabled={maxDisabled}
           className="border-border! shadow-pixel disabled:hover:bg-btn-bg disabled:cursor-default disabled:opacity-(--btn-disabled-opacity)"
-          title="Zoom in (Ctrl+Scroll)"
+          title={t('zoomIn')}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <line
@@ -103,7 +106,7 @@ export function ZoomControls({ zoom, onZoomChange }: ZoomControlsProps) {
           onClick={() => onZoomChange(zoom - 1)}
           disabled={minDisabled}
           className="border-border! shadow-pixel disabled:hover:bg-btn-bg disabled:cursor-default disabled:opacity-(--btn-disabled-opacity)"
-          title="Zoom out (Ctrl+Scroll)"
+          title={t('zoomOut')}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <line

@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 
+import { chrome } from '../i18n/chrome/en.js';
+import { useT } from '../i18n/useT.js';
 import { transport } from '../transport/index.js';
 import type { TransportState } from '../transport/types.js';
-
-const STATE_LABELS: Partial<Record<TransportState, string>> = {
-  connecting: 'Connecting…',
-  reconnecting: 'Reconnecting…',
-  disconnected: 'Disconnected',
-};
 
 /**
  * Standalone connection status badge. Renders nothing while connected (the happy
@@ -16,6 +12,7 @@ const STATE_LABELS: Partial<Record<TransportState, string>> = {
  * VersionIndicator's absolute-overlay + pixel-panel convention.
  */
 export function ConnectionIndicator() {
+  const t = useT(chrome);
   const [state, setState] = useState<TransportState>(transport.state);
 
   useEffect(() => {
@@ -26,7 +23,13 @@ export function ConnectionIndicator() {
 
   if (state === 'connected') return null;
 
-  const label = STATE_LABELS[state] ?? 'Disconnected';
+  const label = t(
+    state === 'connecting'
+      ? 'connecting'
+      : state === 'reconnecting'
+        ? 'reconnecting'
+        : 'disconnected',
+  );
   const dotClass = state === 'connecting' ? 'bg-status-permission' : 'bg-status-error';
 
   return (

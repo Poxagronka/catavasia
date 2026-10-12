@@ -16,8 +16,16 @@ import {
 import { HUE_SHIFT_MAX_DEG, PALETTE_COUNT, TURN_CONCURRENCY_DEFAULT } from './constants.js';
 import { feedbackEnvironment, submitFeedback } from './feedback/githubFeedback.js';
 import { applyShowGuests } from './guests.js';
+import { handleHelpMessage } from './helpDesk/helpDesk.js';
+import { sharedHelpDesk } from './helpDesk/sharedHelpDesk.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import type { Narrator } from './narrator/narrator.js';
+import {
+  getLanguage,
+  isOnboardingDone,
+  KEY_ONBOARDING_DONE,
+  setLanguage,
+} from './onboardingState.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { readPetCareState, writePetCareState } from './petCarePersistence.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
@@ -284,6 +292,30 @@ export function handleClientMessage(
       break;
     }
 
+    case 'helpChatSend':
+    case 'helpChatStop':
+    case 'helpChatReset':
+      // The chat spends the operator's Claude Code quota: the server token gates it.
+      if (ctx.privileged) handleHelpMessage(sharedHelpDesk(), msg, send);
+      // The panel waits for an answer after a send: an unprivileged client gets a terminal event.
+      else if (msg.type === 'helpChatSend') {
+        send({ type: 'helpChatEvent', event: 'unavailable', text: EDIT_RIGHTS_HINT });
+      }
+      break;
+
+    case 'setLanguage':
+      // Persisted settings need the server token, like setShowGuests.
+      if (!ctx.privileged) break;
+      // The consent text is written in the stored language: a fresh choice asks again, in the new one.
+      if (setLanguage(adapter, msg.language)) resendConsentAsks(send, ctx);
+      break;
+
+    case 'setOnboardingDone':
+      if (typeof msg.done === 'boolean' && ctx.privileged) {
+        adapter?.setSetting(KEY_ONBOARDING_DONE, msg.done);
+      }
+      break;
+
     case 'setTurnConcurrency': {
       const value = parseTurnConcurrency(msg.value);
       if (value === undefined || !ctx.privileged) break;
@@ -482,6 +514,37 @@ function standaloneConsentEffects(
   };
 }
 
+/** The first-run consent ask for one provider, or null when consentGate says do not ask. */
+function consentAsk(
+  provider: (typeof hookProviders)[number],
+  installed: boolean,
+  ctx: ClientMessageContext,
+) {
+  return hooksConsentRequest(
+    {
+      installed,
+      hooksEnabled: getHooksEnabled(provider.id),
+      consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
+      privileged: ctx.privileged === true,
+      language: getLanguage(ctx.store.getAdapter()),
+    },
+    provider,
+  );
+}
+
+/** Send the open consent asks again, after a language change. The webview replaces a queued ask of the same provider. */
+function resendConsentAsks(send: WsSend, ctx: ClientMessageContext): void {
+  for (const provider of hookProviders) {
+    void provider
+      .areHooksInstalled()
+      .catch(() => false)
+      .then((installed) => {
+        const request = consentAsk(provider, installed, ctx);
+        if (request) send({ ...request });
+      });
+  }
+}
+
 function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   const { store, runtime, cache } = ctx;
   const adapter = store.getAdapter();
@@ -554,6 +617,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     hooksInfoShown: adapter?.getSetting(KEY_HOOKS_INFO_SHOWN, false) ?? false,
     externalAssetDirectories: cfg.externalAssetDirectories,
     showAreas,
+    language: getLanguage(adapter),
+    onboardingDone: isOnboardingDone(adapter),
     ...(ctx.orchestrator ? { showGuests, turnConcurrency } : {}),
   });
 
@@ -580,15 +645,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
         // rides the handshake and consentGate owns every condition (VS Code calls the same function). The record is
         // re-read here rather than taken from startup — another tab may have answered while this one loaded.
         // Dismissing sends nothing, so the ask returns on the next connect: fail-closed, never nagging in-session.
-        const request = hooksConsentRequest(
-          {
-            installed,
-            hooksEnabled: getHooksEnabled(provider.id),
-            consentAnswered: getHooksConsent(provider.id) !== 'unanswered',
-            privileged: ctx.privileged === true,
-          },
-          provider,
-        );
+        const request = consentAsk(provider, installed, ctx);
         if (request) send({ ...request }); // spread: WsSend takes an index-signature shape
       });
   }

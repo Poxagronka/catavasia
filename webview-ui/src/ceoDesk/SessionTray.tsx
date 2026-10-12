@@ -1,5 +1,6 @@
 import type { BackgroundTask, TodoItem } from '../../../core/src/catSession.js';
 import { Button } from '../components/ui/Button.js';
+import { ceoText } from './ceoText.js';
 
 /** The CLI's marks of a to-do item. */
 const TODO_MARK: Record<TodoItem['status'], string> = {
@@ -8,11 +9,11 @@ const TODO_MARK: Record<TodoItem['status'], string> = {
   completed: '☒',
 };
 
-/** Claude Code's background task types in plain words. */
-const TASK_KIND: Record<string, string> = {
-  local_bash: 'Command',
-  local_agent: 'Helper',
-};
+/** Claude Code's background task types in plain words (keys of the ceoDesk dictionary). */
+const TASK_KIND = {
+  local_bash: 'taskCommand',
+  local_agent: 'taskHelper',
+} as const;
 
 /**
  * The CEO's to-do list as the CLI shows it: a mark per item, the item in
@@ -60,7 +61,11 @@ export function BackgroundTasks({
     >
       {tasks.map((t) => (
         <li key={t.id} className="flex items-center gap-6 min-w-0" data-testid="dock-task">
-          <span className="shrink-0 text-text-muted">{TASK_KIND[t.type] ?? 'Task'}:</span>
+          <span className="shrink-0 text-text-muted">
+            {ceoText('taskKind', {
+              kind: ceoText(TASK_KIND[t.type as keyof typeof TASK_KIND] ?? 'taskOther'),
+            })}
+          </span>
           <span className="truncate flex-1" title={t.description}>
             {t.description}
           </span>
@@ -68,10 +73,10 @@ export function BackgroundTasks({
             size="sm"
             variant="ghost"
             onClick={() => onStop(t.id)}
-            title="Stop this background task"
+            title={ceoText('stopTaskTitle')}
             data-testid="dock-task-stop"
           >
-            Stop
+            {ceoText('stop')}
           </Button>
         </li>
       ))}

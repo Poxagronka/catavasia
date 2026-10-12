@@ -1,4 +1,6 @@
 import { formatSize } from '../../../core/src/ceoDesk.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import type { DraftAttachment } from './attachState.js';
 
 /** The composer's attachments: image thumbnails and file chips, each with a remove x. */
@@ -26,7 +28,7 @@ export function AttachmentStrip({
         ) : (
           <div
             key={f.id}
-            className="relative flex items-center gap-4 max-w-[220px] h-28 pl-6 pr-24 border-2 border-border bg-bg-dark text-xs"
+            className="relative flex items-center gap-4 max-w-[220px] h-28 ps-6 pe-24 border-2 border-border bg-bg-dark text-xs"
             data-testid="dock-chip"
           >
             <span className="truncate">{f.name}</span>
@@ -40,13 +42,14 @@ export function AttachmentStrip({
 }
 
 function RemoveButton({ name, onClick }: { name: string; onClick(): void }) {
+  const t = useT(ceoDesk);
   return (
     <button
       type="button"
       onClick={onClick}
-      title={`Remove ${name}`}
-      aria-label={`Remove ${name}`}
-      className="absolute -top-6 -right-6 w-18 h-18 leading-none text-2xs bg-bg-dark border-2 border-border text-text-muted hover:text-text hover:border-accent cursor-pointer"
+      title={t('removeFile', { name })}
+      aria-label={t('removeFile', { name })}
+      className="absolute -top-6 -end-6 w-18 h-18 leading-none text-2xs bg-bg-dark border-2 border-border text-text-muted hover:text-text hover:border-accent cursor-pointer"
       data-testid="dock-attachment-remove"
     >
       x

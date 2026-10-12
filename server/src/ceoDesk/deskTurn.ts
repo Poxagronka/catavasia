@@ -89,10 +89,10 @@ export function sessionSettings(office: Orchestrator): Parameters<LiveSession['u
   return { model, effort, permissionMode };
 }
 
-/** The CEO's persona now: its name, Role & conduct, and the desk rules. */
-export function currentPersona(office: Orchestrator): string {
+/** The CEO's persona now: its name, Role & conduct, the desk rules, and the chosen UI language. */
+export function currentPersona(office: Orchestrator, language?: string): string {
   const role = office.cats.prompts.read(CAT_CEO_ID).file.role;
-  return deskPersona(office.ceo.settings.name, role);
+  return deskPersona(office.ceo.settings.name, role, language);
 }
 
 /**

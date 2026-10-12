@@ -96,6 +96,26 @@ describe('clientMessageHandler: hooks consent flow', () => {
 
   // ── hooksConsentRequest: who is asked, and on what terms ─────
 
+  describe('setLanguage', () => {
+    it('asks again in the new language, and only for a privileged client', async () => {
+      await connect();
+      sent.length = 0;
+      handleClientMessage({ type: 'setLanguage', language: 'ru' }, (m) => sent.push(m), ctx);
+      await settle();
+      const request = sent.find((m) => m.type === 'hooksConsentRequest');
+      expect(request).toBeDefined();
+      expect(request?.disclosure).not.toBe(CONSENT_DISCLOSURE);
+
+      sent.length = 0;
+      const guest = { ...ctx, privileged: false };
+      handleClientMessage({ type: 'setLanguage', language: 'de' }, (m) => sent.push(m), guest);
+      handleClientMessage({ type: 'setOnboardingDone', done: false }, (m) => sent.push(m), guest);
+      await settle();
+      expect(sent).toEqual([]);
+      expect(store.getAdapter()?.getSetting('pixel-agents.language', '')).toBe('ru');
+    });
+  });
+
   describe('hooksConsentRequest on webviewReady', () => {
     // The request carries the provider's exact disclosure so the dialog cannot
     // render weaker terms than the ones consentCopy.test.ts pins.

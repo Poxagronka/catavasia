@@ -1,0 +1,21 @@
+import type { Translation } from '../core.js';
+import type { helpChat } from './en.js';
+
+export const messages: Translation<typeof helpChat> = {
+  title: 'Помощь',
+  placeholder: 'Спросите что угодно о Catavasia или попросите помочь с промптом для кота.',
+  close: 'Закрыть',
+  send: 'Отправить',
+  stop: 'Остановить',
+  thinking: 'Думаю…',
+  newChat: 'Новый чат',
+  greetingOnboarding:
+    'Привет! Я ваш гид по Catavasia. Спросите, как всё работает, или попросите помочь написать промпт для вашего кота.',
+  greetingSettings:
+    'Привет! Я ваш гид по Catavasia. Спросите что угодно о приложении или попросите помочь написать промпт для кота.',
+  errReplaced: 'Другое окно задало новый вопрос. Спросите ещё раз.',
+  errNoAnswer: 'Ответа нет.',
+  errExited: 'Claude Code остановился с кодом {code}. Попробуйте ещё раз.',
+  unavailableNotInstalled: 'Claude Code не установлен. Установите его и попробуйте ещё раз.',
+  unavailableNotLoggedIn: 'В Claude Code не выполнен вход. Войдите и попробуйте ещё раз.',
+};

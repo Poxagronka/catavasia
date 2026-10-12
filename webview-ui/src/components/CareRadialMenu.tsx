@@ -6,13 +6,13 @@ import {
   PET_MENU_RADIUS_PX,
   TILE_SIZE,
 } from '../constants.js';
+import type { MessageKey } from '../i18n/core.js';
+import { office } from '../i18n/office/en.js';
+import { useT } from '../i18n/useT.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { getCatalogEntry } from '../office/layout/furnitureCatalog.js';
-import {
-  LITTER_STAGE_LABELS,
-  litterFreshness,
-  litterStage,
-} from '../office/petCare/litterStages.js';
+import type { LitterStage } from '../office/petCare/litterStages.js';
+import { litterFreshness, litterStage } from '../office/petCare/litterStages.js';
 import type { CareMenuAction } from '../office/petCare/petCareTypes.js';
 import { overlayProjection } from '../office/projection.js';
 import type { PetMenuIcon } from '../office/sprites/petCareSprites.js';
@@ -26,14 +26,23 @@ interface CareRadialMenuProps {
   panRef: React.RefObject<{ x: number; y: number }>;
 }
 
-type Button = { action: CareMenuAction; icon: PetMenuIcon; label: string };
+type OfficeKey = MessageKey<typeof office>;
+type Button = { action: CareMenuAction; icon: PetMenuIcon; label: OfficeKey };
+
+const LITTER_STAGE_KEYS: Record<LitterStage, OfficeKey> = {
+  clean: 'litterClean',
+  one: 'litterOne',
+  few: 'litterFew',
+  full: 'litterFull',
+  flies: 'litterFlies',
+};
 
 const BOX_BUTTONS: Button[] = [
-  { action: 'clean', icon: 'clean', label: 'Clean' },
-  { action: 'change', icon: 'change', label: 'Change litter' },
-  { action: 'info', icon: 'info', label: 'Info' },
+  { action: 'clean', icon: 'clean', label: 'actionClean' },
+  { action: 'change', icon: 'change', label: 'careChangeLitter' },
+  { action: 'info', icon: 'info', label: 'actionInfo' },
 ];
-const POOP_BUTTONS: Button[] = [{ action: 'cleanup', icon: 'bag', label: 'Clean up' }];
+const POOP_BUTTONS: Button[] = [{ action: 'cleanup', icon: 'bag', label: 'careCleanUp' }];
 
 function Bar({ label, value }: { label: string; value: number }) {
   return (
@@ -55,6 +64,7 @@ function Bar({ label, value }: { label: string; value: number }) {
  * the poop (OfficeCanvas); state lives in PetCareSystem.careMenu.
  */
 export function CareRadialMenu({ officeState, containerRef, zoom, panRef }: CareRadialMenuProps) {
+  const t = useT(office);
   const care = officeState.petCare;
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -104,7 +114,7 @@ export function CareRadialMenu({ officeState, containerRef, zoom, panRef }: Care
   const buttons = box ? BOX_BUTTONS : POOP_BUTTONS;
   const piles = box ? care.world.boxCount(box.uid) : 0;
   const uses = box ? care.world.litterUses(box.uid) : 0;
-  const name = box ? (getCatalogEntry(box.type)?.label ?? 'Litter box') : 'Poop';
+  const name = box ? (getCatalogEntry(box.type)?.label ?? t('careLitterBox')) : t('carePoop');
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 45 }}>
@@ -114,8 +124,8 @@ export function CareRadialMenu({ officeState, containerRef, zoom, panRef }: Care
         return (
           <button
             key={action}
-            title={label}
-            aria-label={label}
+            title={t(label)}
+            aria-label={t(label)}
             data-care-action={action}
             onClick={() => care.careAct(action, officeState.petCareEnv())}
             className={`absolute pointer-events-auto flex items-center justify-center p-0 border-2 rounded-none shadow-pixel cursor-pointer ${
@@ -150,12 +160,12 @@ export function CareRadialMenu({ officeState, containerRef, zoom, panRef }: Care
           style={{ left: cx + radius + half + 10, top: cy - radius }}
         >
           <div className="text-sm">{name}</div>
-          <div className="text-text-muted mb-4">{LITTER_STAGE_LABELS[litterStage(piles)]}</div>
+          <div className="text-text-muted mb-4">{t(LITTER_STAGE_KEYS[litterStage(piles)])}</div>
           <Bar
-            label={`Piles ${piles}/${PET_LITTER_CAPACITY}`}
+            label={t('carePiles', { count: piles, max: PET_LITTER_CAPACITY })}
             value={100 - (100 * piles) / PET_LITTER_CAPACITY}
           />
-          <Bar label="Fresh litter" value={litterFreshness(uses)} />
+          <Bar label={t('careFreshLitter')} value={litterFreshness(uses)} />
         </div>
       )}
     </div>

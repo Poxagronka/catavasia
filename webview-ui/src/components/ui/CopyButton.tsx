@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 
+import { chrome } from '../../i18n/chrome/en.js';
+import { useT } from '../../i18n/useT.js';
+
 const COPIED_MS = 1500;
 
 /** Two overlapping sheets, drawn on a pixel grid. */
@@ -28,6 +31,7 @@ export function CopyButton({
   className?: string;
   testId?: string;
 }) {
+  const t = useT(chrome);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -44,13 +48,13 @@ export function CopyButton({
     <button
       type="button"
       onClick={copy}
-      title={copied ? 'Copied' : title}
+      title={copied ? t('copied') : title}
       aria-label={title}
       className={`flex items-center gap-4 bg-transparent border-0 p-4 min-w-24 min-h-24 cursor-pointer text-text-muted hover:text-text text-2xs ${className}`}
       data-testid={testId}
     >
       <CopyIcon />
-      {copied ? <span>Copied</span> : label && <span>{label}</span>}
+      {copied ? <span>{t('copied')}</span> : label && <span>{label}</span>}
     </button>
   );
 }

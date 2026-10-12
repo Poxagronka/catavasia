@@ -26,14 +26,6 @@ export function litterStage(piles: number): LitterStage {
   return piles < PET_LITTER_CAPACITY ? 'full' : 'flies';
 }
 
-export const LITTER_STAGE_LABELS: Record<LitterStage, string> = {
-  clean: 'Clean',
-  one: 'One pile',
-  few: 'A few piles',
-  full: 'Full, it smells',
-  flies: 'Flies! Cats refuse it',
-};
-
 /** Sand look from uses since the last litter change: 0 fresh, 1 used, 2 dirty. */
 export function sandStage(uses: number): 0 | 1 | 2 {
   if (uses < PET_LITTER_USED_AFTER) return 0;

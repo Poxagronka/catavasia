@@ -30,7 +30,7 @@ import {
   validateCatProfile,
 } from './catsApi.js';
 import { moveCat, normalizeHierarchy, promoteToBoss, removeCat } from './hierarchy.js';
-import { localSeed, STORAGE_KEY } from './localCatsAdapter.js';
+import { legacyLocalSeed, STORAGE_KEY } from './localCatsAdapter.js';
 
 /** `claude --help`: the CLI also takes "a model's full name". Mirrors the server check. */
 const CLAUDE_FULL_MODEL = /^claude-[a-z0-9][a-z0-9.-]*$/;
@@ -164,7 +164,7 @@ export function migrateLocalCats(
   } catch {
     return false;
   }
-  const seed = localSeed().cats;
+  const seed = legacyLocalSeed().cats;
   // The seed before the lead's default effort moved from high to medium is a seed too.
   const oldSeed = seed.map((c) => (c.parentId === null ? { ...c, effort: 'high' } : c));
   const isSeed = [seed, oldSeed].some((s) => JSON.stringify(local) === JSON.stringify(s));

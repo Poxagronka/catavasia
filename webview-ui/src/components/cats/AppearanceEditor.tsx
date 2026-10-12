@@ -17,6 +17,8 @@ import {
   type PatternId,
 } from '../../cats/catsApi.js';
 import { CAT_EDITOR_ZOOM, CAT_LIST_ZOOM } from '../../constants.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Checkbox } from '../ui/Checkbox.js';
 import { CatSprite } from './CatSprite.js';
 import { FIELD } from './fields.js';
@@ -33,23 +35,23 @@ const MARKINGS: Record<PatternId, Array<keyof ColorLayers>> = {
   sweater: [],
 };
 
-const LAYER_LABEL: Record<keyof ColorLayers, string> = {
-  fur: 'Fur',
-  belly: 'Belly',
-  stripe: 'Stripes',
-  patchA: 'Patch 1',
-  patchB: 'Patch 2',
-  point: 'Points',
-};
+const LAYER_LABEL = {
+  fur: 'layerFur',
+  belly: 'layerBelly',
+  stripe: 'layerStripe',
+  patchA: 'layerPatchA',
+  patchB: 'layerPatchB',
+  point: 'layerPoint',
+} as const;
 
 const DEFAULT_COLLAR: [number, number, number] = [204, 48, 60];
 
 /** Preview facings in turn order. Left is the right sheet, mirrored. */
 const FACINGS = [
-  { name: 'Front', dir: 'down', flip: false },
-  { name: 'Right', dir: 'right', flip: false },
-  { name: 'Back', dir: 'up', flip: false },
-  { name: 'Left', dir: 'right', flip: true },
+  { name: 'facingFront', dir: 'down', flip: false },
+  { name: 'facingRight', dir: 'right', flip: false },
+  { name: 'facingBack', dir: 'up', flip: false },
+  { name: 'facingLeft', dir: 'right', flip: true },
 ] as const;
 
 /**
@@ -163,6 +165,7 @@ function Swatch({
   onChange: (hex: string) => void;
   onReset: () => void;
 }) {
+  const t = useT(cats);
   return (
     <>
       <input
@@ -175,10 +178,10 @@ function Swatch({
       {/* Hidden, not removed, so the rows keep one width. */}
       <button
         className={`text-2xs text-text-muted hover:text-text cursor-pointer ${overridden ? '' : 'invisible'}`}
-        title="Back to the breed colour"
+        title={t('resetColorTitle')}
         onClick={onReset}
       >
-        reset
+        {t('resetColor')}
       </button>
     </>
   );
@@ -200,6 +203,7 @@ export function AppearanceEditor({
   preview?: PreviewFn;
   onOriginal?: () => void;
 }) {
+  const t = useT(cats);
   const [facing, setFacing] = useState(0);
   const turn = (step: number) => setFacing((f) => (f + step + FACINGS.length) % FACINGS.length);
   const { name: facingName, dir, flip } = FACINGS[facing];
@@ -224,44 +228,42 @@ export function AppearanceEditor({
           </div>
         </div>
         <div className="flex items-center justify-between text-xs text-text-muted">
-          <button className={ARROW} title="Turn left" onClick={() => turn(-1)}>
+          <button className={ARROW} title={t('turnLeft')} onClick={() => turn(-1)}>
             ◀
           </button>
-          {facingName}
-          <button className={ARROW} title="Turn right" onClick={() => turn(1)}>
+          {t(facingName)}
+          <button className={ARROW} title={t('turnRight')} onClick={() => turn(1)}>
             ▶
           </button>
         </div>
       </div>
       <div className="flex flex-col gap-10 min-w-[240px] flex-1">
         <PresetGrid
-          title="Breeds"
+          title={t('breeds')}
           presets={BREED_PRESETS}
           value={own}
           onPick={onChange}
           preview={preview}
           lead={
             onOriginal && (
-              <TileButton title="Original sprite" selected={!own} onClick={onOriginal}>
+              <TileButton title={t('originalSprite')} selected={!own} onClick={onOriginal}>
                 {preview(undefined, 'tile')}
               </TileButton>
             )
           }
         />
         <PresetGrid
-          title="Coats"
+          title={t('coats')}
           presets={COAT_PRESETS}
           value={own}
           onPick={onChange}
           preview={preview}
         />
         {!own ? (
-          <div className="text-xs text-text-muted">
-            Original sprite. Pick a breed or a coat to recolour it.
-          </div>
+          <div className="text-xs text-text-muted">{t('originalHint')}</div>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-x-16 gap-y-4 max-w-[680px]">
-            <FormRow label="Pattern">
+            <FormRow label={t('pattern')}>
               <select
                 className={`${FIELD} text-xs py-2 w-120!`}
                 value={pattern}
@@ -275,9 +277,9 @@ export function AppearanceEditor({
               </select>
             </FormRow>
             {layers.map((layer) => (
-              <FormRow key={layer} label={LAYER_LABEL[layer]}>
+              <FormRow key={layer} label={t(LAYER_LABEL[layer])}>
                 <Swatch
-                  label={LAYER_LABEL[layer]}
+                  label={t(LAYER_LABEL[layer])}
                   color={value.colors?.[layer] ?? layerColor(value, layer)}
                   overridden={value.colors?.[layer] !== undefined}
                   onChange={(hex) => setLayer(layer, hex)}
@@ -285,19 +287,19 @@ export function AppearanceEditor({
                 />
               </FormRow>
             ))}
-            <FormRow label="Eyes">
+            <FormRow label={t('eyes')}>
               <Swatch
-                label="Eyes"
+                label={t('eyes')}
                 color={value.eyes ?? layerColor(value, 'eyes')}
                 overridden={value.eyes !== undefined}
                 onChange={(eyes) => onChange({ ...value, eyes })}
                 onReset={() => onChange({ ...value, eyes: undefined })}
               />
             </FormRow>
-            <FormRow label="Collar">
+            <FormRow label={t('collar')}>
               <div className={`flex items-center gap-8 ${collarOff ? 'invisible' : ''}`}>
                 <Swatch
-                  label="Collar"
+                  label={t('collar')}
                   color={
                     value.collar && value.collar !== 'none'
                       ? value.collar
@@ -309,7 +311,7 @@ export function AppearanceEditor({
                 />
               </div>
               <Checkbox
-                label="No collar"
+                label={t('noCollar')}
                 checked={collarOff}
                 className="w-auto! gap-6 py-2! px-4! text-xs flex-row-reverse"
                 onChange={() => {

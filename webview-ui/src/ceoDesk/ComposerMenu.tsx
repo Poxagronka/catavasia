@@ -18,14 +18,14 @@ export function ComposerMenu({
   label,
   title,
   testId,
-  align = 'left',
+  align = 'start',
   openKey,
   children,
 }: {
   label: ReactNode;
   title: string;
   testId: string;
-  align?: 'left' | 'right';
+  align?: 'start' | 'end';
   openKey?: number;
   children: (close: () => void) => ReactNode;
 }) {
@@ -85,7 +85,7 @@ export function ComposerMenu({
       {open && (
         <div
           ref={menu}
-          className={`composer-menu ${align === 'right' ? 'right-0' : 'left-0'}`}
+          className={`composer-menu ${align === 'end' ? 'end-0' : 'start-0'}`}
           role="dialog"
           aria-label={title}
           onKeyDown={onMenuKey}

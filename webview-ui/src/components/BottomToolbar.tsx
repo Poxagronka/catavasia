@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { WorkspaceFolder } from '../hooks/useExtensionMessages.js';
+import { chrome } from '../i18n/chrome/en.js';
+import { common } from '../i18n/common/en.js';
+import { useT } from '../i18n/useT.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { sessionToken } from '../sessionToken.js';
 import { transport } from '../transport/index.js';
@@ -37,6 +40,8 @@ export function BottomToolbar({
   onToggleFeedback,
   workspaceFolders,
 }: BottomToolbarProps) {
+  const t = useT(chrome);
+  const tc = useT(common);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
   const [isBypassMenuOpen, setIsBypassMenuOpen] = useState(false);
   const folderPickerRef = useRef<HTMLDivElement>(null);
@@ -114,11 +119,11 @@ export function BottomToolbar({
                 : 'bg-accent hover:bg-accent-bright'
             }
           >
-            + Agent
+            {t('addAgent')}
           </Button>
           <Dropdown isOpen={isBypassMenuOpen}>
             <DropdownItem onClick={() => handleBypassSelect(true)}>
-              Skip permissions mode <span className="text-2xs text-warning">⚠</span>
+              {t('skipPermissions')} <span className="text-2xs text-warning">⚠</span>
             </DropdownItem>
           </Dropdown>
           <Dropdown isOpen={isFolderPickerOpen} className="min-w-128">
@@ -139,38 +144,38 @@ export function BottomToolbar({
       <Button
         variant={isCatsOpen ? 'active' : 'default'}
         onClick={onToggleCats}
-        title="Agent cats and pets"
+        title={t('catsTitle')}
       >
-        Cats
+        {t('cats')}
       </Button>
       <Button
         variant={isHierarchyOpen ? 'active' : 'default'}
         onClick={onToggleHierarchy}
-        title="Who reports to whom"
+        title={t('hierarchyTitle')}
       >
-        Hierarchy
+        {t('hierarchy')}
       </Button>
       <Button
         variant={isEditMode ? 'active' : 'default'}
         onClick={onToggleEditMode}
-        title="Edit office layout"
+        title={t('layoutTitle')}
       >
-        Layout
+        {t('layout')}
       </Button>
       <Button
         variant={isSettingsOpen ? 'active' : 'default'}
         onClick={onToggleSettings}
-        title="Settings"
+        title={tc('settings')}
       >
-        Settings
+        {tc('settings')}
       </Button>
       <Button
         variant={isFeedbackOpen ? 'active' : 'default'}
         onClick={onToggleFeedback}
-        title="Send feedback or a bug report to GitHub"
+        title={t('feedbackTitle')}
         data-testid="feedback-button"
       >
-        Feedback
+        {t('feedback')}
       </Button>
     </div>
   );

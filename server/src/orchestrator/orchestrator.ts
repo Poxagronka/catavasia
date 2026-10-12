@@ -339,7 +339,7 @@ export class Orchestrator implements OfficeToolHandler, RunnerHost {
     );
   }
 
-  /** Settings "Reset everything": the default team and prompt files (the Cat CEO's too). */
+  /** Settings "Reset everything": no cats (the first-run state) and fresh prompt files (the Cat CEO's too). */
   resetToDefaults(): string | undefined {
     const error = this.cats.resetToDefaults({
       [CAT_CEO_ID]: { role: CEO_DEFAULT_ROLE, rules: [], lessons: [] },

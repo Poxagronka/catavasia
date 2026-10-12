@@ -4,6 +4,8 @@ import type { TaskDetail } from '../../../../core/src/tasks.js';
 import { useCats } from '../../cats/useCats.js';
 import { TASK_POLL_INTERVAL_MS } from '../../constants.js';
 import { useMoneyShown } from '../../engines/money.js';
+import { terminal } from '../../i18n/terminal/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Modal } from '../ui/Modal.js';
 import { CatAvatar } from './CatAvatar.js';
 import { Markdown } from './Markdown.js';
@@ -31,31 +33,47 @@ function diffLineClass(line: string): string {
 function Meta({ task }: { task: TaskDetail }) {
   const { cats } = useCats();
   const showMoney = useMoneyShown();
-  const facts: Array<[string, string]> = [
-    ['Status', task.status],
-    ['Cat', taskCatLabel(task, cats)],
-    ['Folder', task.cwd],
-    ['Branch', task.branch ?? 'none (not a git repo)'],
+  const t = useT(terminal);
+  const statusText = {
+    running: t('statusRunning'),
+    done: t('statusDone'),
+    error: t('statusError'),
+  }[task.status];
+  // [id, label, value]: the id marks the Status row for its color.
+  const facts: Array<[string, string, string]> = [
+    ['status', t('factStatus'), statusText],
+    ['cat', t('factCat'), taskCatLabel(task, cats)],
+    ['folder', t('factFolder'), task.cwd],
+    ['branch', t('factBranch'), task.branch ?? t('branchNone')],
   ];
   if (task.finishedAt !== undefined) {
-    facts.push(['Elapsed', formatElapsed(task.finishedAt - task.createdAt)]);
+    facts.push(['elapsed', t('factElapsed'), formatElapsed(task.finishedAt - task.createdAt)]);
   }
-  if (showMoney && task.costUsd !== undefined) facts.push(['Cost', `$${task.costUsd.toFixed(4)}`]);
-  if (task.durationMs !== undefined) facts.push(['Run time', formatElapsed(task.durationMs)]);
-  if (task.numTurns !== undefined) facts.push(['Turns', String(task.numTurns)]);
+  if (showMoney && task.costUsd !== undefined) {
+    facts.push(['cost', t('factCost'), `$${task.costUsd.toFixed(4)}`]);
+  }
+  if (task.durationMs !== undefined) {
+    facts.push(['runTime', t('factRunTime'), formatElapsed(task.durationMs)]);
+  }
+  if (task.numTurns !== undefined) facts.push(['turns', t('factTurns'), String(task.numTurns)]);
   // The Cat CEO judge review (the task board's badge before the CEO desk).
   const review = reviewBadge(task.review, showMoney);
-  if (review)
-    facts.push(['Review', review.title ? `${review.text}: ${review.title}` : review.text]);
+  if (review) {
+    facts.push([
+      'review',
+      t('factReview'),
+      review.title ? `${review.text}: ${review.title}` : review.text,
+    ]);
+  }
   return (
     <div className="flex gap-12 items-start">
       <CatAvatar palette={task.palette} hueShift={task.hueShift} />
       <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-2 items-baseline text-xs min-w-0">
-        {facts.map(([label, value]) => (
-          <div key={label} className="contents">
+        {facts.map(([id, label, value]) => (
+          <div key={id} className="contents">
             <span className="text-text-muted">{label}</span>
             <span
-              className={`prose-body prose-small break-all ${label === 'Status' ? STATUS_CLASS[task.status] : ''}`}
+              className={`prose-body prose-small break-all ${id === 'status' ? STATUS_CLASS[task.status] : ''}`}
             >
               {value}
             </span>
@@ -68,6 +86,7 @@ function Meta({ task }: { task: TaskDetail }) {
 
 /** Full task view: result, changed files, diff and the tool-call log. */
 export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+  const t = useT(terminal);
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const running = task === null || task.status === 'running';
@@ -89,7 +108,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
       onClose={onClose}
       title={
         <span className="block truncate max-w-[calc(min(920px,94vw)-120px)]">
-          {task?.title ?? 'Task'}
+          {task?.title ?? t('taskFallback')}
         </span>
       }
       className="w-[min(920px,94vw)] max-h-[86vh] flex flex-col"
@@ -100,29 +119,29 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
           <>
             <Meta task={task} />
             <TaskControls task={task} onChanged={(s) => setTask({ ...task, ...s })} />
-            <Section title="Prompt">
+            <Section title={t('sectionPrompt')}>
               <div className="prose-body prose-measure whitespace-pre-wrap break-words">
                 {task.prompt}
               </div>
             </Section>
             {task.error && (
-              <Section title="Error">
+              <Section title={t('sectionError')}>
                 <pre className="prose-code whitespace-pre-wrap text-status-error">{task.error}</pre>
               </Section>
             )}
-            <Section title="Result">
+            <Section title={t('sectionResult')}>
               {task.result ? (
                 <Markdown text={task.result} className="prose-measure" />
               ) : (
                 <span className="prose-body text-text-muted">
-                  {task.status === 'running' ? 'The cat is still working...' : 'No result text.'}
+                  {task.status === 'running' ? t('stillWorking') : t('noResult')}
                 </span>
               )}
             </Section>
             {task.changedFiles && (
-              <Section title={`Changed files (${task.changedFiles.length})`}>
+              <Section title={t('sectionChangedFiles', { count: task.changedFiles.length })}>
                 {task.changedFiles.length === 0 && (
-                  <span className="prose-body text-text-muted">No changes.</span>
+                  <span className="prose-body text-text-muted">{t('noChanges')}</span>
                 )}
                 {task.changedFiles.map((f) => (
                   <div key={f.path} className="prose-code break-all">
@@ -133,7 +152,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
               </Section>
             )}
             {task.diff && (
-              <Section title={task.diffTruncated ? 'Diff (truncated)' : 'Diff'}>
+              <Section title={task.diffTruncated ? t('sectionDiffTruncated') : t('sectionDiff')}>
                 <pre className="prose-code bg-bg-dark border-2 border-border p-6 overflow-x-auto max-h-[420px]">
                   {task.diff.split('\n').map((line, n) => (
                     <div key={n} className={diffLineClass(line)}>
@@ -145,7 +164,7 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
             )}
             <details>
               <summary className="cursor-pointer text-accent-bright text-base">
-                Activity log ({task.log.length})
+                {t('activityLog', { count: task.log.length })}
               </summary>
               <div className="prose-code flex flex-col gap-2 mt-6">
                 {task.log.map((entry, n) => (
@@ -153,7 +172,9 @@ export function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: 
                     {entry.kind === 'tool' && (
                       <span className="text-status-active">{entry.name} </span>
                     )}
-                    {entry.kind === 'user' && <span className="text-accent-bright">You: </span>}
+                    {entry.kind === 'user' && (
+                      <span className="text-accent-bright">{t('youPrefix')} </span>
+                    )}
                     <span
                       className={entry.kind === 'error' ? 'text-status-error' : 'text-text-muted'}
                     >

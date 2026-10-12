@@ -9,6 +9,8 @@ import {
 } from 'react';
 
 import type { CeoAttachmentUpload, DeskCommand } from '../../../core/src/ceoDesk.js';
+import { ceoDesk } from '../i18n/ceoDesk/en.js';
+import { useT } from '../i18n/useT.js';
 import { AttachmentStrip } from './AttachmentStrip.js';
 import { attachError, type DraftAttachment } from './attachState.js';
 import { shownSuggestion } from './dockState.js';
@@ -100,6 +102,7 @@ export function DockComposer({
   history = [],
   onCycleMode,
 }: DockComposerProps) {
+  const t = useT(ceoDesk);
   const [sending, setSending] = useState(false);
   const [preparing, setPreparing] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -247,7 +250,7 @@ export function DockComposer({
       <SlashMenu menu={slash} />
       <MentionMenu menu={mention} />
       <div
-        className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] pl-4 pr-6"
+        className="flex items-end gap-4 bg-bg-dark border-2 border-border focus-within:border-accent rounded-[12px] ps-4 pe-6"
         data-testid="dock-box"
       >
         <textarea
@@ -261,7 +264,7 @@ export function DockComposer({
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           rows={2}
-          placeholder={ghost ?? 'Ask the CEO anything. Type / for commands, @ for files.'}
+          placeholder={ghost ?? t('composerPlaceholder')}
           className="flex-1 min-w-0 resize-none bg-transparent border-0 outline-none px-8 py-6 prose-body"
           data-testid="dock-input"
         />
@@ -269,8 +272,8 @@ export function DockComposer({
           type="button"
           disabled={!canSend}
           onClick={() => void submit()}
-          title={(stopped(draft) && blocked) || 'Send (Enter). Shift+Enter: new line'}
-          aria-label="Send"
+          title={(stopped(draft) && blocked) || t('sendTitle')}
+          aria-label={t('send')}
           className={`shrink-0 w-28 h-28 mb-6 flex items-center justify-center rounded-[6px] border-0 bg-transparent ${
             canSend
               ? 'text-text hover:bg-btn-hover cursor-pointer'
@@ -297,8 +300,8 @@ export function DockComposer({
           type="button"
           className="dock-ctl is-icon"
           onClick={() => picker.current?.click()}
-          title="Attach images or files"
-          aria-label="Attach images or files"
+          title={t('attach')}
+          aria-label={t('attach')}
           data-testid="dock-attach"
         >
           <PlusIcon />
@@ -306,7 +309,7 @@ export function DockComposer({
         {mode}
         <span className="flex-1 truncate">
           {preparing
-            ? 'Preparing files...'
+            ? t('preparingFiles')
             : ghost && (
                 <button
                   type="button"
@@ -315,7 +318,7 @@ export function DockComposer({
                   title={ghost}
                   data-testid="dock-suggestion"
                 >
-                  Tab: use the suggestion
+                  {t('useSuggestion')}
                 </button>
               )}
         </span>

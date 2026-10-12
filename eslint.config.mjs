@@ -38,7 +38,12 @@ export default [
     },
   },
   {
-    files: ['adapters/vscode/constants.ts', 'server/src/constants.ts'],
+    files: [
+      'adapters/vscode/constants.ts',
+      'server/src/constants.ts',
+      // The template cats' coat data: colour literals are its content.
+      'core/src/catTemplates.ts',
+    ],
     rules: {
       'pixel-agents/no-inline-colors': 'off',
     },

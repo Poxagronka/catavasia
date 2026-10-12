@@ -24,6 +24,8 @@ export interface ConsentGateState {
    *  server token. Showing the dialog to a client whose answer would be
    *  ignored is a lie, so it gates the ASK and not just the response. */
   privileged: boolean;
+  /** The chosen UI language code, so the ask is written in it. '' or absent means English. */
+  language?: string;
 }
 
 /**
@@ -39,7 +41,7 @@ export function hooksConsentRequest(
   if (state.installed || state.consentAnswered || !state.hooksEnabled || !state.privileged) {
     return null;
   }
-  const { headline, disclosure } = provider.consentDisclosure();
+  const { headline, disclosure } = provider.consentDisclosure(state.language);
   return { type: 'hooksConsentRequest', providerId: provider.id, headline, disclosure };
 }
 
