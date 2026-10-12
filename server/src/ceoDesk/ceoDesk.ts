@@ -30,6 +30,7 @@ import type {
 import type { OfficeToolHandler, OfficeToolResult } from '../orchestrator/officeMcp.js';
 import type { Orchestrator } from '../orchestrator/orchestrator.js';
 import type { TaskManager } from '../taskBoard/taskManager.js';
+import { UPDATE_REPO_GIT_URL } from '../update/updateChecker.js';
 import { officeLimits } from '../usageLimits.js';
 import { saveAttachments, type SavedAttachments } from './attachments.js';
 import { ChatHistory, messageTitle } from './chatHistory.js';
@@ -50,6 +51,7 @@ import {
   type Turn,
   turnCwd,
 } from './deskTurn.js';
+import { ensureSelfRepo } from './selfRepo.js';
 import { RECENT_FOLDERS_MAX, recentFolders } from './workFolder.js';
 
 export const CEO_NO_WHEEL = 'The CEO has no terminal session: talk to it in the chat';
@@ -61,6 +63,8 @@ export interface CeoDeskOptions {
   tasks: TaskManager;
   /** The Claude Code adapter: the CEO always runs on Claude, in a live session. */
   adapter: SessionEngine;
+  /** Git URL of Catavasia's own repo; tests pass a local repo. Default UPDATE_REPO_GIT_URL. */
+  selfRepoUrl?: string;
 }
 
 export class CeoDesk implements OfficeToolHandler {
@@ -92,6 +96,10 @@ export class CeoDesk implements OfficeToolHandler {
 
   constructor(private readonly opts: CeoDeskOptions) {
     this.events.setMaxListeners(0);
+    // Warm the self-repo clone so the first start_job returns at once.
+    void ensureSelfRepo(opts.stateDir, opts.selfRepoUrl ?? UPDATE_REPO_GIT_URL).catch((err) =>
+      console.error('[ceoDesk] self-repo pre-warm failed:', err),
+    );
     this.store = new DeskStore(path.join(opts.stateDir, CAT_CEO_DIR));
     this.state = this.store.load(Date.now());
     this.log = new DeskLog(this.store, this.state.chatId, (f) => this.emit(f));
@@ -339,6 +347,8 @@ export class CeoDesk implements OfficeToolHandler {
       tasks,
       chatId: () => this.state.chatId,
       folder: () => this.state.folder,
+      selfRepo: () =>
+        ensureSelfRepo(this.opts.stateDir, this.opts.selfRepoUrl ?? UPDATE_REPO_GIT_URL),
       sandbox: () => this.sandbox(),
       folderOf: (cwd) => this.folderOf(cwd),
       liveJobs: () => this.state.liveJobs,

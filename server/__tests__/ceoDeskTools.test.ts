@@ -106,7 +106,12 @@ describe('desk tools', () => {
       'edit_prompts',
     ]);
     const startJob = DESK_TOOLS.find((t) => t.name === 'start_job')!;
-    expect(Object.keys(startJob.inputSchema.properties as object)).toEqual(['task', 'to', 'from']);
+    expect(Object.keys(startJob.inputSchema.properties as object)).toEqual([
+      'task',
+      'to',
+      'from',
+      'project',
+    ]);
   });
 
   it('list_team and the start_job refusals', async () => {
