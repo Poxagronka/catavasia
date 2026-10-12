@@ -1,5 +1,7 @@
 import { type CatProfile, type Engine, ENGINE_LABELS } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { FIELD } from './fields.js';
 import { PermissionModeField } from './PermissionModeField.js';
 import { PromptItemsEditor } from './PromptItemsEditor.js';
@@ -39,11 +41,11 @@ export function Select({
 }
 
 /** Engine labels; an engine the server cannot run says why ("Codex CLI not found"). */
-function engineLabels(): Record<string, string> {
+function engineLabels(t: ReturnType<typeof useT<typeof cats>>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(ENGINE_LABELS).map(([engine, label]) => {
       const reason = catsApi.engineOptions(engine as Engine).unavailable;
-      return [engine, reason ? `${label} (${reason})` : label];
+      return [engine, reason ? t('engineWithReason', { label, reason }) : label];
     }),
   );
 }
@@ -56,6 +58,7 @@ export function AgentFields({
   cat: CatProfile;
   onChange: (c: CatProfile) => void;
 }) {
+  const t = useT(cats);
   const options = catsApi.engineOptions(cat.engine);
   const setEngine = (engine: Engine) => {
     const next = catsApi.engineOptions(engine);
@@ -70,32 +73,32 @@ export function AgentFields({
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-8">
         <label className="flex flex-col gap-2 text-xs text-text-muted">
-          Role
+          {t('role')}
           <input
             className={`${FIELD} text-xs`}
             value={cat.role}
-            placeholder="Team lead, tester..."
+            placeholder={t('rolePlaceholder')}
             onChange={(e) => onChange({ ...cat, role: e.target.value })}
           />
         </label>
         <Select
-          label="Engine"
+          label={t('engine')}
           value={cat.engine}
           options={Object.keys(ENGINE_LABELS)}
-          labels={engineLabels()}
+          labels={engineLabels(t)}
           disabled={(o) => !!catsApi.engineOptions(o as Engine).unavailable}
           onChange={(v) => setEngine(v as Engine)}
         />
         {options.fullModelPattern ? (
           // The CLI also takes a model's full name (claude-...): free text with suggestions.
           <label className="flex flex-col gap-2 text-xs text-text-muted">
-            Model
+            {t('model')}
             <input
               className={`${FIELD} text-xs`}
               list="cat-model-options"
               value={cat.model}
               spellCheck={false}
-              title="An alias from the list, or a full model name (claude-...)"
+              title={t('modelTitle')}
               onChange={(e) => onChange({ ...cat, model: e.target.value.trim() })}
             />
             <datalist id="cat-model-options">
@@ -106,14 +109,14 @@ export function AgentFields({
           </label>
         ) : (
           <Select
-            label="Model"
+            label={t('model')}
             value={cat.model}
             options={options.models}
             onChange={(model) => onChange({ ...cat, model })}
           />
         )}
         <Select
-          label="Effort"
+          label={t('effort')}
           value={cat.effort}
           options={options.efforts}
           onChange={(effort) => onChange({ ...cat, effort })}
@@ -126,11 +129,11 @@ export function AgentFields({
         onChange={(permissionMode) => onChange({ ...cat, permissionMode })}
       />
       <label className="flex flex-col gap-2 text-xs text-text-muted">
-        System prompt
+        {t('systemPrompt')}
         <textarea
           className={`${FIELD} text-xs h-80 resize-y`}
           value={cat.systemPrompt}
-          placeholder="Who is this cat and how does it work? Appended to the engine's system prompt."
+          placeholder={t('systemPromptPlaceholder')}
           onChange={(e) => onChange({ ...cat, systemPrompt: e.target.value })}
         />
       </label>

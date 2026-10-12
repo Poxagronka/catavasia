@@ -7,6 +7,8 @@ import { findBoss } from '../../cats/hierarchy.js';
 import { useCats } from '../../cats/useCats.js';
 import { usePetRoster } from '../../cats/usePetRoster.js';
 import { CAT_CEO_ID, CAT_LIST_ZOOM } from '../../constants.js';
+import { cats as catsText } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import type { OfficeState } from '../../office/engine/officeState.js';
 import { Button } from '../ui/Button.js';
 import { Modal } from '../ui/Modal.js';
@@ -46,12 +48,12 @@ function ProfileList({
       <Button size="md" variant="accent" onClick={onCreate}>
         {createLabel}
       </Button>
-      <div className="flex flex-col gap-2 overflow-y-auto max-h-[60vh] pr-2">
+      <div className="flex flex-col gap-2 overflow-y-auto max-h-[60vh] pe-2">
         {items.map((it) => (
           <button
             key={it.id}
             onClick={() => onSelect(it.id)}
-            className={`flex gap-8 items-center text-left p-4 border-2 rounded-none cursor-pointer text-text ${
+            className={`flex gap-8 items-center text-start p-4 border-2 rounded-none cursor-pointer text-text ${
               it.id === selectedId
                 ? 'bg-active-bg border-accent'
                 : 'bg-btn-bg border-transparent hover:bg-btn-hover'
@@ -88,6 +90,7 @@ function EditorHeader({
   onDelete: () => void;
   error: string | null;
 }) {
+  const t = useT(catsText);
   const [confirming, setConfirming] = useState(false);
   return (
     <div className="flex flex-col gap-4">
@@ -95,25 +98,25 @@ function EditorHeader({
         <input
           className={`${FIELD} text-lg flex-1`}
           value={name}
-          placeholder="Name"
+          placeholder={t('name')}
           onChange={(e) => onRename(e.target.value)}
           spellCheck={false}
         />
-        <Button size="md" onClick={onDuplicate} title="Copy this profile">
-          Duplicate
+        <Button size="md" onClick={onDuplicate} title={t('duplicateTitle')}>
+          {t('duplicate')}
         </Button>
         {confirming ? (
           <>
             <Button size="md" className="bg-danger! border-danger" onClick={onDelete}>
-              Delete {name.trim() || 'it'}?
+              {name.trim() ? t('deleteNamed', { name: name.trim() }) : t('deleteIt')}
             </Button>
             <Button size="md" variant="ghost" onClick={() => setConfirming(false)}>
-              Keep
+              {t('keep')}
             </Button>
           </>
         ) : (
           <Button size="md" variant="ghost" onClick={() => setConfirming(true)}>
-            Delete
+            {t('delete')}
           </Button>
         )}
       </div>
@@ -161,6 +164,7 @@ function AgentEditor({
   onSelect: (id: string) => void;
   historyOpen?: boolean;
 }) {
+  const t = useT(catsText);
   const { cats, rejected } = useCats();
   const online = useCatCeo().settings !== null;
   const [showHistory, setShowHistory] = useState(historyOpen);
@@ -204,7 +208,7 @@ function AgentEditor({
             variant={showHistory ? 'active' : 'default'}
             onClick={() => setShowHistory(!showHistory)}
           >
-            Prompt history
+            {t('promptHistory')}
           </Button>
           {showHistory && <PromptHistory catId={cat.id} />}
         </div>
@@ -255,6 +259,7 @@ export function CatsModal({
   getOfficeState: () => OfficeState;
   onCommitPets: () => void;
 }) {
+  const t = useT(catsText);
   const { cats } = useCats();
   const ceo = useCatCeo().settings;
   const [tab, setTab] = useState<Tab>('agents');
@@ -275,7 +280,7 @@ export function CatsModal({
         {
           id: CAT_CEO_ID,
           name: ceo.name,
-          detail: `Cat CEO · ${ceo.enabled ? ceo.model : 'off'}`,
+          detail: ceo.enabled ? t('ceoListOn', { model: ceo.model }) : t('ceoListOff'),
           appearance: ceo.appearance as Appearance,
         },
       ]
@@ -303,15 +308,20 @@ export function CatsModal({
     setCatId(fresh.id);
   };
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cats" className="w-[min(1180px,96vw)]">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('catsTitle')}
+      className="w-[min(1180px,96vw)]"
+    >
       {/* Keep office shortcuts (R, T, Esc, Ctrl+Z...) out of the form fields. */}
       <div className="flex flex-col gap-8 px-10 pb-10" onKeyDown={(e) => e.stopPropagation()}>
         <div className="flex gap-4">
           <TabButton active={tab === 'agents'} onClick={() => setTab('agents')}>
-            Agents ({cats.length})
+            {t('tabAgents', { count: cats.length })}
           </TabButton>
           <TabButton active={tab === 'pets'} onClick={() => setTab('pets')}>
-            Pets ({roster.rows.length})
+            {t('tabPets', { count: roster.rows.length })}
           </TabButton>
         </div>
         <div className="flex gap-12 max-h-[78vh] overflow-y-auto">
@@ -323,14 +333,17 @@ export function CatsModal({
                   ...cats.map((c) => ({
                     id: c.id,
                     name: c.name,
-                    detail: `${c.parentId === null ? 'Boss' : c.role || 'Cat'} · ${c.model}`,
+                    detail: t('catListDetail', {
+                      role: c.parentId === null ? t('boss') : c.role || t('cat'),
+                      model: c.model,
+                    }),
                     appearance: c.appearance,
                   })),
                 ]}
                 selectedId={ceoOpen ? CAT_CEO_ID : (cat?.id ?? null)}
                 onSelect={setCatId}
                 onCreate={createCat}
-                createLabel="+ Agent cat"
+                createLabel={t('addAgentCat')}
               />
               {ceoOpen ? (
                 <CeoEditor settings={ceo} />
@@ -342,7 +355,7 @@ export function CatsModal({
                   historyOpen={focusHistory && cat.id === focusCatId}
                 />
               ) : (
-                <div className="text-sm text-text-muted">No agent cats yet.</div>
+                <div className="text-sm text-text-muted">{t('noAgentCats')}</div>
               )}
             </>
           ) : (

@@ -4,6 +4,8 @@ import type { CatProfile } from '../../cats/catsApi.js';
 import { ENGINE_LABELS } from '../../cats/catsApi.js';
 import { catsApi } from '../../cats/catsClient.js';
 import type { LaidOutNode } from '../../cats/orgLayout.js';
+import { cats } from '../../i18n/cats/en.js';
+import { useT } from '../../i18n/useT.js';
 import { Button } from '../ui/Button.js';
 import { CatSprite } from './CatSprite.js';
 import { FIELD } from './fields.js';
@@ -123,6 +125,7 @@ export function QuickEdit({
   onEditInCats: () => void;
   onDone: () => void;
 }) {
+  const t = useT(cats);
   const [draft, setDraft] = useState({ name: cat.name, role: cat.role });
   const [error, setError] = useState<string | null>(null);
   const update = (next: typeof draft) => {
@@ -141,8 +144,8 @@ export function QuickEdit({
         autoFocus
         className={`${FIELD} text-sm py-2`}
         value={draft.name}
-        placeholder="Name"
-        aria-label="Name"
+        placeholder={t('name')}
+        aria-label={t('name')}
         spellCheck={false}
         onChange={(e) => update({ ...draft, name: e.target.value })}
         onKeyDown={(e) => e.key === 'Enter' && onDone()}
@@ -150,8 +153,8 @@ export function QuickEdit({
       <input
         className={`${FIELD} text-sm py-2`}
         value={draft.role}
-        placeholder="Role"
-        aria-label="Role"
+        placeholder={t('role')}
+        aria-label={t('role')}
         spellCheck={false}
         onChange={(e) => update({ ...draft, role: e.target.value })}
         onKeyDown={(e) => e.key === 'Enter' && onDone()}
@@ -162,10 +165,10 @@ export function QuickEdit({
           className="text-2xs text-accent-bright underline cursor-pointer bg-transparent border-0 p-0"
           onClick={onEditInCats}
         >
-          Edit in Cats
+          {t('editInCats')}
         </button>
         <Button size="sm" variant="accent" onClick={onDone}>
-          Done
+          {t('done')}
         </Button>
       </div>
     </Popover>
@@ -182,25 +185,28 @@ export function DeleteConfirm({
   heir: CatProfile | undefined;
   onCancel: () => void;
 }) {
+  const t = useT(cats);
   const isBoss = cat.parentId === null;
   return (
     <Popover>
-      <div className="text-sm">Delete {cat.name}?</div>
+      <div className="text-sm">{t('deleteNamed', { name: cat.name })}</div>
       {heir && (
         <div className="text-2xs text-text-muted">
-          {isBoss ? `${heir.name} becomes the boss.` : `Reports move up to ${heir.name}.`}
+          {isBoss
+            ? t('heirBecomesBoss', { name: heir.name })
+            : t('reportsMoveUp', { name: heir.name })}
         </div>
       )}
       <div className="flex gap-6 justify-end">
         <Button size="sm" variant="ghost" onClick={onCancel}>
-          Keep
+          {t('keep')}
         </Button>
         <Button
           size="sm"
           className="bg-danger! border-danger"
           onClick={() => catsApi.deleteCat(cat.id)}
         >
-          Delete
+          {t('delete')}
         </Button>
       </div>
     </Popover>
@@ -216,22 +222,23 @@ export function NodeMenu({
   onEditInCats: () => void;
   onClose: () => void;
 }) {
+  const t = useT(cats);
   return (
     <Popover>
       {cat.parentId !== null && (
         <Button
           size="sm"
-          title="Make this cat the boss; the old boss reports to it"
+          title={t('promoteTitle')}
           onClick={() => {
             catsApi.promoteToBoss(cat.id);
             onClose();
           }}
         >
-          ★ Promote to boss
+          {t('promote')}
         </Button>
       )}
       <Button size="sm" onClick={onEditInCats}>
-        Edit in Cats
+        {t('editInCats')}
       </Button>
     </Popover>
   );
@@ -259,6 +266,7 @@ export interface OrgNodeProps {
 
 /** One cat on the chart: pixel avatar + name card, with +, x and menu buttons. */
 export function OrgNode(p: OrgNodeProps) {
+  const t = useT(cats);
   const { cat, box } = p;
   const isBoss = cat.parentId === null;
   const frame =
@@ -277,9 +285,9 @@ export function OrgNode(p: OrgNodeProps) {
         : 'var(--color-border)';
   const badges = (
     <span className="flex gap-4 shrink-0">
-      {!box.compact && <Badge title="Engine">{ENGINE_LABELS[cat.engine]}</Badge>}
-      <Badge title={`Model (${ENGINE_LABELS[cat.engine]})`}>{cat.model}</Badge>
-      <Badge title="Effort">{cat.effort}</Badge>
+      {!box.compact && <Badge title={t('engine')}>{ENGINE_LABELS[cat.engine]}</Badge>}
+      <Badge title={t('modelOfEngine', { engine: ENGINE_LABELS[cat.engine] })}>{cat.model}</Badge>
+      <Badge title={t('effort')}>{cat.effort}</Badge>
     </span>
   );
   // Keep the text clear of the corner buttons.
@@ -291,7 +299,7 @@ export function OrgNode(p: OrgNodeProps) {
         {cat.name}
       </span>
       <span className={`text-2xs leading-tight text-text-muted truncate shrink-0 ${textMax}`}>
-        {isBoss ? 'Boss' : cat.role || 'Cat'}
+        {isBoss ? t('boss') : cat.role || t('cat')}
       </span>
     </>
   );
@@ -353,20 +361,20 @@ export function OrgNode(p: OrgNodeProps) {
       )}
       <NodeButton
         label="×"
-        title={`Delete ${cat.name}`}
+        title={t('deleteNamedTitle', { name: cat.name })}
         danger
         onClick={p.onDelete}
         className={box.compact ? 'top-2 right-2' : 'top-62 right-2'}
       />
       <NodeButton
         label="⋯"
-        title="More"
+        title={t('more')}
         onClick={p.onMenu}
         className={box.compact ? 'bottom-2 right-2' : 'top-62 left-2'}
       />
       <NodeButton
         label="+"
-        title={`Add a report to ${cat.name}`}
+        title={t('addReportTo', { name: cat.name })}
         onClick={p.onAdd}
         className={`-bottom-12 -translate-x-1/2 text-accent-bright ${
           box.compact ? 'left-28' : 'left-1/2'
