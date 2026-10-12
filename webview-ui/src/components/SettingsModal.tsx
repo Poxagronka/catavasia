@@ -120,6 +120,7 @@ export function SettingsModal({
         onClose();
       }}
       title={t('settings')}
+      className="max-h-[96vh] overflow-y-auto"
     >
       <label className="flex items-center justify-between w-full py-6 px-10">
         <span>{t('language')}</span>

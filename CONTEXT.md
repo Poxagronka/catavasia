@@ -84,12 +84,12 @@ Bring an agent's terminal to the front. Reserved exclusively for terminals — n
 
 ## First Run
 
-**Intro**:
-The four-step first-run tour the Greeter speaks: welcome, Claude Code, hooks consent, all set. The hooks consent ask is one step of it, not a separate dialog.
-_Avoid_: onboarding, tutorial, wizard, consent modal
+**Onboarding**:
+The first-run flow in a full-screen panel: language, plain explanation, creating cats together, hooks consent (only while the server asks), done. Skip offers six role teams or no cats. The hooks consent ask is one step of it, not a separate dialog. An old user with a pending ask gets only the ask and the last step.
+_Avoid_: Intro, tour, tutorial, wizard, consent modal
 
 **Greeter**:
-The character that speaks the Intro. Not an agent and not a Pet: it has no session, takes no seat, never wanders, and exists exactly as long as the Intro is open.
+The character the old Intro tour spoke through. Not an agent and not a Pet. The onboarding replaced the tour, so nothing spawns it now.
 _Avoid_: mascot, tutorial character
 
 ## Agent Status

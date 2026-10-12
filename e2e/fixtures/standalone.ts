@@ -50,10 +50,17 @@ export const test = base.extend<{
    *  consent specs opt out via `test.use({ seedHooksConsent: false })` so the
    *  first-run dialog shows — they are the only ones that want it. */
   seedHooksConsent: boolean;
+  /** Seed `onboardingDone: true` (default) so the first-run onboarding never covers the office.
+   *  The onboarding spec opts out via `test.use({ seedOnboardingDone: false })`. */
+  seedOnboardingDone: boolean;
+  /** Seed a cats.json with a boss and three workers (default). The onboarding spec opts out. */
+  seedCats: boolean;
   /** A folder put first on the host's PATH (fake engine CLIs). */
   pathPrepend: string | undefined;
 }>({
   seedHooksConsent: [true, { option: true }],
+  seedOnboardingDone: [true, { option: true }],
+  seedCats: [true, { option: true }],
   pathPrepend: [undefined, { option: true }],
   // Auto-fixture: tag every test with Allure epic + feature derived from its
   // @area: annotation and enclosing describe path. Runs before standalone.
@@ -64,8 +71,17 @@ export const test = base.extend<{
     },
     { auto: true },
   ],
-  standalone: async ({ page, seedHooksConsent, pathPrepend }, use, testInfo) => {
-    const standalone = await launchStandalone(page, { seedHooksConsent, pathPrepend });
+  standalone: async (
+    { page, seedHooksConsent, seedOnboardingDone, seedCats, pathPrepend },
+    use,
+    testInfo,
+  ) => {
+    const standalone = await launchStandalone(page, {
+      seedHooksConsent,
+      seedOnboardingDone,
+      seedCats,
+      pathPrepend,
+    });
 
     try {
       await use(standalone);

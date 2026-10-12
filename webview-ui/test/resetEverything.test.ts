@@ -110,8 +110,19 @@ test('the local cats go back to the seed', () => {
     getItem: (k) => items.get(k) ?? null,
     setItem: (k, v) => void items.set(k, v),
   });
-  api.deleteCat('qa');
+  api.saveCat({
+    id: 'boss',
+    name: 'Chief',
+    appearance: {},
+    role: '',
+    systemPrompt: '',
+    engine: 'claude',
+    model: 'sonnet',
+    effort: 'medium',
+    parentId: null,
+  });
   assert.notDeepEqual(api.getSnapshot(), localSeed());
+  assert.deepEqual(localSeed(), { cats: [] });
   api.resetToSeed();
   assert.deepEqual(api.getSnapshot(), localSeed());
 });

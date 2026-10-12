@@ -1,7 +1,8 @@
 /**
  * Settings "Reset everything" (resetAllToDefault): back up the user's state,
  * then put back the default layout, a fresh pet-care state and, with a cat
- * office, the default cat team. Shared by the standalone server and VS Code.
+ * office, the first-run state: no cats and the onboarding on again
+ * (resetOnboardingState). Shared by the standalone server and VS Code.
  */
 
 import * as fs from 'fs';

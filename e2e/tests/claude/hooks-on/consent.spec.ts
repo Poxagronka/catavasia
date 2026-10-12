@@ -14,41 +14,29 @@ import {
 import { getSettingChecked, setSettings } from '../../../helpers/webview';
 
 /**
- * The Intro — the first-run tour — and, inside it, the consent gate for modifying ~/.claude/settings.json.
+ * The hooks consent gate for modifying ~/.claude/settings.json, asked inside the onboarding.
  * Every other spec seeds a granted Claude consent so hooks flow silently; these opt OUT via `seedConfig`, which is
- * what a real first run looks like. The tour is diegetic: a greeter stands near the office's bottom-left corner and
- * the IntroBubble is its speech bubble, driven by the server's `hooksConsentRequest`, paging welcome → engines →
- * consent → four feature steps → all set. A choice sends immediately and moves on to the feature steps; Back to the
- * consent step allows a genuine change of mind. Both surfaces render this component off the same message (standalone: standalone/hooks.spec.ts).
+ * what a real first run looks like. They also seed `onboardingDone: true`, so the onboarding opens in its
+ * consent-only mode (webview-ui/src/onboarding/Onboarding.tsx): the server's `hooksConsentRequest` shows the
+ * consent step, a choice sends immediately and moves on to the last step, and Back from there re-opens the
+ * consent step for a genuine change of mind. The full first-run flow is in standalone/onboarding.spec.ts.
+ * Both surfaces render this component off the same message (standalone: standalone/hooks.spec.ts).
  * The gate answers a 1-star review — a settings.json replaced with no prompt, backup or disclosure — so these assert
  * the ON-DISK consequence of each choice, not just that a prompt appeared.
  */
 
 const NO_CONSENT_CONFIG = {
-  vscode: { alwaysShowLabels: true },
-  standalone: { alwaysShowLabels: true },
+  vscode: { alwaysShowLabels: true, onboardingDone: true },
+  standalone: { alwaysShowLabels: true, onboardingDone: true },
   // hooksConsent deliberately absent -> parses to unanswered -> dialog shows.
 };
 
-/** The in-app Intro. IntroBubble is the only role="dialog" element
- *  in the webview (the Settings/changelog modals don't carry the role). */
+/** The onboarding is the only role="dialog" element in the webview (the Settings/changelog modals don't carry the role). */
 function consentDialog(frame: Frame): Locator {
   return frame.getByRole('dialog');
 }
 
-type GreeterHooks = {
-  getCharacters?: () => Array<{ isGreeter?: boolean }>;
-};
-
-/** Whether the consent greeter character is currently in the office. */
-function greeterPresent(frame: Frame): Promise<boolean> {
-  return frame.evaluate(() => {
-    const hooks = (window as { __pixelAgentsTestHooks?: GreeterHooks }).__pixelAgentsTestHooks;
-    return (hooks?.getCharacters?.() ?? []).some((c) => c.isGreeter === true);
-  });
-}
-
-/** Wait for the first-run Intro (it opens on its welcome step) and return it. */
+/** Wait for the consent ask (the consent-only onboarding) and return its dialog. */
 async function openConsentDialog(frame: Frame): Promise<Locator> {
   const dialog = consentDialog(frame);
   await expect(dialog).toBeVisible({ timeout: 30_000 });
@@ -127,41 +115,13 @@ function legacyClaudeSettings(thirdPartyCommand: string): unknown {
 test.describe('Hooks consent gate', () => {
   test.use({ seedConfig: NO_CONSENT_CONFIG });
 
-  test('fresh install: the Intro pages to the disclosure and Install writes the hooks @area:cross-cutting', async ({
+  test('fresh install: the onboarding shows the disclosure and Install writes the hooks @area:cross-cutting', async ({
     pixelAgents,
   }) => {
     const { frame, tmpHome, narrator } = pixelAgents;
 
-    narrator.step('waiting for the first-run Intro');
+    narrator.step('waiting for the consent ask');
     const dialog = await openConsentDialog(frame);
-    await expect(dialog).toContainText('Welcome to catavasia!');
-
-    // Diegetic: the tour is a greeter character's speech bubble, and the camera
-    // shifts so character + bubble are centered — the bubble ends up FULLY on
-    // screen (polled, because the camera lerps there over a few frames). That
-    // is what makes it unmissable without an office-blocking overlay.
-    expect(await greeterPresent(frame)).toBe(true);
-    await expect
-      .poll(
-        () =>
-          frame.evaluate(() => {
-            const el = document.querySelector('[role="dialog"]');
-            if (!el) return false;
-            const r = el.getBoundingClientRect();
-            return (
-              r.width > 0 &&
-              r.left >= 0 &&
-              r.top >= 0 &&
-              r.right <= window.innerWidth &&
-              r.bottom <= window.innerHeight
-            );
-          }),
-        { timeout: 10_000 },
-      )
-      .toBe(true);
-    narrator.check('a greeter character speaks the tour; the camera centers it fully on screen');
-
-    narrator.step('walking the tour to the consent step');
     await advanceIntroToConsentStep(dialog);
 
     // The disclosure is the point: what is written, what data moves, how to undo.
@@ -180,15 +140,14 @@ test.describe('Hooks consent gate', () => {
     );
 
     // The consent step's controls, as an exact SET, not a count. The three
-    // choices carry the decision; Back and the close x only move or end the tour —
-    // neither sends anything, so neither is a dismissal synonym beside the
-    // choices (the x aborts the whole tour; Not Now answers and continues it).
+    // choices carry the decision; Help only opens the help chat and sends nothing,
+    // so it is no dismissal synonym beside the choices (Not Now answers and continues).
     expect(
       (await dialog.getByRole('button').allTextContents()).map((t) => t.trim()).sort(),
-    ).toEqual(['x', 'Back', "Don't Ask Again", 'Install Hooks', 'Not Now'].sort());
-    narrator.check('exactly the three choices plus Back and the close x');
+    ).toEqual(['Help', "Don't Ask Again", 'Install Hooks', 'Not Now'].sort());
+    narrator.check('exactly the three choices plus Help');
 
-    // Nothing has been written yet — the tour precedes any modification.
+    // Nothing has been written yet — the ask precedes any modification.
     expect(fs.existsSync(settingsPath(tmpHome))).toBe(false);
 
     narrator.step('clicking Install Hooks');
@@ -201,17 +160,14 @@ test.describe('Hooks consent gate', () => {
     narrator.check('12 events installed, prompt-forwarding events not among them');
 
     // The install broadcast a hooksStatus installed:true — which moots an
-    // UNANSWERED ask, but must not yank the tour away from the person who just
-    // answered it. The tour pages on to its closing step after the install landed.
+    // UNANSWERED ask, but must not yank the onboarding away from the person who just
+    // answered it. It pages on to its last step after the install landed.
     await advanceIntroToClosingStep(dialog);
     await expect(dialog).toContainText("You're all set!");
     narrator.check('the closing step survived its own install broadcast');
 
-    narrator.step("finishing the tour with Let's Go");
+    narrator.step("finishing with Let's go");
     await finishIntro(dialog);
-    // Closing the tour despawns the greeter (matrix effect, then removal).
-    await expect.poll(() => greeterPresent(frame), { timeout: 15_000 }).toBe(false);
-    narrator.check('the greeter despawned once the tour ended');
 
     // The checkbox reflects ACTUAL install state, fed by the hooksStatus message.
     await expect
@@ -220,7 +176,7 @@ test.describe('Hooks consent gate', () => {
     narrator.check('Settings shows Instant Detection ON');
   });
 
-  test('Not Now writes nothing, continues the tour, and leaves consent ungranted @area:cross-cutting', async ({
+  test('Not Now writes nothing, continues the onboarding, and leaves consent ungranted @area:cross-cutting', async ({
     pixelAgents,
   }) => {
     const { frame, tmpHome, narrator } = pixelAgents;
@@ -231,7 +187,7 @@ test.describe('Hooks consent gate', () => {
     narrator.step('declining with Not Now');
     await dialog.getByRole('button', { name: 'Not Now' }).click();
     // A decline still gets the closing step — hooks are optional, the office
-    // works without them, and the tour ends the same way for everyone.
+    // works without them, and the onboarding ends the same way for everyone.
     await finishIntro(dialog);
 
     // Settle: an install, had it happened, would land well inside this window.
@@ -263,37 +219,6 @@ test.describe('Hooks consent gate', () => {
     expect(fs.existsSync(settingsPath(tmpHome))).toBe(false);
     expect(readConsent(tmpHome)).toBe(false);
     narrator.check('hooksEnabled persisted false, settings.json untouched');
-  });
-
-  // Aborting the tour WITHOUT choosing. The close x (and Escape, which shares its
-  // close path) ends the tour from any step and SENDS nothing — there is no
-  // message whose mishandling could turn it into an approval. An abort must
-  // behave like Not Now and NOT like "Don't Ask Again": the difference is
-  // whether the user is ever asked again, and an abort that silently
-  // persisted hooks-off would strand them with the gate skipped forever. The
-  // whole Intro simply returns on the next open.
-  test('the close x aborts the tour and writes nothing, exactly like Not Now @area:cross-cutting', async ({
-    pixelAgents,
-  }) => {
-    const { frame, tmpHome, narrator } = pixelAgents;
-
-    const dialog = await openConsentDialog(frame);
-    // The x is on every step — here, mid-tour, one step before the disclosure.
-    await dialog.getByRole('button', { name: 'Continue' }).click();
-    await expect(dialog).toContainText('Codex');
-
-    narrator.step('aborting the tour with the x — no choice made');
-    await dialog.getByRole('button', { name: 'Close' }).click();
-    await expect(dialog).toBeHidden({ timeout: 15_000 });
-
-    // Settle: an install, had it happened, would land well inside this window.
-    await frame.page().waitForTimeout(3_000);
-    expect(fs.existsSync(settingsPath(tmpHome))).toBe(false);
-    expect(readConsent(tmpHome)).toBe(false);
-    // The load-bearing half: an abort must NOT persist hooks-off, or the next
-    // open skips the gate and the user is never asked again.
-    expect(readHooksEnabled(tmpHome)).not.toBe(false);
-    narrator.check('settings.json never created, consent ungranted, hooks-off not persisted');
   });
 
   // Change of mind, the honest kind: Install lands the hooks, Back re-opens
@@ -416,7 +341,7 @@ test.describe('Hooks consent gate', () => {
       await finishIntro(dialog);
 
       // The load-bearing half: the grant the failed install left is taken back,
-      // so the whole Intro returns on the next open. Keying the revert off
+      // so the consent ask returns on the next open. Keying the revert off
       // "are hooks installed" saw nothing to undo here and left the user with
       // an ask that never came back.
       await expect.poll(() => readConsent(tmpHome), { timeout: 15_000 }).toBe(false);
@@ -425,20 +350,20 @@ test.describe('Hooks consent gate', () => {
     });
   });
 
-  // A stray click on the office around the bubble must not read as an answer —
-  // OR as an abort. This is a decision surface: only the bubble's own buttons
-  // and Escape do anything at all. The office is live behind the tour (that is
-  // the point of the diegetic bubble), so the most common accidental gesture —
-  // clicking somewhere in the office — must leave the tour exactly where it was.
-  test('clicking the office around the bubble neither answers nor dismisses @area:cross-cutting', async ({
+  // A stray click around the panel must not read as an answer — OR as an
+  // abort. This is a decision surface: only the panel's own buttons do
+  // anything at all, and the onboarding has no close control that could end
+  // it without a choice. The most common accidental gesture — clicking the
+  // dimmed office behind the panel — must leave the ask exactly where it was.
+  test('clicking the office around the panel neither answers nor dismisses @area:cross-cutting', async ({
     pixelAgents,
   }) => {
     const { frame, tmpHome, narrator } = pixelAgents;
 
     const dialog = await openConsentDialog(frame);
 
-    narrator.step('clicking the office beside the greeter');
-    // Top-left corner of the canvas — away from the centered character+bubble.
+    narrator.step('clicking the office beside the panel');
+    // Top-left corner of the canvas — away from the centered panel.
     // force: the click targets the canvas even if some overlay pixel intercepts.
     await frame.locator('canvas').click({ position: { x: 8, y: 8 }, force: true });
     await frame.page().waitForTimeout(1_000);
@@ -447,7 +372,7 @@ test.describe('Hooks consent gate', () => {
     expect(fs.existsSync(settingsPath(tmpHome))).toBe(false);
     expect(readConsent(tmpHome)).toBe(false);
     expect(readHooksEnabled(tmpHome)).not.toBe(false);
-    narrator.check('bubble still open, nothing written — a stray click is not an answer');
+    narrator.check('panel still open, nothing written — a stray click is not an answer');
   });
 });
 
@@ -550,7 +475,10 @@ test.describe('Hooks consent gate / pre-consent install', () => {
  */
 test.describe('Hooks consent gate / toggle-off failure', () => {
   test.use({
-    seedConfig: { vscode: { alwaysShowLabels: true }, hooksConsent: { claude: 'granted' } },
+    seedConfig: {
+      vscode: { alwaysShowLabels: true, onboardingDone: true },
+      hooksConsent: { claude: 'granted' },
+    },
   });
 
   test.skip(process.platform === 'win32', 'chmod-based write failure is not meaningful on Windows');

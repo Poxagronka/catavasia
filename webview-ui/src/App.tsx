@@ -13,7 +13,6 @@ import { ChangelogModal } from './components/ChangelogModal.js';
 import { ConnectionIndicator } from './components/ConnectionIndicator.js';
 import { DebugView } from './components/DebugView.js';
 import { EditActionBar } from './components/EditActionBar.js';
-import { IntroBubble } from './components/IntroBubble.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { PetRadialMenu } from './components/PetRadialMenu.js';
 import { SettingsModal } from './components/SettingsModal.js';
@@ -40,6 +39,8 @@ import { exportLayoutToFile } from './office/layout/exportLayout.js';
 import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
 import { EditTool, type OfficeLayout } from './office/types.js';
+import { Onboarding } from './onboarding/Onboarding.js';
+import { finishOnboarding, useShowOnboarding } from './onboarding/onboardingStore.js';
 import { orchestratorEvents } from './orchestratorEvents.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
 import { installTestHooks } from './testHooks.js';
@@ -180,9 +181,10 @@ function App() {
     transport.send({ type: 'focusAgent', id });
   }, []);
 
-  // The Intro's wire-facing state machine — which asks survive being mooted,
-  // when a hooksStatus is this tour's install verdict — lives in useIntroTour
-  // (pure reducer in introTourState.ts); the App only wires it to the bubble.
+  // The hooks ask's wire-facing state machine — which asks survive being mooted,
+  // when a hooksStatus is this ask's install verdict — lives in useIntroTour
+  // (pure reducer in introTourState.ts); the App only wires it to the Onboarding.
+  const showOnboarding = useShowOnboarding();
   const {
     intro,
     installFailed,
@@ -619,7 +621,7 @@ function App() {
       >
         {isBrowserRuntime && <UpdateBanner />}
         {/* The tour has its own engines step: the banner would sit under the bubble. */}
-        {!intro && <EngineBanner />}
+        {!intro && !showOnboarding && <EngineBanner />}
       </div>
       <EngineLoginPanel />
       <CatsModal
@@ -733,29 +735,19 @@ function App() {
         <MigrationNotice onDismiss={() => setMigrationNoticeDismissed(true)} />
       )}
 
-      {intro && (
-        <IntroBubble
-          officeState={officeState}
-          headline={intro.headline}
-          disclosure={intro.disclosure}
-          containerRef={containerRef}
-          zoom={editor.zoom}
-          panRef={editor.panRef}
+      {(showOnboarding || intro) && (
+        <Onboarding
+          key={showOnboarding ? 'full' : 'consentOnly'}
+          mode={showOnboarding ? 'full' : 'consentOnly'}
+          consent={intro ? { headline: intro.headline, disclosure: intro.disclosure } : null}
           installFailed={installFailed}
           installPending={installPending}
-          onChoice={handleConsentChoice}
-          onClose={handleIntroClose}
-          onShowCeo={isBrowserRuntime ? expandDock : undefined}
-          escapeSuppressed={
-            isSettingsOpen ||
-            isCatsOpen ||
-            isHierarchyOpen ||
-            isFeedbackOpen ||
-            isChangelogOpen ||
-            isHooksInfoOpen ||
-            showMigrationNotice ||
-            editor.isEditMode
-          }
+          onConsentChoice={handleConsentChoice}
+          onClose={() => {
+            if (showOnboarding) finishOnboarding();
+            handleIntroClose();
+            if (isBrowserRuntime) expandDock();
+          }}
         />
       )}
     </div>

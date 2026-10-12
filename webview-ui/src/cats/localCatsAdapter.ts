@@ -31,8 +31,16 @@ const ENGINE_OPTIONS: Record<Engine, EngineOptions> = {
 
 export const STORAGE_KEY = 'catavasia.cats.v1';
 
-/** The cats a fresh browser starts with (exported: the server import skips them). */
+/** The cats a fresh browser starts with: none. The onboarding creates them. */
 export function localSeed(): CatsSnapshot {
+  return { cats: [] };
+}
+
+/**
+ * The cats older builds seeded on a fresh browser. Exported only so the one-time server import
+ * (serverCatsAdapter.ts) still recognises an untouched legacy seed and does not import it.
+ */
+export function legacyLocalSeed(): CatsSnapshot {
   const worker = (id: string, name: string, breed: string, role: string): CatProfile => ({
     id,
     name,

@@ -186,14 +186,18 @@ export function validateCat(raw: unknown, catalog?: EngineCatalog): Result<CatPr
   });
 }
 
-// ── Default team ────────────────────────────────────────────
+// ── Legacy default team ─────────────────────────────────────
 
 const WORKER_PROMPT =
   'You are a careful developer cat. Do exactly the goal your lead gives you, in your own worktree. ' +
   'Keep changes small and tested. When done, call the office tool report with what you changed.';
 
-/** Seeded when cats.json is missing: one Opus boss and three Sonnet workers, all effort medium. */
-export function defaultTeam(): CatProfile[] {
+/**
+ * The team older builds seeded on first run: one Opus boss and three Sonnet workers, all effort medium.
+ * A new install starts with no cats (the onboarding creates them). This team stays for two jobs: load()
+ * recognises its legacy ids to migrate an old cats.json, and tests seed it with setFirstRunSeed.
+ */
+export function legacyDefaultTeam(): CatProfile[] {
   const worker = (
     catId: string,
     name: string,
@@ -233,6 +237,13 @@ export function defaultTeam(): CatProfile[] {
     worker('pushok', 'Milo', 'snow', 'playful'),
     worker('ryzhik', 'Pepper', 'nikolai', 'pooper'),
   ];
+}
+
+let firstRunSeed: () => CatProfile[] = () => [];
+
+/** The cats a fresh install starts with, and "Reset everything" restores: none. Tests seed the legacy team. */
+export function setFirstRunSeed(seed: () => CatProfile[]): void {
+  firstRunSeed = seed;
 }
 
 /** Default names before the English ones, by cat id: load() renames a cat that still has one. */
@@ -389,12 +400,12 @@ export class CatStore {
   }
 
   /**
-   * The default team again, with fresh prompt files: `extra` adds the prompt
+   * The first-run state again (no cats), with fresh prompt files: `extra` adds the prompt
    * files of non-cats (the Cat CEO). Every other prompt file is deleted, all in
    * one commit. Returns an error, and changes nothing, when a file would not parse.
    */
   resetToDefaults(extra: Record<string, PromptFile>): string | undefined {
-    const team = defaultTeam();
+    const team = firstRunSeed();
     const files = { ...extra };
     for (const cat of team) files[cat.id] = { role: cat.systemPrompt, rules: [], lessons: [] };
     const error = this.prompts.replaceAll(files, 'user(all): reset to defaults');
@@ -415,8 +426,12 @@ export class CatStore {
     try {
       raw = fs.readFileSync(this.filePath, 'utf-8');
     } catch {
-      this.commit(defaultTeam());
-      this.syncPrompts();
+      // A fresh install writes nothing until the onboarding saves a cat: no cats.json means "first run".
+      this.cats = normalizeHierarchy(firstRunSeed());
+      if (this.cats.length) {
+        this.commit(this.cats);
+        this.syncPrompts();
+      }
       return;
     }
     let parsed: Partial<CatsFile>;
@@ -428,7 +443,7 @@ export class CatStore {
       const backup = `${this.filePath}.bad-${Date.now()}`;
       fs.copyFileSync(this.filePath, backup);
       console.warn(`[catavasia] Cats: ${this.filePath} unreadable (${err}); copied to ${backup}`);
-      this.commit(defaultTeam());
+      this.commit(firstRunSeed());
       this.syncPrompts();
       return;
     }
@@ -457,7 +472,7 @@ export class CatStore {
     if (ceoUnmoded) {
       this.ceoBlock = { ...(this.ceoBlock as object), permissionMode: DEFAULT_PERMISSION_MODE };
     }
-    const team = defaultTeam();
+    const team = legacyDefaultTeam();
     let renamed = false;
     const unseeded = parsed.personalities !== 1;
     this.cats = normalizeHierarchy(keep(parsed.cats, (e) => validateCat(e))).map((cat) => {

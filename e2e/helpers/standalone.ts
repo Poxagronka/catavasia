@@ -46,6 +46,12 @@ export interface LaunchStandaloneOptions {
    *  they are the only ones that want the dialog. Never overwrites a
    *  config.json that already exists (a shared HOME was seeded by its owner). */
   seedHooksConsent?: boolean;
+  /** Pre-seed `onboardingDone: true` so the first-run onboarding never covers the office (default).
+   *  The onboarding specs opt out with `false`. Never overwrites a config.json that already exists. */
+  seedOnboardingDone?: boolean;
+  /** Pre-seed a cats.json with a boss and three workers (default): a fresh install has no cats, and
+   *  the specs that run CEO jobs need a team. The onboarding specs opt out with `false`. */
+  seedCats?: boolean;
   /** A folder put first on the host's PATH (fake engine CLIs: engines.spec.ts). */
   pathPrepend?: string;
 }
@@ -244,9 +250,39 @@ export async function launchStandalone(
   // office in every spec. Only when the file does not exist yet — a shared
   // HOME (multi-server) was already seeded by the surface that owns it.
   const configPath = path.join(tmpHome, '.pixel-agents', 'config.json');
-  if ((options.seedHooksConsent ?? true) && !fs.existsSync(configPath)) {
+  const seedConsent = options.seedHooksConsent ?? true;
+  const seedOnboarding = options.seedOnboardingDone ?? true;
+  if ((seedConsent || seedOnboarding) && !fs.existsSync(configPath)) {
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify({ hooksConsent: { claude: 'granted' } }, null, 2));
+    const seed = {
+      ...(seedConsent ? { hooksConsent: { claude: 'granted' } } : {}),
+      ...(seedOnboarding
+        ? { vscode: { onboardingDone: true }, standalone: { onboardingDone: true } }
+        : {}),
+    };
+    fs.writeFileSync(configPath, JSON.stringify(seed, null, 2));
+  }
+  const catsPath = path.join(tmpHome, '.pixel-agents', 'cats.json');
+  if ((options.seedCats ?? true) && !fs.existsSync(catsPath)) {
+    fs.mkdirSync(path.dirname(catsPath), { recursive: true });
+    const cat = (id: string, name: string, parentId: string | null, role: string) => ({
+      id,
+      name,
+      appearance: {},
+      role,
+      systemPrompt: `You are ${name}, the ${role}.`,
+      engine: 'claude',
+      model: parentId === null ? 'opus' : 'sonnet',
+      effort: 'medium',
+      parentId,
+    });
+    const cats = [
+      cat('boss', 'Oliver', null, 'Team lead'),
+      cat('luna', 'Luna', 'boss', 'Developer'),
+      cat('milo', 'Milo', 'boss', 'Developer'),
+      cat('pepper', 'Pepper', 'boss', 'Developer'),
+    ];
+    fs.writeFileSync(catsPath, JSON.stringify({ version: 1, cats }, null, 2));
   }
   const hostPort = await getFreePort();
   const hostUrl = `http://127.0.0.1:${hostPort}`;
