@@ -43,7 +43,3 @@ export function setProviderCapabilities(caps: {
 export function isReadingToolName(name: string | null | undefined): boolean {
   return typeof name === 'string' && providerCaps.readingTools.has(name);
 }
-
-export function isSubagentToolName(name: string | null | undefined): boolean {
-  return typeof name === 'string' && providerCaps.subagentToolNames.has(name);
-}

@@ -191,7 +191,7 @@ export class OfficeScenes {
     const chars = this.w.characters;
     const cats = [...new Set([ev.bossId, ...ev.participants])].filter((id) => {
       const ch = chars.get(id);
-      return ch && !ch.matrixEffect && !ch.isSubagent;
+      return ch && !ch.matrixEffect;
     });
     if (!cats.includes(ev.bossId)) return;
     // The meeting comes first: talks of its cats go back to the queue front.

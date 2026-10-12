@@ -244,27 +244,6 @@ export function stop(sessionId: string): HookEventPayload {
   };
 }
 
-export function teammateIdle(sessionId: string, teammateName: string): HookEventPayload {
-  return {
-    session_id: sessionId,
-    hook_event_name: 'TeammateIdle',
-    teammate_name: teammateName,
-  };
-}
-
-export function taskCompleted(
-  sessionId: string,
-  teammateName: string,
-  taskSubject = 'Task completed',
-): HookEventPayload {
-  return {
-    session_id: sessionId,
-    hook_event_name: 'TaskCompleted',
-    teammate_name: teammateName,
-    task_subject: taskSubject,
-  };
-}
-
 export function sessionEndExit(sessionId: string): HookEventPayload {
   return {
     session_id: sessionId,

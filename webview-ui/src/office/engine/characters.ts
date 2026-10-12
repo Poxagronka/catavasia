@@ -116,8 +116,6 @@ export function createCharacter(
     bubbleType: null,
     bubbleTimer: 0,
     seatTimer: 0,
-    isSubagent: false,
-    parentAgentId: null,
     matrixEffect: null,
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],

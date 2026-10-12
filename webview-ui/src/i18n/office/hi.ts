@@ -66,7 +66,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'मंज़ूरी चाहिए',
   toolWaitingInput: 'इनपुट का इंतज़ार',
   toolIdle: 'खाली',
-  toolSubtask: 'उप-कार्य',
   toolChat: 'चैट',
   toolContextUsed: '{pct}% कॉन्टेक्स्ट इस्तेमाल हुआ ({max}k में से {used}k टोकन)',
   projectPickingText: 'फ़ोल्डर की विंडो खुली है। वह इस ब्राउज़र विंडो के पीछे हो सकती है।',

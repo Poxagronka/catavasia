@@ -95,9 +95,6 @@ components:
         - $ref: '#/components/schemas/SubagentToolStart'
         - $ref: '#/components/schemas/SubagentToolDone'
         - $ref: '#/components/schemas/SubagentClear'
-        - $ref: '#/components/schemas/SubagentToolPermission'
-        # Agent Teams
-        - $ref: '#/components/schemas/AgentTeamInfo'
         # Task board
         - $ref: '#/components/schemas/AgentTaskFinished'
         # Cat office (orchestrator)
@@ -345,12 +342,6 @@ components:
           type: boolean
         runInBackground:
           type: boolean
-        isTeammateSpawn:
-          type: boolean
-          description: >-
-            True when this spawn tool call carries a name, making the spawn a
-            Teammate-to-be. The office must not create a Subtask sub-character
-            for it — a teammate character will represent the spawn instead.
 
     AgentToolDone:
       description: Agent finished executing a tool.
@@ -442,40 +433,6 @@ components:
           type: integer
         parentToolId:
           type: string
-
-    SubagentToolPermission:
-      description: Permission prompt for a sub-agent's tool.
-      type: object
-      additionalProperties: false
-      required: [type, id, parentToolId]
-      properties:
-        type:
-          const: subagentToolPermission
-        id:
-          type: integer
-        parentToolId:
-          type: string
-
-    AgentTeamInfo:
-      description: Agent Teams metadata (lead, teammate, tmux usage).
-      type: object
-      additionalProperties: false
-      required: [type, id]
-      properties:
-        type:
-          const: agentTeamInfo
-        id:
-          type: integer
-        teamName:
-          type: string
-        agentName:
-          type: string
-        isTeamLead:
-          type: boolean
-        leadAgentId:
-          type: integer
-        teamUsesTmux:
-          type: boolean
 
     AgentTaskFinished:
       description: |

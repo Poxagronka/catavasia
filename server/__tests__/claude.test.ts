@@ -202,27 +202,11 @@ describe('claudeProvider', () => {
       }
     });
 
-    it('normalizes TeammateIdle to subagentTurnEnd with reason=idle', () => {
-      const result = claudeProvider.normalizeHookEvent({
-        hook_event_name: 'TeammateIdle',
-        session_id: 'sess-1',
-        agent_type: 'web-researcher',
-      });
-      expect(result?.event.kind).toBe('subagentTurnEnd');
-      if (result?.event.kind === 'subagentTurnEnd') {
-        expect(result.event.reason).toBe('idle');
-      }
-    });
-
-    it('normalizes TaskCompleted to subagentTurnEnd with reason=completed', () => {
-      const result = claudeProvider.normalizeHookEvent({
-        hook_event_name: 'TaskCompleted',
-        session_id: 'sess-1',
-        subject: 'Code review',
-      });
-      expect(result?.event.kind).toBe('subagentTurnEnd');
-      if (result?.event.kind === 'subagentTurnEnd') {
-        expect(result.event.reason).toBe('completed');
+    it('returns null for TeammateIdle and TaskCompleted (no teammate is a character)', () => {
+      for (const name of ['TeammateIdle', 'TaskCompleted']) {
+        expect(
+          claudeProvider.normalizeHookEvent({ hook_event_name: name, session_id: 'sess-1' }),
+        ).toBeNull();
       }
     });
 

@@ -333,10 +333,6 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
         id,
         folderName: agent.folderName,
         isExternal: agent.isExternal || undefined,
-        isTeammate: agent.leadAgentId !== undefined || undefined,
-        teammateName: agent.agentName,
-        parentAgentId: agent.leadAgentId,
-        teamName: agent.teamName,
         hooksOnly: agent.hooksOnly || undefined,
         palette: agent.palette,
         hueShift: agent.hueShift,
@@ -421,7 +417,7 @@ export function isAllowedWebSocketOrigin(
  * Whether this socket may send PRIVILEGED messages — the ones that reach
  * outside `~/.pixel-agents/`. Today that is `setHooksEnabled`, which grants
  * durable, machine-wide consent to modify `~/.claude/settings.json` and
- * installs (or removes) a 12-event hook set, and `POST /api/tasks`, which
+ * installs (or removes) a 10-event hook set, and `POST /api/tasks`, which
  * spawns an agent with no permission prompts.
  *
  * The handshake must carry the server token in its `?token=` query. That token
@@ -436,7 +432,7 @@ export function isAllowedWebSocketOrigin(
  * presents the server exactly what the SPA presents — `remoteAddress` is
  * 127.0.0.1 because the forwarder terminated the hop there, and `Host` is
  * whatever the remote client typed. Reproduced against the real `dist/cli.js`:
- * a client on another machine acquired consent and a 12-event install. Peer
+ * a client on another machine acquired consent and a 10-event install. Peer
  * address and Host/Origin are all carried BY the channel a proxy speaks, so the
  * gate must ride something the channel never carries — an out-of-band secret
  * the operator's own URL delivers and the forwarded attacker never sees.

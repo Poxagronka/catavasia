@@ -1,13 +1,12 @@
 import type { AgentStateStore } from './agentStateStore.js';
-import { hasPromotedBackgroundAgent } from './teamUtils.js';
 
 /**
  * Replay an agent's active state to a connecting client.
  *
  * Order matters:
- * 1. Team info first — webview needs team context before tool messages
- * 2. Regular tools
- * 3. Background tools with runInBackground + isTeammateSpawn flags, skipping promoted spawns
+ * 1. Regular tools
+ * 2. Background tools with the runInBackground flag
+ * 3. Finished task link
  * 4. Waiting status
  * 5. Context usage
  */
@@ -16,22 +15,7 @@ export function resendAgentActivity(
   store: AgentStateStore,
 ): void {
   for (const [id, agent] of store) {
-    // 1. Team metadata first — webview uses this to route tool messages correctly.
-    // Derived teams (named background spawns) have a name and a lead link but NO
-    // teamName, so gate on any team field.
-    if (agent.teamName || agent.agentName || agent.isTeamLead) {
-      send({
-        type: 'agentTeamInfo',
-        id,
-        teamName: agent.teamName,
-        agentName: agent.agentName,
-        isTeamLead: agent.isTeamLead,
-        leadAgentId: agent.leadAgentId,
-        teamUsesTmux: agent.teamUsesTmux,
-      });
-    }
-
-    // 2. Regular (non-background) tools
+    // 1. Regular (non-background) tools
     for (const [toolId, status] of agent.activeToolStatuses) {
       // Skip background tools here — they're sent separately below with proper flags
       if (agent.backgroundAgentToolIds.has(toolId)) continue;
@@ -46,11 +30,8 @@ export function resendAgentActivity(
       });
     }
 
-    // 3. Background tools with runInBackground flag. Skip promoted spawns to prevent
-    // ghost Subtask characters alongside the real teammate character.
+    // 2. Background tools with runInBackground flag.
     for (const toolId of agent.backgroundAgentToolIds) {
-      if (hasPromotedBackgroundAgent(id, toolId, store)) continue;
-
       const status = agent.activeToolStatuses.get(toolId);
       if (!status) continue;
 
@@ -62,16 +43,15 @@ export function resendAgentActivity(
         status,
         toolName,
         runInBackground: true,
-        isTeammateSpawn: agent.teammateSpawnToolIds?.has(toolId) || undefined,
       });
     }
 
-    // 4. Finished task-board run: the idle cat links to its task.
+    // 3. Finished task-board run: the idle cat links to its task.
     if (agent.finishedTaskId) {
       send({ type: 'agentTaskFinished', id, taskId: agent.finishedTaskId });
     }
 
-    // 5. Waiting status
+    // 4. Waiting status
     if (agent.isWaiting) {
       send({
         type: 'agentStatus',
@@ -80,7 +60,7 @@ export function resendAgentActivity(
       });
     }
 
-    // 6. Context usage
+    // 5. Context usage
     if (agent.contextTokens > 0) {
       send({
         type: 'agentContextUsage',

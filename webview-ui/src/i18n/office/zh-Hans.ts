@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: '需要批准',
   toolWaitingInput: '等待你的输入',
   toolIdle: '空闲',
-  toolSubtask: '子任务',
   toolChat: '聊天',
   toolContextUsed: '已用上下文 {pct}%({used}k / {max}k 个 token)',
   projectPickingText: '已打开文件夹选择窗口,它可能在此浏览器窗口后面。',

@@ -66,7 +66,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'Нужно разрешение',
   toolWaitingInput: 'Ждёт ответа',
   toolIdle: 'Свободен',
-  toolSubtask: 'Подзадача',
   toolChat: 'Чат',
   toolContextUsed: 'Использовано {pct}% контекста ({used}k из {max}k токенов)',
   projectPickingText: 'Окно выбора папки открыто. Оно может быть за окном браузера.',

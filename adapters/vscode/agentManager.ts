@@ -4,7 +4,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import type { StateAdapter } from '../../core/src/adapter.js';
-import { SUBAGENT_CHARACTERS_ENABLED } from '../../core/src/constants.js';
 import { resendAgentActivity } from '../../server/src/agentActivityResend.js';
 import { AgentStateStore } from '../../server/src/agentStateStore.js';
 import { DEFAULT_MAX_CONTEXT_TOKENS, JSONL_POLL_INTERVAL_MS } from '../../server/src/constants.js';
@@ -278,9 +277,6 @@ export function removeAgent(
 export function persistAgents(agents: AgentStateStore, adapter: StateAdapter): void {
   const persisted: PersistedAgent[] = [];
   for (const agent of agents.values()) {
-    // Background-spawn children are derived state — never persisted (the 1s
-    // scan re-materializes them from sidecars after a restore).
-    if (agent.spawnToolUseId) continue;
     persisted.push({
       id: agent.id,
       sessionId: agent.sessionId,
@@ -291,9 +287,6 @@ export function persistAgents(agents: AgentStateStore, adapter: StateAdapter): v
       folderName: agent.folderName,
       teamName: agent.teamName,
       agentName: agent.agentName,
-      isTeamLead: agent.isTeamLead,
-      leadAgentId: agent.leadAgentId,
-      teamUsesTmux: agent.teamUsesTmux,
       backgroundAgentToolIds:
         agent.backgroundAgentToolIds.size > 0 ? [...agent.backgroundAgentToolIds] : undefined,
     });
@@ -338,11 +331,9 @@ export function restoreAgents(
       continue;
     }
 
-    // Background-spawn children (a leadAgentId but no teamName) are derived
-    // state re-materialized by the 1s scan — never restored directly (also
-    // skips stale entries written by older builds that persisted them).
-    if (p.leadAgentId !== undefined && !p.teamName) continue;
-    if (p.leadAgentId !== undefined && !SUBAGENT_CHARACTERS_ENABLED) continue;
+    // Sub-agents and teammates are never characters: skip stale entries
+    // written by older builds that persisted them.
+    if (p.leadAgentId !== undefined) continue;
 
     let terminal: vscode.Terminal | undefined;
     const isExternal = p.isExternal ?? false;
@@ -389,11 +380,6 @@ export function restoreAgents(
       maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
       teamName: p.teamName,
       agentName: p.agentName,
-      // A named agent is a teammate; never restore it as a lead (guards against
-      // state persisted before linkTeammates stopped promoting teammates).
-      isTeamLead: p.agentName ? undefined : p.isTeamLead,
-      leadAgentId: p.leadAgentId,
-      teamUsesTmux: p.teamUsesTmux,
       palette: p.palette,
       hueShift: p.hueShift,
     };

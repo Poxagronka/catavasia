@@ -18,12 +18,12 @@ export const LEGACY_HOOK_SCRIPT_NAME = 'pixel-agents-hook.js';
  *  local server, so an event we do not act on is scope we should not ask for.
  *  SessionStart/SessionEnd handle session lifecycle (start, /clear, resume, exit).
  *  Stop/PermissionRequest/Notification handle turn completion and permission UI.
- *  SubagentStart/SubagentStop/TeammateIdle/TaskCompleted power Agent Teams.
+ *  SubagentStart/SubagentStop add and clear the sub-agent rows of the overlay.
  *
- *  Deliberately NOT installed: UserPromptSubmit and TaskCreated. Both normalize
- *  to null (nothing in the runtime consumes them), so installing them only
- *  forwarded the user's prompt text and task payloads to the server to be
- *  dropped. A legacy install that still carries them is migrated on the next
+ *  Deliberately NOT installed: UserPromptSubmit, TaskCreated, TeammateIdle and
+ *  TaskCompleted. All normalize to null (nothing in the runtime consumes
+ *  them), so installing them only forwarded the user's prompt text and task
+ *  payloads to the server to be dropped. A legacy install that still carries them is migrated on the next
  *  install (see installEntries' unlisted-event sweep). */
 export const CLAUDE_HOOK_EVENTS = [
   'SessionStart',
@@ -36,8 +36,6 @@ export const CLAUDE_HOOK_EVENTS = [
   'PostToolUseFailure',
   'SubagentStart',
   'SubagentStop',
-  'TeammateIdle',
-  'TaskCompleted',
 ] as const;
 
 /** Suffix of the one-time pre-modification backup of settings.json. Brand-named

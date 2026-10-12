@@ -16,8 +16,7 @@ Three tiers, each with its own framework.
 | `fileWatcherDismissal.test.ts` | DismissalTracker integration                                                                                                                   |
 | `fileStateAdapter.test.ts`     | Namespaced persistence, allowlist, settings round-trip                                                                                         |
 | `migrateVsCodeState.test.ts`   | Verify-before-clear, partial migration                                                                                                         |
-| `teamUtils.test.ts`            | Inline-teammate helpers                                                                                                                        |
-| `claudeTeamProvider.test.ts`   | Discovery, membership, metadata extraction                                                                                                     |
+| `claudeTeamProvider.test.ts`   | Spawn transcript discovery, metadata extraction                                                                                                |
 | `claude.test.ts`               | `normalizeHookEvent` per Claude event, file fallback                                                                                           |
 | `claudeHookInstaller.test.ts`  | Atomic install/uninstall, unparseable-file + non-array abort, throwing writes, mode preservation, backup, hook identity, event-scope migration |
 | `consentFlow.test.ts`          | In-app consent over the wire: who is asked, what each answer writes, Back-and-revise semantics, answer serialization                           |

@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: '승인 필요',
   toolWaitingInput: '입력 대기 중',
   toolIdle: '대기',
-  toolSubtask: '하위 작업',
   toolChat: '채팅',
   toolContextUsed: '컨텍스트 {pct}% 사용 ({max}k 토큰 중 {used}k)',
   projectPickingText: '폴더 창이 열려 있습니다. 이 브라우저 창 뒤에 있을 수 있습니다.',

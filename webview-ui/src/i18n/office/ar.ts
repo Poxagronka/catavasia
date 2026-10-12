@@ -65,7 +65,6 @@ export const messages: Translation<typeof office> = {
   toolNeedsApproval: 'يحتاج إلى موافقة',
   toolWaitingInput: 'بانتظار ردك',
   toolIdle: 'خامل',
-  toolSubtask: 'مهمة فرعية',
   toolChat: 'محادثة',
   toolContextUsed: 'استُخدم {pct}% من السياق ({used}k من {max}k رمز)',
   projectPickingText: 'نافذة المجلدات مفتوحة. قد تكون خلف نافذة المتصفح هذه.',

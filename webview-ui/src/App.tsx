@@ -106,7 +106,6 @@ function App() {
     agentTools,
     agentStatuses,
     subagentTools,
-    subagentCharacters,
     layoutReady,
     layoutWasReset,
     loadedAssets,
@@ -297,10 +296,7 @@ function App() {
       setClickedTaskId(taskId);
       return;
     }
-    // If clicked agent is a sub-agent, focus the parent's terminal instead
-    const meta = os.subagentMeta.get(agentId);
-    const focusId = meta ? meta.parentAgentId : agentId;
-    transport.send({ type: 'focusAgent', id: focusId });
+    transport.send({ type: 'focusAgent', id: agentId });
   }, []);
 
   const officeState = getOfficeState();
@@ -491,8 +487,6 @@ function App() {
             officeState={officeState}
             agents={agents}
             agentTools={agentTools}
-            subagentTools={subagentTools}
-            subagentCharacters={subagentCharacters}
             containerRef={containerRef}
             zoom={editor.zoom}
             panRef={editor.panRef}

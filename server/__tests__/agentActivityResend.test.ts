@@ -33,13 +33,12 @@ function createTestAgent(overrides: Partial<AgentState> = {}): AgentState {
 }
 
 describe('resendAgentActivity', () => {
-  it('sends messages in order: team info, tools, waiting, context', () => {
+  it('sends messages in order: tools, waiting, context', () => {
     const store = new AgentStateStore();
     store.set(
       1,
       createTestAgent({
         id: 1,
-        teamName: 'test-team',
         activeToolStatuses: new Map([['tool-1', 'Running']]),
         activeToolNames: new Map([['tool-1', 'Bash']]),
         isWaiting: true,
@@ -49,12 +48,7 @@ describe('resendAgentActivity', () => {
     const sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((msg) => sent.push(msg), store);
 
-    expect(sent.map((m) => m.type)).toEqual([
-      'agentTeamInfo',
-      'agentToolStart',
-      'agentStatus',
-      'agentContextUsage',
-    ]);
+    expect(sent.map((m) => m.type)).toEqual(['agentToolStart', 'agentStatus', 'agentContextUsage']);
   });
 
   it('includes basic fields for regular tools', () => {
@@ -80,101 +74,35 @@ describe('resendAgentActivity', () => {
     });
   });
 
-  it('handles background tools with flags and promoted skip logic', () => {
+  it('replays background tools with the runInBackground flag and the tool name', () => {
     const store = new AgentStateStore();
-    // Lead with three background tools: unnamed, named spawn, and promoted
     store.set(
       1,
       createTestAgent({
         id: 1,
-        // A teamed lead: the webview routes agentToolStart by the parent's
-        // teamName, so the team message has to land before the tool replays or
-        // a background spawn is routed as if the lead had no team.
-        teamName: 'test-team',
         activeToolStatuses: new Map([
-          ['bg-unnamed', 'Subtask: Unnamed'],
-          ['bg-named', 'Subtask: Named'],
-          ['bg-promoted', 'Subtask: Promoted'],
+          ['bg-a', 'Subtask: A'],
+          ['bg-b', 'Subtask: B'],
         ]),
         activeToolNames: new Map([
-          ['bg-unnamed', 'Agent'],
-          ['bg-named', 'Agent'],
-          ['bg-promoted', 'Agent'],
+          ['bg-a', 'Agent'],
+          ['bg-b', 'Agent'],
         ]),
-        backgroundAgentToolIds: new Set(['bg-unnamed', 'bg-named', 'bg-promoted']),
-        teammateSpawnToolIds: new Set(['bg-named']),
-      }),
-    );
-    // Promoted teammate (should cause bg-promoted to be skipped)
-    store.set(
-      2,
-      createTestAgent({
-        id: 2,
-        leadAgentId: 1,
-        spawnToolUseId: 'bg-promoted',
-        agentName: 'promoted-agent',
+        backgroundAgentToolIds: new Set(['bg-a', 'bg-b']),
       }),
     );
     const sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((msg) => sent.push(msg), store);
 
     const toolStarts = sent.filter((m) => m.type === 'agentToolStart');
-    expect(toolStarts).toHaveLength(2); // unnamed + named, NOT promoted
-
-    // Team info first: the webview reads the parent's teamName to decide whether
-    // a background agentToolStart becomes a Subtask sub-character, so a replay
-    // that arrives before it is routed against stale team state.
-    const teamIdx = sent.findIndex((m) => m.type === 'agentTeamInfo' && m.id === 1);
-    const firstBgToolIdx = sent.findIndex((m) => m.type === 'agentToolStart' && m.id === 1);
-    expect(teamIdx).toBeGreaterThanOrEqual(0);
-    expect(teamIdx).toBeLessThan(firstBgToolIdx);
-
-    // Unnamed: runInBackground=true, no isTeammateSpawn. toolName is required —
-    // without it the webview cannot recreate the Subtask after agentToolsClear.
-    const unnamed = toolStarts.find((t) => t.toolId === 'bg-unnamed');
-    expect(unnamed).toMatchObject({ runInBackground: true, toolName: 'Agent' });
-    expect(unnamed?.isTeammateSpawn).toBeUndefined();
-
-    // Named: runInBackground=true, isTeammateSpawn=true, toolName present.
-    const named = toolStarts.find((t) => t.toolId === 'bg-named');
-    expect(named).toMatchObject({
-      runInBackground: true,
-      isTeammateSpawn: true,
-      toolName: 'Agent',
-    });
-  });
-
-  it('sends team info for any team field trigger, omits when none present', () => {
-    // teamName trigger
-    let store = new AgentStateStore();
-    store.set(1, createTestAgent({ id: 1, teamName: 'my-team' }));
-    let sent: Array<Record<string, unknown>> = [];
-    resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ type: 'agentTeamInfo', id: 1, teamName: 'my-team' });
-
-    // agentName trigger (derived team)
-    store = new AgentStateStore();
-    store.set(2, createTestAgent({ id: 2, agentName: 'worker-1', leadAgentId: 1 }));
-    sent = [];
-    resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ type: 'agentTeamInfo', id: 2, agentName: 'worker-1' });
-
-    // isTeamLead trigger
-    store = new AgentStateStore();
-    store.set(3, createTestAgent({ id: 3, isTeamLead: true }));
-    sent = [];
-    resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ type: 'agentTeamInfo', id: 3, isTeamLead: true });
-
-    // No team fields: no message
-    store = new AgentStateStore();
-    store.set(4, createTestAgent({ id: 4 }));
-    sent = [];
-    resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent.filter((m) => m.type === 'agentTeamInfo')).toHaveLength(0);
+    expect(toolStarts).toHaveLength(2);
+    // toolName is required: without it the webview cannot tell a background spawn.
+    for (const t of toolStarts) {
+      expect(t).toMatchObject({ runInBackground: true, toolName: 'Agent' });
+      expect(t.isTeammateSpawn).toBeUndefined();
+    }
+    // A sub-agent or a teammate never reaches the webview as its own agent.
+    expect(sent.some((m) => m.type === 'agentTeamInfo')).toBe(false);
   });
 
   it('sends waiting status only when agent is waiting', () => {
