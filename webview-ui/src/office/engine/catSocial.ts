@@ -22,7 +22,7 @@
  *     Call when two cats share an activity spot (both at coffee, both in the
  *     lounge / playroom). With `activity` set the cats keep their spots (no
  *     walking up, no chase) and may be mid-activity (ACTIVITY state). A
- *     fight still walks both cats to its head-to-tail standoff spots.
+ *     fight still walks both cats to its face-to-face standoff spots.
  *     `location` anchors the dust cloud. `kind` forces talk / play / fight;
  *     otherwise fight is ~1/15 and play is SOCIAL_PLAY_CHANCE. `radius`
  *     overrides the distance limit (a spot contest). `loser`: the cat that
