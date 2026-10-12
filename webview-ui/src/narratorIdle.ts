@@ -6,41 +6,47 @@
  */
 
 import type { NarratorState } from '../../core/src/narrator.js';
+import type { MessageKey } from './i18n/core.js';
+import { translate } from './i18n/dictionaries.js';
+import { getLanguage } from './i18n/languageStore.js';
+import { office } from './i18n/office/en.js';
 import type { Character } from './office/types.js';
 
 /** How long the last line ("purring, all done") stays on a cat that went idle. */
 export const NARRATOR_IDLE_AFTER_MS = 5000;
 
-const ACTIVITY_LINES: Record<string, string> = {
-  coffee: 'sipping coffee',
-  brew: 'making coffee',
-  coffeeSip: 'sipping coffee',
-  coffeeReturn: 'bringing the cup back',
-  groom: 'washing its face',
-  yawn: 'yawning',
-  stretch: 'having a big stretch',
-  tailChase: 'chasing its tail',
-  loaf: 'loafing',
-  skillRead: 'reading the cat manual',
-  sleep: 'taking a catnap',
-  bed: 'taking a catnap',
-  catBed: 'taking a catnap',
-  house: 'napping in the house',
-  scratch: 'sharpening claws',
-  catTree: 'climbing the cat tree',
-  box: 'sitting in a box',
-  wander: 'on a stroll',
+type IdleKey = MessageKey<typeof office>;
+
+/** Activity id -> dictionary key of its idle line. */
+const ACTIVITY_LINES: Record<string, IdleKey> = {
+  coffee: 'idleCoffee',
+  brew: 'idleBrew',
+  coffeeSip: 'idleCoffee',
+  coffeeReturn: 'idleCoffeeReturn',
+  groom: 'idleGroom',
+  yawn: 'idleYawn',
+  stretch: 'idleStretch',
+  tailChase: 'idleTailChase',
+  loaf: 'idleLoaf',
+  skillRead: 'idleSkillRead',
+  sleep: 'idleNap',
+  bed: 'idleNap',
+  catBed: 'idleNap',
+  house: 'idleHouse',
+  scratch: 'idleScratch',
+  catTree: 'idleCatTree',
+  box: 'idleBox',
+  wander: 'idleWander',
 };
-const PLAYING = 'playing';
-const LOUNGING = 'lounging around';
 
 /** What an idle cat does now, as a narrator line. */
 export function idleLine(ch: Pick<Character, 'activity' | 'social'>): string {
-  if (ch.social?.cloud || ch.social?.anger != null) return 'squabbling';
-  if (ch.social?.bubble) return 'chatting with a friend';
+  const say = (key: IdleKey) => translate(office, key, getLanguage());
+  if (ch.social?.cloud || ch.social?.anger != null) return say('idleSquabbling');
+  if (ch.social?.bubble) return say('idleChatting');
   const id = ch.activity?.id;
-  if (!id) return LOUNGING;
-  return ACTIVITY_LINES[id] ?? PLAYING;
+  if (!id) return say('idleLounging');
+  return say(ACTIVITY_LINES[id] ?? 'idlePlaying');
 }
 
 /**

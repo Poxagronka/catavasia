@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import { PET_MENU_BUTTON_PX, PET_MENU_RADIUS_PX, TILE_SIZE } from '../constants.js';
+import type { MessageKey } from '../i18n/core.js';
+import { office } from '../i18n/office/en.js';
+import { useT } from '../i18n/useT.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { PetMenuAction } from '../office/petCare/petCareTypes.js';
 import type { NeedKey } from '../office/petCare/petNeeds.js';
-import { moodLabel, moodScore, NEED_KEYS, NEED_LABELS } from '../office/petCare/petNeeds.js';
+import type { MoodLabel } from '../office/petCare/petNeeds.js';
+import { moodLabel, moodScore, NEED_KEYS } from '../office/petCare/petNeeds.js';
 import { overlayProjection } from '../office/projection.js';
 import type { PetMenuIcon } from '../office/sprites/petCareSprites.js';
 import { MENU_ICONS } from '../office/sprites/petCareSprites.js';
@@ -17,14 +21,32 @@ interface PetRadialMenuProps {
   panRef: React.RefObject<{ x: number; y: number }>;
 }
 
-const ACTIONS: Array<{ action: PetMenuAction; icon: PetMenuIcon; label: string }> = [
-  { action: 'feed', icon: 'food', label: 'Feed' },
-  { action: 'water', icon: 'water', label: 'Water' },
-  { action: 'scratch', icon: 'scratch', label: 'Scratch' },
-  { action: 'play', icon: 'play', label: 'Play' },
-  { action: 'clean', icon: 'clean', label: 'Clean' },
-  { action: 'info', icon: 'info', label: 'Info' },
+type OfficeKey = MessageKey<typeof office>;
+
+const ACTIONS: Array<{ action: PetMenuAction; icon: PetMenuIcon; label: OfficeKey }> = [
+  { action: 'feed', icon: 'food', label: 'petFeed' },
+  { action: 'water', icon: 'water', label: 'petWater' },
+  { action: 'scratch', icon: 'scratch', label: 'petScratch' },
+  { action: 'play', icon: 'play', label: 'petPlay' },
+  { action: 'clean', icon: 'clean', label: 'actionClean' },
+  { action: 'info', icon: 'info', label: 'actionInfo' },
 ];
+
+const MOOD_KEYS: Record<MoodLabel, OfficeKey> = {
+  Happy: 'moodHappy',
+  Content: 'moodContent',
+  Grumpy: 'moodGrumpy',
+  Miserable: 'moodMiserable',
+};
+
+const NEED_LABEL_KEYS: Record<NeedKey, OfficeKey> = {
+  hunger: 'needFood',
+  thirst: 'needWater',
+  affection: 'needLove',
+  fun: 'needFun',
+  hygiene: 'needClean',
+  energy: 'needEnergy',
+};
 
 /**
  * Radial care menu over a cat pet: six pixel buttons on a ring (Feed, Water,
@@ -32,6 +54,7 @@ const ACTIONS: Array<{ action: PetMenuAction; icon: PetMenuIcon; label: string }
  * by a canvas click on a cat (OfficeCanvas); state lives in PetCareSystem.
  */
 export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRadialMenuProps) {
+  const t = useT(office);
   const care = officeState.petCare;
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -83,8 +106,8 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
         return (
           <button
             key={action}
-            title={label}
-            aria-label={label}
+            title={t(label)}
+            aria-label={t(label)}
             data-pet-action={action}
             onClick={() => care.act(pet, action, officeState.petCareEnv())}
             className={`absolute pointer-events-auto flex items-center justify-center p-0 border-2 rounded-none shadow-pixel cursor-pointer ${
@@ -119,10 +142,10 @@ export function PetRadialMenu({ officeState, containerRef, zoom, panRef }: PetRa
           style={{ left: cx + radius + half + 10, top: cy - radius }}
         >
           <div className="text-sm">{pet.name}</div>
-          <div className="text-text-muted mb-4">Mood: {mood}</div>
+          <div className="text-text-muted mb-4">{t('petMood', { mood: t(MOOD_KEYS[mood]) })}</div>
           {NEED_KEYS.map((k: NeedKey) => (
             <div key={k} className="flex items-center gap-6">
-              <span className="w-48">{NEED_LABELS[k]}</span>
+              <span className="w-48">{t(NEED_LABEL_KEYS[k])}</span>
               <span className="inline-block w-80 h-8 bg-bg-dark border-2 border-border">
                 <span
                   className="block h-full"

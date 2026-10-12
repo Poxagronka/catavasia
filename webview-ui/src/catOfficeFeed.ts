@@ -24,6 +24,9 @@
 import type { ReviewFinished, ServerMessage } from '../../core/src/messages.js';
 import type { Appearance } from './cats/catsApi.js';
 import { CAT_CEO_ID, CAT_CEO_MAX_WALKS } from './constants.js';
+import { translate } from './i18n/dictionaries.js';
+import { getLanguage } from './i18n/languageStore.js';
+import { office } from './i18n/office/en.js';
 import type { ResidentCat } from './office/engine/officeState.js';
 import type { CatMessageKind, FlowState, OrchestratorEvents } from './orchestratorEvents.js';
 
@@ -88,7 +91,10 @@ export class CatOfficeFeed {
         const ceo = this.agentOf.get(CAT_CEO_ID);
         const to = this.agentOf.get(msg.catId);
         if (msg.state !== 'done' || !msg.changed || ceo === undefined || to === undefined) break;
-        const text = `tidied ${msg.changed} ${msg.changed === 1 ? 'item' : 'items'}`;
+        const text =
+          msg.changed === 1
+            ? translate(office, 'feedTidiedOne', getLanguage())
+            : translate(office, 'feedTidiedMany', getLanguage(), { count: msg.changed });
         this.bus.emit({
           type: 'catMessage',
           from: ceo,
@@ -117,7 +123,11 @@ export class CatOfficeFeed {
       const to = this.agentOf.get(s.catId);
       if (to === undefined || to === ceo) continue;
       const items = msg.edits.filter((e) => e.catId === s.catId).flatMap((e) => e.items ?? []);
-      const news = items.map((id) => `new ${id.startsWith('R') ? 'rule' : 'lesson'} ${id}`);
+      const news = items.map((id) =>
+        translate(office, id.startsWith('R') ? 'feedNewRule' : 'feedNewLesson', getLanguage(), {
+          id,
+        }),
+      );
       const text = [`${s.score} · ${s.bubble}`, ...news].join(' · ');
       const tooltip = [text, ...(s.anomalies ?? [])].join(' | ');
       this.bus.emit({ type: 'catMessage', from: ceo, to, kind: 'review', text, tooltip });

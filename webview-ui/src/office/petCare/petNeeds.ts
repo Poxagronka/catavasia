@@ -33,15 +33,6 @@ export const REQUEST_FOR_NEED: Record<NeedKey, RequestKind | null> = {
   energy: null,
 };
 
-export const NEED_LABELS: Record<NeedKey, string> = {
-  hunger: 'Food',
-  thirst: 'Water',
-  affection: 'Love',
-  fun: 'Fun',
-  hygiene: 'Clean',
-  energy: 'Energy',
-};
-
 export type MoodLabel = 'Happy' | 'Content' | 'Grumpy' | 'Miserable';
 
 export function clampNeed(v: number): number {

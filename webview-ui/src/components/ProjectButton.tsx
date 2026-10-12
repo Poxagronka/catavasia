@@ -3,13 +3,9 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CeoFolderResponse, CeoFoldersResponse } from '../../../core/src/ceoDesk.js';
 import { ceoDeskApi } from '../ceoDesk/ceoDeskApi.js';
 import { projectName, shortFolder } from '../ceoDesk/dockState.js';
+import { office } from '../i18n/office/en.js';
+import { useT } from '../i18n/useT.js';
 import { Button } from './ui/Button.js';
-
-const PICKING_TEXT = 'A folder window is open. It can be behind this browser window.';
-const NEW_PROJECT_HINT =
-  'Makes a folder in catavasia-projects in your home folder and turns on version history (git), so each cat works on its own copy.';
-const HISTORY_HINT =
-  'This folder has no version history. Turn it on so each cat works on its own copy and you can undo changes.';
 
 export interface ProjectPanelViewProps {
   info: CeoFoldersResponse | null;
@@ -25,6 +21,7 @@ export interface ProjectPanelViewProps {
 
 /** The open Project panel: the current project, the ways to pick one, and the recent ones. */
 export function ProjectPanelView(props: ProjectPanelViewProps) {
+  const t = useT(office);
   const { info, picking, error } = props;
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
@@ -47,22 +44,20 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
       data-testid="project-panel"
     >
       <div className="flex flex-col gap-2">
-        <span className="text-xs text-text-muted">Project</span>
+        <span className="text-xs text-text-muted">{t('projectLabel')}</span>
         <span className="text-lg text-accent-bright truncate" title={folder ?? ''}>
           {projectName(folder)}
         </span>
         <span className="prose-body prose-small text-text-muted">
-          {folder
-            ? `The cats work in ${shortFolder(folder)}.`
-            : 'No project: the cats work in a scratch folder of the chat.'}
+          {folder ? t('projectWorkIn', { folder: shortFolder(folder) }) : t('projectNone')}
         </span>
       </div>
 
       {folder && info && !info.git && (
         <div className="flex flex-col gap-6 border-2 border-border p-8" data-testid="project-git">
-          <span className="prose-body prose-small">{HISTORY_HINT}</span>
+          <span className="prose-body prose-small">{t('projectHistoryHint')}</span>
           <Button size="sm" variant="accent" onClick={props.onHistory} className="self-start">
-            Turn on version history (git)
+            {t('projectHistoryOn')}
           </Button>
         </div>
       )}
@@ -76,7 +71,7 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
             onClick={props.onPick}
             data-testid="project-choose"
           >
-            Choose folder…
+            {t('projectChoose')}
           </Button>
         )}
         <Button
@@ -85,26 +80,28 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
           onClick={() => setNaming((v) => !v)}
           data-testid="project-new"
         >
-          New project…
+          {t('projectNew')}
         </Button>
       </div>
-      {picking && <span className="prose-body prose-small text-text-muted">{PICKING_TEXT}</span>}
+      {picking && (
+        <span className="prose-body prose-small text-text-muted">{t('projectPickingText')}</span>
+      )}
 
       {naming && (
         <form onSubmit={submitName} className="flex flex-col gap-6">
-          <span className="prose-body prose-small text-text-muted">{NEW_PROJECT_HINT}</span>
+          <span className="prose-body prose-small text-text-muted">{t('projectNewHint')}</span>
           <div className="flex gap-6">
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="my-site"
-              aria-label="Project name"
+              placeholder={t('projectNamePlaceholder')}
+              aria-label={t('projectNameLabel')}
               className="flex-1 min-w-0 bg-bg-dark border-2 border-border focus:border-accent outline-none px-6 py-4 text-text"
               data-testid="project-name"
             />
             <Button size="sm" variant="accent" type="submit" data-testid="project-create">
-              Create
+              {t('projectCreate')}
             </Button>
           </div>
         </form>
@@ -112,20 +109,18 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
 
       {info?.canPick === false && (
         <form onSubmit={submitPath} className="flex flex-col gap-6">
-          <span className="prose-body prose-small text-text-muted">
-            Type the full path of the project folder.
-          </span>
+          <span className="prose-body prose-small text-text-muted">{t('projectTypePath')}</span>
           <div className="flex gap-6">
             <input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              placeholder="/home/me/my-site"
-              aria-label="Folder path"
+              placeholder={t('projectPathPlaceholder')}
+              aria-label={t('projectPathLabel')}
               className="flex-1 min-w-0 bg-bg-dark border-2 border-border focus:border-accent outline-none px-6 py-4 prose-code text-text"
               data-testid="project-path"
             />
             <Button size="sm" variant="accent" type="submit">
-              Use
+              {t('projectUse')}
             </Button>
           </div>
         </form>
@@ -133,7 +128,7 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
 
       {recent.length > 0 && (
         <div className="flex flex-col gap-2" data-testid="project-recent">
-          <span className="text-xs text-text-muted">Recent projects</span>
+          <span className="text-xs text-text-muted">{t('projectRecent')}</span>
           {recent.map((r) => (
             <button
               key={r}
@@ -157,7 +152,7 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
           className="self-start"
           data-testid="project-none"
         >
-          No project (sandbox)
+          {t('projectSandbox')}
         </Button>
       )}
       {error && <span className="prose-body prose-small text-status-error">{error}</span>}
@@ -170,6 +165,7 @@ export function ProjectPanelView(props: ProjectPanelViewProps) {
  * The only place to pick it (the CEO points the user here).
  */
 export function ProjectButton() {
+  const t = useT(office);
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<CeoFoldersResponse | null>(null);
   const [picking, setPicking] = useState(false);
@@ -229,7 +225,7 @@ export function ProjectButton() {
       <Button
         variant={open ? 'active' : 'default'}
         onClick={toggle}
-        title={info?.folder ?? 'No project folder: the cats work in a sandbox'}
+        title={info?.folder ?? t('projectButtonTitle')}
         className="max-w-[200px] truncate"
         data-testid="project-button"
       >

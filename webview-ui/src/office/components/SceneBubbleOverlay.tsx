@@ -8,6 +8,10 @@ import {
   SCENE_KIND_COLORS,
   TOOL_OVERLAY_VERTICAL_OFFSET,
 } from '../../constants.js';
+import { translate } from '../../i18n/dictionaries.js';
+import { getLanguage } from '../../i18n/languageStore.js';
+import { office } from '../../i18n/office/en.js';
+import { useT } from '../../i18n/useT.js';
 import type { CatMessageKind } from '../../orchestratorEvents.js';
 import { activityHeadDropY, characterDrawOffsetX } from '../engine/characters.js';
 import type { SceneBubble } from '../engine/officeScenes.js';
@@ -15,14 +19,21 @@ import type { OfficeState } from '../engine/officeState.js';
 import { overlayProjection } from '../projection.js';
 import { CharacterState } from '../types.js';
 
-/** Corner badge per message kind: a glyph and its colour. */
-const KIND_BADGE: Record<CatMessageKind, { glyph: string; color: string; label: string }> = {
-  brief: { glyph: '!', color: SCENE_KIND_COLORS.brief, label: 'Brief' },
-  delegate: { glyph: '»', color: SCENE_KIND_COLORS.delegate, label: 'Delegate' },
-  ask: { glyph: '?', color: SCENE_KIND_COLORS.ask, label: 'Ask' },
-  reply: { glyph: '«', color: SCENE_KIND_COLORS.reply, label: 'Reply' },
-  report: { glyph: '✓', color: SCENE_KIND_COLORS.report, label: 'Report' },
-  review: { glyph: '★', color: SCENE_KIND_COLORS.review, label: 'Review' },
+/** Corner badge per message kind: a glyph, its colour and the dictionary key of its label. */
+const KIND_BADGE: Record<
+  CatMessageKind,
+  {
+    glyph: string;
+    color: string;
+    label: 'kindBrief' | 'kindDelegate' | 'kindAsk' | 'kindReply' | 'kindReport' | 'kindReview';
+  }
+> = {
+  brief: { glyph: '!', color: SCENE_KIND_COLORS.brief, label: 'kindBrief' },
+  delegate: { glyph: '»', color: SCENE_KIND_COLORS.delegate, label: 'kindDelegate' },
+  ask: { glyph: '?', color: SCENE_KIND_COLORS.ask, label: 'kindAsk' },
+  reply: { glyph: '«', color: SCENE_KIND_COLORS.reply, label: 'kindReply' },
+  report: { glyph: '✓', color: SCENE_KIND_COLORS.report, label: 'kindReport' },
+  review: { glyph: '★', color: SCENE_KIND_COLORS.review, label: 'kindReview' },
 };
 
 /** CSS px between the bubble tail and the cat's head. */
@@ -39,7 +50,9 @@ interface SceneBubbleOverlayProps {
 
 function catName(os: OfficeState, id: number): string {
   const ch = os.characters.get(id);
-  return ch?.agentName || ch?.folderName || `Cat ${id}`;
+  return (
+    ch?.agentName || ch?.folderName || translate(office, 'catFallbackName', getLanguage(), { id })
+  );
 }
 
 /**
@@ -54,6 +67,7 @@ export function SceneBubbleOverlay({
 }: SceneBubbleOverlayProps) {
   const [, setTick] = useState(0);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
+  const t = useT(office);
   useEffect(() => {
     let rafId = 0;
     const tick = () => {
@@ -98,9 +112,9 @@ export function SceneBubbleOverlay({
             style={{ left: x, top: y, transform: 'translate(-50%, -100%)', zIndex: 39 }}
             data-testid="queue-marker"
             data-cat-id={id}
-            title="This cat's turn waits for a free slot (Settings: Cats working at once)"
+            title={t('queueTitle')}
           >
-            in queue #{i + 1}
+            {t('queueMarker', { n: i + 1 })}
           </div>
         );
       })}
@@ -164,7 +178,7 @@ export function SceneBubbleOverlay({
                   border: `2px solid ${BUBBLE_INK}`,
                   fontSize: '14px',
                 }}
-                title={badge.label}
+                title={t(badge.label)}
               >
                 {badge.glyph}
               </span>
@@ -201,14 +215,14 @@ export function SceneBubbleOverlay({
                 }}
                 data-testid="scene-tooltip"
               >
-                {thread.map((t) => (
-                  <div key={t.key} className="mb-4 last:mb-0">
-                    <div style={{ color: KIND_BADGE[t.kind].color, filter: 'brightness(1.6)' }}>
-                      {catName(officeState, t.from)}
-                      {t.to !== t.from ? ` → ${catName(officeState, t.to)}` : ''} ·{' '}
-                      {KIND_BADGE[t.kind].label}
+                {thread.map((msg) => (
+                  <div key={msg.key} className="mb-4 last:mb-0">
+                    <div style={{ color: KIND_BADGE[msg.kind].color, filter: 'brightness(1.6)' }}>
+                      {catName(officeState, msg.from)}
+                      {msg.to !== msg.from ? ` → ${catName(officeState, msg.to)}` : ''} ·{' '}
+                      {t(KIND_BADGE[msg.kind].label)}
                     </div>
-                    <div>{t.tooltip}</div>
+                    <div>{msg.tooltip}</div>
                   </div>
                 ))}
               </div>
