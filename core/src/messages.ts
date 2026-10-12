@@ -48,6 +48,7 @@ export type ServerMessage =
   | AgentContextUsage
   | LayoutLoaded
   | ResetAllResult
+  | HelpChatEvent
   | FeedbackResult
   | PetCareLoaded
   | FurnitureAssetsLoaded
@@ -98,6 +99,9 @@ export type ClientMessage =
   | SetShowGuests
   | SetLanguage
   | SetOnboardingDone
+  | HelpChatSend
+  | HelpChatStop
+  | HelpChatReset
   | SetNarratorSettings
   | SetCatCeoSettings
   | GetPromptHistory
@@ -563,6 +567,14 @@ export interface ResetAllResult {
   error?: string;
 }
 
+export interface HelpChatEvent {
+  type: 'helpChatEvent';
+  event: AnonymousSchema_243;
+  text?: string;
+}
+
+export type AnonymousSchema_243 = 'draft' | 'reply' | 'error' | 'unavailable';
+
 export interface FeedbackResult {
   type: 'feedbackResult';
   status: FeedbackStatus;
@@ -870,6 +882,23 @@ export interface SetLanguage {
 export interface SetOnboardingDone {
   type: 'setOnboardingDone';
   done: boolean;
+}
+
+export interface HelpChatSend {
+  type: 'helpChatSend';
+  text: string;
+  context?: AnonymousSchema_439;
+  language?: string;
+}
+
+export type AnonymousSchema_439 = 'onboarding' | 'settings';
+
+export interface HelpChatStop {
+  type: 'helpChatStop';
+}
+
+export interface HelpChatReset {
+  type: 'helpChatReset';
 }
 
 export interface SetNarratorSettings {

@@ -189,6 +189,7 @@ export function claudeTurnOptions(req: TurnSetup, executable: string): Options {
     ...(mode === 'readOnly' ? { allowedTools: [...READ_ONLY_TOOLS, ...ownTools] } : {}),
     // Every mode that may ask keeps it: a mode switch then needs no new process.
     ...(mode !== 'bypass' && mode !== 'readOnly' ? { canUseTool } : {}),
+    ...(req.disallowedTools?.length ? { disallowedTools: req.disallowedTools } : {}),
     ...(req.partialText ? { includePartialMessages: true } : {}),
   };
 }

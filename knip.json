@@ -15,6 +15,7 @@
     "core/src/index.ts",
     "server/src/providers/hook/claude/hooks/claude-hook.ts",
     "webview-ui/src/onboarding/HelpChat.tsx",
+    "webview-ui/src/onboarding/helpChatApi.ts",
     "webview-ui/src/onboarding/onboardingStore.ts",
     "webview-ui/src/office/components/index.ts",
     "webview-ui/src/office/editor/index.ts",

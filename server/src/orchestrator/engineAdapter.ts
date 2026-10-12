@@ -35,6 +35,8 @@ export interface TurnSetup {
    * action is denied, as in a run with nobody to ask.
    */
   askPermission?: (ask: PermissionAsk) => Promise<PermissionAnswer>;
+  /** Tools the turn may never use, whatever the mode (Claude only: the read-only help chat). */
+  disallowedTools?: string[];
   /** Stream the reply text as Claude writes it (Claude only: `stream_event` lines in onLine). */
   partialText?: boolean;
   /** Activity-log lines as they stream. */

@@ -37,6 +37,8 @@ import {
 } from '../../server/src/configPersistence.js';
 import { feedbackEnvironment, submitFeedback } from '../../server/src/feedback/githubFeedback.js';
 import { setFolderNameResolver, setTerminalAdapter } from '../../server/src/fileWatcher.js';
+import { handleHelpMessage } from '../../server/src/helpDesk/helpDesk.js';
+import { sharedHelpDesk } from '../../server/src/helpDesk/sharedHelpDesk.js';
 import type { LayoutWatcher } from '../../server/src/layoutPersistence.js';
 import {
   readLayoutFromFile,
@@ -532,6 +534,12 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (message.type === 'setHooksInfoShown') {
         this.adapter.setSetting(GLOBAL_KEY_HOOKS_INFO_SHOWN, true);
+      } else if (
+        message.type === 'helpChatSend' ||
+        message.type === 'helpChatStop' ||
+        message.type === 'helpChatReset'
+      ) {
+        handleHelpMessage(sharedHelpDesk(), message, (m) => this.webview?.postMessage(m));
       } else if (message.type === 'setLanguage') {
         setLanguage(this.adapter, message.language);
       } else if (message.type === 'setOnboardingDone') {
