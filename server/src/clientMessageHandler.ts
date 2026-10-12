@@ -18,6 +18,12 @@ import { feedbackEnvironment, submitFeedback } from './feedback/githubFeedback.j
 import { applyShowGuests } from './guests.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import type { Narrator } from './narrator/narrator.js';
+import {
+  getLanguage,
+  isOnboardingDone,
+  KEY_ONBOARDING_DONE,
+  setLanguage,
+} from './onboardingState.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { readPetCareState, writePetCareState } from './petCarePersistence.js';
 import type { ConsentEffects } from './providers/hook/consentExecutor.js';
@@ -283,6 +289,14 @@ export function handleClientMessage(
       if (runtime) applyShowGuests(store, runtime.showGuests, msg.enabled);
       break;
     }
+
+    case 'setLanguage':
+      setLanguage(adapter, msg.language);
+      break;
+
+    case 'setOnboardingDone':
+      if (typeof msg.done === 'boolean') adapter?.setSetting(KEY_ONBOARDING_DONE, msg.done);
+      break;
 
     case 'setTurnConcurrency': {
       const value = parseTurnConcurrency(msg.value);
@@ -554,6 +568,8 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     hooksInfoShown: adapter?.getSetting(KEY_HOOKS_INFO_SHOWN, false) ?? false,
     externalAssetDirectories: cfg.externalAssetDirectories,
     showAreas,
+    language: getLanguage(adapter),
+    onboardingDone: isOnboardingDone(adapter),
     ...(ctx.orchestrator ? { showGuests, turnConcurrency } : {}),
   });
 

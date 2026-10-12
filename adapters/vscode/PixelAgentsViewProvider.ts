@@ -43,6 +43,13 @@ import {
   watchLayoutFile,
   writeLayoutToFile,
 } from '../../server/src/layoutPersistence.js';
+import {
+  getLanguage,
+  isOnboardingDone,
+  KEY_ONBOARDING_DONE,
+  setLanguage,
+  settleOnboardingState,
+} from '../../server/src/onboardingState.js';
 import { PathSet } from '../../server/src/pathKey.js';
 import { writePetCareState } from '../../server/src/petCarePersistence.js';
 import type { ConsentEffects } from '../../server/src/providers/hook/consentExecutor.js';
@@ -525,6 +532,12 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (message.type === 'setHooksInfoShown') {
         this.adapter.setSetting(GLOBAL_KEY_HOOKS_INFO_SHOWN, true);
+      } else if (message.type === 'setLanguage') {
+        setLanguage(this.adapter, message.language);
+      } else if (message.type === 'setOnboardingDone') {
+        if (typeof message.done === 'boolean') {
+          this.adapter.setSetting(KEY_ONBOARDING_DONE, message.done);
+        }
       } else if (message.type === 'setShowAreas') {
         const enabled = message.enabled as boolean;
         this.adapter.setSetting(GLOBAL_KEY_SHOW_AREAS, enabled);
@@ -617,6 +630,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         const hooksInfoShown = this.adapter.getSetting<boolean>(GLOBAL_KEY_HOOKS_INFO_SHOWN, false);
         const showAreas = this.adapter.getSetting<boolean>(GLOBAL_KEY_SHOW_AREAS, false);
         const config = readConfig();
+        // An existing user (cats.json on disk) never gets the onboarding forced.
+        settleOnboardingState(this.adapter);
         this.webview?.postMessage({
           type: 'settingsLoaded',
           soundEnabled,
@@ -629,6 +644,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           hooksInfoShown,
           externalAssetDirectories: config.externalAssetDirectories,
           showAreas,
+          language: getLanguage(this.adapter),
+          onboardingDone: isOnboardingDone(this.adapter),
         });
 
         // One status + at most one consent ask PER PROVIDER. Install state is distinct from the hooksEnabled

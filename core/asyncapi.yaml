@@ -183,6 +183,8 @@ components:
         - $ref: '#/components/schemas/PromoteCatToBoss'
         - $ref: '#/components/schemas/SetTurnConcurrency'
         - $ref: '#/components/schemas/SetShowGuests'
+        - $ref: '#/components/schemas/SetLanguage'
+        - $ref: '#/components/schemas/SetOnboardingDone'
         - $ref: '#/components/schemas/SetNarratorSettings'
         - $ref: '#/components/schemas/SetCatCeoSettings'
         - $ref: '#/components/schemas/GetPromptHistory'
@@ -799,6 +801,16 @@ components:
         turnConcurrency:
           type: integer
           description: Standalone only. Cap on cat turns that run at once.
+        language:
+          type: string
+          description: >-
+            The chosen UI language (core/src/languages.ts code), or "" when the user never chose one.
+            The webview then detects it from the browser or VS Code locale.
+        onboardingDone:
+          type: boolean
+          description: >-
+            False shows the first-run onboarding. True for every user whose cats.json already existed
+            when the setting was first read. "Reset everything" sets it back to false.
 
     HooksStatus:
       description: |
@@ -1921,6 +1933,29 @@ components:
         type:
           const: setShowGuests
         enabled:
+          type: boolean
+
+    SetLanguage:
+      description: Persist the UI language. The server also follows it for narrator lines and cat bubbles.
+      type: object
+      additionalProperties: false
+      required: [type, language]
+      properties:
+        type:
+          const: setLanguage
+        language:
+          type: string
+          description: A code from core/src/languages.ts. Any other value is ignored.
+
+    SetOnboardingDone:
+      description: Mark the onboarding finished or skipped (true), or start it again from Settings (false).
+      type: object
+      additionalProperties: false
+      required: [type, done]
+      properties:
+        type:
+          const: setOnboardingDone
+        done:
           type: boolean
 
     SetNarratorSettings:

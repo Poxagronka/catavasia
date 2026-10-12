@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { type LanguageCode, LANGUAGES } from '../../../core/src/languages.js';
 import { catCeo, useCatCeo } from '../cats/catCeoClient.js';
 import type { CatOfficeSettings } from '../hooks/useExtensionMessages.js';
+import { common } from '../i18n/common/en.js';
+import { useLanguage } from '../i18n/languageStore.js';
+import { chooseLanguage } from '../i18n/languageSync.js';
+import { useT } from '../i18n/useT.js';
 import { setNarratorSettings, useNarratorSettings } from '../narratorStore.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
+import { restartOnboarding } from '../onboarding/onboardingStore.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
 import { UpdateSettings } from '../update/UpdateSettings.js';
@@ -78,6 +84,8 @@ export function SettingsModal({
   onResetLayoutToDefault,
   onResetAll,
 }: SettingsModalProps) {
+  const t = useT(common);
+  const language = useLanguage();
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assetDirDraft, setAssetDirDraft] = useState('');
@@ -109,8 +117,30 @@ export function SettingsModal({
         setResetAllResult(null);
         onClose();
       }}
-      title="Settings"
+      title={t('settings')}
     >
+      <label className="flex items-center justify-between w-full py-6 px-10">
+        <span>{t('language')}</span>
+        <select
+          value={language}
+          onChange={(e) => chooseLanguage(e.target.value as LanguageCode)}
+          className="bg-bg border-2 border-border rounded-none text-text text-xs py-2 px-4"
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.endonym}
+            </option>
+          ))}
+        </select>
+      </label>
+      <MenuItem
+        onClick={() => {
+          restartOnboarding();
+          onClose();
+        }}
+      >
+        {t('runOnboardingAgain')}
+      </MenuItem>
       {/* Open Sessions Folder opens an OS file manager — impossible in the browser. */}
       {!isBrowserRuntime && (
         <MenuItem

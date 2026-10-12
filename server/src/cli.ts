@@ -48,6 +48,7 @@ import { defaultPort, planLaunch, readOwnServers } from './launch/portChoice.js'
 import { createShortcut, removeShortcut } from './launch/shortcut.js';
 import { migrateUnmodifiedLayout, readLayoutFromFile } from './layoutPersistence.js';
 import { Narrator } from './narrator/narrator.js';
+import { settleOnboardingState } from './onboardingState.js';
 import { ClaudeAdapter } from './orchestrator/claudeAdapter.js';
 import { CodexAdapter } from './orchestrator/codexAdapter.js';
 import { Orchestrator } from './orchestrator/orchestrator.js';
@@ -237,6 +238,8 @@ async function main(): Promise<void> {
   const store = new AgentStateStore();
   const adapter = new FileStateAdapter({ namespace: 'standalone' });
   store.setAdapter(adapter);
+  // Before the Orchestrator can seed cats.json: an existing cats.json means an existing user (no forced onboarding).
+  settleOnboardingState(adapter);
 
   // ── Create server ──
   const server = new PixelAgentsServer();

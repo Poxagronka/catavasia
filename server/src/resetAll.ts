@@ -18,6 +18,7 @@ import {
   TASKS_FILE_NAME,
 } from './constants.js';
 import { writeLayoutToFile } from './layoutPersistence.js';
+import { resetOnboardingState } from './onboardingState.js';
 import type { Orchestrator } from './orchestrator/orchestrator.js';
 import { clearPetCareState } from './petCarePersistence.js';
 
@@ -68,6 +69,7 @@ export function resetAll(
     beforeLayoutWrite?.();
     writeLayoutToFile(defaultLayout);
     clearPetCareState();
+    resetOnboardingState();
   } catch (err) {
     return { error: `Reset failed part-way: ${String(err)} (backup: ${backupDir})` };
   }

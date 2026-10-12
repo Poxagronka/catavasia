@@ -43,6 +43,11 @@ This file holds pointers and tripwires only. Read the linked doc before you work
 - Keep older `assets/default-layout-N.json` files: they are the upgrade fingerprints.
 - Pixel style ESLint rules are `error` level: no inline colors outside `constants.ts`, `var(--pixel-shadow)`, FS Pixel Sans.
 
+## Languages — [i18n.md](docs/architecture/i18n.md)
+
+- UI text goes through `useT(namespace)`, never inline. One namespace per folder `webview-ui/src/i18n/<name>/`, every language file has the keys of `en.ts`. Language list: `core/src/languages.ts`.
+- `onboardingDone` is tri-state (null = undecided). Settle it before anything can create `cats.json`. Layout must use logical CSS classes (`ms-*`, `me-*`) so `ar` and `ur` flip.
+
 ## Testing, build and conventions — [testing-build.md](docs/architecture/testing-build.md)
 
 - Local e2e skips the specs that open VS Code. CI runs them. Set `E2E_VSCODE=1` only on a machine where a VS Code window is fine.

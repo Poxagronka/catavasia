@@ -96,6 +96,8 @@ export type ClientMessage =
   | PromoteCatToBoss
   | SetTurnConcurrency
   | SetShowGuests
+  | SetLanguage
+  | SetOnboardingDone
   | SetNarratorSettings
   | SetCatCeoSettings
   | GetPromptHistory
@@ -659,6 +661,8 @@ export interface SettingsLoaded {
   showAreas: boolean;
   showGuests?: boolean;
   turnConcurrency?: number;
+  language?: string;
+  onboardingDone?: boolean;
 }
 
 export interface HooksStatus {
@@ -856,6 +860,16 @@ export interface SetTurnConcurrency {
 export interface SetShowGuests {
   type: 'setShowGuests';
   enabled: boolean;
+}
+
+export interface SetLanguage {
+  type: 'setLanguage';
+  language: string;
+}
+
+export interface SetOnboardingDone {
+  type: 'setOnboardingDone';
+  done: boolean;
 }
 
 export interface SetNarratorSettings {

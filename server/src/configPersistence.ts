@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+import { isLanguageCode, LANGUAGE_UNSET } from '../../core/src/languages.js';
 import {
   CONFIG_FILE_NAME,
   LAYOUT_FILE_DIR,
@@ -29,6 +30,10 @@ export interface AdapterSettings {
   narratorRawToolStatus: boolean;
   /** Self-update: check the repo for a newer version at start and every 6 h. */
   autoUpdateCheck: boolean;
+  /** UI language code (core/src/languages.ts), or '' when the user never chose one. */
+  language: string;
+  /** null = undecided: the first handshake sets it true when cats.json already exists (an existing user). */
+  onboardingDone: boolean | null;
 }
 
 /** All keys in AdapterSettings. Used by adapters to map `pixel-agents.foo` → `foo`.
@@ -49,6 +54,8 @@ export const ADAPTER_SETTING_KEYS = [
   'narratorAiSummaries',
   'narratorRawToolStatus',
   'autoUpdateCheck',
+  'language',
+  'onboardingDone',
 ] as const;
 
 export type AdapterSettingKey = (typeof ADAPTER_SETTING_KEYS)[number];
@@ -90,6 +97,8 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   narratorAiSummaries: true,
   narratorRawToolStatus: false,
   autoUpdateCheck: true,
+  language: LANGUAGE_UNSET,
+  onboardingDone: null,
 };
 
 /** A turn cap inside TURN_CONCURRENCY_MIN..MAX, or undefined. */
@@ -196,6 +205,11 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
       typeof obj.autoUpdateCheck === 'boolean'
         ? obj.autoUpdateCheck
         : DEFAULT_ADAPTER_SETTINGS.autoUpdateCheck,
+    language: isLanguageCode(obj.language) ? obj.language : DEFAULT_ADAPTER_SETTINGS.language,
+    onboardingDone:
+      typeof obj.onboardingDone === 'boolean'
+        ? obj.onboardingDone
+        : DEFAULT_ADAPTER_SETTINGS.onboardingDone,
   };
 }
 
