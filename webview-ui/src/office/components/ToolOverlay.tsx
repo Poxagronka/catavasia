@@ -18,6 +18,11 @@ import {
   TOOL_OVERLAY_VERTICAL_OFFSET,
 } from '../../constants.js';
 import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
+import type { MessageKey } from '../../i18n/core.js';
+import type { Params } from '../../i18n/core.js';
+import { translate } from '../../i18n/dictionaries.js';
+import { getLanguage } from '../../i18n/languageStore.js';
+import { office } from '../../i18n/office/en.js';
 import { narratorHover } from '../../narratorStore.js';
 import { activityHeadDropY, characterDrawOffsetX } from '../engine/characters.js';
 import type { OfficeState } from '../engine/officeState.js';
@@ -29,7 +34,10 @@ import { CharacterState } from '../types.js';
 // shows ONLY the checkmark (the label falls through to its normal idle text);
 // going idle waiting on the user (Notification(idle_prompt)) additionally
 // surfaces this label. Driven by Character.waitingAwaitingInput.
-const WAITING_INPUT_ACTIVITY_TEXT = 'Waiting for input';
+/** Translate with the current language. The overlay redraws every frame, so it follows a change. */
+function tr(key: MessageKey<typeof office>, params?: Params): string {
+  return translate(office, key, getLanguage(), params);
+}
 
 interface ToolOverlayProps {
   officeState: OfficeState;
@@ -53,18 +61,18 @@ function getActivityText(
   bubbleType: 'permission' | 'waiting' | null,
   waitingAwaitingInput: boolean,
 ): string {
-  if (bubbleType === 'permission') return 'Needs approval';
+  if (bubbleType === 'permission') return tr('toolNeedsApproval');
   // Only the idle case ("Waiting for input") gets a dedicated label. A finished
   // turn (Stop, waitingAwaitingInput=false) falls through so the checkmark alone
   // signals "done", same as the original behavior.
-  if (bubbleType === 'waiting' && waitingAwaitingInput) return WAITING_INPUT_ACTIVITY_TEXT;
+  if (bubbleType === 'waiting' && waitingAwaitingInput) return tr('toolWaitingInput');
 
   const tools = agentTools[agentId];
   if (tools && tools.length > 0) {
     // Find the latest non-done tool
     const activeTool = [...tools].reverse().find((t) => !t.done);
     if (activeTool) {
-      if (activeTool.permissionWait) return 'Needs approval';
+      if (activeTool.permissionWait) return tr('toolNeedsApproval');
       return activeTool.status;
     }
     // All tools done but agent still active (mid-turn) — keep showing last tool status
@@ -74,7 +82,7 @@ function getActivityText(
     }
   }
 
-  return 'Idle';
+  return tr('toolIdle');
 }
 
 /** 8x7 pixel speech bubble, drawn in the current text color. */
@@ -193,10 +201,10 @@ export function ToolOverlay({
         } else if (hasWaitingBubble && ch.waitingAwaitingInput) {
           // Idle, waiting on the user -> dedicated label. A finished turn (Stop)
           // shows only the checkmark and falls through to the normal idle text.
-          activityText = WAITING_INPUT_ACTIVITY_TEXT;
+          activityText = tr('toolWaitingInput');
         } else if (isSub) {
           if (subHasPermission) {
-            activityText = 'Needs approval';
+            activityText = tr('toolNeedsApproval');
           } else {
             // Hover shows the subtask title; SELECTING the sub reveals its live
             // tool activity (watched sub-agents stream it via subagentToolStart).
@@ -204,7 +212,7 @@ export function ToolOverlay({
             const rows = sub ? subagentTools[sub.parentAgentId]?.[sub.parentToolId] : undefined;
             const activeRow =
               isSelected && rows ? [...rows].reverse().find((t) => !t.done) : undefined;
-            activityText = activeRow?.status ?? (sub?.label || 'Subtask');
+            activityText = activeRow?.status ?? (sub?.label || tr('toolSubtask'));
           }
         } else {
           activityText = getActivityText(
@@ -307,7 +315,7 @@ export function ToolOverlay({
                     e.stopPropagation();
                     onOpenChat(id);
                   }}
-                  title="Chat"
+                  title={tr('toolChat')}
                   className="ml-2 shrink-0 leading-none w-auto! px-2"
                   data-testid="open-cat-chat"
                 >
@@ -323,7 +331,11 @@ export function ToolOverlay({
                   background: CONTEXT_GAUGE_BG,
                   marginTop: 2,
                 }}
-                title={`${Math.round(contextRatio * 100)}% context used (${(ch.contextTokens / 1000).toFixed(0)}k of ${(ch.maxContextTokens / 1000).toFixed(0)}k tokens)`}
+                title={tr('toolContextUsed', {
+                  pct: Math.round(contextRatio * 100),
+                  used: (ch.contextTokens / 1000).toFixed(0),
+                  max: (ch.maxContextTokens / 1000).toFixed(0),
+                })}
                 data-testid="context-gauge"
                 data-context-pct={Math.round(contextRatio * 100)}
               >
