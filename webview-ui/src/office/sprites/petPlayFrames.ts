@@ -79,6 +79,10 @@ const LEG_FRACTION = 0.75;
 const PIVOT_FRACTION = 0.45;
 /** Shear slopes: px of lift per column ahead of the pivot. 1 at most keeps the outline closed. */
 const REAR_SLOPE = 0.6;
+/** Where the hind feet stand (the rotation pivot), as a fraction of the width from the tail end. */
+const FEET_FRACTION = 0.3;
+/** The scratch pose turns the cat this far up from the floor. */
+const SCRATCH_DEG = 40;
 const WINDUP_SLOPE = 0.25;
 /** Rows of the front view that show above a box rim (ears + eyes, a little more on the peek). */
 const BOX_LOW_FRACTION = 0.5;
@@ -110,6 +114,35 @@ function shear(s: SpriteData, slope: number): SpriteData {
     for (let y = 0; y < s.length; y++) if (s[y][x] && y - lift >= 0) out[y - lift][x] = s[y][x];
   }
   return out;
+}
+
+/**
+ * Rear up on the hind legs: the whole sprite turns `deg` degrees (nose up)
+ * about the hind feet, then drops back onto the same floor row. Nearest
+ * neighbour keeps the pixels crisp.
+ */
+function rotateUp(s: SpriteData, deg: number): SpriteData {
+  const b = bbox(s);
+  if (isEmpty(b)) return s.map((r) => [...r]);
+  const w = s[0].length;
+  const h = s.length;
+  const px = b.minX + Math.round((b.maxX - b.minX + 1) * FEET_FRACTION);
+  const py = b.maxY;
+  const a = (deg * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const out = s.map((r) => r.map(() => ''));
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const dx = x - px;
+      const dy = y - py;
+      const sx = Math.round(px + dx * cos - dy * sin);
+      const sy = Math.round(py + dx * sin + dy * cos);
+      if (sx >= 0 && sx < w && sy >= 0 && sy < h) out[y][x] = s[sy][sx];
+    }
+  // The turn can sink the toes below the floor row: lift the cat back onto it.
+  const lift = bbox(out).maxY - py;
+  return lift > 0 ? [...out.slice(lift), ...out.slice(0, lift)] : out;
 }
 
 /**
@@ -256,8 +289,8 @@ export function buildPlayPoses(p: PetSpriteFrames): PetPlayPoses {
     bat: { side: pawSwing(crouch, 3, 3), down: frontDip(front, 1), up: frontDip(back, 1) },
     windup: { side: shear(crouch, WINDUP_SLOPE), down: loaf, up: frontDip(back, 2) },
     rear: { side: rear, down: front, up: back },
-    scratchA: { side: shear(dig(side, -1), REAR_SLOPE) },
-    scratchB: { side: shear(dig(side, 1), REAR_SLOPE) },
+    scratchA: { side: rotateUp(dig(side, -1), SCRATCH_DEG) },
+    scratchB: { side: rotateUp(dig(side, 1), SCRATCH_DEG) },
     reach: { side: shear(pawSwing(side, 1, 3), REAR_SLOPE), down: front, up: back },
     pin: { side: headDip(squat(pawSwing(side, 2, 0), 1), 3), down: loaf, up: frontDip(back, 2) },
     curlA: { side: curl(side, 0) },
