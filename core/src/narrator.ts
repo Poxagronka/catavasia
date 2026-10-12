@@ -67,8 +67,6 @@ export const NARRATOR_SUMMARY_MAX_CHARS = 120;
 export interface NarratorSettings {
   /** Batched Haiku conversation summaries. Default ON. */
   aiSummaries: boolean;
-  /** Show the raw tool status ("Reading foo.ts") instead of the narrator line. Default OFF. */
-  rawToolStatus: boolean;
 }
 
 // ── Wire messages (core/asyncapi.yaml) ──

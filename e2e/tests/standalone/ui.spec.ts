@@ -15,7 +15,7 @@ import {
   getOverlayByText,
   selectCharacter,
 } from '../../helpers/office';
-import { openSettingsModal, setSettings } from '../../helpers/webview';
+import { openSettingsModal, openSettingsTab, setSettings } from '../../helpers/webview';
 
 // The DebugView diagnostics block polls every 2s (see DebugView.tsx); allow a
 // few polling rounds plus IPC/render slop.
@@ -119,6 +119,7 @@ test.describe('Standalone / UI', () => {
     standalone,
   }) => {
     const modal = await openSettingsModal(page);
+    await openSettingsTab(modal, 'advanced');
     await standalone.drainMessages();
 
     await modal
@@ -150,6 +151,7 @@ test.describe('Standalone / UI', () => {
   }) => {
     await standalone.drainMessages();
     const modal = await openSettingsModal(page);
+    await openSettingsTab(modal, 'office');
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -175,6 +177,7 @@ test.describe('Standalone / UI', () => {
 
     try {
       const modal = await openSettingsModal(page);
+      await openSettingsTab(modal, 'office');
       // Set the hidden import input directly rather than clicking "Import
       // Layout" (which would open the OS file dialog Playwright can't drive).
       // The CEO dock has a file input too: pick the JSON one.

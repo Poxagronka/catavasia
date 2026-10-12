@@ -281,9 +281,9 @@ This section is auto-generated. Do not edit between the markers; CI fails on dri
 - `e2e/standalone/ui.spec.ts:31` — closeAgent despawns the character (Standalone / UI)
 - `e2e/standalone/ui.spec.ts:78` — Debug View renders JSONL diagnostics in standalone (Standalone / UI)
 - `e2e/standalone/ui.spec.ts:117` — adding an external asset directory triggers a live asset reload (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:147` — browser Export Layout downloads the layout file (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:162` — browser Import Layout applies the chosen file (Standalone / UI)
-- `e2e/standalone/ui.spec.ts:198` — ConnectionIndicator appears when the WebSocket connection drops (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:148` — browser Export Layout downloads the layout file (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:164` — browser Import Layout applies the chosen file (Standalone / UI)
+- `e2e/standalone/ui.spec.ts:201` — ConnectionIndicator appears when the WebSocket connection drops (Standalone / UI)
 
 ### `@area:areas` (8 tests)
 

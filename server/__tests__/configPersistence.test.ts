@@ -36,6 +36,18 @@ describe('configPersistence: areas', () => {
     fs.rmSync(tempHome, { recursive: true, force: true });
   });
 
+  it('loads a config file that still holds the removed narratorRawToolStatus key', () => {
+    const dir = path.join(tempHome, '.pixel-agents');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({ standalone: { narratorAiSummaries: false, narratorRawToolStatus: true } }),
+    );
+    const standalone = readConfig().standalone;
+    expect(standalone.narratorAiSummaries).toBe(false);
+    expect('narratorRawToolStatus' in standalone).toBe(false);
+  });
+
   // ── parseAreaMappings ────────────────────────────────────────
 
   describe('parseAreaMappings', () => {

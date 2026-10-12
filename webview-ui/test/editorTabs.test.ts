@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { EditorTabs } from '../src/components/cats/EditorTabs.js';
+import { Tabs } from '../src/components/ui/Tabs.js';
 
 const tabs = [
   { id: 'appearance' as const, content: createElement('i', null, 'look') },
@@ -37,5 +38,28 @@ describe('EditorTabs', () => {
     const look = html.split('data-testid="editor-tab-appearance"')[1].split('</button>')[0];
     expect(prompt).toContain('!');
     expect(look).not.toContain('!');
+  });
+});
+
+describe('Tabs', () => {
+  const generic = [
+    { id: 'one', label: 'First', content: createElement('i', null, 'a') },
+    { id: 'two', label: 'Second', error: true, content: createElement('i', null, 'b') },
+  ];
+
+  it('uses the test id prefix, ARIA roles and the labels', () => {
+    const html = renderToStaticMarkup(createElement(Tabs, { tabs: generic, testIdPrefix: 'x' }));
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('data-testid="x-tab-two"');
+    expect(html).toContain('role="tabpanel"');
+    expect(html).toContain('Second');
+    expect(html).toMatch(/data-testid="x-panel-two"[^>]*class="hidden"/);
+  });
+
+  it('keeps every panel mounted and badges the error tab', () => {
+    const html = renderToStaticMarkup(createElement(Tabs, { tabs: generic, testIdPrefix: 'x' }));
+    expect(html).toContain('>a<');
+    expect(html).toContain('>b<');
+    expect(html.split('data-testid="x-tab-two"')[1].split('</button>')[0]).toContain('!');
   });
 });

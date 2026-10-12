@@ -26,8 +26,6 @@ export interface AdapterSettings {
   turnConcurrency: number;
   /** Narrator: batched Haiku conversation summaries. */
   narratorAiSummaries: boolean;
-  /** Narrator: show the raw tool status instead of the narrator line (debug). */
-  narratorRawToolStatus: boolean;
   /** Self-update: check the repo for a newer version at start and every 6 h. */
   autoUpdateCheck: boolean;
   /** UI language code (core/src/languages.ts), or '' when the user never chose one. */
@@ -52,7 +50,6 @@ export const ADAPTER_SETTING_KEYS = [
   'showGuests',
   'turnConcurrency',
   'narratorAiSummaries',
-  'narratorRawToolStatus',
   'autoUpdateCheck',
   'language',
   'onboardingDone',
@@ -95,7 +92,6 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   showGuests: false,
   turnConcurrency: TURN_CONCURRENCY_DEFAULT,
   narratorAiSummaries: true,
-  narratorRawToolStatus: false,
   autoUpdateCheck: true,
   language: LANGUAGE_UNSET,
   onboardingDone: null,
@@ -197,10 +193,6 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
       typeof obj.narratorAiSummaries === 'boolean'
         ? obj.narratorAiSummaries
         : DEFAULT_ADAPTER_SETTINGS.narratorAiSummaries,
-    narratorRawToolStatus:
-      typeof obj.narratorRawToolStatus === 'boolean'
-        ? obj.narratorRawToolStatus
-        : DEFAULT_ADAPTER_SETTINGS.narratorRawToolStatus,
     autoUpdateCheck:
       typeof obj.autoUpdateCheck === 'boolean'
         ? obj.autoUpdateCheck
