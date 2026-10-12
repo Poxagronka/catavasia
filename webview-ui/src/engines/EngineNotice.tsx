@@ -4,6 +4,8 @@ import { type Engine } from '../cats/catsApi.js';
 import { catsApi } from '../cats/catsClient.js';
 import { useCats } from '../cats/useCats.js';
 import { Button } from '../components/ui/Button.js';
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
 import { sessionToken } from '../sessionToken.js';
 import { EngineNoticeView } from './EngineNoticeView.js';
 import { engineProblem, neededEngines } from './engineReadiness.js';
@@ -21,6 +23,7 @@ export function EngineNotice({
   showReason?: boolean;
 }) {
   useCats(); // re-render when new engine options arrive
+  useT(terminal); // re-render when the language changes (the view reads it without a hook)
   const { checking } = useEngineUi();
   const problem = engineProblem(engine, catsApi.engineOptions(engine));
   if (!problem) return null;
@@ -38,6 +41,7 @@ export function EngineNotice({
 
 /** Top banner: every engine the cats need that is missing or logged out. */
 export function EngineBanner() {
+  const t = useT(terminal);
   const { cats } = useCats();
   const [dismissed, setDismissed] = useState(false);
   const broken = neededEngines(cats).filter((e) => engineProblem(e, catsApi.engineOptions(e)));
@@ -49,12 +53,12 @@ export function EngineBanner() {
       data-testid="engine-banner"
     >
       <div className="flex flex-col gap-8 flex-1 min-w-0">
-        <span className="text-sm text-accent-bright">Cats cannot work yet</span>
+        <span className="text-sm text-accent-bright">{t('catsCannotWork')}</span>
         {broken.map((engine) => (
           <EngineNotice key={engine} engine={engine} />
         ))}
       </div>
-      <Button variant="ghost" size="icon" onClick={() => setDismissed(true)} title="Hide">
+      <Button variant="ghost" size="icon" onClick={() => setDismissed(true)} title={t('hide')}>
         x
       </Button>
     </div>

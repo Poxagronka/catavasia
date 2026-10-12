@@ -2,11 +2,12 @@ import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import type { CatSessionEntry } from '../../../core/src/catSession.js';
 import { type CeoAttachment, formatSize } from '../../../core/src/ceoDesk.js';
-import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
 import { JobCard, type JobCardActions } from '../ceoDesk/JobCard.js';
 import { Markdown } from '../components/taskBoard/Markdown.js';
 import { Button } from '../components/ui/Button.js';
 import { CopyButton } from '../components/ui/CopyButton.js';
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
 import { attachmentHref, sessionToken } from '../sessionToken.js';
 import type { ActivityEntry } from './activityWords.js';
 import {
@@ -37,13 +38,14 @@ function useNow(on: boolean): number {
  * always on the last reply.
  */
 function ReplyActions({ text, at, last }: { text: string; at?: number; last?: boolean }) {
+  const t = useT(terminal);
   const now = useNow(at !== undefined);
   return (
     <div
-      className={`reply-actions flex items-center gap-8 text-text-muted -ml-4 ${last ? 'is-last' : ''}`}
+      className={`reply-actions flex items-center gap-8 text-text-muted -ms-4 ${last ? 'is-last' : ''}`}
       data-testid="reply-actions"
     >
-      <CopyButton text={() => text} title="Copy the reply" testId="reply-copy" />
+      <CopyButton text={() => text} title={t('copyReply')} testId="reply-copy" />
       {at !== undefined && (
         <span
           className="prose-body prose-small text-text-muted"
@@ -71,6 +73,7 @@ function ActionRow({ tool }: { tool: ToolEntry }) {
 
 /** The files of a sent message: thumbnails that open in the lightbox, chips that download the file. */
 function SentAttachments({ files }: { files: CeoAttachment[] }) {
+  const t = useT(terminal);
   const [open, setOpen] = useState<CeoAttachment | null>(null);
   return (
     <div
@@ -90,7 +93,7 @@ function SentAttachments({ files }: { files: CeoAttachment[] }) {
             key={n}
             type="button"
             onClick={() => setOpen(f)}
-            title={`${f.name}: click to enlarge`}
+            title={t('enlargeNamed', { name: f.name })}
             className="p-0 bg-transparent border-0 cursor-zoom-in"
           >
             <img
@@ -136,6 +139,7 @@ export function MessageRow({
   /** Opens the engine login: an auth error row offers it (CEO desk). */
   onLogin?: () => void;
 }) {
+  const t = useT(terminal);
   if (entry.kind === 'job') {
     if (job) return <JobCard job={entry.job} actions={job} />;
     return <div className="self-start prose-code text-text-muted break-words">{entry.text}</div>;
@@ -151,7 +155,7 @@ export function MessageRow({
           <div className="flex flex-wrap gap-4">
             {entry.catIds.map((catId) => (
               <Button key={catId} size="sm" onClick={() => onOpenPromptHistory(catId)}>
-                Prompt history: {catId}
+                {t('promptHistory', { catId })}
               </Button>
             ))}
           </div>
@@ -181,7 +185,7 @@ export function MessageRow({
         </span>
         {entry.login && onLogin && (
           <Button variant="accent" size="sm" onClick={onLogin} data-testid="error-login">
-            Log in
+            {t('logIn')}
           </Button>
         )}
       </div>
@@ -241,6 +245,7 @@ interface ChatConsoleProps {
 
 /** The default view of a cat: its session as a pixel chat, and a message box. */
 export function ChatConsole({ state, onSend, onOpenPromptHistory }: ChatConsoleProps) {
+  const t = useT(terminal);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -253,11 +258,7 @@ export function ChatConsole({ state, onSend, onOpenPromptHistory }: ChatConsoleP
     if (el) el.scrollTop = el.scrollHeight;
   }, [state.entries.length, busy]);
 
-  const blocked = !sessionToken
-    ? EDIT_RIGHTS_HINT
-    : wheelHeld
-      ? 'You hold the wheel: type in the Terminal tab.'
-      : null;
+  const blocked = !sessionToken ? t('editRightsHint') : wheelHeld ? t('holdWheel') : null;
   const canSend = !blocked && !busy && !sending && draft.trim() !== '';
 
   const submit = async () => {
@@ -288,13 +289,13 @@ export function ChatConsole({ state, onSend, onOpenPromptHistory }: ChatConsoleP
         className="flex-1 min-h-0 overflow-y-auto pixel-scrollbar flex flex-col gap-8 p-10"
         data-testid="cat-console-log"
       >
-        {!state.loaded && <span className="text-text-muted text-sm">Connecting...</span>}
+        {!state.loaded && <span className="text-text-muted text-sm">{t('connecting')}</span>}
         {toRows(state.entries).map((row, n) => (
           <ConsoleRowView key={n} row={row} onOpenPromptHistory={onOpenPromptHistory} />
         ))}
         {busy && (
           <span className="self-start text-status-active text-sm pixel-pulse">
-            {busyText ?? 'The cat is working...'}
+            {busyText ?? t('catWorking')}
           </span>
         )}
       </div>
@@ -311,7 +312,7 @@ export function ChatConsole({ state, onSend, onOpenPromptHistory }: ChatConsoleP
             onKeyDown={onKeyDown}
             disabled={!!blocked}
             rows={2}
-            placeholder={busy ? 'Wait for the turn to end...' : 'Message the cat (Enter sends)'}
+            placeholder={busy ? t('waitTurn') : t('messagePlaceholder')}
             className="flex-1 resize-none bg-bg-dark border-2 border-border focus:border-accent outline-none px-8 py-6 prose-body"
             data-testid="cat-console-input"
           />
@@ -321,7 +322,7 @@ export function ChatConsole({ state, onSend, onOpenPromptHistory }: ChatConsoleP
             disabled={!canSend}
             onClick={() => void submit()}
           >
-            Send
+            {t('send')}
           </Button>
         </div>
       </div>

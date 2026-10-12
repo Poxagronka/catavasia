@@ -1,4 +1,8 @@
 import { Button } from '../components/ui/Button.js';
+import type { MessageKey, Params } from '../i18n/core.js';
+import { translate } from '../i18n/dictionaries.js';
+import { getLanguage } from '../i18n/languageStore.js';
+import { terminal } from '../i18n/terminal/en.js';
 import type { EngineProblem } from './engineReadiness.js';
 
 interface EngineNoticeViewProps {
@@ -12,7 +16,14 @@ interface EngineNoticeViewProps {
   onCheck: () => void;
 }
 
-/** What is wrong with one engine and how to fix it. Pure: the tests read its element tree. */
+const tr = (key: MessageKey<typeof terminal>, params?: Params): string =>
+  translate(terminal, key, getLanguage(), params);
+
+// Stands in for the command while the sentence is split around it.
+const COMMAND_MARK = '\u0001';
+
+/**
+ * What is wrong with one engine and how to fix it. Pure: the tests read its element tree. */
 export function EngineNoticeView({
   problem,
   showReason = true,
@@ -21,6 +32,7 @@ export function EngineNoticeView({
   onLogIn,
   onCheck,
 }: EngineNoticeViewProps) {
+  const [before, after] = tr('runLoginCommand', { command: COMMAND_MARK }).split(COMMAND_MARK);
   return (
     <div className="flex flex-col gap-6 text-xs" data-testid={`engine-notice-${problem.engine}`}>
       {showReason && (
@@ -28,7 +40,7 @@ export function EngineNoticeView({
       )}
       {problem.installCommand && (
         <>
-          <span className="prose-body prose-small text-text-muted">Install it in a terminal:</span>
+          <span className="prose-body prose-small text-text-muted">{tr('installIt')}</span>
           <span className="prose-code bg-btn-bg border-2 border-border py-2 px-6 select-all">
             {problem.installCommand}
           </span>
@@ -36,7 +48,9 @@ export function EngineNoticeView({
       )}
       {problem.needsLogin && !privileged && (
         <span className="prose-body prose-small text-text-muted">
-          Run <code className="select-all">{problem.loginCommand}</code> in a terminal.
+          {before}
+          <code className="select-all">{problem.loginCommand}</code>
+          {after}
         </span>
       )}
       <div className="flex gap-6 flex-wrap">
@@ -47,7 +61,7 @@ export function EngineNoticeView({
             onClick={onLogIn}
             data-testid={`engine-login-${problem.engine}`}
           >
-            Log in
+            {tr('logIn')}
           </Button>
         )}
         <Button
@@ -57,7 +71,7 @@ export function EngineNoticeView({
           onClick={onCheck}
           data-testid={`engine-check-${problem.engine}`}
         >
-          {checking ? 'Checking...' : 'Check again'}
+          {checking ? tr('checking') : tr('checkAgain')}
         </Button>
       </div>
     </div>

@@ -9,8 +9,14 @@ import type {
   CatSessionFrame,
   CatSessionStatus,
 } from '../../../core/src/catSession.js';
-import { EDIT_RIGHTS_HINT } from '../../../core/src/constants.js';
+import type { MessageKey, Params } from '../i18n/core.js';
+import { translate } from '../i18n/dictionaries.js';
+import { getLanguage } from '../i18n/languageStore.js';
+import { terminal } from '../i18n/terminal/en.js';
 import type { ActivityEntry, ToolEntry } from './activityWords.js';
+
+const tr = (key: MessageKey<typeof terminal>, params?: Params): string =>
+  translate(terminal, key, getLanguage(), params);
 
 /** What the console renders: the frames folded into one view. */
 export interface CatConsoleState {
@@ -130,10 +136,10 @@ export function toRows(entries: CatSessionEntry[]): ConsoleRow[] {
 
 /** Why the wheel is not offered, or null when it is. */
 export function wheelBlocker(status: CatSessionStatus, hasToken: boolean): string | null {
-  if (!hasToken) return EDIT_RIGHTS_HINT;
+  if (!hasToken) return tr('editRightsHint');
   if (status.wheelUnavailable) return status.wheelUnavailable;
-  if (status.wheelHeld) return 'The wheel is already taken';
-  if (status.busy) return 'The cat is working: wait for the turn to end';
+  if (status.wheelHeld) return tr('wheelTaken');
+  if (status.busy) return tr('catBusyWait');
   return null;
 }
 
@@ -144,12 +150,12 @@ const DAY_MS = 24 * HOUR_MS;
 /** When a reply came, in plain words: "just now", "2 min ago", "3 hours ago", "yesterday", "4 days ago". */
 export function relativeTime(at: number, now: number): string {
   const ago = Math.max(0, now - at);
-  if (ago < MINUTE_MS) return 'just now';
-  if (ago < HOUR_MS) return `${Math.floor(ago / MINUTE_MS)} min ago`;
+  if (ago < MINUTE_MS) return tr('timeJustNow');
+  if (ago < HOUR_MS) return tr('timeMinutesAgo', { n: Math.floor(ago / MINUTE_MS) });
   if (ago < DAY_MS) {
     const hours = Math.floor(ago / HOUR_MS);
-    return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    return hours === 1 ? tr('timeOneHourAgo') : tr('timeHoursAgo', { n: hours });
   }
   const days = Math.floor(ago / DAY_MS);
-  return days === 1 ? 'yesterday' : `${days} days ago`;
+  return days === 1 ? tr('timeYesterday') : tr('timeDaysAgo', { n: days });
 }

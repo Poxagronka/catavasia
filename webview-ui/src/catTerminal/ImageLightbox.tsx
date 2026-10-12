@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
+
 const ARROW_CLASS =
   'absolute top-1/2 -translate-y-1/2 w-32 h-32 bg-bg-dark border-2 border-border text-text hover:border-accent cursor-pointer';
 
@@ -22,6 +25,7 @@ export function ImageLightbox({
   /** "2 / 5" under the picture. */
   counter?: string;
 }) {
+  const t = useT(terminal);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const step = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
@@ -43,8 +47,8 @@ export function ImageLightbox({
         e.stopPropagation();
         onStep?.(step);
       }}
-      title={step < 0 ? 'Previous (Left arrow)' : 'Next (Right arrow)'}
-      aria-label={step < 0 ? 'Previous picture' : 'Next picture'}
+      title={step < 0 ? t('previousTitle') : t('nextTitle')}
+      aria-label={step < 0 ? t('previousLabel') : t('nextLabel')}
       className={`${ARROW_CLASS} ${step < 0 ? 'left-12' : 'right-12'}`}
       data-testid={step < 0 ? 'image-lightbox-prev' : 'image-lightbox-next'}
     >
@@ -76,9 +80,9 @@ export function ImageLightbox({
       <button
         type="button"
         onClick={onClose}
-        title="Close (Esc)"
-        aria-label="Close"
-        className="absolute top-12 right-12 w-32 h-32 bg-bg-dark border-2 border-border text-text hover:border-accent cursor-pointer"
+        title={t('closeTitle')}
+        aria-label={t('closeButton')}
+        className="absolute top-12 end-12 w-32 h-32 bg-bg-dark border-2 border-border text-text hover:border-accent cursor-pointer"
         data-testid="image-lightbox-close"
       >
         x

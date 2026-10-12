@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { Button } from '../components/ui/Button.js';
+import { terminal } from '../i18n/terminal/en.js';
+import { useT } from '../i18n/useT.js';
 import { sessionToken } from '../sessionToken.js';
 import { catSessionApi } from './catSessionApi.js';
 import { ChatConsole } from './ChatConsole.js';
@@ -19,11 +21,12 @@ interface CatTerminalPanelProps {
 }
 
 function StatusBadge({ busy, wheelHeld }: { busy: boolean; wheelHeld: boolean }) {
+  const t = useT(terminal);
   const [label, cls] = wheelHeld
-    ? ['wheel taken', 'text-status-permission']
+    ? [t('statusWheelTaken'), 'text-status-permission']
     : busy
-      ? ['working', 'text-status-active pixel-pulse']
-      : ['idle', 'text-status-success'];
+      ? [t('statusWorking'), 'text-status-active pixel-pulse']
+      : [t('statusIdle'), 'text-status-success'];
   return <span className={`text-xs shrink-0 ${cls}`}>{label}</span>;
 }
 
@@ -38,6 +41,7 @@ export function CatTerminalPanel({
   onClose,
   onOpenPromptHistory,
 }: CatTerminalPanelProps) {
+  const t = useT(terminal);
   const [state, setState] = useState(EMPTY_CONSOLE);
   const [tab, setTab] = useState<Tab>('chat');
   const [driving, setDriving] = useState(false);
@@ -74,27 +78,26 @@ export function CatTerminalPanel({
           {state.title || catLabel}
         </span>
         <StatusBadge busy={state.status.busy} wheelHeld={state.status.wheelHeld} />
-        <Button variant="ghost" size="icon" onClick={onClose} title="Close">
+        <Button variant="ghost" size="icon" onClick={onClose} title={t('closeButton')}>
           x
         </Button>
       </div>
       <div className="flex gap-4 px-10 pt-6 border-b-2 border-border">
-        {(['chat', 'terminal'] as const).map((t) => (
+        {(['chat', 'terminal'] as const).map((id) => (
           <Button
-            key={t}
-            variant={tab === t ? 'active' : 'ghost'}
+            key={id}
+            variant={tab === id ? 'active' : 'ghost'}
             size="sm"
-            onClick={() => setTab(t)}
-            data-testid={`cat-tab-${t}`}
+            onClick={() => setTab(id)}
+            data-testid={`cat-tab-${id}`}
           >
-            {t === 'chat' ? 'Chat' : 'Terminal'}
+            {id === 'chat' ? t('tabChat') : t('tabTerminal')}
           </Button>
         ))}
       </div>
       {gone && (
         <div className="flex-1 flex items-center justify-center p-16 text-center text-sm text-text-muted">
-          This cat has no session the console can open yet. Cats started from the task board have
-          one.
+          {t('noSession')}
         </div>
       )}
       {!gone && tab === 'chat' && (
@@ -107,26 +110,23 @@ export function CatTerminalPanel({
       {!gone && driving && (
         <div className={`flex-1 min-h-0 flex-col ${tab === 'terminal' ? 'flex' : 'hidden'}`}>
           <div className="flex items-center gap-8 px-10 py-4 text-xs text-text-muted">
-            <span className="flex-1">You drive the cat's session. The cat waits.</span>
+            <span className="flex-1">{t('youDrive')}</span>
             <Button variant="default" size="sm" onClick={() => setDriving(false)}>
-              Give it back
+              {t('giveBack')}
             </Button>
           </div>
           <WheelTerminal
             catId={catId}
             onEnded={(message) => {
               setDriving(false);
-              setWheelNote(message ?? 'The session went back to the cat.');
+              setWheelNote(message ?? t('sessionBack'));
             }}
           />
         </div>
       )}
       {!gone && tab === 'terminal' && !driving && (
         <div className="flex-1 flex flex-col items-center justify-center gap-12 p-16 text-center">
-          <span className="text-sm text-text-muted max-w-[420px]">
-            Take the wheel opens the real Claude Code terminal on this cat's session. The cat pauses
-            until you give it back.
-          </span>
+          <span className="text-sm text-text-muted max-w-[420px]">{t('wheelIntro')}</span>
           {wheelNote && <span className="text-xs text-status-permission">{wheelNote}</span>}
           <Button
             variant={canDrive ? 'accent' : 'disabled'}
@@ -138,7 +138,7 @@ export function CatTerminalPanel({
             }}
             data-testid="cat-take-wheel"
           >
-            Take the wheel
+            {t('takeWheel')}
           </Button>
           {blocker && <span className="text-xs text-text-muted">{blocker}</span>}
         </div>
