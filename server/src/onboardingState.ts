@@ -2,7 +2,7 @@
  * The `language` and `onboardingDone` settings, shared by the standalone server and the VS Code adapter.
  *
  * `onboardingDone` is tri-state in config.json: null = undecided. An existing user (cats.json already on disk)
- * is settled to true once, BEFORE the CatStore can seed that file. "Reset everything" writes false, so the
+ * is settled to true once (a fresh machine to false), BEFORE the CatStore can seed that file. "Reset everything" writes false, so the
  * onboarding shows again even though the reset re-creates cats.json.
  */
 
@@ -44,7 +44,8 @@ export function settleOnboardingState(adapter: StateAdapter | undefined): void {
   if (!adapter) return;
   if (adapter.getSetting<boolean | null>(KEY_ONBOARDING_DONE, null) !== null) return;
   const catsFile = path.join(os.homedir(), LAYOUT_FILE_DIR, CATS_FILE_NAME);
-  if (fs.existsSync(catsFile)) adapter.setSetting(KEY_ONBOARDING_DONE, true);
+  // Persist both outcomes now: once the CatStore seeds cats.json, a later start would read it as an existing user.
+  adapter.setSetting(KEY_ONBOARDING_DONE, fs.existsSync(catsFile));
 }
 
 /** "Reset everything": the next connect shows the onboarding again. Both namespaces, the user's choice is machine-wide. */

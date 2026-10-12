@@ -37,11 +37,19 @@ afterEach(() => {
 const adapter = () => new FileStateAdapter({ namespace: 'standalone' });
 
 describe('onboardingDone', () => {
-  it('stays undecided (not done) on a fresh machine', () => {
+  it('settles a fresh machine to not done', () => {
     const a = adapter();
     settleOnboardingState(a);
     expect(isOnboardingDone(a)).toBe(false);
-    expect(readConfig().standalone.onboardingDone).toBeNull();
+    expect(readConfig().standalone.onboardingDone).toBe(false);
+  });
+
+  it('stays not done when cats.json appears after the first settle', () => {
+    settleOnboardingState(adapter());
+    fs.writeFileSync(path.join(home, '.pixel-agents', 'cats.json'), '{}');
+    const a = adapter();
+    settleOnboardingState(a);
+    expect(isOnboardingDone(a)).toBe(false);
   });
 
   it('is done for an existing user whose cats.json exists', () => {

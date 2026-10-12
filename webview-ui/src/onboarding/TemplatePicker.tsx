@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { CAT_TEMPLATES, type CatTemplate } from '../../../core/src/catTemplates.js';
+import { useCats } from '../cats/useCats.js';
 import { CatSprite } from '../components/cats/CatSprite.js';
 import { Button } from '../components/ui/Button.js';
 import { onboarding } from '../i18n/onboarding/en.js';
@@ -21,6 +22,8 @@ export function TemplatePicker({
   onBack: () => void;
 }) {
   const t = useT(onboarding);
+  // Back from consent lands here with the first team already saved: a second pick would add duplicates.
+  const teamSaved = useCats().cats.length > 0;
   const [error, setError] = useState<string | null>(null);
   const use = (template: CatTemplate) => {
     const failed = applyTemplate(template);
@@ -55,7 +58,13 @@ export function TemplatePicker({
               <div className="prose-body prose-small text-text-muted">
                 {template.cats.map((c) => c.name).join(', ')}
               </div>
-              <Button size="sm" variant="accent" className="mt-auto" onClick={() => use(template)}>
+              <Button
+                size="sm"
+                variant={teamSaved ? 'disabled' : 'accent'}
+                className="mt-auto"
+                disabled={teamSaved}
+                onClick={() => use(template)}
+              >
                 {t('useTeam')}
               </Button>
             </div>
