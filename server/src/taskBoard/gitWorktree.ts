@@ -4,7 +4,7 @@
  * the work is never lost with the worktree.
  */
 
-import { execFile } from 'child_process';
+import { execFile, type ExecFileOptions } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -16,15 +16,24 @@ const GIT_MAX_BUFFER = 64 * 1024 * 1024;
 /** Identity used only when the repo has no user.email configured. */
 const FALLBACK_IDENTITY = ['-c', 'user.name=catavasia', '-c', 'user.email=catavasia@localhost'];
 
-export function git(cwd: string, args: string[]): Promise<string> {
+export function git(
+  cwd: string,
+  args: string[],
+  opts: Pick<ExecFileOptions, 'env' | 'timeout'> = {},
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile('git', ['-C', cwd, ...args], { maxBuffer: GIT_MAX_BUFFER }, (err, stdout, stderr) => {
-      if (err) {
-        reject(new Error(`git ${args[0]} failed: ${String(stderr).trim() || err.message}`));
-      } else {
-        resolve(String(stdout));
-      }
-    });
+    execFile(
+      'git',
+      ['-C', cwd, ...args],
+      { maxBuffer: GIT_MAX_BUFFER, ...opts },
+      (err, stdout, stderr) => {
+        if (err) {
+          reject(new Error(`git ${args[0]} failed: ${String(stderr).trim() || err.message}`));
+        } else {
+          resolve(String(stdout));
+        }
+      },
+    );
   });
 }
 

@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { SELF_REPO_BRANCH, SELF_REPO_DIR } from '../constants.js';
+import { SELF_REPO_BRANCH, SELF_REPO_DIR, SELF_REPO_GIT_TIMEOUT_MS } from '../constants.js';
 import { git } from '../taskBoard/gitWorktree.js';
 
 const inFlight = new Map<string, Promise<string>>();
@@ -26,24 +26,33 @@ export function ensureSelfRepo(stateDir: string, url: string): Promise<string> {
   return run;
 }
 
+/** Network git calls never prompt for credentials and never hang. */
+const NET = {
+  env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  timeout: SELF_REPO_GIT_TIMEOUT_MS,
+};
+
 async function refresh(dir: string, url: string): Promise<string> {
   if (!fs.existsSync(path.join(dir, '.git'))) {
+    // A killed clone leaves a non-empty folder that blocks the next clone.
+    fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(path.dirname(dir), { recursive: true });
-    await git(path.dirname(dir), [
-      'clone',
-      '--depth',
-      '1',
-      '--branch',
-      SELF_REPO_BRANCH,
-      url,
-      path.basename(dir),
-    ]);
+    await git(
+      path.dirname(dir),
+      ['clone', '--depth', '1', '--branch', SELF_REPO_BRANCH, url, path.basename(dir)],
+      NET,
+    );
     return dir;
   }
-  await git(dir, ['fetch', '--depth', '1', 'origin', SELF_REPO_BRANCH]);
-  // Only a clean clone moves: an unexpected local change stays for a human.
-  if (!(await git(dir, ['status', '--porcelain'])).trim()) {
-    await git(dir, ['reset', '--hard', `origin/${SELF_REPO_BRANCH}`]);
+  try {
+    await git(dir, ['fetch', '--depth', '1', 'origin', SELF_REPO_BRANCH], NET);
+    // Only a clean clone moves: an unexpected local change stays for a human.
+    if (!(await git(dir, ['status', '--porcelain'])).trim()) {
+      await git(dir, ['reset', '--hard', `origin/${SELF_REPO_BRANCH}`]);
+    }
+  } catch (err) {
+    // A stale checkout still serves the job.
+    console.error('[ceoDesk] self-repo refresh failed, using the stale clone:', err);
   }
   return dir;
 }

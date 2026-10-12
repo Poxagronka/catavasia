@@ -96,6 +96,10 @@ export class CeoDesk implements OfficeToolHandler {
 
   constructor(private readonly opts: CeoDeskOptions) {
     this.events.setMaxListeners(0);
+    // Warm the self-repo clone so the first start_job returns at once.
+    void ensureSelfRepo(opts.stateDir, opts.selfRepoUrl ?? UPDATE_REPO_GIT_URL).catch((err) =>
+      console.error('[ceoDesk] self-repo pre-warm failed:', err),
+    );
     this.store = new DeskStore(path.join(opts.stateDir, CAT_CEO_DIR));
     this.state = this.store.load(Date.now());
     this.log = new DeskLog(this.store, this.state.chatId, (f) => this.emit(f));

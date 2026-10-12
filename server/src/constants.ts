@@ -270,3 +270,7 @@ export const FEEDBACK_GH_TIMEOUT_MS = 60_000;
 export const SELF_REPO_DIR = 'self-repo';
 /** Branch of the self-repo that jobs start from. */
 export const SELF_REPO_BRANCH = 'main';
+/** One network git call (clone, fetch) may take this long before it counts as failed. */
+export const SELF_REPO_GIT_TIMEOUT_MS = 120_000;
+/** start_job waits this long for the clone, then tells the CEO to retry (MCP calls time out at 60 s). */
+export const SELF_REPO_WAIT_MS = 45_000;

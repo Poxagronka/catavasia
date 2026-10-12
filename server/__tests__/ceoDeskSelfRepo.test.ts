@@ -64,6 +64,33 @@ describe('CEO knows its own repo', () => {
     }
   });
 
+  it('clones over a leftover folder from a killed clone', async () => {
+    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-self-')));
+    try {
+      const state = path.join(tmp, 'state');
+      fs.mkdirSync(path.join(state, 'self-repo', 'objects'), { recursive: true });
+      const dir = await ensureSelfRepo(state, `file://${upstream(tmp)}`);
+      expect(fs.readFileSync(path.join(dir, 'README.md'), 'utf-8')).toBe('hello\n');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('uses the stale clone when the fetch fails, and throws when the first clone fails', async () => {
+    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-self-')));
+    try {
+      const src = upstream(tmp);
+      const state = path.join(tmp, 'state');
+      const dir = await ensureSelfRepo(state, `file://${src}`);
+      fs.renameSync(src, `${src}-gone`);
+      await expect(ensureSelfRepo(state, `file://${src}`)).resolves.toBe(dir);
+      const fresh = path.join(tmp, 'state2');
+      await expect(ensureSelfRepo(fresh, `file://${src}`)).rejects.toThrow(/git clone failed/);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('start_job with project "catavasia" runs in the self-repo clone, not the work folder', async () => {
     const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pa-self-')));
     const src = upstream(tmp);

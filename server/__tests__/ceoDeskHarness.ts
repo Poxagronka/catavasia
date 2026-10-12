@@ -278,7 +278,8 @@ export async function startDeskOffice(
     office,
     tasks,
     adapter: ceo,
-    selfRepoUrl: opts.selfRepoUrl,
+    // Default: a missing local repo, so no test reaches the network.
+    selfRepoUrl: opts.selfRepoUrl ?? `file://${path.join(tmp, 'no-such-repo')}`,
   });
   const server = await createHttpServer({
     embedded: true,
