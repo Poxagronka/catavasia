@@ -2,7 +2,7 @@
  * Task board contract shared by the standalone server (server/src/taskBoard/) and
  * the webview board (webview-ui/src/components/taskBoard/).
  *
- * A task is one headless `claude -p` run started from the board. It travels
+ * A task is one team or cat job started from the CEO desk. It travels
  * over plain HTTP (`/api/tasks`), not the AsyncAPI WebSocket protocol: the
  * board is a standalone-only surface and polls while it is open.
  */
@@ -44,7 +44,7 @@ export interface TaskSummary {
   costUsd?: number;
   durationMs?: number;
   numTurns?: number;
-  /** Who runs the task: absent = one plain run, `team` = the root cat, or a cat id. */
+  /** Who runs the task: `team` = the root cat, or a cat id. Absent on tasks stored by older builds. */
   target?: string;
   /** Cat-office state of a `target` task. */
   flow?: TaskFlow;

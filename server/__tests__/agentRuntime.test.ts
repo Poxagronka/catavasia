@@ -76,21 +76,3 @@ describe('AgentRuntime -- D5 foreign-session gate', () => {
     expect(store.size).toBe(1);
   });
 });
-
-describe('AgentRuntime -- task-board runs', () => {
-  it('creates no character and mutes the run session for the scanner and hooks', () => {
-    const store = new AgentStateStore();
-    const runtime = new AgentRuntime(store, claudeProvider);
-    const cwd = path.join(os.tmpdir(), `pxl-task-${crypto.randomUUID()}`);
-    try {
-      runtime.ignoreHeadlessSession('task-session-1', cwd);
-
-      expect(store.size).toBe(0);
-      const projectDir = claudeProvider.getSessionDirs?.(cwd)[0] ?? cwd;
-      const file = path.join(projectDir, 'task-session-1.jsonl');
-      expect(runtime.dismissalTracker.isPermanentlyDismissed(file)).toBe(true);
-    } finally {
-      runtime.dispose();
-    }
-  });
-});

@@ -263,6 +263,11 @@ function registerTaskRoutes(app: FastifyInstance, tasks: TaskManager, token: str
     async (request, reply) => {
       const { prompt, cwd, target } = request.body;
       if (!prompt.trim()) return reply.code(400).send({ error: 'Prompt is empty' });
+      if (!target) {
+        return reply
+          .code(400)
+          .send({ error: 'A task needs a target: send it to a created cat or the team' });
+      }
       if (!isDirectory(cwd)) {
         return reply.code(400).send({ error: `Not a folder: ${cwd}` });
       }

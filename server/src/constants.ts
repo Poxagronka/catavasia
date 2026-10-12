@@ -124,7 +124,6 @@ export const TASK_PROMPT_MAX_CHARS = 20_000;
 export const TASK_DIFF_MAX_BYTES = 200_000;
 export const TASK_LOG_MAX_ENTRIES = 500;
 export const TASK_LOG_TEXT_MAX_CHARS = 300;
-export const TASK_STDERR_TAIL_CHARS = 2000;
 
 // ── Cat office (orchestrator) ───────────────────────────────
 /** ~/.pixel-agents/<name>: cat profiles and hierarchy. */

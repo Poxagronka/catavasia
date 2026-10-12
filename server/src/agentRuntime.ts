@@ -310,20 +310,6 @@ export class AgentRuntime {
     this.hookEventHandler.unregisterAgent(sessionId);
   }
 
-  // ── Task-board runs: never a character ──
-
-  /**
-   * A task-board run is a headless `claude -p` session this server starts
-   * itself. It is no cat and no guest: mute its transcript, so the project
-   * scan and the hook path never adopt it.
-   */
-  ignoreHeadlessSession(sessionId: string, cwd: string): void {
-    const projectDir = this.provider.getSessionDirs?.(cwd)[0] ?? cwd;
-    const jsonlFile = path.join(projectDir, `${sessionId}.jsonl`);
-    this.knownJsonlFiles.add(jsonlFile);
-    this.dismissalTracker.permanentlyDismiss(jsonlFile);
-  }
-
   // ── Resident cats of the cat office (server/src/orchestrator/catResidents.ts) ──
 
   /**

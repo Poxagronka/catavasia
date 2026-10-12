@@ -139,8 +139,6 @@ export class FakeCatHost implements CatAgentHost {
   removeResidentAgent(id: number) {
     this.removed.push(id);
   }
-  // Task board host (plain runs): no character, the session is only muted.
-  ignoreHeadlessSession() {}
 }
 
 export function writeFakeClaude(dir: string): string {

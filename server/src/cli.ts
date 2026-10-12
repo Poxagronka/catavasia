@@ -275,7 +275,7 @@ async function main(): Promise<void> {
 
     // Task board: a task runs as a headless session (no office character), or
     // as a team task of the cat office when it targets the team or one cat.
-    const tasks = new TaskManager({ host: runtime, stateDir, flows: orchestrator });
+    const tasks = new TaskManager({ stateDir, flows: orchestrator });
 
     // CEO desk: the user's chat with the CEO, which starts team tasks as jobs.
     const ceoDesk = new CeoDesk({

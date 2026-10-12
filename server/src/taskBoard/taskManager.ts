@@ -1,45 +1,21 @@
 /**
- * Task board runtime: each task is one headless `claude -p` run with no
- * permission prompts, in its own git worktree (or directly in the folder when
- * it is not a git repo). A run is never an office character: the office
- * holds only created cats and guests.
- *
- * Lifecycle: create -> worktree + spawn -> stream-json log -> exit ->
- * commit + diff + worktree remove (branch kept) -> done | error.
+ * Task board runtime. Every task targets a created cat or the team: the cat
+ * office (server/src/orchestrator/) runs it in its own worktree. A task
+ * without a target is rejected. A task is never an office character: the
+ * office holds only created cats and guests.
  */
 
-import { type ChildProcess, spawn } from 'child_process';
 import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import * as path from 'path';
 
 import type { TaskDetail, TaskSummary, TaskTarget } from '../../../core/src/tasks.js';
-import {
-  TASK_LOG_MAX_ENTRIES,
-  TASK_STDERR_TAIL_CHARS,
-  TASK_WORKTREES_DIR,
-  TASKS_FILE_NAME,
-} from '../constants.js';
-import { isAuthError } from '../orchestrator/engineStatus.js';
-import { claudeProvider } from '../providers/index.js';
+import { TASK_WORKTREES_DIR, TASKS_FILE_NAME } from '../constants.js';
 import { isProcessRunning } from '../server.js';
-import { officeLimits } from '../usageLimits.js';
-import {
-  createWorktree,
-  finalizeWorktree,
-  inspectRepo,
-  type RepoInfo,
-  revParse,
-} from './gitWorktree.js';
-import { parseStreamLine, type StreamResult } from './streamJson.js';
+import { createWorktree, inspectRepo, type RepoInfo, revParse } from './gitWorktree.js';
 import { type StoredTask, TaskStore } from './taskStore.js';
 
 const TITLE_MAX_CHARS = 80;
-
-/** The part of AgentRuntime a task needs: mute the run's session, so it never becomes a guest. */
-export interface TaskAgentHost {
-  ignoreHeadlessSession(sessionId: string, cwd: string): void;
-}
 
 /** What TaskManager.events emits. */
 export interface TaskEvents {
@@ -56,8 +32,8 @@ export interface TaskFlowRunner {
   resume(task: StoredTask, sink: FlowSink): void;
   /** Cancel a running or interrupted team task. */
   cancel(task: StoredTask, sink: FlowSink): void;
-  /** The lead's engine (claude for a plain run) is not ready: what is wrong and how to fix it. */
-  preflight(target?: string): Promise<string | undefined>;
+  /** The lead's engine is not ready: what is wrong and how to fix it. */
+  preflight(target: string): Promise<string | undefined>;
   /** A run failed: the engine cannot run (logged out when `authFailed`). Returns the message. */
   engineDown(engine: 'claude', authFailed: boolean): string;
   dispose(): void;
@@ -69,20 +45,10 @@ interface FlowSink {
 }
 
 export interface TaskManagerOptions {
-  host: TaskAgentHost;
   /** ~/.pixel-agents (tasks.json and worktrees/ live here). */
   stateDir: string;
-  /** CLI binary override (tests). Default: the provider's launch command. */
-  claudeBin?: string;
-  /** Runs tasks that target the team or one cat. */
+  /** Runs the tasks (each targets the team or one cat). */
   flows?: TaskFlowRunner;
-}
-
-interface RunningTask {
-  task: StoredTask;
-  child: ChildProcess;
-  result?: StreamResult;
-  stderr: string;
 }
 
 /** Thrown for a request the caller must fix (HTTP 400). */
@@ -98,8 +64,6 @@ function toDetail(task: StoredTask): TaskDetail {
     repoRoot: _root,
     baseCommit: _base,
     worktreePath: _wt,
-    sessionId: _sid,
-    agentCwd: _cwd,
     chatId: _chat,
     ...detail
   } = task;
@@ -121,7 +85,6 @@ function toSummary(task: StoredTask): TaskSummary {
 
 export class TaskManager {
   private readonly store: TaskStore;
-  private readonly running = new Map<string, RunningTask>();
   /** Live team tasks (the orchestrator owns their runs). */
   private readonly flowTasks = new Map<string, StoredTask>();
   readonly events = new EventEmitter<TaskEvents>();
@@ -177,12 +140,12 @@ export class TaskManager {
   async create(
     prompt: string,
     cwd: string,
-    target?: string,
+    target: string,
     job?: { chatId?: string; baseRef?: string },
   ): Promise<TaskSummary> {
     if (!path.isAbsolute(cwd)) throw new TaskInputError('Folder must be an absolute path');
     const flows = this.opts.flows;
-    if (target !== undefined && !flows?.resolveTarget(target)) {
+    if (!flows?.resolveTarget(target)) {
       throw new TaskInputError(`Unknown target: ${target}`);
     }
     const id = crypto.randomBytes(4).toString('hex');
@@ -202,7 +165,7 @@ export class TaskManager {
     // Nothing spawns while the engine is missing or logged out: the task fails now, with the fix.
     const problem = await flows?.preflight(target);
     if (problem) {
-      if (target !== undefined) task.target = target;
+      task.target = target;
       return this.fail(task, problem);
     }
 
@@ -228,25 +191,15 @@ export class TaskManager {
       agentCwd = path.join(task.worktreePath, repo.subdir);
     }
 
-    if (target !== undefined && flows) {
-      task.target = target;
-      this.flowTasks.set(id, task);
-      try {
-        flows.start(task, agentCwd, repo, this.flowSink());
-      } catch (err) {
-        this.flowTasks.delete(id);
-        return this.fail(task, `Could not start the team: ${errorText(err)}`);
-      }
-      this.store.save(task);
-      return toSummary(task);
+    task.target = target;
+    this.flowTasks.set(id, task);
+    try {
+      flows.start(task, agentCwd, repo, this.flowSink());
+    } catch (err) {
+      this.flowTasks.delete(id);
+      return this.fail(task, `Could not start the team: ${errorText(err)}`);
     }
-
-    const sessionId = crypto.randomUUID();
-    this.opts.host.ignoreHeadlessSession(sessionId, agentCwd);
-    task.sessionId = sessionId;
-    task.agentCwd = agentCwd;
     this.store.save(task);
-    this.spawnRun(task, task.prompt);
     return toSummary(task);
   }
 
@@ -321,14 +274,8 @@ export class TaskManager {
     };
   }
 
-  /** Server shutdown: stop every run this process owns and record why. */
+  /** Server shutdown: record why every team task this process owns stopped. */
   dispose(): void {
-    for (const run of this.running.values()) {
-      run.child.removeAllListeners('close');
-      run.child.kill('SIGTERM');
-      this.markInterrupted(run.task);
-    }
-    this.running.clear();
     this.opts.flows?.dispose();
     for (const task of this.flowTasks.values()) this.markInterrupted(task);
     this.flowTasks.clear();
@@ -336,102 +283,8 @@ export class TaskManager {
 
   private allTasks(): Record<string, StoredTask> {
     const tasks = this.store.readAll();
-    for (const run of this.running.values()) tasks[run.task.id] = run.task;
     for (const task of this.flowTasks.values()) tasks[task.id] = task;
     return tasks;
-  }
-
-  private spawnRun(task: StoredTask, prompt: string): void {
-    const cwd = task.agentCwd!;
-    const launch = claudeProvider.buildLaunchCommand!(task.sessionId!, cwd, {
-      bypassPermissions: true,
-    });
-    const args = [...launch.args, '-p', '--output-format', 'stream-json', '--verbose'];
-    const child = spawn(this.opts.claudeBin ?? launch.command, args, {
-      cwd,
-      env: { ...process.env, ...launch.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const run: RunningTask = { task, child, stderr: '' };
-    this.running.set(task.id, run);
-    this.events.emit('status', task.id);
-
-    // The prompt goes through stdin so a prompt starting with '-' is never
-    // parsed as a CLI flag.
-    child.stdin?.on('error', () => {});
-    child.stdin?.end(prompt);
-
-    let pending = '';
-    child.stdout?.on('data', (chunk: Buffer) => {
-      pending += chunk.toString();
-      const lines = pending.split('\n');
-      pending = lines.pop() ?? '';
-      for (const line of lines) this.onStreamLine(run, line);
-    });
-    child.stderr?.on('data', (chunk: Buffer) => {
-      run.stderr = (run.stderr + chunk.toString()).slice(-TASK_STDERR_TAIL_CHARS);
-    });
-    child.on('error', (err) => {
-      run.stderr += `\n${err.message}`;
-    });
-    child.on('close', (code) => {
-      if (pending) this.onStreamLine(run, pending);
-      void this.finishRun(run, code);
-    });
-  }
-
-  private onStreamLine(run: RunningTask, line: string): void {
-    officeLimits.observe(line);
-    const parsed = parseStreamLine(line);
-    // "Not logged in" lines: the error row at the end says it once, with the fix.
-    parsed.log = parsed.log.filter((e) => e.kind === 'tool' || !isAuthError(e.text));
-    if (parsed.result) run.result = parsed.result;
-    const log = run.task.log;
-    log.push(...parsed.log);
-    if (log.length > TASK_LOG_MAX_ENTRIES) log.splice(0, log.length - TASK_LOG_MAX_ENTRIES);
-  }
-
-  private async finishRun(run: RunningTask, code: number | null): Promise<void> {
-    const { task, result } = run;
-    task.result = result?.text;
-    task.costUsd = result?.costUsd;
-    task.durationMs = result?.durationMs;
-    task.numTurns = result?.numTurns;
-
-    const worktreeError = await this.finalize(task);
-
-    const ok = code === 0 && result !== undefined && !result.isError;
-    task.status = ok && !worktreeError ? 'done' : 'error';
-    if (!ok) {
-      task.error = result?.isError
-        ? (result.text ?? 'The run reported an error')
-        : `Exit code ${code ?? 'none'}: ${run.stderr.trim() || 'no output'}`;
-      if (isAuthError(task.error))
-        task.error = this.opts.flows?.engineDown('claude', true) ?? task.error;
-    }
-    if (worktreeError) task.error = task.error ? `${task.error}\n${worktreeError}` : worktreeError;
-    task.finishedAt = Date.now();
-    this.running.delete(task.id);
-    this.store.save(task);
-    this.events.emit('status', task.id);
-    console.log(`[catavasia] Task ${task.id} ${task.status}`);
-  }
-
-  /** Commit the worktree, record the diff and remove it. Returns an error text on failure. */
-  private async finalize(task: StoredTask): Promise<string | undefined> {
-    if (!task.worktreePath || !task.repoRoot || !task.baseCommit) return undefined;
-    try {
-      const outcome = await finalizeWorktree(
-        task.repoRoot,
-        task.worktreePath,
-        task.baseCommit,
-        `task ${task.id}: ${task.title}`,
-      );
-      Object.assign(task, outcome);
-      return undefined;
-    } catch (err) {
-      return `Worktree cleanup failed (kept at ${task.worktreePath}): ${errorText(err)}`;
-    }
   }
 
   private fail(task: StoredTask, message: string): TaskSummary {

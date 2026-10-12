@@ -85,7 +85,7 @@ async function startOffice(): Promise<void> {
     orchestrator: office,
   });
   office.setServerUrl(`http://127.0.0.1:${server.port}`);
-  tasks = new TaskManager({ host, stateDir, flows: office });
+  tasks = new TaskManager({ stateDir, flows: office });
 }
 
 async function settled(id: string) {
@@ -345,7 +345,7 @@ describe('persistence', () => {
         tasks: { dead: { ...stale, ownerPid: 2 ** 22, log: [], flow } },
       }),
     );
-    const restarted = new TaskManager({ host, stateDir, flows: office });
+    const restarted = new TaskManager({ stateDir, flows: office });
     expect(restarted.get('dead')?.flow?.state).toBe('interrupted');
   });
 });
