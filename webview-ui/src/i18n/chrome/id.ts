@@ -116,4 +116,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Aktifkan atau matikan mode warnai',
   resetToDefault: 'Kembalikan ke bawaan',
   copied: 'Tersalin',
+  viewMore: 'Lihat selengkapnya',
 };

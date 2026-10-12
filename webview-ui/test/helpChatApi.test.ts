@@ -48,10 +48,28 @@ describe('helpChatApi', () => {
     expect(s.messages.map((m) => m.role)).toEqual(['user', 'assistant']);
   });
 
+  it('keeps the reason code of an error and of an unavailable notice', () => {
+    sendHelpMessage('hi', 'settings', 'en');
+    emit({
+      type: 'helpChatEvent',
+      event: 'error',
+      text: 'Claude Code process exited with code 1',
+      code: 'exited',
+      exitCode: 1,
+    });
+    expect(snapshot().messages[1]?.note).toEqual({
+      text: 'Claude Code process exited with code 1',
+      code: 'exited',
+      exitCode: 1,
+    });
+    emit({ type: 'helpChatEvent', event: 'unavailable', text: 'x', code: 'notLoggedIn' });
+    expect(snapshot().unavailable?.code).toBe('notLoggedIn');
+  });
+
   it('shows the unavailable notice and stops a running turn', () => {
     sendHelpMessage('hi', 'settings', 'en');
     emit({ type: 'helpChatEvent', event: 'unavailable', text: 'Claude Code is not installed.' });
-    expect(snapshot().unavailable).toBe('Claude Code is not installed.');
+    expect(snapshot().unavailable).toMatchObject({ text: 'Claude Code is not installed.' });
     sendHelpMessage('again', 'settings', 'en');
     send.mockClear();
     stopHelpChat();

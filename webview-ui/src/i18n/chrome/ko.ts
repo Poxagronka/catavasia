@@ -115,4 +115,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: '색상화 모드 켜기/끄기',
   resetToDefault: '기본값으로 되돌리기',
   copied: '복사됨',
+  viewMore: '더 보기',
 };

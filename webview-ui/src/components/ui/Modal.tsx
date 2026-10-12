@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 import { chrome } from '../../i18n/chrome/en.js';
 import { useT } from '../../i18n/useT.js';
@@ -23,6 +23,15 @@ export function Modal({
   className = '',
 }: ModalProps) {
   const t = useT(chrome);
+  // Escape closes the modal (an input inside it may use Escape first and call preventDefault).
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
   if (!isOpen) return null;
 
   return (

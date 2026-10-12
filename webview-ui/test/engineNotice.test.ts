@@ -12,7 +12,13 @@ import type { ReactElement } from 'react';
 import { test } from 'vitest';
 
 import { EngineNoticeView } from '../src/engines/EngineNoticeView.js';
-import { engineProblem, engineStatusLine, neededEngines } from '../src/engines/engineReadiness.js';
+import {
+  engineProblem,
+  engineReason,
+  engineStatusLine,
+  neededEngines,
+} from '../src/engines/engineReadiness.js';
+import { setLanguageLocal } from '../src/i18n/languageStore.js';
 
 type Props = {
   onClick?: () => void;
@@ -52,13 +58,13 @@ const options = (status?: { installed: boolean; loggedIn?: boolean; version?: st
 test('engineProblem: logged out, not installed, ready, not probed', () => {
   assert.deepEqual(engineProblem('claude', options({ installed: true, loggedIn: false })), {
     engine: 'claude',
-    reason: 'Claude Code is not logged in',
+    kind: 'notLoggedIn',
     needsLogin: true,
     loginCommand: 'claude auth login',
   });
   assert.deepEqual(engineProblem('codex', options({ installed: false })), {
     engine: 'codex',
-    reason: 'Codex is not installed',
+    kind: 'notInstalled',
     installCommand: 'npm install -g @openai/codex',
     needsLogin: false,
     loginCommand: 'codex login',
@@ -80,6 +86,20 @@ test('engineStatusLine for the onboarding engine step', () => {
   );
   assert.equal(engineStatusLine(options({ installed: false })), 'not installed');
   assert.equal(engineStatusLine(options()), null);
+});
+
+test('engine texts follow the UI language', () => {
+  const problem = engineProblem('claude', options({ installed: true, loggedIn: false }))!;
+  const opts = options({ installed: true, version: '2.1.291', loggedIn: false });
+  assert.equal(engineReason(problem), 'Claude Code is not logged in');
+  setLanguageLocal('ru');
+  try {
+    assert.equal(engineReason(problem), 'Claude Code: вход не выполнен');
+    assert.equal(engineStatusLine(opts), 'установлен 2.1.291, вход не выполнен');
+    assert.equal(engineStatusLine(options({ installed: false })), 'не установлен');
+  } finally {
+    setLanguageLocal('en');
+  }
 });
 
 test('neededEngines: Claude Code always, plus the engines of the cats', () => {

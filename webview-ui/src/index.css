@@ -6,6 +6,10 @@
   font-weight: 400;
   font-display: swap;
   src: url('/fonts/FSPixelSansUnicode-Regular.ttf') format('truetype');
+  /* Latin, Greek, Cyrillic, Hebrew and symbols only. The font holds raw Arabic, Devanagari and Bengali
+     letters without joining or conjunct shaping: those scripts use --font-script-fallback instead. */
+  unicode-range:
+    U+0000-05FF, U+1E00-1FFF, U+2000-2BFF, U+A720-A7FF, U+FB00-FB4F, U+FE00-FE0F, U+FFFD;
 }
 
 :root {

@@ -161,6 +161,7 @@ export const messages = {
   noConnectors: 'No connectors yet.',
   addConnector: 'Add a connector',
   addMoreAtClaudeAi: 'Add more at claude.ai',
+  defaultName: 'Cat CEO',
 } as const;
 
 export const ceoDesk = defineNamespace('ceoDesk', messages);

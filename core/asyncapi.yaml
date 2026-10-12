@@ -531,6 +531,15 @@ components:
           enum: [draft, reply, error, unavailable]
         text:
           type: string
+        code:
+          description: |
+            Why `error` or `unavailable` fired. The webview shows its own
+            translated sentence for a known code and falls back to `text`.
+          type: string
+          enum: [notInstalled, notLoggedIn, replaced, noAnswer, exited]
+        exitCode:
+          description: The exit code of the engine process (code `exited`).
+          type: integer
 
     ResetAllResult:
       description: |

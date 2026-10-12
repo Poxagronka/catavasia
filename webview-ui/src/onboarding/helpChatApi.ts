@@ -7,9 +7,21 @@ import { useSyncExternalStore } from 'react';
 
 import { transport } from '../transport/index.js';
 
+/** Why the server ended a turn or refused it: the panel shows its own translated sentence. */
+export type HelpCode = 'notInstalled' | 'notLoggedIn' | 'replaced' | 'noAnswer' | 'exited';
+
+export interface HelpNote {
+  /** The server's English text: shown when the code is unknown. */
+  text: string;
+  code?: HelpCode;
+  exitCode?: number;
+}
+
 export interface HelpMessage {
   role: 'user' | 'assistant' | 'error';
   text: string;
+  /** An error message: the server's reason code. */
+  note?: HelpNote;
 }
 
 export interface HelpChatState {
@@ -18,7 +30,7 @@ export interface HelpChatState {
   draft: string;
   busy: boolean;
   /** Claude Code is missing or logged out: the text says how to fix it. */
-  unavailable: string | undefined;
+  unavailable: HelpNote | undefined;
 }
 
 const EMPTY: HelpChatState = { messages: [], draft: '', busy: false, unavailable: undefined };
@@ -29,6 +41,10 @@ const listeners = new Set<() => void>();
 function set(next: Partial<HelpChatState>): void {
   state = { ...state, ...next };
   for (const l of listeners) l();
+}
+
+function codeOf(msg: { code?: HelpCode; exitCode?: number }): Pick<HelpNote, 'code' | 'exitCode'> {
+  return { code: msg.code, exitCode: msg.exitCode };
 }
 
 transport.onMessage((msg) => {
@@ -42,10 +58,14 @@ transport.onMessage((msg) => {
       set({ messages: [...state.messages, { role: 'assistant', text }], draft: '', busy: false });
       break;
     case 'error':
-      set({ messages: [...state.messages, { role: 'error', text }], draft: '', busy: false });
+      set({
+        messages: [...state.messages, { role: 'error', text, note: { text, ...codeOf(msg) } }],
+        draft: '',
+        busy: false,
+      });
       break;
     case 'unavailable':
-      set({ unavailable: text, draft: '', busy: false });
+      set({ unavailable: { text, ...codeOf(msg) }, draft: '', busy: false });
       break;
   }
 });

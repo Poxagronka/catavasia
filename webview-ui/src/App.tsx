@@ -29,6 +29,8 @@ import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
 import { useIntroTour } from './hooks/useIntroTour.js';
+import { chrome } from './i18n/chrome/en.js';
+import { useT } from './i18n/useT.js';
 import { OfficeCanvas } from './office/components/OfficeCanvas.js';
 import { SceneBubbleOverlay } from './office/components/SceneBubbleOverlay.js';
 import { ToolOverlay } from './office/components/ToolOverlay.js';
@@ -79,6 +81,7 @@ function getOfficeState(): OfficeState {
 }
 
 function App() {
+  const tChrome = useT(chrome);
   // Browser runtime (dev or static dist): dispatch mock messages after the
   // useExtensionMessages listener has been registered.
   useEffect(() => {
@@ -553,7 +556,7 @@ function App() {
                 transport.send({ type: 'setHooksInfoShown' });
               }}
             >
-              View more
+              {tChrome('viewMore')}
             </span>
           </span>
         </Tooltip>

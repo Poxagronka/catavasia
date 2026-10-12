@@ -139,4 +139,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'ٹرمینل میں {command} چلائیں۔',
   catsCannotWork: 'بلیاں ابھی کام نہیں کر سکتیں',
   hide: 'چھپائیں',
+  engineReasonNotInstalled: '{engine} انسٹال نہیں ہے',
+  engineReasonNotLoggedIn: '{engine} میں لاگ اِن نہیں ہے',
+  engineStatusNotInstalled: 'انسٹال نہیں ہے',
+  engineStatusInstalled: 'انسٹال ہے {version}',
+  engineStatusLoggedIn: 'لاگ اِن ہے',
+  engineStatusNotLoggedIn: 'لاگ اِن نہیں ہے',
+  engineStatusJoin: '{a}، {b}',
 };

@@ -431,6 +431,8 @@ export const SCENE_BADGE_GLYPH_COLOR = '#ffffff';
 // ── Cat CEO ──────────────────────────────────────────────────
 /** Cat id of the Cat CEO resident (server: CAT_CEO_ID). */
 export const CAT_CEO_ID = 'cat-ceo';
+/** Default CEO name the server stores (CEO_DEFAULTS.name): the dock shows it translated. */
+export const CAT_CEO_DEFAULT_NAME = 'Cat CEO';
 /** Furniture group of the Cat CEO's own chair: reserved for it (no other cat sits there). */
 export const CAT_CEO_CHAIR = 'EXECUTIVE_CHAIR';
 /** Without an executive chair, an Area whose label matches holds the Cat CEO's desk. */

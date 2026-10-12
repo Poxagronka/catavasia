@@ -151,4 +151,5 @@ export const messages: Translation<typeof ceoDesk> = {
   noConnectors: 'Каннектараў пакуль няма.',
   addConnector: 'Дадаць каннектар',
   addMoreAtClaudeAi: 'Больш каннектараў на claude.ai',
+  defaultName: 'Кот-CEO',
 };

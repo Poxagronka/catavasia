@@ -139,4 +139,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'Ejecuta {command} en una terminal.',
   catsCannotWork: 'Los gatos aún no pueden trabajar',
   hide: 'Ocultar',
+  engineReasonNotInstalled: '{engine} no está instalado',
+  engineReasonNotLoggedIn: '{engine} no ha iniciado sesión',
+  engineStatusNotInstalled: 'no instalado',
+  engineStatusInstalled: 'instalado {version}',
+  engineStatusLoggedIn: 'sesión iniciada',
+  engineStatusNotLoggedIn: 'sin iniciar sesión',
+  engineStatusJoin: '{a}, {b}',
 };

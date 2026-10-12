@@ -7,6 +7,7 @@ import { catsApi } from '../cats/catsClient.js';
 import { catSessionApi } from '../catTerminal/catSessionApi.js';
 import { ConsoleRowView, MessageRow } from '../catTerminal/ChatConsole.js';
 import { toRows } from '../catTerminal/consoleState.js';
+import { CAT_CEO_DEFAULT_NAME } from '../constants.js';
 import { EngineNotice } from '../engines/EngineNotice.js';
 import { engineProblem } from '../engines/engineReadiness.js';
 import { engineUi } from '../engines/engineStore.js';
@@ -145,7 +146,9 @@ export function CeoDock({ expandKey, onOpenTask, onOpenCat, onOpenPromptHistory 
     if (el) el.scrollTop = el.scrollHeight;
   }, [approvals.length]);
 
-  const name = settings?.name ?? 'CEO';
+  // The server stores the default name in English: show it in the UI language.
+  const name =
+    !settings || settings.name === CAT_CEO_DEFAULT_NAME ? t('defaultName') : settings.name;
   const unread = unreadCount(dock);
 
   if (collapsed) {

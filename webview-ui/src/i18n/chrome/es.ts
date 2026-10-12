@@ -117,4 +117,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Activar o desactivar el modo colorear',
   resetToDefault: 'Restablecer a valores por defecto',
   copied: 'Copiado',
+  viewMore: 'Ver más',
 };

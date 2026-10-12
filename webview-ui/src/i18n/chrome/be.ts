@@ -117,4 +117,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Уключыць рэжым танавання',
   resetToDefault: 'Скінуць да стандартных',
   copied: 'Скапіравана',
+  viewMore: 'Паказаць больш',
 };

@@ -153,4 +153,5 @@ export const messages: Translation<typeof ceoDesk> = {
   noConnectors: 'Noch keine Connectors.',
   addConnector: 'Connector hinzufügen',
   addMoreAtClaudeAi: 'Mehr auf claude.ai hinzufügen',
+  defaultName: 'Cat CEO',
 };

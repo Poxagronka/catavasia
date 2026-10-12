@@ -116,6 +116,7 @@ export const messages = {
   toggleColorize: 'Toggle colorize mode',
   resetToDefault: 'Reset to default',
   copied: 'Copied',
+  viewMore: 'View more',
 } as const;
 
 export const chrome = defineNamespace('chrome', messages);

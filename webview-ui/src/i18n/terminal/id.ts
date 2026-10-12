@@ -140,4 +140,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'Jalankan {command} di terminal.',
   catsCannotWork: 'Kucing belum bisa bekerja',
   hide: 'Sembunyikan',
+  engineReasonNotInstalled: '{engine} belum terpasang',
+  engineReasonNotLoggedIn: '{engine} belum login',
+  engineStatusNotInstalled: 'belum terpasang',
+  engineStatusInstalled: 'terpasang {version}',
+  engineStatusLoggedIn: 'sudah login',
+  engineStatusNotLoggedIn: 'belum login',
+  engineStatusJoin: '{a}, {b}',
 };

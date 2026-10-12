@@ -139,4 +139,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'شغّل {command} في الطرفية.',
   catsCannotWork: 'القطط لا تستطيع العمل بعد',
   hide: 'إخفاء',
+  engineReasonNotInstalled: '{engine} غير مثبّت',
+  engineReasonNotLoggedIn: 'لم يتم تسجيل الدخول إلى {engine}',
+  engineStatusNotInstalled: 'غير مثبّت',
+  engineStatusInstalled: 'مثبّت {version}',
+  engineStatusLoggedIn: 'تم تسجيل الدخول',
+  engineStatusNotLoggedIn: 'لم يتم تسجيل الدخول',
+  engineStatusJoin: '{a}، {b}',
 };

@@ -139,4 +139,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'Bir terminalde {command} çalıştır.',
   catsCannotWork: 'Kediler henüz çalışamaz',
   hide: 'Gizle',
+  engineReasonNotInstalled: '{engine} yüklü değil',
+  engineReasonNotLoggedIn: '{engine} oturumu açık değil',
+  engineStatusNotInstalled: 'yüklü değil',
+  engineStatusInstalled: 'yüklü {version}',
+  engineStatusLoggedIn: 'oturum açık',
+  engineStatusNotLoggedIn: 'oturum kapalı',
+  engineStatusJoin: '{a}, {b}',
 };

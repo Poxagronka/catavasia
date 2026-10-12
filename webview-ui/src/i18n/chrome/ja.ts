@@ -117,4 +117,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: '着色モードを切り替える',
   resetToDefault: '初期設定に戻す',
   copied: 'コピーしました',
+  viewMore: '詳細を見る',
 };

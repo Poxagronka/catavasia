@@ -149,4 +149,5 @@ export const messages: Translation<typeof ceoDesk> = {
   noConnectors: 'لا توجد موصّلات بعد.',
   addConnector: 'إضافة موصّل',
   addMoreAtClaudeAi: 'أضف المزيد على claude.ai',
+  defaultName: 'Cat CEO',
 };

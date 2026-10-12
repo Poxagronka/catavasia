@@ -117,4 +117,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Einfärben-Modus umschalten',
   resetToDefault: 'Auf Standard zurücksetzen',
   copied: 'Kopiert',
+  viewMore: 'Mehr anzeigen',
 };

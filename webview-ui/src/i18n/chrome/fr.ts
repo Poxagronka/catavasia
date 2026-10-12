@@ -118,4 +118,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Activer ou couper le mode coloriser',
   resetToDefault: 'Rétablir les valeurs par défaut',
   copied: 'Copié',
+  viewMore: 'En savoir plus',
 };

@@ -139,6 +139,13 @@ export const messages = {
   runLoginCommand: 'Run {command} in a terminal.',
   catsCannotWork: 'Cats cannot work yet',
   hide: 'Hide',
+  engineReasonNotInstalled: '{engine} is not installed',
+  engineReasonNotLoggedIn: '{engine} is not logged in',
+  engineStatusNotInstalled: 'not installed',
+  engineStatusInstalled: 'installed {version}',
+  engineStatusLoggedIn: 'logged in',
+  engineStatusNotLoggedIn: 'not logged in',
+  engineStatusJoin: '{a}, {b}',
 } as const;
 
 export const terminal = defineNamespace('terminal', messages);

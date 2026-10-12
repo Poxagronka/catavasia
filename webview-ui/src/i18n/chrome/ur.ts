@@ -115,4 +115,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'رنگ بھرنے کا موڈ بدلیں',
   resetToDefault: 'ڈیفالٹ پر لائیں',
   copied: 'کاپی ہو گیا',
+  viewMore: 'مزید دیکھیں',
 };

@@ -21,6 +21,7 @@ import {
   WORKER_PROMPT_SUGGESTION,
   WORKER_ROLE_SUGGESTION,
 } from './constants.js';
+import { onboardingEngineDefaults } from './engineDefaults.js';
 
 type Kind = 'boss' | 'worker';
 type Sub = 'intro' | 'name' | 'look' | 'role' | 'prompt' | 'saved';
@@ -50,17 +51,13 @@ function newDraft(kind: Kind): Draft {
 
 /** Boss on Opus, workers on Sonnet, effort medium: the same defaults the Cats menu offers. */
 function toProfile(draft: Draft, parentId: string | null): CatProfile {
-  const opts = catsApi.engineOptions('claude');
-  const model = draft.kind === 'boss' ? 'opus' : 'sonnet';
   return {
     id: draft.id,
     name: draft.name.trim(),
     appearance: draft.appearance,
     role: draft.role.trim(),
     systemPrompt: draft.prompt.trim(),
-    engine: 'claude',
-    model: opts.models.includes(model) ? model : (opts.models[0] ?? model),
-    effort: opts.efforts.includes('medium') ? 'medium' : opts.efforts[0],
+    ...onboardingEngineDefaults(draft.kind === 'boss' ? 'opus' : 'sonnet', 'medium'),
     parentId,
   };
 }

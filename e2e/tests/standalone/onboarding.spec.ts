@@ -69,6 +69,12 @@ test.describe('Standalone / onboarding', () => {
     await expect(dialog).toHaveAttribute('aria-label', 'Choose your language');
     await expect(dialog.getByRole('button', { name: 'Help' })).toBeVisible();
 
+    // Escape closes the help chat.
+    await dialog.getByRole('button', { name: 'Help' }).click();
+    await expect(page.getByTestId('help-chat')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('help-chat')).toHaveCount(0);
+
     // Each language shows by its own name; picking one switches the whole panel. RTL flips the page.
     await dialog.getByRole('radio', { name: 'Русский' }).click();
     await expect(dialog).toHaveAttribute('aria-label', 'Выберите язык');

@@ -136,4 +136,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: '请在终端里运行 {command}。',
   catsCannotWork: '猫还不能工作',
   hide: '隐藏',
+  engineReasonNotInstalled: '未安装 {engine}',
+  engineReasonNotLoggedIn: '未登录 {engine}',
+  engineStatusNotInstalled: '未安装',
+  engineStatusInstalled: '已安装 {version}',
+  engineStatusLoggedIn: '已登录',
+  engineStatusNotLoggedIn: '未登录',
+  engineStatusJoin: '{a}，{b}',
 };

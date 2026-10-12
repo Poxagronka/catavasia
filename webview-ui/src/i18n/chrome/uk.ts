@@ -115,4 +115,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Увімкнути режим тонування',
   resetToDefault: 'Скинути до типових',
   copied: 'Скопійовано',
+  viewMore: 'Докладніше',
 };

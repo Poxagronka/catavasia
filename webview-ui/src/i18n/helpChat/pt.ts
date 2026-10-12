@@ -13,4 +13,9 @@ export const messages: Translation<typeof helpChat> = {
     'Olá! Eu sou o seu guia do Catavasia. Pergunte como tudo funciona ou peça ajuda para escrever o prompt do seu gato.',
   greetingSettings:
     'Olá! Eu sou o seu guia do Catavasia. Pergunte qualquer coisa sobre o app ou peça ajuda para escrever o prompt de um gato.',
+  errReplaced: 'Outra janela fez uma nova pergunta. Pergunte de novo.',
+  errNoAnswer: 'Sem resposta.',
+  errExited: 'O Claude Code parou com o código de saída {code}. Tente de novo.',
+  unavailableNotInstalled: 'O Claude Code não está instalado. Instale-o e tente de novo.',
+  unavailableNotLoggedIn: 'O Claude Code não está autenticado. Faça login e tente de novo.',
 };

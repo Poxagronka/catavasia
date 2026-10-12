@@ -141,4 +141,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'Lancez {command} dans un terminal.',
   catsCannotWork: 'Les chats ne peuvent pas encore travailler',
   hide: 'Masquer',
+  engineReasonNotInstalled: '{engine} n’est pas installé',
+  engineReasonNotLoggedIn: '{engine} n’est pas connecté',
+  engineStatusNotInstalled: 'non installé',
+  engineStatusInstalled: 'installé {version}',
+  engineStatusLoggedIn: 'connecté',
+  engineStatusNotLoggedIn: 'non connecté',
+  engineStatusJoin: '{a}, {b}',
 };

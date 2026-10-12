@@ -139,4 +139,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: 'Выканайце {command} у тэрмінале.',
   catsCannotWork: 'Каты пакуль не могуць працаваць',
   hide: 'Схаваць',
+  engineReasonNotInstalled: '{engine} не ўсталяваны',
+  engineReasonNotLoggedIn: 'у {engine} няма ўваходу',
+  engineStatusNotInstalled: 'не ўсталяваны',
+  engineStatusInstalled: 'ўсталяваны {version}',
+  engineStatusLoggedIn: 'уваход выкананы',
+  engineStatusNotLoggedIn: 'уваходу няма',
+  engineStatusJoin: '{a}, {b}',
 };

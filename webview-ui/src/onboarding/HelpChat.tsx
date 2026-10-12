@@ -6,7 +6,13 @@ import { Modal } from '../components/ui/Modal.js';
 import { helpChat } from '../i18n/helpChat/en.js';
 import { useLanguage } from '../i18n/languageStore.js';
 import { useT } from '../i18n/useT.js';
-import { resetHelpChat, sendHelpMessage, stopHelpChat, useHelpChat } from './helpChatApi.js';
+import {
+  type HelpNote,
+  resetHelpChat,
+  sendHelpMessage,
+  stopHelpChat,
+  useHelpChat,
+} from './helpChatApi.js';
 
 /**
  * HelpChat CONTRACT (fixed).
@@ -42,6 +48,24 @@ export function HelpChat({ open, onClose, context = 'onboarding' }: HelpChatProp
 
   if (!open) return <></>;
 
+  /** The server's reason code in the UI language; an unknown reason shows the server's text. */
+  const noteText = (note: HelpNote): string => {
+    switch (note.code) {
+      case 'notInstalled':
+        return t('unavailableNotInstalled');
+      case 'notLoggedIn':
+        return t('unavailableNotLoggedIn');
+      case 'replaced':
+        return t('errReplaced');
+      case 'noAnswer':
+        return t('errNoAnswer');
+      case 'exited':
+        return t('errExited', { code: note.exitCode ?? '' });
+      default:
+        return note.text;
+    }
+  };
+
   const submit = () => {
     if (!input.trim() || busy) return;
     sendHelpMessage(input, context, language);
@@ -66,7 +90,13 @@ export function HelpChat({ open, onClose, context = 'onboarding' }: HelpChatProp
                     : 'me-24 p-6'
               }
             >
-              {m.role === 'assistant' ? <Markdown text={m.text} /> : m.text}
+              {m.role === 'assistant' ? (
+                <Markdown text={m.text} />
+              ) : m.note ? (
+                noteText(m.note)
+              ) : (
+                m.text
+              )}
             </div>
           ))}
           {busy && (
@@ -80,7 +110,7 @@ export function HelpChat({ open, onClose, context = 'onboarding' }: HelpChatProp
           )}
           {unavailable && (
             <div className="text-status-error p-6" role="alert">
-              {unavailable}
+              {noteText(unavailable)}
             </div>
           )}
           <div ref={endRef} />

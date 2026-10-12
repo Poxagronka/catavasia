@@ -115,4 +115,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'تبديل وضع التلوين',
   resetToDefault: 'إعادة إلى الافتراضي',
   copied: 'تم النسخ',
+  viewMore: 'عرض المزيد',
 };

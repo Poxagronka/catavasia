@@ -140,4 +140,11 @@ export const messages: Translation<typeof terminal> = {
   runLoginCommand: '터미널에서 {command}을(를) 실행하세요.',
   catsCannotWork: '고양이들이 아직 일할 수 없습니다',
   hide: '숨기기',
+  engineReasonNotInstalled: '{engine}이(가) 설치되어 있지 않습니다',
+  engineReasonNotLoggedIn: '{engine}에 로그인되어 있지 않습니다',
+  engineStatusNotInstalled: '설치되지 않음',
+  engineStatusInstalled: '설치됨 {version}',
+  engineStatusLoggedIn: '로그인됨',
+  engineStatusNotLoggedIn: '로그인되지 않음',
+  engineStatusJoin: '{a}, {b}',
 };

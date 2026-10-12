@@ -6,11 +6,10 @@ import {
 } from '../../../core/src/catTemplates.js';
 import type { CatProfile } from '../cats/catsApi.js';
 import { catsApi } from '../cats/catsClient.js';
+import { onboardingEngineDefaults } from './engineDefaults.js';
 
-/** The template's cats as profiles, the boss first. A model the engine does not offer falls back to its first. */
+/** The template's cats as profiles, the boss first. A model or effort the engine does not offer gives way to the closest one. */
 export function templateProfiles(template: CatTemplate): CatProfile[] {
-  const opts = catsApi.engineOptions('claude');
-  const pick = (model: string) => (opts.models.includes(model) ? model : (opts.models[0] ?? model));
   const [boss] = template.cats;
   return template.cats.map((c, i) => ({
     id: c.id,
@@ -19,9 +18,10 @@ export function templateProfiles(template: CatTemplate): CatProfile[] {
     role: c.role,
     systemPrompt: c.prompt,
     personality: c.personality,
-    engine: 'claude',
-    model: pick(i === 0 ? TEMPLATE_BOSS_MODEL : TEMPLATE_WORKER_MODEL),
-    effort: opts.efforts.includes(TEMPLATE_EFFORT) ? TEMPLATE_EFFORT : opts.efforts[0],
+    ...onboardingEngineDefaults(
+      i === 0 ? TEMPLATE_BOSS_MODEL : TEMPLATE_WORKER_MODEL,
+      TEMPLATE_EFFORT,
+    ),
     parentId: i === 0 ? null : boss.id,
   }));
 }

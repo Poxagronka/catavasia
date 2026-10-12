@@ -13,4 +13,11 @@ export const messages: Translation<typeof helpChat> = {
     'こんにちは！私は Catavasia のガイドです。使い方を聞いたり、猫のプロンプト作りを頼んだりしてください。',
   greetingSettings:
     'こんにちは！私は Catavasia のガイドです。アプリについて何でも聞いてください。猫のプロンプト作りも手伝います。',
+  errReplaced: '別のウィンドウが新しい質問をしました。もう一度質問してください。',
+  errNoAnswer: '回答がありません。',
+  errExited: 'Claude Code が終了コード {code} で停止しました。もう一度お試しください。',
+  unavailableNotInstalled:
+    'Claude Code がインストールされていません。インストールしてから、もう一度お試しください。',
+  unavailableNotLoggedIn:
+    'Claude Code にログインしていません。ログインしてから、もう一度お試しください。',
 };

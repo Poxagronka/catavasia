@@ -13,6 +13,11 @@ export const messages = {
     'Hi! I am your Catavasia guide. Ask me how things work, or ask me to help you write a prompt for your cat.',
   greetingSettings:
     'Hi! I am your Catavasia guide. Ask me anything about the app, or ask me to help you write a cat prompt.',
+  errReplaced: 'Another window asked a new question. Ask again.',
+  errNoAnswer: 'No answer.',
+  errExited: 'Claude Code stopped with exit code {code}. Try again.',
+  unavailableNotInstalled: 'Claude Code is not installed. Install it, then try again.',
+  unavailableNotLoggedIn: 'Claude Code is not logged in. Log in, then try again.',
 } as const;
 
 export const helpChat = defineNamespace('helpChat', messages);

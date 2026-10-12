@@ -27,6 +27,10 @@ const NOT_LOGGED_IN = { installed: true, loggedIn: false } as EngineStatus;
 export type HelpEvent = {
   event: 'draft' | 'reply' | 'error' | 'unavailable';
   text: string;
+  /** Why an error or unavailable event fired: the webview shows its own translated sentence. */
+  code?: 'notInstalled' | 'notLoggedIn' | 'replaced' | 'noAnswer' | 'exited';
+  /** The exit code of the engine process (code `exited`). */
+  exitCode?: number;
 };
 export type HelpSend = (message: { type: 'helpChatEvent' } & HelpEvent) => void;
 
@@ -58,10 +62,10 @@ export class HelpDesk {
   send(msg: HelpChatMessage, send: HelpSend): void {
     const emit = (e: HelpEvent) => send({ type: 'helpChatEvent', ...e });
     const down = this.unavailable();
-    if (down) return emit({ event: 'unavailable', text: down });
+    if (down) return emit({ event: 'unavailable', text: down, code: 'notInstalled' });
     const text = msg.text.trim();
     if (!text) return;
-    if (this.turn) this.turnEmit?.({ event: 'error', text: REPLACED_TEXT });
+    if (this.turn) this.turnEmit?.({ event: 'error', text: REPLACED_TEXT, code: 'replaced' });
     this.stop();
     const context: HelpContext = msg.context === 'settings' ? 'settings' : 'onboarding';
     fs.mkdirSync(this.dir, { recursive: true });
@@ -102,9 +106,20 @@ export class HelpDesk {
       if (outcome.ok && outcome.text) return emit({ event: 'reply', text: outcome.text });
       const error = outcome.error ?? 'No answer';
       if (isAuthError(error)) {
-        return emit({ event: 'unavailable', text: actionableMessage('claude', NOT_LOGGED_IN) });
+        return emit({
+          event: 'unavailable',
+          text: actionableMessage('claude', NOT_LOGGED_IN),
+          code: 'notLoggedIn',
+        });
       }
-      emit({ event: 'error', text: error });
+      const exit = /exited with code (\d+)/i.exec(error);
+      if (exit)
+        return emit({ event: 'error', text: error, code: 'exited', exitCode: Number(exit[1]) });
+      emit({
+        event: 'error',
+        text: error,
+        ...(outcome.error ? {} : { code: 'noAnswer' as const }),
+      });
     });
   }
 

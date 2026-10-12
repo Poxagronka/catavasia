@@ -62,6 +62,7 @@ describe('HelpDesk', () => {
     desk.send({ text: 'two' }, () => undefined);
     expect(first).toHaveLength(1);
     expect(first[0].event).toBe('error');
+    expect(first[0].code).toBe('replaced');
   });
 
   it('says Claude Code is missing without starting a turn', () => {
@@ -71,6 +72,7 @@ describe('HelpDesk', () => {
     expect(m.requests).toHaveLength(0);
     expect(sent[0].event).toBe('unavailable');
     expect(sent[0].text).toContain('not installed');
+    expect(sent[0].code).toBe('notInstalled');
   });
 
   it('stop kills the turn and stays silent', async () => {
@@ -91,6 +93,20 @@ describe('HelpDesk', () => {
     new HelpDesk(m.adapter, dir).send({ text: 'hi' }, (e) => sent.push(e));
     m.finish({ ok: false, error: 'Not logged in', sessionStarted: false });
     await vi.waitFor(() => expect(sent[0]?.event).toBe('unavailable'));
+    expect(sent[0]?.code).toBe('notLoggedIn');
+  });
+
+  it('gives a process exit a reason code and the exit code', async () => {
+    const m = mockAdapter();
+    const sent: Array<Parameters<HelpSend>[0]> = [];
+    new HelpDesk(m.adapter, dir).send({ text: 'hi' }, (e) => sent.push(e));
+    m.finish({
+      ok: false,
+      error: 'Claude Code process exited with code 1',
+      sessionStarted: false,
+    });
+    await vi.waitFor(() => expect(sent[0]?.event).toBe('error'));
+    expect(sent[0]).toMatchObject({ code: 'exited', exitCode: 1 });
   });
 
   it('ignores other messages', () => {

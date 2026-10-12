@@ -3,7 +3,7 @@ import type { MessageKey, Params } from '../i18n/core.js';
 import { translate } from '../i18n/dictionaries.js';
 import { getLanguage } from '../i18n/languageStore.js';
 import { terminal } from '../i18n/terminal/en.js';
-import type { EngineProblem } from './engineReadiness.js';
+import { type EngineProblem, engineReason } from './engineReadiness.js';
 
 interface EngineNoticeViewProps {
   problem: EngineProblem;
@@ -36,7 +36,9 @@ export function EngineNoticeView({
   return (
     <div className="flex flex-col gap-6 text-xs" data-testid={`engine-notice-${problem.engine}`}>
       {showReason && (
-        <span className="prose-body prose-small text-status-permission">{problem.reason}.</span>
+        <span className="prose-body prose-small text-status-permission">
+          {engineReason(problem)}.
+        </span>
       )}
       {problem.installCommand && (
         <>

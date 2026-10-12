@@ -112,4 +112,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: '切换着色模式',
   resetToDefault: '重置为默认',
   copied: '已复制',
+  viewMore: '查看更多',
 };

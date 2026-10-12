@@ -571,9 +571,14 @@ export interface HelpChatEvent {
   type: 'helpChatEvent';
   event: AnonymousSchema_243;
   text?: string;
+  code?: AnonymousSchema_245;
+  exitCode?: number;
 }
 
 export type AnonymousSchema_243 = 'draft' | 'reply' | 'error' | 'unavailable';
+
+export type AnonymousSchema_245 =
+  'notInstalled' | 'notLoggedIn' | 'replaced' | 'noAnswer' | 'exited';
 
 export interface FeedbackResult {
   type: 'feedbackResult';
@@ -887,11 +892,11 @@ export interface SetOnboardingDone {
 export interface HelpChatSend {
   type: 'helpChatSend';
   text: string;
-  context?: AnonymousSchema_439;
+  context?: AnonymousSchema_441;
   language?: string;
 }
 
-export type AnonymousSchema_439 = 'onboarding' | 'settings';
+export type AnonymousSchema_441 = 'onboarding' | 'settings';
 
 export interface HelpChatStop {
   type: 'helpChatStop';

@@ -13,4 +13,9 @@ export const messages: Translation<typeof helpChat> = {
     'مرحبًا! أنا دليلك في Catavasia. اسألني كيف يعمل كل شيء، أو اطلب مني مساعدتك في كتابة موجّه لقطتك.',
   greetingSettings:
     'مرحبًا! أنا دليلك في Catavasia. اسألني أي شيء عن التطبيق، أو اطلب مني مساعدتك في كتابة موجّه لقطة.',
+  errReplaced: 'طرحت نافذة أخرى سؤالًا جديدًا. اسأل مرة أخرى.',
+  errNoAnswer: 'لا توجد إجابة.',
+  errExited: 'توقف Claude Code برمز الخروج {code}. حاول مرة أخرى.',
+  unavailableNotInstalled: 'Claude Code غير مثبّت. ثبّته ثم حاول مرة أخرى.',
+  unavailableNotLoggedIn: 'لم يتم تسجيل الدخول إلى Claude Code. سجّل الدخول ثم حاول مرة أخرى.',
 };

@@ -115,4 +115,5 @@ export const messages: Translation<typeof chrome> = {
   toggleColorize: 'Renklendirme modunu aç veya kapat',
   resetToDefault: 'Varsayılana sıfırla',
   copied: 'Kopyalandı',
+  viewMore: 'Daha fazla',
 };

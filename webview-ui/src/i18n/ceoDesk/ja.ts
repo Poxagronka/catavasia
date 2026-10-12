@@ -150,4 +150,5 @@ export const messages: Translation<typeof ceoDesk> = {
   noConnectors: 'コネクタはまだありません。',
   addConnector: 'コネクタを追加',
   addMoreAtClaudeAi: 'claude.ai でさらに追加',
+  defaultName: 'Cat CEO',
 };
