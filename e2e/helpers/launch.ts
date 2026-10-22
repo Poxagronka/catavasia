@@ -1,5 +1,6 @@
 import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron as electron } from '@playwright/test';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -16,6 +17,19 @@ const TAIL_FOLLOW_PATH = path.join(REPO_ROOT, 'e2e/fixtures/tail-follow.cjs');
 const ARTIFACTS_DIR = namespaceE2EPath(path.join(REPO_ROOT, 'test-results/e2e'));
 const IS_WINDOWS = process.platform === 'win32';
 const PATH_SEP = IS_WINDOWS ? ';' : ':';
+
+const E2E_KEYCHAIN_MARK = 'pixel-e2e-';
+
+// `security` edits the real user's keychain list (it ignores $HOME), so read it back as paths.
+function readKeychainPaths(args: string[]): string[] {
+  const out = execFileSync('security', args, { encoding: 'utf8' });
+  return [...out.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+}
+
+// Drops test keychains and entries whose file is gone (heals leftovers of killed runs).
+function isLiveUserKeychain(p: string): boolean {
+  return !p.includes(E2E_KEYCHAIN_MARK) && fs.existsSync(p);
+}
 
 export interface VSCodeSession {
   app: ElectronApplication;
@@ -181,14 +195,30 @@ export async function launchVSCode(
 
   // macOS: create a temporary keychain so the OS doesn't show "Keychain Not Found" dialog.
   // The isolated HOME has no keychain, and VS Code/Electron's safeStorage triggers a system prompt.
+  let savedKeychainList: string[] | null = null;
+  let savedDefaultKeychain: string | null = null;
   if (process.platform === 'darwin') {
     const keychainDir = path.join(tmpHome, 'Library', 'Keychains');
     fs.mkdirSync(keychainDir, { recursive: true });
     const keychainPath = path.join(keychainDir, 'login.keychain-db');
     try {
-      const { execSync } = require('child_process');
-      execSync(`security create-keychain -p "" "${keychainPath}"`, { stdio: 'ignore' });
-      execSync(`security default-keychain -s "${keychainPath}"`, {
+      const rawList = readKeychainPaths(['list-keychains', '-d', 'user']);
+      savedKeychainList = rawList.filter(isLiveUserKeychain);
+      const realLogin = path.join(
+        os.userInfo().homedir,
+        'Library',
+        'Keychains',
+        'login.keychain-db',
+      );
+      const rawDefault = readKeychainPaths(['default-keychain', '-d', 'user'])[0];
+      savedDefaultKeychain = rawDefault && isLiveUserKeychain(rawDefault) ? rawDefault : realLogin;
+      if (savedKeychainList.length !== rawList.length) {
+        execFileSync('security', ['list-keychains', '-d', 'user', '-s', ...savedKeychainList], {
+          stdio: 'ignore',
+        });
+      }
+      execFileSync('security', ['create-keychain', '-p', '', keychainPath], { stdio: 'ignore' });
+      execFileSync('security', ['default-keychain', '-s', keychainPath], {
         stdio: 'ignore',
         env: { ...process.env, HOME: tmpHome },
       });
@@ -393,10 +423,27 @@ export async function launchVSCode(
     if (process.platform === 'darwin') {
       try {
         const keychainPath = path.join(tmpHome, 'Library', 'Keychains', 'login.keychain-db');
-        const { execSync } = require('child_process');
-        execSync(`security delete-keychain "${keychainPath}"`, { stdio: 'ignore' });
+        execFileSync('security', ['delete-keychain', keychainPath], { stdio: 'ignore' });
       } catch {
         // keychain may not exist or already be removed
+      }
+      try {
+        if (savedKeychainList) {
+          execFileSync('security', ['list-keychains', '-d', 'user', '-s', ...savedKeychainList], {
+            stdio: 'ignore',
+          });
+        }
+      } catch {
+        // best effort: the next run heals the list again
+      }
+      try {
+        if (savedDefaultKeychain) {
+          execFileSync('security', ['default-keychain', '-d', 'user', '-s', savedDefaultKeychain], {
+            stdio: 'ignore',
+          });
+        }
+      } catch {
+        // best effort: the next run heals the default again
       }
     }
     try {
